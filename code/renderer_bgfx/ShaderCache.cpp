@@ -246,13 +246,26 @@ ShaderCache::ShaderCache()
 void ShaderCache::initialize()
 {
 	createBundle(&fog_, "Fog", constants_, nullptr);
-	createBundle(&generic_, "Generic", constants_, nullptr);
+	char defines[2048];
+	#define DEFINE(x) Q_strcat(defines, sizeof(defines), x); Q_strcat(defines, sizeof(defines), ";");
+
+	for (size_t i = 0; i < GenericPermutations::Count; i++)
+	{
+		Q_strncpyz(defines, constants_, sizeof(defines));
+
+		if (i & GenericPermutations::AlphaTest)
+		{
+			DEFINE("USE_ALPHA_TEST");
+		}
+
+		// Stop if compiling one of the permutations fails. Don't want to flood the console with too many error messages.
+		if (!createBundle(&generic_[i], "Generic", defines, defines, i, i))
+			break;
+	}
 
 	for (size_t i = 0; i < LitPermutations::Count; i++)
 	{
-		char defines[2048];
 		Q_strncpyz(defines, constants_, sizeof(defines));
-		#define DEFINE(x) Q_strcat(defines, sizeof(defines), x); Q_strcat(defines, sizeof(defines), ";");
 
 		if (g_main->cvars.deluxeSpecular->value > 0.000001f)
 			DEFINE(va("r_deluxeSpecular=%f;", g_main->cvars.deluxeSpecular->value));
@@ -319,7 +332,6 @@ void ShaderCache::initialize()
 		{
 			DEFINE("USE_ALPHA_TEST");
 		}
-		#undef DEFINE
 
 		// Stop if compiling one of the permutations fails. Don't want to flood the console with too many error messages.
 		if (!createBundle(&lit_[i], "Lit", defines, defines, i, i))
@@ -330,6 +342,7 @@ void ShaderCache::initialize()
 	{
 		ri.Error(ERR_FATAL, "A valid TextureColor shader is required");
 	}
+	#undef DEFINE
 }
 
 bgfx::ProgramHandle ShaderCache::getHandle(ShaderProgramId program, int programIndex, int flags) const
@@ -342,7 +355,7 @@ bgfx::ProgramHandle ShaderCache::getHandle(ShaderProgramId program, int programI
 	}
 	else if (program == ShaderProgramId::Generic)
 	{
-		handle = generic_.program.handle;
+		handle = generic_[programIndex].program.handle;
 	}
 	else if (program == ShaderProgramId::Lit)
 	{

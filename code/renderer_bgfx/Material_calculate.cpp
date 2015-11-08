@@ -243,7 +243,14 @@ bgfx::ProgramHandle Material::calculateStageShaderProgramHandle(size_t stageInde
 	}
 	else
 	{
-		return g_main->shaderCache->getHandle(ShaderProgramId::Generic, 0);
+		int index = 0;
+
+		if (stage.alphaTest != MaterialAlphaTest::None)
+		{
+			index |= ShaderCache::GenericPermutations::AlphaTest;
+		}
+
+		return g_main->shaderCache->getHandle(ShaderProgramId::Generic, index);
 	}
 }
 
