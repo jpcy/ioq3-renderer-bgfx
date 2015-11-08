@@ -475,6 +475,10 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 			{
 				uniforms->localViewOrigin.set(currentEntity->localViewPosition);
 			}
+			else
+			{
+				uniforms->localViewOrigin.set(cameraPosition);
+			}
 
 			dc.material->setStageShaderUniforms(i);
 			dc.material->setStageTextureSamplers(i);
