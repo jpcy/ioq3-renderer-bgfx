@@ -188,7 +188,7 @@ Image::Image(const char *filename, int flags)
 			continue;
 
 		COM_StripExtension(filename, newFilename, sizeof(newFilename));
-		COM_DefaultExtension(newFilename, sizeof(newFilename), va(".%s", handler->extension));
+		Q_strcat(newFilename, sizeof(newFilename), va(".%s", handler->extension));
 
 		ReadOnlyFile file(newFilename);
 
