@@ -377,6 +377,9 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 				break;
 			}
 		}
+
+		cameraPosition = position;
+		cameraRotation = rotation;
 	}
 
 	if (!isMainCamera)
