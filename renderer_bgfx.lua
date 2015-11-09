@@ -54,8 +54,6 @@ project "renderer_bgfx"
 		"%{prj.location}/dynamic/renderer_bgfx/Generic_fragment.c",
 		"%{prj.location}/dynamic/renderer_bgfx/Generic_vertex.c",
 		"%{prj.location}/dynamic/renderer_bgfx/Lighting.c",
-		"%{prj.location}/dynamic/renderer_bgfx/Lit_fragment.c",
-		"%{prj.location}/dynamic/renderer_bgfx/Lit_vertex.c",
 		"%{prj.location}/dynamic/renderer_bgfx/TextureColor_fragment.c",
 		"%{prj.location}/dynamic/renderer_bgfx/TextureColor_vertex.c",
 		"%{prj.location}/dynamic/renderer_bgfx/varying_def.c",

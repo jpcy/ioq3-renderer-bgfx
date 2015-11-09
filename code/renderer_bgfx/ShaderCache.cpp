@@ -34,8 +34,6 @@ extern "C"
 	extern const char *fallbackShader_Generic_fragment;
 	extern const char *fallbackShader_Generic_vertex;
 	extern const char *fallbackShader_Lighting;
-	extern const char *fallbackShader_Lit_fragment;
-	extern const char *fallbackShader_Lit_vertex;
 	extern const char *fallbackShader_TextureColor_fragment;
 	extern const char *fallbackShader_TextureColor_vertex;
 	extern const char *fallbackShader_varying_def;
@@ -59,8 +57,6 @@ static const FallbackShader fallbackShaders[] =
 	{ "shaders/Generic_fragment.sc", fallbackShader_Generic_fragment },
 	{ "shaders/Generic_vertex.sc", fallbackShader_Generic_vertex },
 	{ "shaders/Lighting.sh", fallbackShader_Lighting },
-	{ "shaders/Lit_fragment.sc", fallbackShader_Lit_fragment },
-	{ "shaders/Lit_vertex.sc", fallbackShader_Lit_vertex },
 	{ "shaders/TextureColor_fragment.sc", fallbackShader_TextureColor_fragment },
 	{ "shaders/TextureColor_vertex.sc", fallbackShader_TextureColor_vertex },
 	{ "shaders/varying_def.sc", fallbackShader_varying_def }
@@ -253,20 +249,6 @@ void ShaderCache::initialize()
 	{
 		Q_strncpyz(defines, constants_, sizeof(defines));
 
-		if (i & GenericPermutations::AlphaTest)
-		{
-			DEFINE("USE_ALPHA_TEST");
-		}
-
-		// Stop if compiling one of the permutations fails. Don't want to flood the console with too many error messages.
-		if (!createBundle(&generic_[i], "Generic", defines, defines, i, i))
-			break;
-	}
-
-	for (size_t i = 0; i < LitPermutations::Count; i++)
-	{
-		Q_strncpyz(defines, constants_, sizeof(defines));
-
 		if (g_main->cvars.deluxeSpecular->value > 0.000001f)
 			DEFINE(va("r_deluxeSpecular=%f;", g_main->cvars.deluxeSpecular->value));
 
@@ -328,13 +310,13 @@ void ShaderCache::initialize()
 			}
 		}
 
-		if (i & LitPermutations::AlphaTest)
+		if (i & GenericPermutations::AlphaTest)
 		{
 			DEFINE("USE_ALPHA_TEST");
 		}
 
 		// Stop if compiling one of the permutations fails. Don't want to flood the console with too many error messages.
-		if (!createBundle(&lit_[i], "Lit", defines, defines, i, i))
+		if (!createBundle(&generic_[i], "Generic", defines, defines, i, i))
 			break;
 	}
 
@@ -356,10 +338,6 @@ bgfx::ProgramHandle ShaderCache::getHandle(ShaderProgramId program, int programI
 	else if (program == ShaderProgramId::Generic)
 	{
 		handle = generic_[programIndex].program.handle;
-	}
-	else if (program == ShaderProgramId::Lit)
-	{
-		handle = lit_[programIndex].program.handle;
 	}
 	else if (program == ShaderProgramId::TextureColor)
 	{

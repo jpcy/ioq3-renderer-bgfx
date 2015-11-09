@@ -563,7 +563,6 @@ struct MaterialStage
 	bool isDetail = false;
 
 	MaterialStageType type = MaterialStageType::ColorMap;
-	bool useLitShader = false;
 	MaterialLight light = MaterialLight::None;
 
 	vec4 normalScale;
@@ -863,7 +862,6 @@ enum class ShaderProgramId
 {
 	Fog,
 	Generic,
-	Lit,
 	TextureColor
 };
 
@@ -871,16 +869,6 @@ class ShaderCache
 {
 public:
 	struct GenericPermutations
-	{
-		enum
-		{
-			AlphaTest = BIT(0),
-			Count     = BIT(1),
-			All       = Count - 1
-		};
-	};
-
-	struct LitPermutations
 	{
 		enum
 		{
@@ -914,7 +902,7 @@ private:
 	bool createBundle(Bundle *bundle, const char *name, const char *vertexDefines, const char *fragmentDefines, size_t vertexPermutationIndex = 0, size_t fragmentPermutationIndex = 0);
 
 	char constants_[1024];
-	Bundle fog_, generic_[GenericPermutations::Count], lit_[LitPermutations::Count], textureColor_;
+	Bundle fog_, generic_[GenericPermutations::Count], textureColor_;
 };
 
 class Skin

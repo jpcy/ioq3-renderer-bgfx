@@ -342,17 +342,14 @@ int Material::collapseStagesToGLSL()
 			if (lightmap)
 			{
 				diffuse->bundles[MaterialTextureBundleIndex::Lightmap] = lightmap->bundles[0];
-				diffuse->useLitShader = true;
 				diffuse->light = MaterialLight::Map;
 			}
 			else if (diffuselit)
 			{
-				diffuse->useLitShader = true;
 				diffuse->light = MaterialLight::Vector;
 			}
 			else if (vertexlit)
 			{
-				diffuse->useLitShader = true;
 				diffuse->light = MaterialLight::Vertex;
 			}
 		}
@@ -430,7 +427,6 @@ int Material::collapseStagesToGLSL()
 
 			if (pStage->bundles[MaterialTextureBundleIndex::DiffuseMap].tcGen == MaterialTexCoordGen::Lightmap)
 			{
-				pStage->useLitShader = true;
 				pStage->light = MaterialLight::Map;
 				pStage->bundles[MaterialTextureBundleIndex::Lightmap] = pStage->bundles[MaterialTextureBundleIndex::DiffuseMap];
 				pStage->bundles[MaterialTextureBundleIndex::DiffuseMap].textures[0] = g_main->textureCache->getWhiteTexture();
@@ -455,7 +451,6 @@ int Material::collapseStagesToGLSL()
 
 			if (pStage->rgbGen == MaterialColorGen::LightingDiffuse)
 			{
-				pStage->useLitShader = true;
 				pStage->light = MaterialLight::Vector;
 			}
 		}
