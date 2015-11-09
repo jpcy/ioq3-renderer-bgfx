@@ -168,7 +168,8 @@ int Material::collapseStagesToGLSL()
 		// this makes it easier for the later bits to process
 		if (stages[0].active && stages[0].bundles[0].tcGen == MaterialTexCoordGen::Lightmap && stages[1].active)
 		{
-			if (stages[1].blendSrc == BGFX_STATE_BLEND_ZERO || stages[1].blendSrc == BGFX_STATE_BLEND_DST_COLOR || stages[1].blendDst == BGFX_STATE_BLEND_ZERO || stages[1].blendDst == BGFX_STATE_BLEND_SRC_COLOR)
+			if ((stages[1].blendSrc == BGFX_STATE_BLEND_ZERO && stages[1].blendDst == BGFX_STATE_BLEND_SRC_COLOR) ||
+				(stages[1].blendSrc == BGFX_STATE_BLEND_DST_COLOR && stages[1].blendDst == BGFX_STATE_BLEND_ZERO))
 			{
 				const auto depthTestBits0 = stages[0].depthTestBits;
 				const auto depthWrite0 = stages[0].depthWrite;
