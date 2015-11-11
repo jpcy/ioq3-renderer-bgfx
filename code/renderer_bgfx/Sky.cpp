@@ -33,17 +33,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 namespace renderer {
 
-static float s_cloudTexCoords[6][SKY_SUBDIVISIONS+1][SKY_SUBDIVISIONS+1][2];
-static float s_cloudTexP[6][SKY_SUBDIVISIONS+1][SKY_SUBDIVISIONS+1];
-
-/*
-===================================================================================
-
-POLYGON TO BOX SIDE PROJECTION
-
-===================================================================================
-*/
-
 static vec3_t sky_clip[6] = 
 {
 	{1,1,0},
@@ -56,6 +45,12 @@ static vec3_t sky_clip[6] =
 
 static float	sky_mins[2][6], sky_maxs[2][6];
 static float	sky_min, sky_max;
+
+static vec3_t	s_skyPoints[SKY_SUBDIVISIONS+1][SKY_SUBDIVISIONS+1];
+static float	s_skyTexCoords[SKY_SUBDIVISIONS+1][SKY_SUBDIVISIONS+1][2];
+
+static float s_cloudTexCoords[6][SKY_SUBDIVISIONS+1][SKY_SUBDIVISIONS+1][2];
+static float s_cloudTexP[6][SKY_SUBDIVISIONS+1][SKY_SUBDIVISIONS+1];
 
 static void AddSkyPolygon(int nump, vec3_t vecs) 
 {
@@ -235,14 +230,6 @@ static void ClipSkyPolygon(int nump, vec3_t vecs, int stage)
 }
 
 /*
-===================================================================================
-
-CLOUD VERTEX GENERATION
-
-===================================================================================
-*/
-
-/*
 ** MakeSkyVec
 **
 ** Parms: s, t range from -1 to 1
@@ -315,67 +302,111 @@ static void MakeSkyVec(float zMax, float s, float t, int axis, float outSt[2], v
 	}
 }
 
-static int	sky_texorder[6] = {0,2,1,3,4,5};
-static vec3_t	s_skyPoints[SKY_SUBDIVISIONS+1][SKY_SUBDIVISIONS+1];
-static float	s_skyTexCoords[SKY_SUBDIVISIONS+1][SKY_SUBDIVISIONS+1][2];
-
-void Sky_InitializeTexCoords(float heightCloud)
+/// Either tessellate, or do a dry run to calculate the total number of vertices and indices to use.
+static bool TessellateSkyBoxSide(int i, Vertex *vertices, uint16_t *indices, uint32_t *nVertices, uint32_t *nIndices, float zMax)
 {
-	int i, s, t;
-	float radiusWorld = 4096;
-	float p;
-	float sRad, tRad;
-	vec3_t skyVec;
-	vec3_t v;
+	assert((vertices && indices) || (nVertices && nIndices));
+	
+	uint32_t currentVertex = 0, currentIndex = 0;
 
-	for (i = 0; i < 6; i++)
+	sky_mins[0][i] = floor( sky_mins[0][i] * HALF_SKY_SUBDIVISIONS ) / HALF_SKY_SUBDIVISIONS;
+	sky_mins[1][i] = floor( sky_mins[1][i] * HALF_SKY_SUBDIVISIONS ) / HALF_SKY_SUBDIVISIONS;
+	sky_maxs[0][i] = ceil( sky_maxs[0][i] * HALF_SKY_SUBDIVISIONS ) / HALF_SKY_SUBDIVISIONS;
+	sky_maxs[1][i] = ceil( sky_maxs[1][i] * HALF_SKY_SUBDIVISIONS ) / HALF_SKY_SUBDIVISIONS;
+
+	if (sky_mins[0][i] >= sky_maxs[0][i] || sky_mins[1][i] >= sky_maxs[1][i])
+		return false;
+
+	int sky_mins_subd[2], sky_maxs_subd[2];;
+	sky_mins_subd[0] = sky_mins[0][i] * HALF_SKY_SUBDIVISIONS;
+	sky_mins_subd[1] = sky_mins[1][i] * HALF_SKY_SUBDIVISIONS;
+	sky_maxs_subd[0] = sky_maxs[0][i] * HALF_SKY_SUBDIVISIONS;
+	sky_maxs_subd[1] = sky_maxs[1][i] * HALF_SKY_SUBDIVISIONS;
+
+	if ( sky_mins_subd[0] < -HALF_SKY_SUBDIVISIONS ) 
+		sky_mins_subd[0] = -HALF_SKY_SUBDIVISIONS;
+	else if ( sky_mins_subd[0] > HALF_SKY_SUBDIVISIONS ) 
+		sky_mins_subd[0] = HALF_SKY_SUBDIVISIONS;
+	if ( sky_mins_subd[1] < -HALF_SKY_SUBDIVISIONS )
+		sky_mins_subd[1] = -HALF_SKY_SUBDIVISIONS;
+	else if ( sky_mins_subd[1] > HALF_SKY_SUBDIVISIONS ) 
+		sky_mins_subd[1] = HALF_SKY_SUBDIVISIONS;
+
+	if ( sky_maxs_subd[0] < -HALF_SKY_SUBDIVISIONS ) 
+		sky_maxs_subd[0] = -HALF_SKY_SUBDIVISIONS;
+	else if ( sky_maxs_subd[0] > HALF_SKY_SUBDIVISIONS ) 
+		sky_maxs_subd[0] = HALF_SKY_SUBDIVISIONS;
+	if ( sky_maxs_subd[1] < -HALF_SKY_SUBDIVISIONS ) 
+		sky_maxs_subd[1] = -HALF_SKY_SUBDIVISIONS;
+	else if ( sky_maxs_subd[1] > HALF_SKY_SUBDIVISIONS ) 
+		sky_maxs_subd[1] = HALF_SKY_SUBDIVISIONS;
+
+	//
+	// iterate through the subdivisions
+	//
+	for (int t = sky_mins_subd[1]+HALF_SKY_SUBDIVISIONS; t <= sky_maxs_subd[1]+HALF_SKY_SUBDIVISIONS; t++ )
 	{
-		for (t = 0; t <= SKY_SUBDIVISIONS; t++)
+		for (int s = sky_mins_subd[0]+HALF_SKY_SUBDIVISIONS; s <= sky_maxs_subd[0]+HALF_SKY_SUBDIVISIONS; s++ )
 		{
-			for (s = 0; s <= SKY_SUBDIVISIONS; s++)
-			{
-				// compute vector from view origin to sky side integral point
-				MakeSkyVec(1024, (s - HALF_SKY_SUBDIVISIONS) / (float) HALF_SKY_SUBDIVISIONS, 
-							(t - HALF_SKY_SUBDIVISIONS) / (float) HALF_SKY_SUBDIVISIONS, 
-							i, 
-							NULL,
-							skyVec);
-
-				// compute parametric value 'p' that intersects with cloud layer
-				p = (1.0f / (2 * DotProduct(skyVec, skyVec))) *
-					(-2 * skyVec[2] * radiusWorld + 
-					   2 * sqrt(SQR(skyVec[2]) * SQR(radiusWorld) + 
-					             2 * SQR(skyVec[0]) * radiusWorld * heightCloud +
-								 SQR(skyVec[0]) * SQR(heightCloud) + 
-								 2 * SQR(skyVec[1]) * radiusWorld * heightCloud +
-								 SQR(skyVec[1]) * SQR(heightCloud) + 
-								 2 * SQR(skyVec[2]) * radiusWorld * heightCloud +
-								 SQR(skyVec[2]) * SQR(heightCloud)));
-
-				s_cloudTexP[i][t][s] = p;
-
-				// compute intersection point based on p
-				VectorScale(skyVec, p, v);
-				v[2] += radiusWorld;
-
-				// compute vector from world origin to intersection point 'v'
-				VectorNormalize(v);
-
-				sRad = Q_acos(v[0]);
-				tRad = Q_acos(v[1]);
-
-				s_cloudTexCoords[i][t][s][0] = sRad;
-				s_cloudTexCoords[i][t][s][1] = tRad;
-			}
+			MakeSkyVec(zMax, ( s - HALF_SKY_SUBDIVISIONS ) / ( float ) HALF_SKY_SUBDIVISIONS, 
+						( t - HALF_SKY_SUBDIVISIONS ) / ( float ) HALF_SKY_SUBDIVISIONS, 
+						i, 
+						s_skyTexCoords[t][s], 
+						s_skyPoints[t][s] );
 		}
 	}
+
+	const uint32_t startVertex = currentVertex;
+
+	for (int t = sky_mins_subd[1]+HALF_SKY_SUBDIVISIONS; t <= sky_maxs_subd[1]+HALF_SKY_SUBDIVISIONS; t++ )
+	{
+		for (int s = sky_mins_subd[0]+HALF_SKY_SUBDIVISIONS; s <= sky_maxs_subd[0]+HALF_SKY_SUBDIVISIONS; s++ )
+		{
+			if (vertices)
+			{
+				vertices[currentVertex].pos = vec3(s_skyPoints[t][s]) + g_main->cameraPosition;
+				vertices[currentVertex].texCoord[0] = s_skyTexCoords[t][s][0];
+				vertices[currentVertex].texCoord[1] = s_skyTexCoords[t][s][1];
+			}
+
+			currentVertex++;
+		}
+	}
+
+	int tHeight = sky_maxs_subd[1] - sky_mins_subd[1] + 1;
+	int sWidth = sky_maxs_subd[0] - sky_mins_subd[0] + 1;
+
+	for (int t = 0; t < tHeight-1; t++ )
+	{
+		for (int s = 0; s < sWidth-1; s++ )
+		{
+			if (indices)
+			{
+				indices[currentIndex + 0] = startVertex + s + t * sWidth;
+				indices[currentIndex + 1] = startVertex + s + (t + 1) * sWidth;
+				indices[currentIndex + 2] = startVertex + s + 1 + t * sWidth;
+				indices[currentIndex + 3] = startVertex + s + (t + 1) * sWidth;
+				indices[currentIndex + 4] = startVertex + s + 1 + (t + 1) * sWidth;
+				indices[currentIndex + 5] = startVertex + s + 1 + t * sWidth;
+			}
+
+			currentIndex += 6;
+		}
+	}
+
+	if (nVertices && nIndices)
+	{
+		*nVertices = currentVertex;
+		*nIndices = currentIndex;
+	}
+
+	return true;
 }
 
 /// Either tessellate, or do a dry run to calculate the total number of vertices and indices to use.
 static void TessellateCloudBox(Vertex *vertices, uint16_t *indices, uint32_t *nVertices, uint32_t *nIndices, float zMax)
 {
 	assert((vertices && indices) || (nVertices && nIndices));
-
 	sky_min = 1.0 / 256.0f;		// FIXME: not correct?
 	sky_max = 255.0 / 256.0f;
 	uint32_t currentVertex = 0, currentIndex = 0;
@@ -485,12 +516,12 @@ static void TessellateCloudBox(Vertex *vertices, uint16_t *indices, uint32_t *nV
 			{
 				if (indices)
 				{
-					indices[currentIndex + 0] = startVertex + s + t * (sWidth);
-					indices[currentIndex + 1] = startVertex + s + (t + 1) * (sWidth);
-					indices[currentIndex + 2] = startVertex + s + 1 + t * (sWidth);
-					indices[currentIndex + 3] = startVertex + s + (t + 1) * (sWidth);
-					indices[currentIndex + 4] = startVertex + s + 1 + (t + 1) * (sWidth);
-					indices[currentIndex + 5] = startVertex + s + 1 + t * (sWidth);
+					indices[currentIndex + 0] = startVertex + s + t * sWidth;
+					indices[currentIndex + 1] = startVertex + s + (t + 1) * sWidth;
+					indices[currentIndex + 2] = startVertex + s + 1 + t * sWidth;
+					indices[currentIndex + 3] = startVertex + s + (t + 1) * sWidth;
+					indices[currentIndex + 4] = startVertex + s + 1 + (t + 1) * sWidth;
+					indices[currentIndex + 5] = startVertex + s + 1 + t * sWidth;
 				}
 				
 				currentIndex += 6;
@@ -505,6 +536,58 @@ static void TessellateCloudBox(Vertex *vertices, uint16_t *indices, uint32_t *nV
 	}
 }
 
+void Sky_InitializeTexCoords(float heightCloud)
+{
+	int i, s, t;
+	float radiusWorld = 4096;
+	float p;
+	float sRad, tRad;
+	vec3_t skyVec;
+	vec3_t v;
+
+	for (i = 0; i < 6; i++)
+	{
+		for (t = 0; t <= SKY_SUBDIVISIONS; t++)
+		{
+			for (s = 0; s <= SKY_SUBDIVISIONS; s++)
+			{
+				// compute vector from view origin to sky side integral point
+				MakeSkyVec(1024, (s - HALF_SKY_SUBDIVISIONS) / (float) HALF_SKY_SUBDIVISIONS, 
+							(t - HALF_SKY_SUBDIVISIONS) / (float) HALF_SKY_SUBDIVISIONS, 
+							i, 
+							NULL,
+							skyVec);
+
+				// compute parametric value 'p' that intersects with cloud layer
+				p = (1.0f / (2 * DotProduct(skyVec, skyVec))) *
+					(-2 * skyVec[2] * radiusWorld + 
+					   2 * sqrt(SQR(skyVec[2]) * SQR(radiusWorld) + 
+					             2 * SQR(skyVec[0]) * radiusWorld * heightCloud +
+								 SQR(skyVec[0]) * SQR(heightCloud) + 
+								 2 * SQR(skyVec[1]) * radiusWorld * heightCloud +
+								 SQR(skyVec[1]) * SQR(heightCloud) + 
+								 2 * SQR(skyVec[2]) * radiusWorld * heightCloud +
+								 SQR(skyVec[2]) * SQR(heightCloud)));
+
+				s_cloudTexP[i][t][s] = p;
+
+				// compute intersection point based on p
+				VectorScale(skyVec, p, v);
+				v[2] += radiusWorld;
+
+				// compute vector from world origin to intersection point 'v'
+				VectorNormalize(v);
+
+				sRad = Q_acos(v[0]);
+				tRad = Q_acos(v[1]);
+
+				s_cloudTexCoords[i][t][s][0] = sRad;
+				s_cloudTexCoords[i][t][s][1] = tRad;
+			}
+		}
+	}
+}
+
 void Sky_Render(DrawCallList *drawCallList, vec3 viewPosition, uint8_t visCacheId, float zMax)
 {
 	assert(drawCallList);
@@ -515,6 +598,12 @@ void Sky_Render(DrawCallList *drawCallList, vec3 viewPosition, uint8_t visCacheI
 	auto mat = g_main->world->getSkyMaterial(visCacheId);
 
 	if (mat == nullptr)
+		return;
+
+	const bool shouldDrawSkyBox = mat->sky.outerbox[0] && mat->sky.outerbox[0] != g_main->textureCache->getDefaultTexture();
+	const bool shouldDrawCloudBox = mat->sky.cloudHeight > 0;
+
+	if (!shouldDrawSkyBox && !shouldDrawCloudBox)
 		return;
 
 	auto &vertices = g_main->world->getSkyVertices(visCacheId);
@@ -540,8 +629,41 @@ void Sky_Render(DrawCallList *drawCallList, vec3 viewPosition, uint8_t visCacheI
 		ClipSkyPolygon(3, p[0], 0);
 	}
 
+	// Draw the skybox.
+	if (shouldDrawSkyBox)
+	{
+		for (int i = 0; i < 6; i++)
+		{
+			uint32_t nVertices, nIndices;
+			sky_min = 0;
+			sky_max = 1;
+			Com_Memset( s_skyTexCoords, 0, sizeof( s_skyTexCoords ) );
+
+			if (!TessellateSkyBoxSide(i, nullptr, nullptr, &nVertices, &nIndices, zMax))
+				continue;
+
+			DrawCall drawCall;
+
+			if (!bgfx::allocTransientBuffers(&drawCall.vb.transientHandle, Vertex::decl, nVertices, &drawCall.ib.transientHandle, nIndices)) 
+				return;
+
+			sky_min = 0;
+			sky_max = 1;
+			Com_Memset( s_skyTexCoords, 0, sizeof( s_skyTexCoords ) );
+			TessellateSkyBoxSide(i, (Vertex *)drawCall.vb.transientHandle.data, (uint16_t *)drawCall.ib.transientHandle.data, nullptr, nullptr, zMax);
+			drawCall.vb.type = drawCall.ib.type = DrawCall::BufferType::Transient;
+			drawCall.flags = DrawCallFlags::SkyboxSideFirst + i;
+			drawCall.material = mat;
+
+			// Write depth as 1.
+			drawCall.zOffset = 1.0f;
+			drawCall.zScale = 0.0f;
+			drawCallList->push_back(drawCall);
+		}
+	}
+
 	// Draw the clouds.
-	if (mat->sky.cloudHeight > 0)
+	if (shouldDrawCloudBox)
 	{
 		uint32_t nVertices, nIndices;
 		TessellateCloudBox(nullptr, nullptr, &nVertices, &nIndices, zMax);
@@ -557,7 +679,6 @@ void Sky_Render(DrawCallList *drawCallList, vec3 viewPosition, uint8_t visCacheI
 		// Write depth as 1.
 		drawCall.zOffset = 1.0f;
 		drawCall.zScale = 0.0f;
-
 		drawCallList->push_back(drawCall);
 	}
 }

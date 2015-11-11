@@ -96,6 +96,16 @@ struct ConsoleVariables
 	/// @}
 };
 
+struct DrawCallFlags
+{
+	enum
+	{
+		None,
+		SkyboxSideFirst,
+		SkyboxSideLast = SkyboxSideFirst + 5
+	};
+};
+
 struct DrawCall
 {
 	bool operator<(const DrawCall &other) const;
@@ -136,6 +146,7 @@ struct DrawCall
 	};
 
 	const Entity *entity = nullptr;
+	int flags = DrawCallFlags::None;
 	int fogIndex = -1;
 	IndexBuffer ib;
 	Material *material = nullptr;

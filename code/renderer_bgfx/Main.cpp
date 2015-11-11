@@ -458,6 +458,26 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 	for (DrawCall &dc : drawCalls_)
 	{
 		assert(dc.material);
+
+		// Special case for skybox.
+		if (dc.flags >= DrawCallFlags::SkyboxSideFirst && dc.flags <= DrawCallFlags::SkyboxSideLast)
+		{
+			uniforms->alphaTest.set(vec4::empty);
+			uniforms->baseColor.set(vec4::white);
+			uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, 0, 0));
+			uniforms->generators.set(vec4::empty);
+			uniforms->lightType.set(vec4::empty);
+			uniforms->vertexColor.set(vec4::black);
+			const int sky_texorder[6] = { 0, 2, 1, 3, 4, 5 };
+			const int side = dc.flags - DrawCallFlags::SkyboxSideFirst;
+			dc.material->sky.outerbox[sky_texorder[side]]->setSampler(MaterialTextureBundleIndex::DiffuseMap);
+			SetDrawCallGeometry(dc);
+			bgfx::setTransform(dc.modelMatrix.get());
+			bgfx::setState(dc.state);
+			bgfx::submit(viewId, shaderCache->getHandle(ShaderProgramId::Generic));
+			continue;
+		}
+
 		currentEntity = dc.entity;
 		dc.material->precalculate();
 
