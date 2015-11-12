@@ -216,7 +216,10 @@ public:
 			for (const auto &ts : tempSurfaces_)
 			{
 				if (!ts.batched)
+				{
 					material = ts.material;
+					break;
+				}
 			}
 
 			// Stop when all temp surfaces are batched.
