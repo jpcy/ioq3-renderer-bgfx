@@ -818,6 +818,9 @@ void Main::renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Ent
 		up = viewRotation[2] * (c * entity->e.radius) + viewRotation[1] * (s * entity->e.radius);
 	}
 
+	if (isMirrorCamera)
+		left = -left;
+
 	renderQuad(drawCallList, entity->e.origin, -viewRotation[0], left, up, materialCache->getMaterial(entity->e.customShader), vec4::fromBytes(entity->e.shaderRGBA), entity);
 }
 
