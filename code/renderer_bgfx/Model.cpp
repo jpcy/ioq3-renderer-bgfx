@@ -382,8 +382,7 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 		{
 			mat = g_main->materialCache->getMaterial(entity->e.customShader);
 		}
-
-		if (entity->e.customSkin > 0)
+		else if (entity->e.customSkin > 0)
 		{
 			auto customMat = g_main->materialCache->getSkin(entity->e.customSkin)->findMaterial(surface.name);
 
