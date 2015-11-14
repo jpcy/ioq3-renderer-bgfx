@@ -439,8 +439,103 @@ static void RE_ModelBounds(qhandle_t handle, vec3_t mins, vec3_t maxs)
 	VectorCopy(bounds[1], maxs);
 }
 
+static const int MAX_FONTS = 6;
+static int registeredFontCount = 0;
+static fontInfo_t registeredFont[MAX_FONTS];
+
+static int Font_ReadInt(const uint8_t *data, int *offset)
+{
+	assert(data && offset);
+	int i = data[*offset]+(data[*offset+1]<<8)+(data[*offset+2]<<16)+(data[*offset+3]<<24);
+	*offset += 4;
+	return i;
+}
+
+static float Font_ReadFloat(const uint8_t *data, int *offset)
+{
+	assert(data && offset);
+	uint8_t temp[4];
+#if defined Q3_BIG_ENDIAN
+	temp[0] = data[*offset+3];
+	temp[1] = data[*offset+2];
+	temp[2] = data[*offset+1];
+	temp[3] = data[*offset+0];
+#elif defined Q3_LITTLE_ENDIAN
+	temp[0] = data[*offset+0];
+	temp[1] = data[*offset+1];
+	temp[2] = data[*offset+2];
+	temp[3] = data[*offset+3];
+#endif
+	*offset += 4;
+	return *((float *)temp);
+}
+
 static void RE_RegisterFont(const char *fontName, int pointSize, fontInfo_t *font)
 {
+	if (!fontName)
+	{
+		ri.Printf(PRINT_ALL, "RE_RegisterFont: called with empty name\n");
+		return;
+	}
+
+	if (pointSize <= 0)
+		pointSize = 12;
+
+	if (registeredFontCount >= MAX_FONTS)
+	{
+		ri.Printf(PRINT_WARNING, "RE_RegisterFont: Too many fonts registered already.\n");
+		return;
+	}
+
+	char name[1024];
+	Com_sprintf(name, sizeof(name), "fonts/fontImage_%i.dat", pointSize);
+
+	for (int i = 0; i < registeredFontCount; i++)
+	{
+		if (Q_stricmp(name, registeredFont[i].name) == 0)
+		{
+			Com_Memcpy(font, &registeredFont[i], sizeof(fontInfo_t));
+			return;
+		}
+	}
+
+	int len = ri.FS_ReadFile(name, NULL);
+
+	if (len != sizeof(fontInfo_t))
+		return;
+
+	int offset = 0;
+	const uint8_t *data;
+	ri.FS_ReadFile(name, (void **)&data);
+
+	for(int i = 0; i < GLYPHS_PER_FONT; i++)
+	{
+		font->glyphs[i].height		= Font_ReadInt(data, &offset);
+		font->glyphs[i].top			= Font_ReadInt(data, &offset);
+		font->glyphs[i].bottom		= Font_ReadInt(data, &offset);
+		font->glyphs[i].pitch		= Font_ReadInt(data, &offset);
+		font->glyphs[i].xSkip		= Font_ReadInt(data, &offset);
+		font->glyphs[i].imageWidth	= Font_ReadInt(data, &offset);
+		font->glyphs[i].imageHeight = Font_ReadInt(data, &offset);
+		font->glyphs[i].s			= Font_ReadFloat(data, &offset);
+		font->glyphs[i].t			= Font_ReadFloat(data, &offset);
+		font->glyphs[i].s2			= Font_ReadFloat(data, &offset);
+		font->glyphs[i].t2			= Font_ReadFloat(data, &offset);
+		font->glyphs[i].glyph		= Font_ReadInt(data, &offset);
+		Q_strncpyz(font->glyphs[i].shaderName, (const char *)&data[offset], sizeof(font->glyphs[i].shaderName));
+		offset += sizeof(font->glyphs[i].shaderName);
+	}
+
+	font->glyphScale = Font_ReadFloat(data, &offset);
+	Q_strncpyz(font->name, name, sizeof(font->name));
+
+	for (int i = GLYPH_START; i <= GLYPH_END; i++)
+	{
+		font->glyphs[i].glyph = RE_RegisterShaderNoMip(font->glyphs[i].shaderName);
+	}
+
+	Com_Memcpy(&registeredFont[registeredFontCount++], font, sizeof(fontInfo_t));
+	ri.FS_FreeFile((void **)data);
 }
 
 static void RE_RemapShader(const char *oldShader, const char *newShader, const char *offsetTime)
