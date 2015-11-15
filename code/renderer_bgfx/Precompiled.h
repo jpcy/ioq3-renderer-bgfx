@@ -1238,6 +1238,7 @@ public:
 	Main();
 	~Main();
 	void initialize();
+	void registerFont(const char *fontName, int pointSize, fontInfo_t *font);
 	int getTime() const { return time_; }
 	float getFloatTime() const { return floatTime_; }
 	int getFrameNo() const { return frameNo_; }
@@ -1328,6 +1329,10 @@ private:
 	void renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity);
 	void renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Entity *entity);
 	void setupEntityLighting(Entity *entity);
+
+	static const int maxFonts_ = 6;
+	int nFonts_ = 0;
+	fontInfo_t fonts_[maxFonts_];
 
 	int time_ = 0;
 	float floatTime_ = 0;
