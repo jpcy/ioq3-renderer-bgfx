@@ -343,6 +343,56 @@ Material *MaterialCache::findMaterial(const char *name, int lightmapIndex, bool 
 	return createMaterial(m);
 }
 
+void MaterialCache::remapMaterial(const char *oldName, const char *newName, const char *offsetTime)
+{
+	Material *materials[2];
+
+	for (size_t i = 0; i < 2; i++)
+	{
+		const char *name = i == 0 ? oldName : newName;
+		materials[i] = findMaterial(name);
+
+		if (materials[i] == nullptr || materials[i] == defaultMaterial_)
+		{
+			materials[i] = findMaterial(name, 0);
+
+			if (materials[i]->defaultShader)
+				materials[i] = defaultMaterial_;
+		}
+
+		if (materials[i] == nullptr || materials[i] == defaultMaterial_)
+		{
+			ri.Printf(PRINT_WARNING, "WARNING: RE_RemapShader: %s shader %s not found\n", i == 0 ? "old" : "new", name);
+			return;
+		}
+	}
+
+	// Remap all the materials with the given name, even though they might have different lightmaps.
+	char strippedName[MAX_QPATH];
+	COM_StripExtension(oldName, strippedName, sizeof(strippedName));
+	auto hash = generateHash(strippedName, hashTableSize_);
+
+	for (auto m = hashTable_[hash]; m; m = m->next)
+	{
+		if (Q_stricmp(m->name, strippedName) == 0)
+		{
+			if (m != materials[1])
+			{
+				m->remappedShader = materials[1];
+			}
+			else
+			{
+				m->remappedShader = nullptr;
+			}
+		}
+	}
+
+	if (offsetTime)
+	{
+		materials[1]->timeOffset = atof(offsetTime);
+	}
+}
+
 Skin *MaterialCache::findSkin(const char *name)
 {
 	if (!name || !name[0])

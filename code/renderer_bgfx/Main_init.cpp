@@ -542,6 +542,7 @@ static void RE_RegisterFont(const char *fontName, int pointSize, fontInfo_t *fon
 
 static void RE_RemapShader(const char *oldShader, const char *newShader, const char *offsetTime)
 {
+	g_main->materialCache->remapMaterial(oldShader, newShader, offsetTime);
 }
 
 static qboolean RE_GetEntityToken(char *buffer, int size)

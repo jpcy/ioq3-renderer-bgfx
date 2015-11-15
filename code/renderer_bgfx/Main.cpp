@@ -459,6 +459,9 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 	{
 		assert(dc.material);
 
+		// Material remapping.
+		auto mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
+
 		// Special case for skybox.
 		if (dc.flags >= DrawCallFlags::SkyboxSideFirst && dc.flags <= DrawCallFlags::SkyboxSideLast)
 		{
@@ -470,7 +473,7 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 			uniforms->vertexColor.set(vec4::black);
 			const int sky_texorder[6] = { 0, 2, 1, 3, 4, 5 };
 			const int side = dc.flags - DrawCallFlags::SkyboxSideFirst;
-			dc.material->sky.outerbox[sky_texorder[side]]->setSampler(MaterialTextureBundleIndex::DiffuseMap);
+			mat->sky.outerbox[sky_texorder[side]]->setSampler(MaterialTextureBundleIndex::DiffuseMap);
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
 			bgfx::setState(dc.state);
@@ -479,11 +482,11 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 		}
 
 		currentEntity = dc.entity;
-		dc.material->precalculate();
+		mat->precalculate();
 
-		for (size_t i = 0; i < dc.material->getNumStages(); i++)
+		for (size_t i = 0; i < mat->getNumStages(); i++)
 		{
-			if (dc.material->polygonOffset)
+			if (mat->polygonOffset)
 			{
 				uniforms->depthRange.set(vec4(dc.zOffset + polygonDepthOffset, dc.zScale, 0, 0));
 			}
@@ -503,23 +506,23 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 				uniforms->localViewOrigin.set(cameraPosition);
 			}
 
-			dc.material->setStageShaderUniforms(i);
-			dc.material->setStageTextureSamplers(i);
+			mat->setStageShaderUniforms(i);
+			mat->setStageTextureSamplers(i);
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
-			bgfx::setState(dc.material->calculateStageState(i, dc.state));
-			bgfx::submit(viewId, dc.material->calculateStageShaderProgramHandle(i));
+			bgfx::setState(mat->calculateStageState(i, dc.state));
+			bgfx::submit(viewId, mat->calculateStageShaderProgramHandle(i));
 		}
 
 		// Do fog pass.
-		if (dc.fogIndex >= 0 && dc.material->fogPass != MaterialFogPass::None)
+		if (dc.fogIndex >= 0 && mat->fogPass != MaterialFogPass::None)
 		{
 			// Make sure fog shader is valid. Don't want to fall back to generic if it isn't, just don't draw the fog.
 			auto fogShaderHandle = shaderCache->getHandle(ShaderProgramId::Fog, 0, ShaderCache::GetHandleFlags::ReturnInvalid);
 
 			if (bgfx::isValid(fogShaderHandle))
 			{
-				if (dc.material->polygonOffset)
+				if (mat->polygonOffset)
 				{
 					uniforms->depthRange.set(vec4(dc.zOffset + polygonDepthOffset, dc.zScale, 0, 0));
 				}
@@ -528,7 +531,7 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 					uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, 0, 0));
 				}
 
-				dc.material->setFogShaderUniforms();
+				mat->setFogShaderUniforms();
 				vec4 fogColor, fogDistance, fogDepth;
 				float eyeT;
 				world->calculateFog(dc.fogIndex, dc.modelMatrix, viewMatrix, &fogColor, &fogDistance, &fogDepth, &eyeT);
@@ -540,7 +543,7 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 				bgfx::setTransform(dc.modelMatrix.get());
 				uint64_t state = dc.state | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA);
 
-				if (dc.material->fogPass == MaterialFogPass::Equal)
+				if (mat->fogPass == MaterialFogPass::Equal)
 				{
 					state |= BGFX_STATE_DEPTH_TEST_EQUAL;
 				}

@@ -719,6 +719,7 @@ public:
 	MaterialCache();
 	Material *createMaterial(const Material &base);
 	Material *findMaterial(const char *name, int lightmapIndex = MaterialLightmapId::StretchPic, bool mipRawImage = true);
+	void remapMaterial(const char *oldName, const char *newName, const char *offsetTime);
 	Material *getMaterial(int handle) { return materials_[handle].get(); }
 	Material *getDefaultMaterial() { return defaultMaterial_; }
 
