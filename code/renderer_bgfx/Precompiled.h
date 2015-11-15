@@ -677,6 +677,7 @@ public:
 	void setStageShaderUniforms(size_t stageIndex) const;
 	void setFogShaderUniforms() const;
 	void setStageTextureSamplers(size_t stageIndex) const;
+	vec4 calculateStageFogColorMask(size_t stageIndex) const;
 	uint64_t calculateStageState(size_t stageIndex, uint64_t state) const;
 	bgfx::ProgramHandle calculateStageShaderProgramHandle(size_t stageIndex) const;
 
@@ -1216,6 +1217,7 @@ public:
 	virtual bool hasLightGrid() const = 0;
 	virtual void sampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir) const = 0;
 	virtual int findFogIndex(vec3 position, float radius) const = 0;
+	virtual int findFogIndex(const Bounds &bounds) const = 0;
 	virtual void calculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &viewMatrix, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT) const = 0;
 	virtual int markFragments(int numPoints, const vec3_t *points, const vec3_t projection, int maxPoints, vec3_t pointBuffer, int maxFragments, markFragment_t *fragmentBuffer) = 0;
 	virtual Bounds getBounds(uint8_t visCacheId) const = 0;
@@ -1271,6 +1273,9 @@ public:
 	vec3 scenePosition;
 	mat3 sceneRotation;
 
+	/// Is the current camera in the world (not RDF_NOWORLDMODEL).
+	bool isWorldCamera;
+
 	/// Equivalent to scenePosition, unless rendering a portal/mirror view.
 	vec3 cameraPosition;
 
@@ -1321,7 +1326,7 @@ private:
 
 	uint8_t pushView(int flags = ViewFlags::None, vec4 rect = vec4::empty, const mat4 &viewMatrix = mat4::identity, const mat4 &projectionMatrix = mat4::identity);
 	void flushStretchPics();
-	void renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, vec4 rect, vec2 fov, const uint8_t *areaMask);
+	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, vec4 rect, vec2 fov, const uint8_t *areaMask);
 	void renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
 	void renderLightningEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
 	void renderQuad(DrawCallList *drawCallList, vec3 position, vec3 normal, vec3 left, vec3 up, Material *mat, vec4 color, Entity *entity);

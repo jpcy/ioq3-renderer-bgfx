@@ -605,19 +605,36 @@ public:
 		return -1;
 	}
 
+	int findFogIndex(const Bounds &bounds) const
+	{
+		for (int i = 0; i < fogs_.size(); i++)
+		{
+			if (Bounds::intersect(bounds, fogs_[i].bounds))
+				return i;
+		}
+
+		return -1;
+	}
+
 	void calculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &viewMatrix, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT) const override
 	{
 		assert(fogIndex != -1);
+		assert(fogDistance);
+		assert(fogDepth);
+		assert(eyeT);
 		auto &fog = fogs_[fogIndex];
 
-		(*fogColor)[0] = ((unsigned char *)(&fog.colorInt))[0] / 255.0f;
-		(*fogColor)[1] = ((unsigned char *)(&fog.colorInt))[1] / 255.0f;
-		(*fogColor)[2] = ((unsigned char *)(&fog.colorInt))[2] / 255.0f;
-		(*fogColor)[3] = ((unsigned char *)(&fog.colorInt))[3] / 255.0f;
+		if (fogColor)
+		{
+			(*fogColor)[0] = ((unsigned char *)(&fog.colorInt))[0] / 255.0f;
+			(*fogColor)[1] = ((unsigned char *)(&fog.colorInt))[1] / 255.0f;
+			(*fogColor)[2] = ((unsigned char *)(&fog.colorInt))[2] / 255.0f;
+			(*fogColor)[3] = ((unsigned char *)(&fog.colorInt))[3] / 255.0f;
+		}
 
 		const vec3 position(modelMatrix[12], modelMatrix[13], modelMatrix[14]);
-		//const vec3 position(vec3::empty);
 		vec3 local = vec3::empty - g_main->cameraPosition;
+
 		(*fogDistance)[0] = -viewMatrix[2];
 		(*fogDistance)[1] = -viewMatrix[6];
 		(*fogDistance)[2] = -viewMatrix[10];
@@ -630,7 +647,6 @@ public:
 		if (fog.hasSurface)
 		{
 			const mat3 rotation(modelMatrix);
-			//const mat3 rotation(mat3::identity);
 			(*fogDepth)[0] = fog.surface[0] * rotation[0][0] + fog.surface[1] * rotation[0][1] + fog.surface[2] * rotation[0][2];
 			(*fogDepth)[1] = fog.surface[0] * rotation[1][0] + fog.surface[1] * rotation[1][1] + fog.surface[2] * rotation[1][2];
 			(*fogDepth)[2] = fog.surface[0] * rotation[2][0] + fog.surface[1] * rotation[2][1] + fog.surface[2] * rotation[2][2];

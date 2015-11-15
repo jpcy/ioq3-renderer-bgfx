@@ -199,6 +199,26 @@ void Material::setStageTextureSamplers(size_t stageIndex) const
 	}
 }
 
+vec4 Material::calculateStageFogColorMask(size_t stageIndex) const
+{
+	auto &stage = stages[stageIndex];
+	assert(stage.active);
+
+	switch(stage.adjustColorsForFog)
+	{
+	case MaterialAdjustColorsForFog::ModulateRGB:
+		return vec4(1, 1, 1, 0);
+	case MaterialAdjustColorsForFog::ModulateAlpha:
+		return vec4(0, 0, 0, 1);
+	case MaterialAdjustColorsForFog::ModulateRGBA:
+		return vec4(1, 1, 1, 1);
+	default:
+		break;
+	}
+
+	return vec4(0, 0, 0, 0);
+}
+
 uint64_t Material::calculateStageState(size_t stageIndex, uint64_t state) const
 {
 	auto &stage = stages[stageIndex];

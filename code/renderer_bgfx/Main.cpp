@@ -180,7 +180,8 @@ void Main::renderScene(const refdef_t *def)
 
 	scenePosition = vec3(def->vieworg);
 	sceneRotation = mat3(def->viewaxis);
-	renderCamera((def->rdflags & RDF_NOWORLDMODEL) == 0 && world.get(), mainVisCacheId, scenePosition, scenePosition, sceneRotation, vec4(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
+	isWorldCamera = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world.get();
+	renderCamera(mainVisCacheId, scenePosition, scenePosition, sceneRotation, vec4(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
 	sceneDynamicLights_.clear();
 	sceneEntities_.clear();
 	scenePolygons_.clear();
@@ -341,7 +342,7 @@ static void SetDrawCallGeometry(const DrawCall &dc)
 	}
 }
 
-void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, vec4 rect, vec2 fov, const uint8_t *areaMask)
+void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, vec4 rect, vec2 fov, const uint8_t *areaMask)
 {
 	assert(areaMask);
 	const float zMin = 4;
@@ -351,7 +352,7 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 	cameraPosition = position;
 	cameraRotation = rotation;
 
-	if (renderWorld)
+	if (isWorldCamera)
 	{
 		assert(world.get());
 		world->updateVisCache(visCacheId, pvsPosition, areaMask);
@@ -363,7 +364,7 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 	mat4 viewMatrix = toOpenGlMatrix * mat4::view(cameraPosition, cameraRotation);
 	mat4 projectionMatrix = mat4::perspectiveProjection(fov.x, fov.y, zMin, zMax);
 
-	if (renderWorld && isMainCamera)
+	if (isWorldCamera && isMainCamera)
 	{
 		for (size_t i = 0; i < world->getNumPortalSurfaces(visCacheId); i++)
 		{
@@ -372,7 +373,7 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 
 			if (world->calculatePortalCamera(visCacheId, i, cameraPosition, cameraRotation, projectionMatrix * viewMatrix, sceneEntities_, &pvsPosition, &portalCamera, &isMirrorCamera, &portalPlane))
 			{
-				renderCamera(true, portalVisCacheId, pvsPosition, portalCamera.position, portalCamera.rotation, rect, fov, areaMask);
+				renderCamera(portalVisCacheId, pvsPosition, portalCamera.position, portalCamera.rotation, rect, fov, areaMask);
 				isMirrorCamera = false;
 				break;
 			}
@@ -395,7 +396,7 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 	// Build draw calls. Order doesn't matter.
 	drawCalls_.clear();
 
-	if (renderWorld)
+	if (isWorldCamera)
 	{
 		Sky_Render(&drawCalls_, cameraPosition, visCacheId, zMax);
 		world->render(&drawCalls_, visCacheId);
@@ -403,7 +404,7 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 
 	for (auto &entity : sceneEntities_)
 	{
-		entity.isInWorldScene = renderWorld;
+		entity.isInWorldScene = isWorldCamera;
 
 		if (isMainCamera && (entity.e.renderfx & RF_THIRD_PERSON) != 0)
 			continue;
@@ -424,6 +425,8 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 
 		auto vertices = (Vertex *)tvb.data;
 		auto indices = (uint16_t *)tib.data;
+		Bounds bounds;
+		bounds.setupForAddingPoints();
 
 		for (size_t i = 0; i < polygon.nVertices; i++)
 		{
@@ -432,6 +435,7 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 			v.pos = pv.xyz;
 			v.texCoord = pv.st;
 			v.color = vec4::fromBytes(pv.modulate);
+			bounds.addPoint(v.pos);
 		}
 
 		for (size_t i = 0; i < polygon.nVertices - 2; i++)
@@ -442,6 +446,7 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 		}
 
 		DrawCall dc;
+		dc.fogIndex = world->findFogIndex(bounds);
 		dc.material = polygon.material;
 		dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 		dc.vb.transientHandle = tvb;
@@ -504,6 +509,23 @@ void Main::renderCamera(bool renderWorld, uint8_t visCacheId, vec3 pvsPosition, 
 			else
 			{
 				uniforms->localViewOrigin.set(cameraPosition);
+			}
+
+			if (dc.fogIndex >= 0 && mat->stages[i].adjustColorsForFog != MaterialAdjustColorsForFog::None)
+			{
+				vec4 fogDistance, fogDepth;
+				float eyeT;
+				world->calculateFog(dc.fogIndex, dc.modelMatrix, viewMatrix, nullptr, &fogDistance, &fogDepth, &eyeT);
+
+				uniforms->fogEnabled.set(vec4(1, 0, 0, 0));
+				uniforms->fogDistance.set(fogDistance);
+				uniforms->fogDepth.set(fogDepth);
+				uniforms->fogEyeT.set(eyeT);
+				uniforms->fogColorMask.set(mat->calculateStageFogColorMask(i));
+			}
+			else
+			{
+				uniforms->fogEnabled.set(vec4::empty);
 			}
 
 			mat->setStageShaderUniforms(i);
@@ -672,6 +694,7 @@ void Main::renderQuad(DrawCallList *drawCallList, vec3 position, vec3 normal, ve
 
 	DrawCall dc;
 	dc.entity = entity;
+	dc.fogIndex = isWorldCamera ? world->findFogIndex(entity->e.origin, entity->e.radius) : -1;
 	dc.material = mat;
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
@@ -725,6 +748,7 @@ void Main::renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3
 
 	DrawCall dc;
 	dc.entity = entity;
+	dc.fogIndex = isWorldCamera ? world->findFogIndex(entity->e.origin, entity->e.radius) : -1;
 	dc.material = mat;
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
@@ -793,6 +817,7 @@ void Main::renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity)
 
 	DrawCall dc;
 	dc.entity = entity;
+	dc.fogIndex = isWorldCamera ? world->findFogIndex(entity->e.origin, entity->e.radius) : -1;
 	dc.material = materialCache->getMaterial(entity->e.customShader);
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
