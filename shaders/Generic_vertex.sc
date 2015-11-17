@@ -10,6 +10,7 @@ uniform vec4 u_BaseColor;
 uniform vec4 u_VertColor;
 uniform vec4 u_LightType; // only x used
 uniform vec4 u_ViewOrigin;
+uniform vec4 u_Time; // only x used
 
 uniform vec4 u_FogEnabled;
 uniform vec4 u_FogDistance;
@@ -36,9 +37,9 @@ void main()
 	vec3 position = a_position;
 	vec3 normal = a_normal;
 
-	if (u_DeformGen != DGEN_NONE)
+	if (u_NumDeforms.x > 0)
 	{
-		position = DeformPosition(position, normal, a_texcoord0);
+		position = DeformPosition(position, normal, a_texcoord0, u_Time.x);
 	}
 
 	if (u_TCGen0 != TCGEN_NONE)

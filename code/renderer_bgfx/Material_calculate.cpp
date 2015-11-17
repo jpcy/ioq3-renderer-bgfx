@@ -46,7 +46,7 @@ void Material::setStageShaderUniforms(size_t stageIndex) const
 {
 	auto &stage = stages[stageIndex];
 	assert(stage.active);
-
+	g_main->uniforms->time.set(vec4(time_, 0, 0, 0));
 	g_main->uniforms->lightType.set(vec4((float)stage.light, 0, 0, 0));
 
 	vec4 generators;
@@ -72,20 +72,18 @@ void Material::setStageShaderUniforms(size_t stageIndex) const
 		generators[Uniforms::Generators::Alpha] = (float)MaterialAlphaGen::Identity;
 	}
 
-	generators[Uniforms::Generators::Deform] = (float)deformGen_;
 	g_main->uniforms->generators.set(generators);
 
-	if (deformGen_ != MaterialDeformGen::None)
+	if (requiresCpuDeforms())
 	{
-		g_main->uniforms->deformParameters1.set(deformParameters1_);
-		g_main->uniforms->deformParameters2.set(deformParameters2_);
+		g_main->uniforms->nDeforms.set(vec4(0, 0, 0, 0));
 	}
-
-	/*if ( input->fogNum ) {
-		GLSL_SetUniformVec4(sp, UNIFORM_FOGDISTANCE, fogDistanceVector);
-		GLSL_SetUniformVec4(sp, UNIFORM_FOGDEPTH, fogDepthVector);
-		GLSL_SetUniformFloat(sp, UNIFORM_FOGEYET, eyeT);
-	}*/
+	else
+	{
+		g_main->uniforms->nDeforms.set(vec4(numDeforms, 0, 0, 0));
+		g_main->uniforms->deformTypeBaseAmplitudeFrequency.set(deformTypeBaseAmplitudeFrequency_, numDeforms);
+		g_main->uniforms->deformPhaseSpread.set(deformPhaseSpread_, numDeforms);
+	}
 
 	// rgbGen and alphaGen
 	vec4 baseColor, vertexColor;
@@ -130,14 +128,17 @@ void Material::setStageShaderUniforms(size_t stageIndex) const
 
 void Material::setFogShaderUniforms() const
 {
-	vec4 generators;
-	generators[Uniforms::Generators::Deform] = (float)deformGen_;
-	g_main->uniforms->generators.set(generators);
+	g_main->uniforms->time.set(vec4(time_, 0, 0, 0));
 
-	if (deformGen_ != MaterialDeformGen::None)
+	if (requiresCpuDeforms())
 	{
-		g_main->uniforms->deformParameters1.set(deformParameters1_);
-		g_main->uniforms->deformParameters2.set(deformParameters2_);
+		g_main->uniforms->nDeforms.set(vec4(0, 0, 0, 0));
+	}
+	else
+	{
+		g_main->uniforms->nDeforms.set(vec4(numDeforms, 0, 0, 0));
+		g_main->uniforms->deformTypeBaseAmplitudeFrequency.set(deformTypeBaseAmplitudeFrequency_, numDeforms);
+		g_main->uniforms->deformPhaseSpread.set(deformPhaseSpread_, numDeforms);
 	}
 }
 
@@ -611,16 +612,13 @@ void Material::calculateColors(const MaterialStage &stage, vec4 *baseColor, vec4
 
 bool Material::requiresCpuDeforms() const
 {
-	if (numDeforms)
+	for (size_t i = 0; i < numDeforms; i++)
 	{
-		if (numDeforms > 1)
-			return true;
-
 		switch (deforms[0].deformation)
 		{
 		case MaterialDeform::Wave:
 		case MaterialDeform::Bulge:
-			return false;
+			break;
 
 		default:
 			return true;
@@ -632,38 +630,28 @@ bool Material::requiresCpuDeforms() const
 
 void Material::calculateDeformValues()
 {
-	deformGen_ = MaterialDeformGen::None;
+	if (requiresCpuDeforms())
+		return;
 
-	if (numDeforms > 0 && !requiresCpuDeforms())
+	for (size_t i = 0; i < numDeforms; i++)
 	{
-		// Only support the first one.
-		auto &ds = deforms[0];
+		auto &ds = deforms[i];
 
 		switch (ds.deformation)
 		{
 		case MaterialDeform::Wave:
-			deformGen_ = (MaterialDeformGen)ds.deformationWave.func;
-			deformParameters1_[Uniforms::DeformParameters1::Base] = ds.deformationWave.base;
-			deformParameters1_[Uniforms::DeformParameters1::Amplitude] = ds.deformationWave.amplitude;
-			deformParameters1_[Uniforms::DeformParameters1::Phase] = ds.deformationWave.phase;
-			deformParameters1_[Uniforms::DeformParameters1::Frequency] = ds.deformationWave.frequency;
-			deformParameters2_[Uniforms::DeformParameters2::Spread] = ds.deformationSpread;
+			deformTypeBaseAmplitudeFrequency_[i] = vec4((float)ds.deformationWave.func, ds.deformationWave.base, ds.deformationWave.amplitude, ds.deformationWave.frequency);
+			deformPhaseSpread_[i] = vec4(ds.deformationWave.phase, ds.deformationSpread, 0, 0);
 			break;
 
 		case MaterialDeform::Bulge:
-			deformGen_ = MaterialDeformGen::Bulge;
-			deformParameters1_[Uniforms::DeformParameters1::Base] = 0;
-			deformParameters1_[Uniforms::DeformParameters1::Amplitude] = ds.bulgeHeight;
-			deformParameters1_[Uniforms::DeformParameters1::Phase] = ds.bulgeWidth;
-			deformParameters1_[Uniforms::DeformParameters1::Frequency] = ds.bulgeSpeed;
-			deformParameters2_[Uniforms::DeformParameters2::Spread] = 0;
+			deformTypeBaseAmplitudeFrequency_[i] = vec4((float)MaterialDeformGen::Bulge, 0, ds.bulgeHeight, ds.bulgeSpeed);
+			deformPhaseSpread_[i] = vec4(ds.bulgeWidth, 0, 0, 0);
 			break;
 
 		default:
 			break;
 		}
-
-		deformParameters2_[Uniforms::DeformParameters2::Time] = time_;
 	}
 }
 

@@ -2,7 +2,6 @@ uniform vec4 u_Generators;
 #define u_TCGen0 u_Generators[GEN_TEXCOORD]
 #define u_ColorGen u_Generators[GEN_COLOR]
 #define u_AlphaGen u_Generators[GEN_ALPHA]
-#define u_DeformGen u_Generators[GEN_DEFORM]
 
 // tcmod
 uniform vec4   u_DiffuseTexMatrix;
@@ -13,62 +12,64 @@ uniform vec4   u_LocalViewOrigin;
 uniform vec4   u_TCGen0Vector0;
 uniform vec4   u_TCGen0Vector1;
 
-uniform vec4 u_DeformParameters1;
-uniform vec4 u_DeformParameters2;
-#define u_DeformBase u_DeformParameters1[DEFORM1_BASE]
-#define u_DeformAmplitude u_DeformParameters1[DEFORM1_AMPLITUDE]
-#define u_DeformPhase u_DeformParameters1[DEFORM1_PHASE]
-#define u_DeformFrequency u_DeformParameters1[DEFORM1_FREQUENCY]
-#define u_DeformSpread u_DeformParameters2[DEFORM2_SPREAD]
-#define u_DeformTime u_DeformParameters2[DEFORM2_TIME]
+uniform vec4 u_NumDeforms; // only x used
+uniform vec4 u_DeformTypeBaseAmplitudeFrequency[MAX_DEFORMS];
+uniform vec4 u_DeformPhaseSpread[MAX_DEFORMS];
 
 uniform vec4   u_AmbientLight;
 uniform vec4   u_DirectedLight;
 uniform vec4   u_ModelLightDir;
 uniform vec4  u_PortalRange;
 
-vec3 DeformPosition(const vec3 pos, const vec3 normal, const vec2 st)
+vec3 DeformPosition(const vec3 pos, const vec3 normal, const vec2 st, float time)
 {
-	float phase = u_DeformPhase;
+	vec3 deformedPos = pos;
 
-	if (u_DeformGen == DGEN_BULGE)
+	for (int i = 0; i < u_NumDeforms.x; i++)
 	{
-		phase *= st.x;
-	}
-	else // if (u_DeformGen <= DGEN_WAVE_INVERSE_SAWTOOTH)
-	{
-		phase += dot(pos.xyz, vec3(u_DeformSpread, u_DeformSpread, u_DeformSpread));
+		float phase = u_DeformPhaseSpread[i].x;
+
+		if (u_DeformTypeBaseAmplitudeFrequency[i].x == DGEN_BULGE)
+		{
+			phase *= st.x;
+		}
+		else // if (u_DeformTypeBaseAmplitudeFrequency[i].x <= DGEN_WAVE_INVERSE_SAWTOOTH)
+		{
+			phase += dot(deformedPos.xyz, vec3(u_DeformPhaseSpread[i].y, u_DeformPhaseSpread[i].y, u_DeformPhaseSpread[i].y));
+		}
+
+		float value = phase + (time * u_DeformTypeBaseAmplitudeFrequency[i].w);
+		float func;
+
+		if (u_DeformTypeBaseAmplitudeFrequency[i].x == DGEN_WAVE_SIN)
+		{
+			func = sin(value * 2.0 * M_PI);
+		}
+		else if (u_DeformTypeBaseAmplitudeFrequency[i].x == DGEN_WAVE_SQUARE)
+		{
+			func = sign(fract(0.5 - value));
+		}
+		else if (u_DeformTypeBaseAmplitudeFrequency[i].x == DGEN_WAVE_TRIANGLE)
+		{
+			func = abs(fract(value + 0.75) - 0.5) * 4.0 - 1.0;
+		}
+		else if (u_DeformTypeBaseAmplitudeFrequency[i].x == DGEN_WAVE_SAWTOOTH)
+		{
+			func = fract(value);
+		}
+		else if (u_DeformTypeBaseAmplitudeFrequency[i].x == DGEN_WAVE_INVERSE_SAWTOOTH)
+		{
+			func = (1.0 - fract(value));
+		}
+		else // if (u_DeformTypeBaseAmplitudeFrequency[i].x == DGEN_BULGE)
+		{
+			func = sin(value);
+		}
+
+		deformedPos = deformedPos + normal * (u_DeformTypeBaseAmplitudeFrequency[i].y + func * u_DeformTypeBaseAmplitudeFrequency[i].z);
 	}
 
-	float value = phase + (u_DeformTime * u_DeformFrequency);
-	float func;
-
-	if (u_DeformGen == DGEN_WAVE_SIN)
-	{
-		func = sin(value * 2.0 * M_PI);
-	}
-	else if (u_DeformGen == DGEN_WAVE_SQUARE)
-	{
-		func = sign(fract(0.5 - value));
-	}
-	else if (u_DeformGen == DGEN_WAVE_TRIANGLE)
-	{
-		func = abs(fract(value + 0.75) - 0.5) * 4.0 - 1.0;
-	}
-	else if (u_DeformGen == DGEN_WAVE_SAWTOOTH)
-	{
-		func = fract(value);
-	}
-	else if (u_DeformGen == DGEN_WAVE_INVERSE_SAWTOOTH)
-	{
-		func = (1.0 - fract(value));
-	}
-	else // if (u_DeformGen == DGEN_BULGE)
-	{
-		func = sin(value);
-	}
-
-	return pos + normal * (u_DeformBase + func * u_DeformAmplitude);
+	return deformedPos;
 }
 
 vec2 GenTexCoords(vec3 position, vec3 normal, vec2 texCoord1, vec2 texCoord2)

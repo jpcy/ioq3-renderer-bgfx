@@ -706,8 +706,9 @@ private:
 	/// @remarks Set when precalculate() is called.
 	float time_;
 
-	MaterialDeformGen deformGen_;
-	vec4 deformParameters1_, deformParameters2_;
+	MaterialDeformGen deformGens_[maxDeforms];
+	vec4 deformTypeBaseAmplitudeFrequency_[maxDeforms];
+	vec4 deformPhaseSpread_[maxDeforms];
 
 	/// @}
 
@@ -1038,7 +1039,8 @@ struct Uniform_int
 {
 	Uniform_int(const char *name, uint16_t num = 1) { handle = bgfx::createUniform(name, bgfx::UniformType::Int1, num); }
 	~Uniform_int() { bgfx::destroyUniform(handle); }
-	void set(int value, uint16_t num = 1) { bgfx::setUniform(handle, &value, num); }
+	void set(int value) { bgfx::setUniform(handle, &value, 1); }
+	void set(const int *values, uint16_t num) { bgfx::setUniform(handle, values, num); }
 	bgfx::UniformHandle handle;
 };
 
@@ -1046,7 +1048,8 @@ struct Uniform_vec4
 {
 	Uniform_vec4(const char *name, uint16_t num = 1) { handle = bgfx::createUniform(name, bgfx::UniformType::Vec4, num); }
 	~Uniform_vec4() { bgfx::destroyUniform(handle); }
-	void set(vec4 value, uint16_t num = 1) { bgfx::setUniform(handle, &value, num); }
+	void set(vec4 value) { bgfx::setUniform(handle, &value, 1); }
+	void set(const vec4 *values, uint16_t num) { bgfx::setUniform(handle, values, num); }
 	bgfx::UniformHandle handle;
 };
 
@@ -1095,7 +1098,7 @@ struct Uniforms
 
 	struct Generators
 	{
-		enum { TexCoord, Color, Alpha, Deform };
+		enum { TexCoord, Color, Alpha };
 	};
 
 	Uniform_vec4 generators = "u_Generators";
@@ -1145,20 +1148,11 @@ struct Uniforms
 	/// @name deform gen
 	/// @{
 
-	/// @remarks Sync with shader constants.
-	struct DeformParameters1
-	{
-		enum { Base, Amplitude, Phase, Frequency };
-	};
+	/// @remarks Only x used.
+	Uniform_vec4 nDeforms = "u_NumDeforms";
 
-	/// @remarks Sync with shader constants.
-	struct DeformParameters2
-	{
-		enum { Spread, Time };
-	};
-
-	Uniform_vec4 deformParameters1 = "u_DeformParameters1";
-	Uniform_vec4 deformParameters2 = "u_DeformParameters2";
+	Uniform_vec4 deformTypeBaseAmplitudeFrequency = { "u_DeformTypeBaseAmplitudeFrequency", Material::maxDeforms };
+	Uniform_vec4 deformPhaseSpread = { "u_DeformPhaseSpread", Material::maxDeforms };
 
 	/// @}
 
@@ -1168,6 +1162,9 @@ struct Uniforms
 	Uniform_vec4 alphaTest = "u_AlphaTest";
 
 	/// @}
+
+	/// @remarks Only x used.
+	Uniform_vec4 time = "u_Time";
 };
 
 struct Vertex

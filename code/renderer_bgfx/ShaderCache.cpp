@@ -203,14 +203,11 @@ ShaderCache::ShaderCache()
 	CONSTANT("AGEN_IDENTITY=%d;", MaterialAlphaGen::Identity);
 	CONSTANT("AGEN_LIGHTING_SPECULAR=%d;", MaterialAlphaGen::LightingSpecular);
 	CONSTANT("AGEN_PORTAL=%d;", MaterialAlphaGen::Portal);
+	CONSTANT("ATEST_GT_0=%d;", MaterialAlphaTest::GT_0);
+	CONSTANT("ATEST_LT_128=%d;", MaterialAlphaTest::LT_128);
+	CONSTANT("ATEST_GE_128=%d;", MaterialAlphaTest::GE_128);
 	CONSTANT("CGEN_IDENTITY=%d;", MaterialColorGen::Identity);
 	CONSTANT("CGEN_LIGHTING_DIFFUSE=%d;", MaterialColorGen::LightingDiffuse);
-	CONSTANT("DEFORM1_AMPLITUDE=%d;", Uniforms::DeformParameters1::Amplitude);
-	CONSTANT("DEFORM1_BASE=%d;", Uniforms::DeformParameters1::Base);
-	CONSTANT("DEFORM1_FREQUENCY=%d;", Uniforms::DeformParameters1::Frequency);
-	CONSTANT("DEFORM1_PHASE=%d;", Uniforms::DeformParameters1::Phase);
-	CONSTANT("DEFORM2_SPREAD=%d;", Uniforms::DeformParameters2::Spread);
-	CONSTANT("DEFORM2_TIME=%d;", Uniforms::DeformParameters2::Time);
 	CONSTANT("DGEN_NONE=%d;", MaterialDeformGen::None);
 	CONSTANT("DGEN_WAVE_SIN=%d;", MaterialDeformGen::Sin);
 	CONSTANT("DGEN_WAVE_SQUARE=%d;", MaterialDeformGen::Square);
@@ -219,23 +216,20 @@ ShaderCache::ShaderCache()
 	CONSTANT("DGEN_WAVE_INVERSE_SAWTOOTH=%d;", MaterialDeformGen::InverseSawtooth);
 	CONSTANT("DGEN_BULGE=%d;", MaterialDeformGen::Bulge);
 	CONSTANT("DGEN_MOVE=%d;", MaterialDeformGen::Move);
+	CONSTANT("LIGHT_NONE=%d;", MaterialLight::None);
+	CONSTANT("LIGHT_MAP=%d;", MaterialLight::Map);
+	CONSTANT("LIGHT_VERTEX=%d;", MaterialLight::Vertex);
+	CONSTANT("LIGHT_VECTOR=%d;", MaterialLight::Vector);
 	CONSTANT("GEN_ALPHA=%d;", Uniforms::Generators::Alpha);
 	CONSTANT("GEN_COLOR=%d;", Uniforms::Generators::Color);
-	CONSTANT("GEN_DEFORM=%d;", Uniforms::Generators::Deform);
 	CONSTANT("GEN_TEXCOORD=%d;", Uniforms::Generators::TexCoord);
+	CONSTANT("MAX_DEFORMS=%d;", Material::maxDeforms);
 	CONSTANT("TCGEN_NONE=%d;", MaterialTexCoordGen::None);
 	CONSTANT("TCGEN_ENVIRONMENT_MAPPED=%d;", MaterialTexCoordGen::EnvironmentMapped);
 	CONSTANT("TCGEN_FOG=%d;", MaterialTexCoordGen::Fog);
 	CONSTANT("TCGEN_LIGHTMAP=%d;", MaterialTexCoordGen::Lightmap);
 	CONSTANT("TCGEN_TEXTURE=%d;", MaterialTexCoordGen::Texture);
 	CONSTANT("TCGEN_VECTOR=%d;", MaterialTexCoordGen::Vector);
-	CONSTANT("ATEST_GT_0=%d;", MaterialAlphaTest::GT_0);
-	CONSTANT("ATEST_LT_128=%d;", MaterialAlphaTest::LT_128);
-	CONSTANT("ATEST_GE_128=%d;", MaterialAlphaTest::GE_128);
-	CONSTANT("LIGHT_NONE=%d;", MaterialLight::None);
-	CONSTANT("LIGHT_MAP=%d;", MaterialLight::Map);
-	CONSTANT("LIGHT_VERTEX=%d;", MaterialLight::Vertex);
-	CONSTANT("LIGHT_VECTOR=%d;", MaterialLight::Vector);
 	#undef CONSTANT
 }
 
