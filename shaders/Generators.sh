@@ -21,52 +21,55 @@ uniform vec4   u_DirectedLight;
 uniform vec4   u_ModelLightDir;
 uniform vec4  u_PortalRange;
 
+vec3 CalculateDeform(const vec3 pos, const vec3 normal, const vec2 st, float time, float type, float base, float amplitude, float freq, float phase, float spread)
+{
+	if (type == DGEN_BULGE)
+	{
+		phase *= st.x;
+	}
+	else // if (type <= DGEN_WAVE_INVERSE_SAWTOOTH)
+	{
+		phase += dot(pos.xyz, vec3(spread, spread, spread));
+	}
+
+	float value = phase + (time * freq);
+	float func;
+
+	if (type == DGEN_WAVE_SIN)
+	{
+		func = sin(value * 2.0 * M_PI);
+	}
+	else if (type == DGEN_WAVE_SQUARE)
+	{
+		func = sign(fract(0.5 - value));
+	}
+	else if (type == DGEN_WAVE_TRIANGLE)
+	{
+		func = abs(fract(value + 0.75) - 0.5) * 4.0 - 1.0;
+	}
+	else if (type == DGEN_WAVE_SAWTOOTH)
+	{
+		func = fract(value);
+	}
+	else if (type == DGEN_WAVE_INVERSE_SAWTOOTH)
+	{
+		func = (1.0 - fract(value));
+	}
+	else // if (type == DGEN_BULGE)
+	{
+		func = sin(value);
+	}
+
+	return pos + normal * (base + func * amplitude);
+}
+
 vec3 DeformPosition(const vec3 pos, const vec3 normal, const vec2 st, float time)
 {
 	vec3 deformedPos = pos;
 
 	for (int i = 0; i < u_NumDeforms.x; i++)
 	{
-		float phase = u_DeformPhaseSpread[i].x;
-
-		if (u_DeformTypeBaseAmplitudeFrequency[i].x == DGEN_BULGE)
-		{
-			phase *= st.x;
-		}
-		else // if (u_DeformTypeBaseAmplitudeFrequency[i].x <= DGEN_WAVE_INVERSE_SAWTOOTH)
-		{
-			phase += dot(deformedPos.xyz, vec3(u_DeformPhaseSpread[i].y, u_DeformPhaseSpread[i].y, u_DeformPhaseSpread[i].y));
-		}
-
-		float value = phase + (time * u_DeformTypeBaseAmplitudeFrequency[i].w);
-		float func;
-
-		if (u_DeformTypeBaseAmplitudeFrequency[i].x == DGEN_WAVE_SIN)
-		{
-			func = sin(value * 2.0 * M_PI);
-		}
-		else if (u_DeformTypeBaseAmplitudeFrequency[i].x == DGEN_WAVE_SQUARE)
-		{
-			func = sign(fract(0.5 - value));
-		}
-		else if (u_DeformTypeBaseAmplitudeFrequency[i].x == DGEN_WAVE_TRIANGLE)
-		{
-			func = abs(fract(value + 0.75) - 0.5) * 4.0 - 1.0;
-		}
-		else if (u_DeformTypeBaseAmplitudeFrequency[i].x == DGEN_WAVE_SAWTOOTH)
-		{
-			func = fract(value);
-		}
-		else if (u_DeformTypeBaseAmplitudeFrequency[i].x == DGEN_WAVE_INVERSE_SAWTOOTH)
-		{
-			func = (1.0 - fract(value));
-		}
-		else // if (u_DeformTypeBaseAmplitudeFrequency[i].x == DGEN_BULGE)
-		{
-			func = sin(value);
-		}
-
-		deformedPos = deformedPos + normal * (u_DeformTypeBaseAmplitudeFrequency[i].y + func * u_DeformTypeBaseAmplitudeFrequency[i].z);
+		deformedPos = CalculateDeform(deformedPos, normal, st, time, u_DeformTypeBaseAmplitudeFrequency[i].x, u_DeformTypeBaseAmplitudeFrequency[i].y, u_DeformTypeBaseAmplitudeFrequency[i].z, u_DeformTypeBaseAmplitudeFrequency[i].w, u_DeformPhaseSpread[i].x, u_DeformPhaseSpread[i].y);
 	}
 
 	return deformedPos;
