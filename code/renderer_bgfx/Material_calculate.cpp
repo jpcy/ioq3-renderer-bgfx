@@ -81,8 +81,9 @@ void Material::setStageShaderUniforms(size_t stageIndex) const
 	else
 	{
 		g_main->uniforms->nDeforms.set(vec4(numDeforms, 0, 0, 0));
-		g_main->uniforms->deformTypeBaseAmplitudeFrequency.set(deformTypeBaseAmplitudeFrequency_, numDeforms);
-		g_main->uniforms->deformPhaseSpread.set(deformPhaseSpread_, numDeforms);
+		g_main->uniforms->deformMoveDirs.set(deformMoveDirs_, numDeforms);
+		g_main->uniforms->deform_Gen_Wave_Base_Amplitude.set(deform_Gen_Wave_Base_Amplitude_, numDeforms);
+		g_main->uniforms->deform_Frequency_Phase_Spread.set(deform_Frequency_Phase_Spread_, numDeforms);
 	}
 
 	// rgbGen and alphaGen
@@ -137,8 +138,9 @@ void Material::setFogShaderUniforms() const
 	else
 	{
 		g_main->uniforms->nDeforms.set(vec4(numDeforms, 0, 0, 0));
-		g_main->uniforms->deformTypeBaseAmplitudeFrequency.set(deformTypeBaseAmplitudeFrequency_, numDeforms);
-		g_main->uniforms->deformPhaseSpread.set(deformPhaseSpread_, numDeforms);
+		g_main->uniforms->deformMoveDirs.set(deformMoveDirs_, numDeforms);
+		g_main->uniforms->deform_Gen_Wave_Base_Amplitude.set(deform_Gen_Wave_Base_Amplitude_, numDeforms);
+		g_main->uniforms->deform_Frequency_Phase_Spread.set(deform_Frequency_Phase_Spread_, numDeforms);
 	}
 }
 
@@ -618,6 +620,7 @@ bool Material::requiresCpuDeforms() const
 		{
 		case MaterialDeform::Wave:
 		case MaterialDeform::Bulge:
+		case MaterialDeform::Move:
 			break;
 
 		default:
@@ -640,13 +643,19 @@ void Material::calculateDeformValues()
 		switch (ds.deformation)
 		{
 		case MaterialDeform::Wave:
-			deformTypeBaseAmplitudeFrequency_[i] = vec4((float)ds.deformationWave.func, ds.deformationWave.base, ds.deformationWave.amplitude, ds.deformationWave.frequency);
-			deformPhaseSpread_[i] = vec4(ds.deformationWave.phase, ds.deformationSpread, 0, 0);
+			deform_Gen_Wave_Base_Amplitude_[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, ds.deformationWave.base, ds.deformationWave.amplitude);
+			deform_Frequency_Phase_Spread_[i] = vec4(ds.deformationWave.frequency, ds.deformationWave.phase, ds.deformationSpread, 0);
 			break;
 
 		case MaterialDeform::Bulge:
-			deformTypeBaseAmplitudeFrequency_[i] = vec4((float)MaterialDeformGen::Bulge, 0, ds.bulgeHeight, ds.bulgeSpeed);
-			deformPhaseSpread_[i] = vec4(ds.bulgeWidth, 0, 0, 0);
+			deform_Gen_Wave_Base_Amplitude_[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, 0, ds.bulgeHeight);
+			deform_Frequency_Phase_Spread_[i] = vec4(ds.bulgeSpeed, ds.bulgeWidth, 0, 0);
+			break;
+
+		case MaterialDeform::Move:
+			deform_Gen_Wave_Base_Amplitude_[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, ds.deformationWave.base, ds.deformationWave.amplitude);
+			deform_Frequency_Phase_Spread_[i] = vec4(ds.deformationWave.frequency, ds.deformationWave.phase, 0, 0);
+			deformMoveDirs_[i] = ds.moveVector;
 			break;
 
 		default:

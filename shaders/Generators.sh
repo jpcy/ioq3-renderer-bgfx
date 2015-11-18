@@ -13,21 +13,22 @@ uniform vec4   u_TCGen0Vector0;
 uniform vec4   u_TCGen0Vector1;
 
 uniform vec4 u_NumDeforms; // only x used
-uniform vec4 u_DeformTypeBaseAmplitudeFrequency[MAX_DEFORMS];
-uniform vec4 u_DeformPhaseSpread[MAX_DEFORMS];
+uniform vec4 u_DeformMoveDirs[MAX_DEFORMS]; // only xyz used
+uniform vec4 u_Deform_Gen_Wave_Base_Amplitude[MAX_DEFORMS];
+uniform vec4 u_Deform_Frequency_Phase_Spread[MAX_DEFORMS];
 
 uniform vec4   u_AmbientLight;
 uniform vec4   u_DirectedLight;
 uniform vec4   u_ModelLightDir;
 uniform vec4  u_PortalRange;
 
-vec3 CalculateDeform(const vec3 pos, const vec3 normal, const vec2 st, float time, float type, float base, float amplitude, float freq, float phase, float spread)
+vec3 CalculateDeform(const vec3 pos, const vec3 normal, const vec2 st, float time, float gen, float wave, float base, float amplitude, float freq, float phase, float spread, vec4 moveDir)
 {
-	if (type == DGEN_BULGE)
+	if (gen == DGEN_BULGE)
 	{
 		phase *= st.x;
 	}
-	else // if (type <= DGEN_WAVE_INVERSE_SAWTOOTH)
+	else if (gen == DGEN_WAVE)
 	{
 		phase += dot(pos.xyz, vec3(spread, spread, spread));
 	}
@@ -35,32 +36,39 @@ vec3 CalculateDeform(const vec3 pos, const vec3 normal, const vec2 st, float tim
 	float value = phase + (time * freq);
 	float func;
 
-	if (type == DGEN_WAVE_SIN)
+	if (wave == DGEN_WAVE_SIN)
 	{
 		func = sin(value * 2.0 * M_PI);
 	}
-	else if (type == DGEN_WAVE_SQUARE)
+	else if (wave == DGEN_WAVE_SQUARE)
 	{
 		func = sign(fract(0.5 - value));
 	}
-	else if (type == DGEN_WAVE_TRIANGLE)
+	else if (wave == DGEN_WAVE_TRIANGLE)
 	{
 		func = abs(fract(value + 0.75) - 0.5) * 4.0 - 1.0;
 	}
-	else if (type == DGEN_WAVE_SAWTOOTH)
+	else if (wave == DGEN_WAVE_SAWTOOTH)
 	{
 		func = fract(value);
 	}
-	else if (type == DGEN_WAVE_INVERSE_SAWTOOTH)
+	else if (wave == DGEN_WAVE_INVERSE_SAWTOOTH)
 	{
 		func = (1.0 - fract(value));
 	}
-	else // if (type == DGEN_BULGE)
+	else
 	{
 		func = sin(value);
 	}
 
-	return pos + normal * (base + func * amplitude);
+	if (gen == DGEN_MOVE)
+	{
+		return pos + moveDir.xyz * (base + func * amplitude);
+	}
+	else
+	{
+		return pos + normal * (base + func * amplitude);
+	}
 }
 
 vec3 DeformPosition(const vec3 pos, const vec3 normal, const vec2 st, float time)
@@ -69,7 +77,7 @@ vec3 DeformPosition(const vec3 pos, const vec3 normal, const vec2 st, float time
 
 	for (int i = 0; i < u_NumDeforms.x; i++)
 	{
-		deformedPos = CalculateDeform(deformedPos, normal, st, time, u_DeformTypeBaseAmplitudeFrequency[i].x, u_DeformTypeBaseAmplitudeFrequency[i].y, u_DeformTypeBaseAmplitudeFrequency[i].z, u_DeformTypeBaseAmplitudeFrequency[i].w, u_DeformPhaseSpread[i].x, u_DeformPhaseSpread[i].y);
+		deformedPos = CalculateDeform(deformedPos, normal, st, time, u_Deform_Gen_Wave_Base_Amplitude[i].x, u_Deform_Gen_Wave_Base_Amplitude[i].y, u_Deform_Gen_Wave_Base_Amplitude[i].z, u_Deform_Gen_Wave_Base_Amplitude[i].w, u_Deform_Frequency_Phase_Spread[i].x, u_Deform_Frequency_Phase_Spread[i].y, u_Deform_Frequency_Phase_Spread[i].z, u_DeformMoveDirs[i]);
 	}
 
 	return deformedPos;

@@ -300,23 +300,6 @@ enum class MaterialDeform
 	Text7
 };
 
-/// deformVertexes types that can be handled by the GPU.
-enum class MaterialDeformGen
-{
-	// do not edit: same as MaterialWaveformGenFunc
-	None,
-	Sin,
-	Square,
-	Triangle,
-	Sawtooth,
-	InverseSawtooth,
-	Noise,
-
-	// do not edit until this line
-	Bulge,
-	Move
-};
-
 enum class MaterialWaveformGenFunc
 {
 	None,
@@ -706,9 +689,9 @@ private:
 	/// @remarks Set when precalculate() is called.
 	float time_;
 
-	MaterialDeformGen deformGens_[maxDeforms];
-	vec4 deformTypeBaseAmplitudeFrequency_[maxDeforms];
-	vec4 deformPhaseSpread_[maxDeforms];
+	vec4 deformMoveDirs_[maxDeforms];
+	vec4 deform_Gen_Wave_Base_Amplitude_[maxDeforms];
+	vec4 deform_Frequency_Phase_Spread_[maxDeforms];
 
 	/// @}
 
@@ -1151,8 +1134,11 @@ struct Uniforms
 	/// @remarks Only x used.
 	Uniform_vec4 nDeforms = "u_NumDeforms";
 
-	Uniform_vec4 deformTypeBaseAmplitudeFrequency = { "u_DeformTypeBaseAmplitudeFrequency", Material::maxDeforms };
-	Uniform_vec4 deformPhaseSpread = { "u_DeformPhaseSpread", Material::maxDeforms };
+	/// @remarks Only xyz used.
+	Uniform_vec4 deformMoveDirs = { "u_DeformMoveDirs", Material::maxDeforms };
+
+	Uniform_vec4 deform_Gen_Wave_Base_Amplitude = { "u_Deform_Gen_Wave_Base_Amplitude", Material::maxDeforms };
+	Uniform_vec4 deform_Frequency_Phase_Spread = { "u_Deform_Frequency_Phase_Spread", Material::maxDeforms };
 
 	/// @}
 
