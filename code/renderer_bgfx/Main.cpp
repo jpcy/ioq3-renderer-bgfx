@@ -441,8 +441,8 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		for (size_t i = 0; i < polygon.nVertices - 2; i++)
 		{
 			indices[i * 3 + 0] = 0;
-			indices[i * 3 + 1] = i + 1;
-			indices[i * 3 + 2] = i + 2;
+			indices[i * 3 + 1] = uint16_t(i) + 1;
+			indices[i * 3 + 2] = uint16_t(i) + 2;
 		}
 
 		DrawCall dc;

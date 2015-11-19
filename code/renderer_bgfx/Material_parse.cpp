@@ -54,7 +54,7 @@ public:
 struct infoParm_t
 {
 	char *name;
-	int clearSolid, surfaceFlags, contents;
+	unsigned int clearSolid, surfaceFlags, contents;
 };
 
 // this table is also present in q3map

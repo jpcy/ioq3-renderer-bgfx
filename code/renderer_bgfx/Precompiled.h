@@ -586,8 +586,8 @@ public:
 
 	bool explicitlyDefined = false;		// found in a .shader file
 
-	int surfaceFlags = 0;			// if explicitlyDefined, this will have SURF_* flags
-	int contentFlags = 0;
+	unsigned int surfaceFlags = 0;			// if explicitlyDefined, this will have SURF_* flags
+	unsigned int contentFlags = 0;
 
 	bool entityMergable = false;			// merge across entites optimizable (smoke, blood)
 
@@ -1345,7 +1345,7 @@ private:
 
 	std::vector<DynamicLight> sceneDynamicLights_;
 	std::vector<Polygon> scenePolygons_;
-	std::vector<const polyVert_t> scenePolygonVertices_;
+	std::vector<polyVert_t> scenePolygonVertices_;
 	DrawCallList drawCalls_;
 	VertexBuffer fsVertexBuffer_;
 	IndexBuffer fsIndexBuffer_;
