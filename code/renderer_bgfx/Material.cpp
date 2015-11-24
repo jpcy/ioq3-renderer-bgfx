@@ -29,6 +29,25 @@ Material::Material(const char *name)
 	Q_strncpyz(this->name, name, sizeof(this->name));
 }
 
+bool Material::requiresCpuDeforms() const
+{
+	for (size_t i = 0; i < numDeforms; i++)
+	{
+		switch (deforms[i].deformation)
+		{
+		case MaterialDeform::Wave:
+		case MaterialDeform::Bulge:
+		case MaterialDeform::Move:
+			break;
+
+		default:
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void Material::finish()
 {
 	if (isSky)

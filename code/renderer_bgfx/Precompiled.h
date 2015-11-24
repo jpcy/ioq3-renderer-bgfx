@@ -114,7 +114,10 @@ struct DrawCall
 	{
 		Static,
 		Dynamic,
-		Transient
+		Transient,
+
+		/// @remarks Used by materials with CPU deforms.
+		Temp
 	};
 
 	struct VertexBuffer
@@ -124,7 +127,7 @@ struct DrawCall
 		bgfx::DynamicVertexBufferHandle dynamicHandle;
 		bgfx::TransientVertexBuffer transientHandle;
 
-		/// @remarks Only used by static buffers.
+		/// @remarks Used by static and temp buffers.
 		uint32_t firstVertex = 0;
 
 		/// @remarks Not used by transient buffers.
@@ -569,6 +572,7 @@ public:
 	Material(const char *name);
 	size_t getNumStages() const { return numUnfoggedPasses; }
 	int32_t getDepth() const { return (int32_t)sort; }
+	bool requiresCpuDeforms() const;
 
 	char name[MAX_QPATH];		// game path, including extension
 	int lightmapIndex = MaterialLightmapId::None;			// for a shader to match, both name and lightmapIndex must match
@@ -656,7 +660,8 @@ private:
 public:
 	/// @name Calculate
 	/// @{
-	void precalculate();
+	void setTime(float time);
+	void doCpuDeforms(DrawCall *dc) const;
 	void setStageShaderUniforms(size_t stageIndex) const;
 	void setFogShaderUniforms() const;
 	void setStageTextureSamplers(size_t stageIndex) const;
@@ -683,15 +688,10 @@ private:
 	/// rgbGen and alphaGen
 	void calculateColors(const MaterialStage &stage, vec4 *baseColor, vec4 *vertColor) const;
 
-	bool requiresCpuDeforms() const;
-	void calculateDeformValues();
+	void setDeformUniforms() const;
 
 	/// @remarks Set when precalculate() is called.
 	float time_;
-
-	vec4 deformMoveDirs_[maxDeforms];
-	vec4 deform_Gen_Wave_Base_Amplitude_[maxDeforms];
-	vec4 deform_Frequency_Phase_Spread_[maxDeforms];
 
 	/// @}
 
@@ -1229,6 +1229,12 @@ public:
 	float getFloatTime() const { return floatTime_; }
 	int getFrameNo() const { return frameNo_; }
 	void setColor(const vec4 &c) { stretchPicColor_ = c; }
+
+	/// Setup the draw call to use temp geometry.
+	void allocTempGeometry(DrawCall *dc, uint32_t nVertices, uint32_t nIndices);
+
+	Vertex *getTempVertices() { return tempVertices_.data(); }
+	uint16_t *getTempIndices() { return tempIndices_.data(); }
 	void debugPrint(const char *format, ...);
 	void drawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex);
 	void drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const byte *data, int client, bool dirty);
@@ -1334,6 +1340,8 @@ private:
 	Material *stretchPicMaterial_ = nullptr;
 	std::vector<Vertex> stretchPicVertices_;
 	std::vector<uint16_t> stretchPicIndices_;
+	std::vector<Vertex> tempVertices_;
+	std::vector<uint16_t> tempIndices_;
 	uint8_t mainVisCacheId, portalVisCacheId;
 	std::vector<Entity> sceneEntities_;
 

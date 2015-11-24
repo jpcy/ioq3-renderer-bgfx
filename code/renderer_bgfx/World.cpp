@@ -1149,7 +1149,8 @@ public:
 					const bool isLast = i == visCache->surfaces.size() - 1;
 					auto nextSurface = isLast ? nullptr : visCache->surfaces[i + 1];
 
-					if (!nextSurface || nextSurface->material != surface->material || nextSurface->fogIndex != surface->fogIndex || nextSurface->bufferIndex != surface->bufferIndex)
+					// Don't batch if the material requires CPU deforms.
+					if (!nextSurface || nextSurface->material != surface->material || nextSurface->fogIndex != surface->fogIndex || nextSurface->bufferIndex != surface->bufferIndex || surface->material->requiresCpuDeforms())
 					{
 						BatchedSurface bs;
 						bs.material = surface->material;
@@ -1212,13 +1213,43 @@ public:
 			DrawCall dc;
 			dc.fogIndex = surface.fogIndex;
 			dc.material = surface.material;
-			dc.vb.type = DrawCall::BufferType::Static;
-			dc.vb.staticHandle = vertexBuffers_[surface.bufferIndex].handle;
-			dc.vb.nVertices = (uint32_t)vertices_[surface.bufferIndex].size();
-			dc.ib.type = DrawCall::BufferType::Dynamic;
-			dc.ib.dynamicHandle = visCache->indexBuffers[surface.bufferIndex].handle;
-			dc.ib.firstIndex = surface.firstIndex;
-			dc.ib.nIndices = surface.nIndices;
+
+			if (surface.material->requiresCpuDeforms())
+			{
+				// Find the range of vertices used by this surface.
+				uint32_t firstVertex = (uint32_t)vertices_[surface.bufferIndex].size(), lastVertex = 0;
+
+				for (size_t i = 0; i < surface.nIndices; i++)
+				{
+					const uint16_t index = visCache->indices[surface.bufferIndex][surface.firstIndex + i];
+
+					if (index < firstVertex)
+						firstVertex = index;
+					if (index > lastVertex)
+						lastVertex = index;
+				}
+
+				// Copy the surface geo to temp so it can be deformed on the CPU later.
+				g_main->allocTempGeometry(&dc, lastVertex - firstVertex + 1, surface.nIndices);
+				memcpy(&g_main->getTempVertices()[dc.vb.firstVertex], &vertices_[surface.bufferIndex][firstVertex], sizeof(Vertex) * dc.vb.nVertices);
+
+				for (size_t i = 0; i < surface.nIndices; i++)
+				{
+					// Convert to relative indices.
+					g_main->getTempIndices()[dc.ib.firstIndex + i] = visCache->indices[surface.bufferIndex][surface.firstIndex + i] - firstVertex;
+				}
+			}
+			else
+			{
+				dc.vb.type = DrawCall::BufferType::Static;
+				dc.vb.staticHandle = vertexBuffers_[surface.bufferIndex].handle;
+				dc.vb.nVertices = (uint32_t)vertices_[surface.bufferIndex].size();
+				dc.ib.type = DrawCall::BufferType::Dynamic;
+				dc.ib.dynamicHandle = visCache->indexBuffers[surface.bufferIndex].handle;
+				dc.ib.firstIndex = surface.firstIndex;
+				dc.ib.nIndices = surface.nIndices;
+			}
+
 			drawCallList->push_back(dc);
 		}
 	}

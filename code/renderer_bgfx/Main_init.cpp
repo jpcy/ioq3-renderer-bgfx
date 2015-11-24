@@ -22,6 +22,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Precompiled.h"
 #pragma hdrstop
 
+extern "C"
+{
+	void R_NoiseInit();
+}
+
 void QDECL Com_Printf(const char *msg, ...)
 {
 	va_list argptr;
@@ -171,6 +176,8 @@ Main::Main()
 			triangleTable[i] = -triangleTable[i - funcTableSize / 2];
 		}
 	}
+
+	R_NoiseInit();
 }
 
 Main::~Main()

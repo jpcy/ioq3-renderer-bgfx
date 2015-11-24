@@ -25,21 +25,135 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 extern "C"
 {
 	float R_NoiseGet4f(float x, float y, float z, float t);
-	void R_NoiseInit();
 }
+
+#define	WAVEVALUE(table, base, amplitude, phase, freq) ((base) + table[ri.ftol((((phase) + time_ * (freq)) * Main::funcTableSize)) & Main::funcTableMask] * (amplitude))
 
 namespace renderer {
 
-void Material::precalculate()
+void Material::setTime(float time)
 {
-	time_ = g_main->getFloatTime() - timeOffset;
+	time_ = time - timeOffset;
 
 	if (g_main->currentEntity)
 	{
 		time_ -= g_main->currentEntity->e.shaderTime;
 	}
+}
 
-	calculateDeformValues();
+void Material::doCpuDeforms(DrawCall *dc) const
+{
+	assert(dc);
+	assert(dc->vb.type == DrawCall::BufferType::Temp);
+	assert(dc->ib.type == DrawCall::BufferType::Temp);
+
+	if (!requiresCpuDeforms())
+		return;
+
+	for (size_t i = 0; i < numDeforms; i++)
+	{
+		auto &ds = deforms[i];
+
+		switch (ds.deformation)
+		{
+		case MaterialDeform::Wave:
+			if (ds.deformationWave.frequency == 0)
+			{
+				const float scale = evaluateWaveForm(ds.deformationWave);
+
+				for (uint32_t i = 0; i < dc->vb.nVertices; i++)
+				{
+					Vertex &v = g_main->getTempVertices()[dc->vb.firstVertex + i];
+					v.pos += v.normal * scale;
+				}
+			}
+			else
+			{
+				float *table = tableForFunc(ds.deformationWave.func);
+
+				for (uint32_t i = 0; i < dc->vb.nVertices; i++)
+				{
+					Vertex &v = g_main->getTempVertices()[dc->vb.firstVertex + i];
+					const float offset = (v.pos.x + v.pos.y + v.pos.z) * ds.deformationSpread;
+					const float scale = WAVEVALUE(table, ds.deformationWave.base, ds.deformationWave.amplitude, ds.deformationWave.phase + offset, ds.deformationWave.frequency);
+					v.pos += v.normal * scale;
+				}
+			}
+			break;
+
+		case MaterialDeform::Normals:
+			for (uint32_t i = 0; i < dc->vb.nVertices; i++)
+			{
+				Vertex &v = g_main->getTempVertices()[dc->vb.firstVertex + i];
+				float scale = 0.98f;
+				scale = R_NoiseGet4f(v.pos.x * scale, v.pos.y * scale, v.pos.z * scale, time_ * ds.deformationWave.frequency);
+				v.normal.x += ds.deformationWave.amplitude * scale;
+				scale = 0.98f;
+				scale = R_NoiseGet4f(100 + v.pos.x * scale, v.pos.y * scale, v.pos.z * scale, time_ * ds.deformationWave.frequency);
+				v.normal.y += ds.deformationWave.amplitude * scale;
+				scale = 0.98f;
+				scale = R_NoiseGet4f(200 + v.pos.x * scale, v.pos.y * scale, v.pos.z * scale, time_ * ds.deformationWave.frequency);
+				v.normal.z += ds.deformationWave.amplitude * scale;
+				v.normal.normalizeFast();
+			}
+			break;
+
+		case MaterialDeform::Bulge:
+			for (uint32_t i = 0; i < dc->vb.nVertices; i++)
+			{
+				Vertex &v = g_main->getTempVertices()[dc->vb.firstVertex + i];
+				const int offset = (float)(Main::funcTableSize / (M_PI * 2)) * (v.texCoord.u * ds.bulgeWidth + time_ * ds.bulgeSpeed);
+				const float scale = g_main->sinTable[offset & Main::funcTableMask] * ds.bulgeHeight;
+				v.pos += v.normal * scale;
+			}
+			break;
+
+		case MaterialDeform::Move:
+			{
+				const float scale = WAVEVALUE(tableForFunc(ds.deformationWave.func), ds.deformationWave.base, ds.deformationWave.amplitude, ds.deformationWave.phase, ds.deformationWave.frequency);
+				const vec3 offset(ds.moveVector * scale);
+
+				for (uint32_t i = 0; i < dc->vb.nVertices; i++)
+				{
+					Vertex &v = g_main->getTempVertices()[dc->vb.firstVertex + i];
+					v.pos += offset;
+				}
+			}
+			break;
+
+		case MaterialDeform::Autosprite:
+			break;
+
+		case MaterialDeform::Autosprite2:
+			break;
+
+		case MaterialDeform::Text0:
+		case MaterialDeform::Text1:
+		case MaterialDeform::Text2:
+		case MaterialDeform::Text3:
+		case MaterialDeform::Text4:
+		case MaterialDeform::Text5:
+		case MaterialDeform::Text6:
+		case MaterialDeform::Text7:
+			break;
+
+		default:
+			break;
+		}
+	}
+
+	// Finished deforming. Create bgfx transient buffers.
+	bgfx::TransientVertexBuffer tvb;
+	bgfx::TransientIndexBuffer tib;
+
+	if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, dc->vb.nVertices, &tib, dc->ib.nIndices))
+		return;
+
+	memcpy(tvb.data, &g_main->getTempVertices()[dc->vb.firstVertex], sizeof(Vertex) * dc->vb.nVertices);
+	memcpy(tib.data, &g_main->getTempIndices()[dc->ib.firstIndex], sizeof(uint16_t) * dc->ib.nIndices);
+	dc->vb.type = dc->ib.type = DrawCall::BufferType::Transient;
+	dc->vb.transientHandle = tvb;
+	dc->ib.transientHandle = tib;
 }
 
 void Material::setStageShaderUniforms(size_t stageIndex) const
@@ -73,18 +187,7 @@ void Material::setStageShaderUniforms(size_t stageIndex) const
 	}
 
 	g_main->uniforms->generators.set(generators);
-
-	if (requiresCpuDeforms())
-	{
-		g_main->uniforms->nDeforms.set(vec4(0, 0, 0, 0));
-	}
-	else
-	{
-		g_main->uniforms->nDeforms.set(vec4(numDeforms, 0, 0, 0));
-		g_main->uniforms->deformMoveDirs.set(deformMoveDirs_, numDeforms);
-		g_main->uniforms->deform_Gen_Wave_Base_Amplitude.set(deform_Gen_Wave_Base_Amplitude_, numDeforms);
-		g_main->uniforms->deform_Frequency_Phase_Spread.set(deform_Frequency_Phase_Spread_, numDeforms);
-	}
+	setDeformUniforms();	
 
 	// rgbGen and alphaGen
 	vec4 baseColor, vertexColor;
@@ -130,18 +233,7 @@ void Material::setStageShaderUniforms(size_t stageIndex) const
 void Material::setFogShaderUniforms() const
 {
 	g_main->uniforms->time.set(vec4(time_, 0, 0, 0));
-
-	if (requiresCpuDeforms())
-	{
-		g_main->uniforms->nDeforms.set(vec4(0, 0, 0, 0));
-	}
-	else
-	{
-		g_main->uniforms->nDeforms.set(vec4(numDeforms, 0, 0, 0));
-		g_main->uniforms->deformMoveDirs.set(deformMoveDirs_, numDeforms);
-		g_main->uniforms->deform_Gen_Wave_Base_Amplitude.set(deform_Gen_Wave_Base_Amplitude_, numDeforms);
-		g_main->uniforms->deform_Frequency_Phase_Spread.set(deform_Frequency_Phase_Spread_, numDeforms);
-	}
+	setDeformUniforms();
 }
 
 void Material::setStageTextureSamplers(size_t stageIndex) const
@@ -286,8 +378,6 @@ void Material::setStageTextureSampler(size_t stageIndex, int sampler) const
 		bundle.textures[index]->setSampler(sampler);
 	}
 }
-
-#define	WAVEVALUE(table, base, amplitude, phase, freq) ((base) + table[ri.ftol((((phase) + time_ * (freq)) * Main::funcTableSize)) & Main::funcTableMask] * (amplitude))
 
 float *Material::tableForFunc(MaterialWaveformGenFunc func) const
 {
@@ -612,29 +702,17 @@ void Material::calculateColors(const MaterialStage &stage, vec4 *baseColor, vec4
 	}
 }
 
-bool Material::requiresCpuDeforms() const
-{
-	for (size_t i = 0; i < numDeforms; i++)
-	{
-		switch (deforms[0].deformation)
-		{
-		case MaterialDeform::Wave:
-		case MaterialDeform::Bulge:
-		case MaterialDeform::Move:
-			break;
-
-		default:
-			return true;
-		}
-	}
-
-	return false;
-}
-
-void Material::calculateDeformValues()
+void Material::setDeformUniforms() const
 {
 	if (requiresCpuDeforms())
+	{
+		g_main->uniforms->nDeforms.set(vec4(0, 0, 0, 0));
 		return;
+	}
+
+	vec4 moveDirs[maxDeforms];
+	vec4 gen_Wave_Base_Amplitude[maxDeforms];
+	vec4 frequency_Phase_Spread[maxDeforms];
 
 	for (size_t i = 0; i < numDeforms; i++)
 	{
@@ -643,25 +721,30 @@ void Material::calculateDeformValues()
 		switch (ds.deformation)
 		{
 		case MaterialDeform::Wave:
-			deform_Gen_Wave_Base_Amplitude_[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, ds.deformationWave.base, ds.deformationWave.amplitude);
-			deform_Frequency_Phase_Spread_[i] = vec4(ds.deformationWave.frequency, ds.deformationWave.phase, ds.deformationSpread, 0);
+			gen_Wave_Base_Amplitude[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, ds.deformationWave.base, ds.deformationWave.amplitude);
+			frequency_Phase_Spread[i] = vec4(ds.deformationWave.frequency, ds.deformationWave.phase, ds.deformationSpread, 0);
 			break;
 
 		case MaterialDeform::Bulge:
-			deform_Gen_Wave_Base_Amplitude_[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, 0, ds.bulgeHeight);
-			deform_Frequency_Phase_Spread_[i] = vec4(ds.bulgeSpeed, ds.bulgeWidth, 0, 0);
+			gen_Wave_Base_Amplitude[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, 0, ds.bulgeHeight);
+			frequency_Phase_Spread[i] = vec4(ds.bulgeSpeed, ds.bulgeWidth, 0, 0);
 			break;
 
 		case MaterialDeform::Move:
-			deform_Gen_Wave_Base_Amplitude_[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, ds.deformationWave.base, ds.deformationWave.amplitude);
-			deform_Frequency_Phase_Spread_[i] = vec4(ds.deformationWave.frequency, ds.deformationWave.phase, 0, 0);
-			deformMoveDirs_[i] = ds.moveVector;
+			gen_Wave_Base_Amplitude[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, ds.deformationWave.base, ds.deformationWave.amplitude);
+			frequency_Phase_Spread[i] = vec4(ds.deformationWave.frequency, ds.deformationWave.phase, 0, 0);
+			moveDirs[i] = ds.moveVector;
 			break;
 
 		default:
 			break;
 		}
 	}
+
+	g_main->uniforms->nDeforms.set(vec4(numDeforms, 0, 0, 0));
+	g_main->uniforms->deformMoveDirs.set(moveDirs, numDeforms);
+	g_main->uniforms->deform_Gen_Wave_Base_Amplitude.set(gen_Wave_Base_Amplitude, numDeforms);
+	g_main->uniforms->deform_Frequency_Phase_Spread.set(frequency_Phase_Spread, numDeforms);
 }
 
 } // namespace renderer
