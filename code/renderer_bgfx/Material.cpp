@@ -173,98 +173,86 @@ int Material::collapseStagesToGLSL()
 {
 	int i, j, numStages;
 	
-	// skip shaders with deforms
-	bool skip = false;
-
-	if (numDeforms != 0)
+	// if 2+ stages and first stage is lightmap, switch them
+	// this makes it easier for the later bits to process
+	if (stages[0].active && stages[0].bundles[0].tcGen == MaterialTexCoordGen::Lightmap && stages[1].active)
 	{
-		skip = true;
-	}
-
-	if (!skip)
-	{
-		// if 2+ stages and first stage is lightmap, switch them
-		// this makes it easier for the later bits to process
-		if (stages[0].active && stages[0].bundles[0].tcGen == MaterialTexCoordGen::Lightmap && stages[1].active)
+		if ((stages[1].blendSrc == BGFX_STATE_BLEND_ZERO && stages[1].blendDst == BGFX_STATE_BLEND_SRC_COLOR) ||
+			(stages[1].blendSrc == BGFX_STATE_BLEND_DST_COLOR && stages[1].blendDst == BGFX_STATE_BLEND_ZERO))
 		{
-			if ((stages[1].blendSrc == BGFX_STATE_BLEND_ZERO && stages[1].blendDst == BGFX_STATE_BLEND_SRC_COLOR) ||
-				(stages[1].blendSrc == BGFX_STATE_BLEND_DST_COLOR && stages[1].blendDst == BGFX_STATE_BLEND_ZERO))
-			{
-				const auto depthTestBits0 = stages[0].depthTestBits;
-				const auto depthWrite0 = stages[0].depthWrite;
-				const auto alphaTest0 = stages[0].alphaTest;
-				const auto blendSrc0 = stages[0].blendSrc;
-				const auto blendDst0 = stages[0].blendDst;
-				const auto depthTestBits1 = stages[1].depthTestBits;
-				const auto depthWrite1 = stages[1].depthWrite;
-				const auto alphaTest1 = stages[1].alphaTest;
-				const auto blendSrc1 = stages[1].blendSrc;
-				const auto blendDst1 = stages[1].blendDst;
+			const auto depthTestBits0 = stages[0].depthTestBits;
+			const auto depthWrite0 = stages[0].depthWrite;
+			const auto alphaTest0 = stages[0].alphaTest;
+			const auto blendSrc0 = stages[0].blendSrc;
+			const auto blendDst0 = stages[0].blendDst;
+			const auto depthTestBits1 = stages[1].depthTestBits;
+			const auto depthWrite1 = stages[1].depthWrite;
+			const auto alphaTest1 = stages[1].alphaTest;
+			const auto blendSrc1 = stages[1].blendSrc;
+			const auto blendDst1 = stages[1].blendDst;
 				
-				MaterialStage swapStage = stages[0];
-				stages[0] = stages[1];
-				stages[1] = swapStage;
+			MaterialStage swapStage = stages[0];
+			stages[0] = stages[1];
+			stages[1] = swapStage;
 
-				stages[0].depthTestBits = depthTestBits0;
-				stages[0].depthWrite = depthWrite0;
-				stages[0].alphaTest = alphaTest0;
-				stages[0].blendSrc = blendSrc0;
-				stages[0].blendDst = blendDst0;
-				stages[1].depthTestBits = depthTestBits1;
-				stages[1].depthWrite = depthWrite1;
-				stages[1].alphaTest = alphaTest1;
-				stages[1].blendSrc = blendSrc1;
-				stages[1].blendDst = blendDst1;
-			}
+			stages[0].depthTestBits = depthTestBits0;
+			stages[0].depthWrite = depthWrite0;
+			stages[0].alphaTest = alphaTest0;
+			stages[0].blendSrc = blendSrc0;
+			stages[0].blendDst = blendDst0;
+			stages[1].depthTestBits = depthTestBits1;
+			stages[1].depthWrite = depthWrite1;
+			stages[1].alphaTest = alphaTest1;
+			stages[1].blendSrc = blendSrc1;
+			stages[1].blendDst = blendDst1;
 		}
 	}
 
-	if (!skip)
+	bool skip = false;
+
+	// scan for shaders that aren't supported
+	for (i = 0; i < maxStages; i++)
 	{
-		// scan for shaders that aren't supported
-		for (i = 0; i < maxStages; i++)
+		MaterialStage *pStage = &stages[i];
+
+		if (!pStage->active)
+			continue;
+
+		if (pStage->adjustColorsForFog != MaterialAdjustColorsForFog::None)
 		{
-			MaterialStage *pStage = &stages[i];
+			skip = true;
+			break;
+		}
 
-			if (!pStage->active)
-				continue;
-
-			if (pStage->adjustColorsForFog != MaterialAdjustColorsForFog::None)
+		if (pStage->bundles[0].tcGen == MaterialTexCoordGen::Lightmap)
+		{
+			if (pStage->blendSrc != BGFX_STATE_BLEND_ZERO && pStage->blendDst != BGFX_STATE_BLEND_ZERO && pStage->blendSrc != BGFX_STATE_BLEND_DST_COLOR && pStage->blendDst != BGFX_STATE_BLEND_SRC_COLOR)
 			{
 				skip = true;
 				break;
 			}
+		}
 
-			if (pStage->bundles[0].tcGen == MaterialTexCoordGen::Lightmap)
-			{
-				if (pStage->blendSrc != BGFX_STATE_BLEND_ZERO && pStage->blendDst != BGFX_STATE_BLEND_ZERO && pStage->blendSrc != BGFX_STATE_BLEND_DST_COLOR && pStage->blendDst != BGFX_STATE_BLEND_SRC_COLOR)
-				{
-					skip = true;
-					break;
-				}
-			}
+		switch (pStage->bundles[0].tcGen)
+		{
+			case MaterialTexCoordGen::Texture:
+			case MaterialTexCoordGen::Lightmap:
+			case MaterialTexCoordGen::EnvironmentMapped:
+			case MaterialTexCoordGen::Vector:
+				break;
+			default:
+				skip = true;
+				break;
+		}
 
-			switch (pStage->bundles[0].tcGen)
-			{
-				case MaterialTexCoordGen::Texture:
-				case MaterialTexCoordGen::Lightmap:
-				case MaterialTexCoordGen::EnvironmentMapped:
-				case MaterialTexCoordGen::Vector:
-					break;
-				default:
-					skip = true;
-					break;
-			}
-
-			switch(pStage->alphaGen)
-			{
-				case MaterialAlphaGen::LightingSpecular:
-				case MaterialAlphaGen::Portal:
-					skip = true;
-					break;
-				default:
-					break;
-			}
+		switch(pStage->alphaGen)
+		{
+			case MaterialAlphaGen::LightingSpecular:
+			case MaterialAlphaGen::Portal:
+				skip = true;
+				break;
+			default:
+				break;
 		}
 	}
 
