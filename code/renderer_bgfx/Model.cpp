@@ -46,7 +46,7 @@ struct ModelFrame
 	float radius;
 	std::vector<Transform> tags;
 
-	/// Animated model vertices.
+	/// Vertex data in system memory. Used by animated models and static models with CPU deforms.
 	std::vector<Vertex> vertices;
 };
 
@@ -69,6 +69,9 @@ private:
 
 	/// The number of vertices in all the surfaces of a single frame.
 	uint32_t nVertices_;
+
+	/// Index data in system memory. Used by static models with CPU deforms.
+	std::vector<uint16_t> indices_;
 
 	std::vector<ModelFrame> frames_;
 	std::vector<ModelTagName> tagNames_;
@@ -225,11 +228,19 @@ bool Model_md3::load()
 	if (nIndices == 0)
 		return true;
 
+	const bool isAnimated = frames_.size() > 1;
+
 	// Merge all surface indices into one index buffer. For each surface, store the start index and number of indices.
 	auto indicesMem = bgfx::alloc(uint32_t(sizeof(uint16_t) * nIndices));
 	auto indices = (uint16_t *)indicesMem->data;
 	uint32_t startIndex = 0, startVertex = 0;
 	fileSurface = (md3Surface_t *)&data[fileHeader->ofsSurfaces];
+
+	if (!isAnimated)
+	{
+		// Store indices in system memory too, so they can be used by CPU deforms.
+		indices_.resize(nIndices);
+	}
 
 	for (size_t i = 0; i < fileHeader->numSurfaces; i++)
 	{
@@ -241,6 +252,12 @@ bool Model_md3::load()
 		for (size_t j = 0; j < surface.nIndices; j++)
 		{
 			indices[startIndex + j] = LittleLong(startVertex + fileIndices[j]);
+
+			// Store indices in system memory too, so they can be used by CPU deforms.
+			if (!isAnimated)
+			{
+				indices_[startIndex + j] = indices[startIndex + j];
+			}
 		}
 
 		startIndex += surface.nIndices;
@@ -254,10 +271,11 @@ bool Model_md3::load()
 	// Texture coords are the same for each frame, positions and normals aren't.
 	// Static models (models with 1 frame) have their surface vertices merged into a single vertex buffer.
 	// Animated models (models with more than 1 frame) have their surface vertices merged into a single system memory vertex array for each frame.
-	if (frames_.size() == 1)
+	if (!isAnimated)
 	{
 		auto verticesMem = bgfx::alloc(sizeof(Vertex) * nVertices_);
 		auto vertices = (Vertex *)verticesMem->data;
+		frames_[0].vertices.resize(nVertices_);
 		size_t startVertex = 0;
 		auto fileSurface = (md3Surface_t *)&data[fileHeader->ofsSurfaces];
 
@@ -269,6 +287,9 @@ bool Model_md3::load()
 			for (size_t j = 0; j < fileSurface->numVerts; j++)
 			{
 				vertices[startVertex + j] = loadVertex(j, fileTexCoords, fileXyzNormals);
+
+				// Store vertices in system memory too, so they can be used by CPU deforms.
+				frames_[0].vertices[startVertex + j] = vertices[startVertex + j];
 			}
 
 			startVertex += fileSurface->numVerts;
@@ -401,22 +422,40 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 			dc.zScale = 0.3f;
 		}
 
-		if (isAnimated)
+		if (!isAnimated && mat->requiresCpuDeforms())
 		{
-			dc.vb.type = DrawCall::BufferType::Transient;
+			bgfx::TransientVertexBuffer tvb;
+			bgfx::TransientIndexBuffer tib;
+
+			if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, nVertices_, &tib, surface.nIndices))
+				continue;
+
+			memcpy(tvb.data, frames_[0].vertices.data(), tvb.size);
+			memcpy(tib.data, &indices_[surface.startIndex], tib.size);
+			dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 			dc.vb.transientHandle = tvb;
+			dc.ib.transientHandle = tib;
 		}
 		else
 		{
-			dc.vb.type = DrawCall::BufferType::Static;
-			dc.vb.staticHandle = vertexBuffer_.handle;
-			dc.vb.nVertices = nVertices_;
-		}
+			if (isAnimated)
+			{
+				dc.vb.type = DrawCall::BufferType::Transient;
+				dc.vb.transientHandle = tvb;
+			}
+			else
+			{
+				dc.vb.type = DrawCall::BufferType::Static;
+				dc.vb.staticHandle = vertexBuffer_.handle;
+				dc.vb.nVertices = nVertices_;
+			}
 		
-		dc.ib.type = DrawCall::BufferType::Static;
-		dc.ib.staticHandle = indexBuffer_.handle;
-		dc.ib.firstIndex = surface.startIndex;
-		dc.ib.nIndices = surface.nIndices;
+			dc.ib.type = DrawCall::BufferType::Static;
+			dc.ib.staticHandle = indexBuffer_.handle;
+			dc.ib.firstIndex = surface.startIndex;
+			dc.ib.nIndices = surface.nIndices;
+		}
+
 		drawCallList->push_back(dc);
 	}
 }

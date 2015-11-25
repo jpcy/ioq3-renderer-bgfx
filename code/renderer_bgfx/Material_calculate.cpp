@@ -163,10 +163,12 @@ void Material::doCpuDeforms(DrawCall *dc) const
 
 			for (size_t i = 0; i < nVertices / 4; i++)
 			{
-				auto &v1 = vertices[i * 4 + 0];
-				auto &v2 = vertices[i * 4 + 1];
-				auto &v3 = vertices[i * 4 + 2];
-				auto &v4 = vertices[i * 4 + 3];
+				const size_t firstVertex = i * 4;
+				const size_t firstIndex = i * 6;
+				auto &v1 = vertices[firstVertex + 0];
+				auto &v2 = vertices[firstVertex + 1];
+				auto &v3 = vertices[firstVertex + 2];
+				auto &v4 = vertices[firstVertex + 3];
 
 				// find the midpoint
 				vec3 mid = (v1.pos + v2.pos + v3.pos + v4.pos) * 0.25f;
@@ -215,8 +217,12 @@ void Material::doCpuDeforms(DrawCall *dc) const
 				v3.texCoord = v3.texCoord2 = vec2(1, 1);
 				v4.texCoord = v4.texCoord2 = vec2(0, 1);
 
-				indices[i * 6 + 0] = 0; indices[i * 6 + 1] = 1; indices[i * 6 + 2] = 3;
-				indices[i * 6 + 3] = 3; indices[i * 6 + 4] = 1; indices[i * 6 + 5] = 2;
+				indices[firstIndex + 0] = firstVertex + 0;
+				indices[firstIndex + 1] = firstVertex + 1;
+				indices[firstIndex + 2] = firstVertex + 3;
+				indices[firstIndex + 3] = firstVertex + 3;
+				indices[firstIndex + 4] = firstVertex + 1;
+				indices[firstIndex + 5] = firstVertex + 2;
 			}
 			break;
 		}
