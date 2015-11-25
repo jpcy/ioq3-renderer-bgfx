@@ -124,8 +124,102 @@ void Material::doCpuDeforms(DrawCall *dc) const
 			}
 			break;
 
+		// Assuming all the triangles for this shader are independant quads, rebuild them as forward facing sprites.
 		case MaterialDeform::Autosprite:
+		{
+			vec3_t	delta;
+			float	radius;
+			vec3_t	left, up;
+
+			if ((nVertices % 4) != 0)
+			{
+				ri.Printf(PRINT_WARNING, "Autosprite shader %s had odd vertex count\n", name);
+			}
+
+			if (nIndices != (nVertices >> 2) * 6)
+			{
+				ri.Printf(PRINT_WARNING, "Autosprite shader %s had odd index count\n", name);
+			}
+
+			vec3 leftDir, upDir;
+
+			if (g_main->currentEntity)
+			{
+				// ???
+				leftDir.x = vec3::dotProduct(g_main->sceneRotation[1], g_main->currentEntity->e.axis[0]);
+				leftDir.y = vec3::dotProduct(g_main->sceneRotation[1], g_main->currentEntity->e.axis[1]);
+				leftDir.z = vec3::dotProduct(g_main->sceneRotation[1], g_main->currentEntity->e.axis[2]);
+				upDir.x = vec3::dotProduct(g_main->sceneRotation[2], g_main->currentEntity->e.axis[0]);
+				upDir.y = vec3::dotProduct(g_main->sceneRotation[2], g_main->currentEntity->e.axis[1]);
+				upDir.z = vec3::dotProduct(g_main->sceneRotation[2], g_main->currentEntity->e.axis[2]);
+				//GlobalVectorToLocal(backEnd.viewParms.or.axis[1], leftDir);
+				//GlobalVectorToLocal(backEnd.viewParms.or.axis[2], upDir);
+			}
+			else
+			{
+				leftDir = g_main->sceneRotation[1];
+				upDir = g_main->sceneRotation[2];
+			}
+
+			for (size_t i = 0; i < nVertices / 4; i++)
+			{
+				auto &v1 = vertices[i * 4 + 0];
+				auto &v2 = vertices[i * 4 + 1];
+				auto &v3 = vertices[i * 4 + 2];
+				auto &v4 = vertices[i * 4 + 3];
+
+				// find the midpoint
+				vec3 mid = (v1.pos + v2.pos + v3.pos + v4.pos) * 0.25f;
+
+				VectorSubtract(v1.pos, mid, delta);
+				radius = VectorLength(delta) * 0.707f; // / sqrt(2)
+
+				VectorScale(leftDir, radius, left);
+				VectorScale(upDir, radius, up);
+
+				if (g_main->isMirrorCamera)
+				{
+					VectorSubtract(vec3_origin, left, left);
+				}
+
+				// compensate for scale in the axes if necessary
+				if (g_main->currentEntity && g_main->currentEntity->e.nonNormalizedAxes)
+				{
+					float axisLength;
+					axisLength = VectorLength(g_main->currentEntity->e.axis[0]);
+
+					if (!axisLength)
+					{
+						axisLength = 0;
+					}
+					else
+					{
+						axisLength = 1.0f / axisLength;
+					}
+
+					VectorScale(left, axisLength, left);
+					VectorScale(up, axisLength, up);
+				}
+
+				v1.pos = mid + left + up;
+				v2.pos = mid - left + up;
+				v3.pos = mid - left - up;
+				v4.pos = mid + left - up;
+
+				// Constant normal all the way around.
+				v1.normal = v2.normal = v3.normal = v4.normal = -g_main->sceneRotation[0];
+
+				// Standard square texture coordinates.
+				v1.texCoord = v1.texCoord2 = vec2(0, 0);
+				v2.texCoord = v2.texCoord2 = vec2(1, 0);
+				v3.texCoord = v3.texCoord2 = vec2(1, 1);
+				v4.texCoord = v4.texCoord2 = vec2(0, 1);
+
+				indices[i * 6 + 0] = 0; indices[i * 6 + 1] = 1; indices[i * 6 + 2] = 3;
+				indices[i * 6 + 3] = 3; indices[i * 6 + 4] = 1; indices[i * 6 + 5] = 2;
+			}
 			break;
+		}
 
 		// Autosprite2 will pivot a rectangular quad along the center of its long axis.
 		case MaterialDeform::Autosprite2:
@@ -143,7 +237,7 @@ void Material::doCpuDeforms(DrawCall *dc) const
 			int		i, j, k;
 			int		indexes;
 
-			if (nVertices & 3) {
+			if ((nVertices % 4) != 0) {
 				ri.Printf(PRINT_WARNING, "Autosprite2 material %s had odd vertex count\n", name);
 			}
 			if (nIndices != (nVertices >> 2) * 6) {
