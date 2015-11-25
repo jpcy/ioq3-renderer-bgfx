@@ -124,8 +124,133 @@ void Material::doCpuDeforms(DrawCall *dc) const
 		case MaterialDeform::Autosprite:
 			break;
 
+		// Autosprite2 will pivot a rectangular quad along the center of its long axis
 		case MaterialDeform::Autosprite2:
+		{
+			const int edgeVerts[6][2] =
+			{
+				{ 0, 1 },
+				{ 0, 2 },
+				{ 0, 3 },
+				{ 1, 2 },
+				{ 1, 3 },
+				{ 2, 3 }
+			};
+
+			int		i, j, k;
+			int		indexes;
+
+			if (dc->vb.nVertices & 3) {
+				ri.Printf(PRINT_WARNING, "Autosprite2 material %s had odd vertex count\n", name);
+			}
+			if (dc->ib.nIndices != (dc->vb.nVertices >> 2) * 6) {
+				ri.Printf(PRINT_WARNING, "Autosprite2 material %s had odd index count\n", name);
+			}
+
+			vec3 forward;
+
+			if (g_main->currentEntity)
+			{
+				// ???
+				forward.x = vec3::dotProduct(g_main->sceneRotation[0], g_main->currentEntity->e.axis[0]);
+				forward.y = vec3::dotProduct(g_main->sceneRotation[0], g_main->currentEntity->e.axis[1]);
+				forward.z = vec3::dotProduct(g_main->sceneRotation[0], g_main->currentEntity->e.axis[2]);
+				//out[0] = DotProduct(in, backEnd.or.axis[0]);
+				//out[1] = DotProduct(in, backEnd.or.axis[1]);
+				//out[2] = DotProduct(in, backEnd.or.axis[2]);
+				//GlobalVectorToLocal(backEnd.viewParms.or.axis[0], forward);
+			}
+			else
+			{
+				forward = g_main->sceneRotation[0];
+			}
+
+			// this is a lot of work for two triangles...
+			// we could precalculate a lot of it is an issue, but it would mess up
+			// the shader abstraction
+			for (i = 0, indexes = 0 ; i < dc->vb.nVertices ; i+=4, indexes+=6)
+			{
+				float	lengths[2];
+				int		nums[2];
+				vec3_t	mid[2];
+				vec3_t	major, minor;
+				float	*v1, *v2;
+
+				// find the midpoint
+				//xyz = tess.xyz[i];
+				Vertex *vertices = &g_main->getTempVertices()[dc->vb.firstVertex + i];
+
+				// identify the two shortest edges
+				nums[0] = nums[1] = 0;
+				lengths[0] = lengths[1] = 999999;
+
+				for (j = 0 ; j < 6 ; j++) {
+					float	l;
+					vec3_t	temp;
+
+					v1 = &vertices[edgeVerts[j][0]].pos.x;
+					v2 = &vertices[edgeVerts[j][1]].pos.x;
+
+					VectorSubtract(v1, v2, temp);
+			
+					l = DotProduct(temp, temp);
+					if (l < lengths[0]) {
+						nums[1] = nums[0];
+						lengths[1] = lengths[0];
+						nums[0] = j;
+						lengths[0] = l;
+					} else if (l < lengths[1]) {
+						nums[1] = j;
+						lengths[1] = l;
+					}
+				}
+
+				for (j = 0 ; j < 2 ; j++) {
+					v1 = &vertices[edgeVerts[nums[j]][0]].pos.x;
+					v2 = &vertices[edgeVerts[nums[j]][1]].pos.x;
+
+					mid[j][0] = 0.5f * (v1[0] + v2[0]);
+					mid[j][1] = 0.5f * (v1[1] + v2[1]);
+					mid[j][2] = 0.5f * (v1[2] + v2[2]);
+				}
+
+				// find the vector of the major axis
+				VectorSubtract(mid[1], mid[0], major);
+
+				// cross this with the view direction to get minor axis
+				CrossProduct(major, &forward.x, minor);
+				VectorNormalize(minor);
+		
+				// re-project the points
+				for (j = 0 ; j < 2 ; j++) {
+					float	l;
+
+					v1 = &vertices[edgeVerts[nums[j]][0]].pos.x;
+					v2 = &vertices[edgeVerts[nums[j]][1]].pos.x;
+
+					l = 0.5 * sqrt(lengths[j]);
+			
+					// we need to see which direction this edge
+					// is used to determine direction of projection
+					for (k = 0 ; k < 5 ; k++) {
+						if (g_main->getTempIndices()[dc->ib.firstIndex + indexes + k ] == i + edgeVerts[nums[j]][0]
+							&& g_main->getTempIndices()[dc->ib.firstIndex + indexes + k + 1 ] == i + edgeVerts[nums[j]][1]) {
+							break;
+						}
+					}
+
+					if (k == 5) {
+						VectorMA(mid[j], l, minor, v1);
+						VectorMA(mid[j], -l, minor, v2);
+					} else {
+						VectorMA(mid[j], -l, minor, v1);
+						VectorMA(mid[j], l, minor, v2);
+					}
+				}
+			}
+
 			break;
+		}
 
 		case MaterialDeform::Text0:
 		case MaterialDeform::Text1:
