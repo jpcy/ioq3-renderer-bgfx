@@ -44,11 +44,14 @@ void Material::setTime(float time)
 void Material::doCpuDeforms(DrawCall *dc) const
 {
 	assert(dc);
-	assert(dc->vb.type == DrawCall::BufferType::Temp);
-	assert(dc->ib.type == DrawCall::BufferType::Temp);
 
-	if (!requiresCpuDeforms())
+	if (!requiresCpuDeforms() || dc->vb.type != DrawCall::BufferType::Transient || dc->ib.type != DrawCall::BufferType::Transient)
 		return;
+
+	auto vertices = (Vertex *)dc->vb.transientHandle.data;
+	const size_t nVertices = dc->vb.transientHandle.size / sizeof(Vertex);
+	auto indices = (uint16_t *)dc->ib.transientHandle.data;
+	const size_t nIndices = dc->ib.transientHandle.size / sizeof(uint16_t);
 
 	for (size_t i = 0; i < numDeforms; i++)
 	{
@@ -61,9 +64,9 @@ void Material::doCpuDeforms(DrawCall *dc) const
 			{
 				const float scale = evaluateWaveForm(ds.deformationWave);
 
-				for (uint32_t i = 0; i < dc->vb.nVertices; i++)
+				for (uint32_t i = 0; i < nVertices; i++)
 				{
-					Vertex &v = g_main->getTempVertices()[dc->vb.firstVertex + i];
+					Vertex &v = vertices[i];
 					v.pos += v.normal * scale;
 				}
 			}
@@ -71,9 +74,9 @@ void Material::doCpuDeforms(DrawCall *dc) const
 			{
 				float *table = tableForFunc(ds.deformationWave.func);
 
-				for (uint32_t i = 0; i < dc->vb.nVertices; i++)
+				for (uint32_t i = 0; i < nVertices; i++)
 				{
-					Vertex &v = g_main->getTempVertices()[dc->vb.firstVertex + i];
+					Vertex &v = vertices[i];
 					const float offset = (v.pos.x + v.pos.y + v.pos.z) * ds.deformationSpread;
 					const float scale = WAVEVALUE(table, ds.deformationWave.base, ds.deformationWave.amplitude, ds.deformationWave.phase + offset, ds.deformationWave.frequency);
 					v.pos += v.normal * scale;
@@ -82,9 +85,9 @@ void Material::doCpuDeforms(DrawCall *dc) const
 			break;
 
 		case MaterialDeform::Normals:
-			for (uint32_t i = 0; i < dc->vb.nVertices; i++)
+			for (uint32_t i = 0; i < nVertices; i++)
 			{
-				Vertex &v = g_main->getTempVertices()[dc->vb.firstVertex + i];
+				Vertex &v = vertices[i];
 				float scale = 0.98f;
 				scale = R_NoiseGet4f(v.pos.x * scale, v.pos.y * scale, v.pos.z * scale, time_ * ds.deformationWave.frequency);
 				v.normal.x += ds.deformationWave.amplitude * scale;
@@ -99,9 +102,9 @@ void Material::doCpuDeforms(DrawCall *dc) const
 			break;
 
 		case MaterialDeform::Bulge:
-			for (uint32_t i = 0; i < dc->vb.nVertices; i++)
+			for (uint32_t i = 0; i < nVertices; i++)
 			{
-				Vertex &v = g_main->getTempVertices()[dc->vb.firstVertex + i];
+				Vertex &v = vertices[i];
 				const int offset = (float)(Main::funcTableSize / (M_PI * 2)) * (v.texCoord.u * ds.bulgeWidth + time_ * ds.bulgeSpeed);
 				const float scale = g_main->sinTable[offset & Main::funcTableMask] * ds.bulgeHeight;
 				v.pos += v.normal * scale;
@@ -113,9 +116,9 @@ void Material::doCpuDeforms(DrawCall *dc) const
 				const float scale = WAVEVALUE(tableForFunc(ds.deformationWave.func), ds.deformationWave.base, ds.deformationWave.amplitude, ds.deformationWave.phase, ds.deformationWave.frequency);
 				const vec3 offset(ds.moveVector * scale);
 
-				for (uint32_t i = 0; i < dc->vb.nVertices; i++)
+				for (uint32_t i = 0; i < nVertices; i++)
 				{
-					Vertex &v = g_main->getTempVertices()[dc->vb.firstVertex + i];
+					Vertex &v = vertices[i];
 					v.pos += offset;
 				}
 			}
@@ -124,7 +127,7 @@ void Material::doCpuDeforms(DrawCall *dc) const
 		case MaterialDeform::Autosprite:
 			break;
 
-		// Autosprite2 will pivot a rectangular quad along the center of its long axis
+		// Autosprite2 will pivot a rectangular quad along the center of its long axis.
 		case MaterialDeform::Autosprite2:
 		{
 			const int edgeVerts[6][2] =
@@ -140,10 +143,10 @@ void Material::doCpuDeforms(DrawCall *dc) const
 			int		i, j, k;
 			int		indexes;
 
-			if (dc->vb.nVertices & 3) {
+			if (nVertices & 3) {
 				ri.Printf(PRINT_WARNING, "Autosprite2 material %s had odd vertex count\n", name);
 			}
-			if (dc->ib.nIndices != (dc->vb.nVertices >> 2) * 6) {
+			if (nIndices != (nVertices >> 2) * 6) {
 				ri.Printf(PRINT_WARNING, "Autosprite2 material %s had odd index count\n", name);
 			}
 
@@ -168,7 +171,7 @@ void Material::doCpuDeforms(DrawCall *dc) const
 			// this is a lot of work for two triangles...
 			// we could precalculate a lot of it is an issue, but it would mess up
 			// the shader abstraction
-			for (i = 0, indexes = 0 ; i < dc->vb.nVertices ; i+=4, indexes+=6)
+			for (i = 0, indexes = 0 ; i < nVertices ; i+=4, indexes+=6)
 			{
 				float	lengths[2];
 				int		nums[2];
@@ -177,9 +180,6 @@ void Material::doCpuDeforms(DrawCall *dc) const
 				float	*v1, *v2;
 
 				// find the midpoint
-				//xyz = tess.xyz[i];
-				Vertex *vertices = &g_main->getTempVertices()[dc->vb.firstVertex + i];
-
 				// identify the two shortest edges
 				nums[0] = nums[1] = 0;
 				lengths[0] = lengths[1] = 999999;
@@ -188,8 +188,8 @@ void Material::doCpuDeforms(DrawCall *dc) const
 					float	l;
 					vec3_t	temp;
 
-					v1 = &vertices[edgeVerts[j][0]].pos.x;
-					v2 = &vertices[edgeVerts[j][1]].pos.x;
+					v1 = &vertices[i + edgeVerts[j][0]].pos.x;
+					v2 = &vertices[i + edgeVerts[j][1]].pos.x;
 
 					VectorSubtract(v1, v2, temp);
 			
@@ -206,8 +206,8 @@ void Material::doCpuDeforms(DrawCall *dc) const
 				}
 
 				for (j = 0 ; j < 2 ; j++) {
-					v1 = &vertices[edgeVerts[nums[j]][0]].pos.x;
-					v2 = &vertices[edgeVerts[nums[j]][1]].pos.x;
+					v1 = &vertices[i + edgeVerts[nums[j]][0]].pos.x;
+					v2 = &vertices[i + edgeVerts[nums[j]][1]].pos.x;
 
 					mid[j][0] = 0.5f * (v1[0] + v2[0]);
 					mid[j][1] = 0.5f * (v1[1] + v2[1]);
@@ -225,16 +225,16 @@ void Material::doCpuDeforms(DrawCall *dc) const
 				for (j = 0 ; j < 2 ; j++) {
 					float	l;
 
-					v1 = &vertices[edgeVerts[nums[j]][0]].pos.x;
-					v2 = &vertices[edgeVerts[nums[j]][1]].pos.x;
+					v1 = &vertices[i + edgeVerts[nums[j]][0]].pos.x;
+					v2 = &vertices[i + edgeVerts[nums[j]][1]].pos.x;
 
 					l = 0.5 * sqrt(lengths[j]);
 			
 					// we need to see which direction this edge
 					// is used to determine direction of projection
 					for (k = 0 ; k < 5 ; k++) {
-						if (g_main->getTempIndices()[dc->ib.firstIndex + indexes + k ] == i + edgeVerts[nums[j]][0]
-							&& g_main->getTempIndices()[dc->ib.firstIndex + indexes + k + 1 ] == i + edgeVerts[nums[j]][1]) {
+						if (indices[indexes + k ] == i + edgeVerts[nums[j]][0]
+							&& indices[indexes + k + 1 ] == i + edgeVerts[nums[j]][1]) {
 							break;
 						}
 					}
@@ -266,19 +266,6 @@ void Material::doCpuDeforms(DrawCall *dc) const
 			break;
 		}
 	}
-
-	// Finished deforming. Create bgfx transient buffers.
-	bgfx::TransientVertexBuffer tvb;
-	bgfx::TransientIndexBuffer tib;
-
-	if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, dc->vb.nVertices, &tib, dc->ib.nIndices))
-		return;
-
-	memcpy(tvb.data, &g_main->getTempVertices()[dc->vb.firstVertex], sizeof(Vertex) * dc->vb.nVertices);
-	memcpy(tib.data, &g_main->getTempIndices()[dc->ib.firstIndex], sizeof(uint16_t) * dc->ib.nIndices);
-	dc->vb.type = dc->ib.type = DrawCall::BufferType::Transient;
-	dc->vb.transientHandle = tvb;
-	dc->ib.transientHandle = tib;
 }
 
 void Material::setStageShaderUniforms(size_t stageIndex) const

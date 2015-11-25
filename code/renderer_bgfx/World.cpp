@@ -1229,15 +1229,25 @@ public:
 						lastVertex = index;
 				}
 
-				// Copy the surface geo to temp so it can be deformed on the CPU later.
-				g_main->allocTempGeometry(&dc, lastVertex - firstVertex + 1, surface.nIndices);
-				memcpy(&g_main->getTempVertices()[dc.vb.firstVertex], &vertices_[surface.bufferIndex][firstVertex], sizeof(Vertex) * dc.vb.nVertices);
+				// Copy the surface geo to transient buffers. The geo needs to be in system memory for CPU deforms.
+				bgfx::TransientVertexBuffer tvb;
+				bgfx::TransientIndexBuffer tib;
+
+				if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, lastVertex - firstVertex + 1, &tib, surface.nIndices))
+					return;
+
+				memcpy(tvb.data, &vertices_[surface.bufferIndex][firstVertex], tvb.size);
+				auto indices = (uint16_t *)tib.data;
 
 				for (size_t i = 0; i < surface.nIndices; i++)
 				{
 					// Convert to relative indices.
-					g_main->getTempIndices()[dc.ib.firstIndex + i] = visCache->indices[surface.bufferIndex][surface.firstIndex + i] - firstVertex;
+					indices[i] = visCache->indices[surface.bufferIndex][surface.firstIndex + i] - firstVertex;
 				}
+
+				dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
+				dc.vb.transientHandle = tvb;
+				dc.ib.transientHandle = tib;
 			}
 			else
 			{

@@ -115,9 +115,6 @@ struct DrawCall
 		Static,
 		Dynamic,
 		Transient,
-
-		/// @remarks Used by materials with CPU deforms.
-		Temp
 	};
 
 	struct VertexBuffer
@@ -127,7 +124,7 @@ struct DrawCall
 		bgfx::DynamicVertexBufferHandle dynamicHandle;
 		bgfx::TransientVertexBuffer transientHandle;
 
-		/// @remarks Used by static and temp buffers.
+		/// @remarks Used by static buffers.
 		uint32_t firstVertex = 0;
 
 		/// @remarks Not used by transient buffers.
@@ -1229,12 +1226,6 @@ public:
 	float getFloatTime() const { return floatTime_; }
 	int getFrameNo() const { return frameNo_; }
 	void setColor(const vec4 &c) { stretchPicColor_ = c; }
-
-	/// Setup the draw call to use temp geometry.
-	void allocTempGeometry(DrawCall *dc, uint32_t nVertices, uint32_t nIndices);
-
-	Vertex *getTempVertices() { return tempVertices_.data(); }
-	uint16_t *getTempIndices() { return tempIndices_.data(); }
 	void debugPrint(const char *format, ...);
 	void drawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex);
 	void drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const byte *data, int client, bool dirty);
@@ -1340,8 +1331,6 @@ private:
 	Material *stretchPicMaterial_ = nullptr;
 	std::vector<Vertex> stretchPicVertices_;
 	std::vector<uint16_t> stretchPicIndices_;
-	std::vector<Vertex> tempVertices_;
-	std::vector<uint16_t> tempIndices_;
 	uint8_t mainVisCacheId, portalVisCacheId;
 	std::vector<Entity> sceneEntities_;
 

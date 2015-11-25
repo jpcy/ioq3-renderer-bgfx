@@ -42,18 +42,6 @@ bool DrawCall::operator<(const DrawCall &other) const
 	return false;
 }
 
-void Main::allocTempGeometry(DrawCall *dc, uint32_t nVertices, uint32_t nIndices)
-{
-	assert(dc);
-	dc->vb.type = dc->ib.type = DrawCall::BufferType::Temp;
-	dc->vb.firstVertex = tempVertices_.size();
-	dc->ib.firstIndex = tempIndices_.size();
-	dc->vb.nVertices = nVertices;
-	dc->ib.nIndices = nIndices;
-	tempVertices_.resize(tempVertices_.size() + nVertices);
-	tempIndices_.resize(tempIndices_.size() + nIndices);
-}
-
 void Main::debugPrint(const char *format, ...)
 {
 	va_list args;
@@ -327,9 +315,6 @@ void Main::flushStretchPics()
 
 static void SetDrawCallGeometry(const DrawCall &dc)
 {
-	assert(dc.vb.type != DrawCall::BufferType::Temp);
-	assert(dc.ib.type != DrawCall::BufferType::Temp);
-
 	if (dc.vb.type == DrawCall::BufferType::Static)
 	{
 		bgfx::setVertexBuffer(dc.vb.staticHandle, dc.vb.firstVertex, dc.vb.nVertices);
@@ -410,8 +395,6 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	
 	// Build draw calls. Order doesn't matter.
 	drawCalls_.clear();
-	tempIndices_.clear();
-	tempVertices_.clear();
 
 	if (isWorldCamera)
 	{
@@ -472,7 +455,6 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	}
 
 	// Do material CPU deforms.
-	// This will change draw calls with temp geometry to transient geometry with the deforms applied.
 	for (DrawCall &dc : drawCalls_)
 	{
 		assert(dc.material);
@@ -480,7 +462,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		if (dc.material->requiresCpuDeforms())
 		{
 			// Material requires CPU deforms, but geometry isn't available in system memory.
-			if (dc.vb.type != DrawCall::BufferType::Temp || dc.ib.type != DrawCall::BufferType::Temp)
+			if (dc.vb.type != DrawCall::BufferType::Transient || dc.ib.type != DrawCall::BufferType::Transient)
 				continue;
 
 			dc.material->setTime(floatTime_);
@@ -497,10 +479,6 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	for (DrawCall &dc : drawCalls_)
 	{
 		assert(dc.material);
-
-		// These should have been changed to transient geometry already, but bgfx::allocTransientBuffers could have failed.
-		if (dc.vb.type == DrawCall::BufferType::Temp || dc.ib.type == DrawCall::BufferType::Temp)
-			continue;
 
 		// Material remapping.
 		auto mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
