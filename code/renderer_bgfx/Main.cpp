@@ -465,8 +465,10 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (dc.vb.type != DrawCall::BufferType::Transient || dc.ib.type != DrawCall::BufferType::Transient)
 				continue;
 
+			currentEntity = dc.entity;
 			dc.material->setTime(floatTime_);
 			dc.material->doCpuDeforms(&dc);
+			currentEntity = nullptr;
 		}
 	}
 

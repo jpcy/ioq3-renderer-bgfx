@@ -1149,8 +1149,7 @@ public:
 					const bool isLast = i == visCache->surfaces.size() - 1;
 					auto nextSurface = isLast ? nullptr : visCache->surfaces[i + 1];
 
-					// Don't batch if the material requires CPU deforms.
-					if (!nextSurface || nextSurface->material != surface->material || nextSurface->fogIndex != surface->fogIndex || nextSurface->bufferIndex != surface->bufferIndex || surface->material->requiresCpuDeforms())
+					if (!nextSurface || nextSurface->material != surface->material || nextSurface->fogIndex != surface->fogIndex || nextSurface->bufferIndex != surface->bufferIndex)
 					{
 						BatchedSurface bs;
 						bs.material = surface->material;
@@ -1217,6 +1216,7 @@ public:
 			if (surface.material->requiresCpuDeforms())
 			{
 				// Find the range of vertices used by this surface.
+				// Because they're batched together, they're not guaranteed to be contiguous, so just grab the whole range.
 				uint32_t firstVertex = (uint32_t)vertices_[surface.bufferIndex].size(), lastVertex = 0;
 
 				for (size_t i = 0; i < surface.nIndices; i++)

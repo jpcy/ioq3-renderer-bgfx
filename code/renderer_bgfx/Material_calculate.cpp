@@ -124,133 +124,18 @@ void Material::doCpuDeforms(DrawCall *dc) const
 			}
 			break;
 
-		// Assuming all the triangles for this shader are independant quads, rebuild them as forward facing sprites.
-		case MaterialDeform::Autosprite:
-		{
-			vec3_t	delta;
-			float	radius;
-			vec3_t	left, up;
-
-			if ((nVertices % 4) != 0)
-			{
-				ri.Printf(PRINT_WARNING, "Autosprite shader %s had odd vertex count\n", name);
-			}
-
-			if (nIndices != (nVertices >> 2) * 6)
-			{
-				ri.Printf(PRINT_WARNING, "Autosprite shader %s had odd index count\n", name);
-			}
-
-			vec3 leftDir, upDir;
-
-			if (g_main->currentEntity)
-			{
-				// ???
-				leftDir.x = vec3::dotProduct(g_main->sceneRotation[1], g_main->currentEntity->e.axis[0]);
-				leftDir.y = vec3::dotProduct(g_main->sceneRotation[1], g_main->currentEntity->e.axis[1]);
-				leftDir.z = vec3::dotProduct(g_main->sceneRotation[1], g_main->currentEntity->e.axis[2]);
-				upDir.x = vec3::dotProduct(g_main->sceneRotation[2], g_main->currentEntity->e.axis[0]);
-				upDir.y = vec3::dotProduct(g_main->sceneRotation[2], g_main->currentEntity->e.axis[1]);
-				upDir.z = vec3::dotProduct(g_main->sceneRotation[2], g_main->currentEntity->e.axis[2]);
-				//GlobalVectorToLocal(backEnd.viewParms.or.axis[1], leftDir);
-				//GlobalVectorToLocal(backEnd.viewParms.or.axis[2], upDir);
-			}
-			else
-			{
-				leftDir = g_main->sceneRotation[1];
-				upDir = g_main->sceneRotation[2];
-			}
-
-			for (size_t i = 0; i < nVertices / 4; i++)
-			{
-				const size_t firstVertex = i * 4;
-				const size_t firstIndex = i * 6;
-				auto &v1 = vertices[firstVertex + 0];
-				auto &v2 = vertices[firstVertex + 1];
-				auto &v3 = vertices[firstVertex + 2];
-				auto &v4 = vertices[firstVertex + 3];
-
-				// find the midpoint
-				vec3 mid = (v1.pos + v2.pos + v3.pos + v4.pos) * 0.25f;
-
-				VectorSubtract(v1.pos, mid, delta);
-				radius = VectorLength(delta) * 0.707f; // / sqrt(2)
-
-				VectorScale(leftDir, radius, left);
-				VectorScale(upDir, radius, up);
-
-				if (g_main->isMirrorCamera)
-				{
-					VectorSubtract(vec3_origin, left, left);
-				}
-
-				// compensate for scale in the axes if necessary
-				if (g_main->currentEntity && g_main->currentEntity->e.nonNormalizedAxes)
-				{
-					float axisLength;
-					axisLength = VectorLength(g_main->currentEntity->e.axis[0]);
-
-					if (!axisLength)
-					{
-						axisLength = 0;
-					}
-					else
-					{
-						axisLength = 1.0f / axisLength;
-					}
-
-					VectorScale(left, axisLength, left);
-					VectorScale(up, axisLength, up);
-				}
-
-				v1.pos = mid + left + up;
-				v2.pos = mid - left + up;
-				v3.pos = mid - left - up;
-				v4.pos = mid + left - up;
-
-				// Constant normal all the way around.
-				v1.normal = v2.normal = v3.normal = v4.normal = -g_main->sceneRotation[0];
-
-				// Standard square texture coordinates.
-				v1.texCoord = v1.texCoord2 = vec2(0, 0);
-				v2.texCoord = v2.texCoord2 = vec2(1, 0);
-				v3.texCoord = v3.texCoord2 = vec2(1, 1);
-				v4.texCoord = v4.texCoord2 = vec2(0, 1);
-
-				indices[firstIndex + 0] = firstVertex + 0;
-				indices[firstIndex + 1] = firstVertex + 1;
-				indices[firstIndex + 2] = firstVertex + 3;
-				indices[firstIndex + 3] = firstVertex + 3;
-				indices[firstIndex + 4] = firstVertex + 1;
-				indices[firstIndex + 5] = firstVertex + 2;
-			}
-			break;
-		}
-
+		// Assuming the geometry is triangulated quads.
+		// Autosprite will rebuild them as forward facing sprites.
 		// Autosprite2 will pivot a rectangular quad along the center of its long axis.
+		case MaterialDeform::Autosprite:
 		case MaterialDeform::Autosprite2:
 		{
-			const int edgeVerts[6][2] =
+			if ((nIndices % 6) != 0)
 			{
-				{ 0, 1 },
-				{ 0, 2 },
-				{ 0, 3 },
-				{ 1, 2 },
-				{ 1, 3 },
-				{ 2, 3 }
-			};
-
-			int		i, j, k;
-			int		indexes;
-
-			if ((nVertices % 4) != 0) {
-				ri.Printf(PRINT_WARNING, "Autosprite2 material %s had odd vertex count\n", name);
-			}
-			if (nIndices != (nVertices >> 2) * 6) {
-				ri.Printf(PRINT_WARNING, "Autosprite2 material %s had odd index count\n", name);
+				ri.Printf(PRINT_WARNING, "Autosprite material %s had odd index count %d\n", name, nIndices);
 			}
 
-			vec3 forward;
+			vec3 forward, leftDir, upDir;
 
 			if (g_main->currentEntity)
 			{
@@ -258,97 +143,206 @@ void Material::doCpuDeforms(DrawCall *dc) const
 				forward.x = vec3::dotProduct(g_main->sceneRotation[0], g_main->currentEntity->e.axis[0]);
 				forward.y = vec3::dotProduct(g_main->sceneRotation[0], g_main->currentEntity->e.axis[1]);
 				forward.z = vec3::dotProduct(g_main->sceneRotation[0], g_main->currentEntity->e.axis[2]);
-				//out[0] = DotProduct(in, backEnd.or.axis[0]);
-				//out[1] = DotProduct(in, backEnd.or.axis[1]);
-				//out[2] = DotProduct(in, backEnd.or.axis[2]);
-				//GlobalVectorToLocal(backEnd.viewParms.or.axis[0], forward);
+				leftDir.x = vec3::dotProduct(g_main->sceneRotation[1], g_main->currentEntity->e.axis[0]);
+				leftDir.y = vec3::dotProduct(g_main->sceneRotation[1], g_main->currentEntity->e.axis[1]);
+				leftDir.z = vec3::dotProduct(g_main->sceneRotation[1], g_main->currentEntity->e.axis[2]);
+				upDir.x = vec3::dotProduct(g_main->sceneRotation[2], g_main->currentEntity->e.axis[0]);
+				upDir.y = vec3::dotProduct(g_main->sceneRotation[2], g_main->currentEntity->e.axis[1]);
+				upDir.z = vec3::dotProduct(g_main->sceneRotation[2], g_main->currentEntity->e.axis[2]);
 			}
 			else
 			{
 				forward = g_main->sceneRotation[0];
+				leftDir = g_main->sceneRotation[1];
+				upDir = g_main->sceneRotation[2];
 			}
 
-			// this is a lot of work for two triangles...
-			// we could precalculate a lot of it is an issue, but it would mess up
-			// the shader abstraction
-			for (i = 0, indexes = 0 ; i < nVertices ; i+=4, indexes+=6)
+			// Iterate through triangulated quads.
+			for (size_t quadIndex = 0; quadIndex < nIndices / 6; quadIndex++)
 			{
-				float	lengths[2];
-				int		nums[2];
-				vec3_t	mid[2];
-				vec3_t	major, minor;
-				float	*v1, *v2;
+				const size_t firstIndex = quadIndex * 6;
 
-				// find the midpoint
-				// identify the two shortest edges
-				nums[0] = nums[1] = 0;
-				lengths[0] = lengths[1] = 999999;
+				// Vertices may not be contiguous. Grab the unique vertices.
+				Vertex *v[4] = {0};
+				uint16_t oldIndices[4];
 
-				for (j = 0 ; j < 6 ; j++) {
-					float	l;
-					vec3_t	temp;
+				for (size_t j = 0; j < 6; j++)
+				{
+					uint16_t index = indices[firstIndex + j];
+					size_t k;
+					bool alreadyAdded = false;
 
-					v1 = &vertices[i + edgeVerts[j][0]].pos.x;
-					v2 = &vertices[i + edgeVerts[j][1]].pos.x;
-
-					VectorSubtract(v1, v2, temp);
-			
-					l = DotProduct(temp, temp);
-					if (l < lengths[0]) {
-						nums[1] = nums[0];
-						lengths[1] = lengths[0];
-						nums[0] = j;
-						lengths[0] = l;
-					} else if (l < lengths[1]) {
-						nums[1] = j;
-						lengths[1] = l;
-					}
-				}
-
-				for (j = 0 ; j < 2 ; j++) {
-					v1 = &vertices[i + edgeVerts[nums[j]][0]].pos.x;
-					v2 = &vertices[i + edgeVerts[nums[j]][1]].pos.x;
-
-					mid[j][0] = 0.5f * (v1[0] + v2[0]);
-					mid[j][1] = 0.5f * (v1[1] + v2[1]);
-					mid[j][2] = 0.5f * (v1[2] + v2[2]);
-				}
-
-				// find the vector of the major axis
-				VectorSubtract(mid[1], mid[0], major);
-
-				// cross this with the view direction to get minor axis
-				CrossProduct(major, &forward.x, minor);
-				VectorNormalize(minor);
-		
-				// re-project the points
-				for (j = 0 ; j < 2 ; j++) {
-					float	l;
-
-					v1 = &vertices[i + edgeVerts[nums[j]][0]].pos.x;
-					v2 = &vertices[i + edgeVerts[nums[j]][1]].pos.x;
-
-					l = 0.5 * sqrt(lengths[j]);
-			
-					// we need to see which direction this edge
-					// is used to determine direction of projection
-					for (k = 0 ; k < 5 ; k++) {
-						if (indices[indexes + k ] == i + edgeVerts[nums[j]][0]
-							&& indices[indexes + k + 1 ] == i + edgeVerts[nums[j]][1]) {
+					for (k = 0; k < 4; k++)
+					{
+						if (!v[k])
+						{
+							break;
+						}
+						else if (oldIndices[k] == index)
+						{
+							alreadyAdded = true;
 							break;
 						}
 					}
 
-					if (k == 5) {
-						VectorMA(mid[j], l, minor, v1);
-						VectorMA(mid[j], -l, minor, v2);
-					} else {
-						VectorMA(mid[j], -l, minor, v1);
-						VectorMA(mid[j], l, minor, v2);
+					if (alreadyAdded)
+						continue;
+
+					if (k < 4)
+					{
+						v[k] = &vertices[index];
+						oldIndices[k] = index;
+					}
+				}
+				
+				if (ds.deformation == MaterialDeform::Autosprite)
+				{
+					// find the midpoint
+					vec3 mid = (v[0]->pos + v[1]->pos + v[2]->pos + v[3]->pos) * 0.25f;
+
+					vec3_t delta;
+					VectorSubtract(v[0]->pos, mid, delta);
+					float radius = VectorLength(delta) * 0.707f; // / sqrt(2)
+
+					vec3_t left, up;
+					VectorScale(leftDir, radius, left);
+					VectorScale(upDir, radius, up);
+
+					if (g_main->isMirrorCamera)
+					{
+						VectorSubtract(vec3_origin, left, left);
+					}
+
+					// compensate for scale in the axes if necessary
+					if (g_main->currentEntity && g_main->currentEntity->e.nonNormalizedAxes)
+					{
+						float axisLength;
+						axisLength = VectorLength(g_main->currentEntity->e.axis[0]);
+
+						if (!axisLength)
+						{
+							axisLength = 0;
+						}
+						else
+						{
+							axisLength = 1.0f / axisLength;
+						}
+
+						VectorScale(left, axisLength, left);
+						VectorScale(up, axisLength, up);
+					}
+
+					v[0]->pos = mid + left + up;
+					v[1]->pos = mid - left + up;
+					v[2]->pos = mid - left - up;
+					v[3]->pos = mid + left - up;
+
+					// Constant normal all the way around.
+					v[0]->normal = v[1]->normal = v[2]->normal = v[3]->normal = -g_main->sceneRotation[0];
+
+					// Standard square texture coordinates.
+					v[0]->texCoord = v[0]->texCoord2 = vec2(0, 0);
+					v[1]->texCoord = v[1]->texCoord2 = vec2(1, 0);
+					v[2]->texCoord = v[2]->texCoord2 = vec2(1, 1);
+					v[3]->texCoord = v[3]->texCoord2 = vec2(0, 1);
+
+					indices[firstIndex + 0] = oldIndices[0];
+					indices[firstIndex + 1] = oldIndices[1];
+					indices[firstIndex + 2] = oldIndices[3];
+					indices[firstIndex + 3] = oldIndices[3];
+					indices[firstIndex + 4] = oldIndices[1];
+					indices[firstIndex + 5] = oldIndices[2];
+				}
+				else if (ds.deformation == MaterialDeform::Autosprite2)
+				{
+					const int edgeVerts[6][2] =
+					{
+						{ 0, 1 },
+						{ 0, 2 },
+						{ 0, 3 },
+						{ 1, 2 },
+						{ 1, 3 },
+						{ 2, 3 }
+					};
+
+					float	lengths[2];
+					int		nums[2];
+					vec3_t	mid[2];
+					vec3_t	major, minor;
+					float	*v1, *v2;
+
+					// find the midpoint
+					// identify the two shortest edges
+					nums[0] = nums[1] = 0;
+					lengths[0] = lengths[1] = 999999;
+
+					for (int j = 0 ; j < 6 ; j++) {
+						float	l;
+						vec3_t	temp;
+
+						v1 = &v[edgeVerts[j][0]]->pos.x;
+						v2 = &v[edgeVerts[j][1]]->pos.x;
+
+						VectorSubtract(v1, v2, temp);
+			
+						l = DotProduct(temp, temp);
+						if (l < lengths[0]) {
+							nums[1] = nums[0];
+							lengths[1] = lengths[0];
+							nums[0] = j;
+							lengths[0] = l;
+						} else if (l < lengths[1]) {
+							nums[1] = j;
+							lengths[1] = l;
+						}
+					}
+
+					for (int j = 0 ; j < 2 ; j++) {
+						v1 = &v[edgeVerts[nums[j]][0]]->pos.x;
+						v2 = &v[edgeVerts[nums[j]][1]]->pos.x;
+
+						mid[j][0] = 0.5f * (v1[0] + v2[0]);
+						mid[j][1] = 0.5f * (v1[1] + v2[1]);
+						mid[j][2] = 0.5f * (v1[2] + v2[2]);
+					}
+
+					// find the vector of the major axis
+					VectorSubtract(mid[1], mid[0], major);
+
+					// cross this with the view direction to get minor axis
+					CrossProduct(major, &forward.x, minor);
+					VectorNormalize(minor);
+		
+					// re-project the points
+					for (int j = 0 ; j < 2 ; j++) {
+						float	l;
+
+						v1 = &v[edgeVerts[nums[j]][0]]->pos.x;
+						v2 = &v[edgeVerts[nums[j]][1]]->pos.x;
+
+						l = 0.5 * sqrt(lengths[j]);
+			
+						// we need to see which direction this edge
+						// is used to determine direction of projection
+						int k;
+
+						for (k = 0 ; k < 5 ; k++) {
+							if (indices[firstIndex + k ] == firstIndex + edgeVerts[nums[j]][0]
+								&& indices[firstIndex + k + 1 ] == firstIndex + edgeVerts[nums[j]][1]) {
+								break;
+							}
+						}
+
+						if (k == 5) {
+							VectorMA(mid[j], l, minor, v1);
+							VectorMA(mid[j], -l, minor, v2);
+						} else {
+							VectorMA(mid[j], -l, minor, v1);
+							VectorMA(mid[j], l, minor, v2);
+						}
 					}
 				}
 			}
-
 			break;
 		}
 
