@@ -1344,7 +1344,24 @@ private:
 
 	static bool surfaceCompare(const Surface *s1, const Surface *s2)
 	{
-		return s1->material->index < s2->material->index;
+		if (s1->material->index < s2->material->index)
+		{
+			return true;
+		}
+		else if (s1->material->index == s2->material->index)
+		{
+			if (s1->fogIndex < s2->fogIndex)
+			{
+				return true;
+			}
+			else if (s1->fogIndex == s2->fogIndex)
+			{
+				if (s1->bufferIndex < s2->bufferIndex)
+					return true;
+			}
+		}
+
+		return false;
 	}
 
 	static void overbrightenColor(const uint8_t *in, uint8_t *out)
