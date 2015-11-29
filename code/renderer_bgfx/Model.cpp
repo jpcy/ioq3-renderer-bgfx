@@ -361,7 +361,10 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 	if (isAnimated)
 	{
 		if (!bgfx::checkAvailTransientVertexBuffer(nVertices_, Vertex::decl))
+		{
+			WarnOnce(WarnOnceId::TransientBuffer);
 			return;
+		}
 
 		bgfx::allocTransientVertexBuffer(&tvb, nVertices_, Vertex::decl);
 		auto vertices = (Vertex *)tvb.data;
@@ -428,7 +431,10 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 			bgfx::TransientIndexBuffer tib;
 
 			if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, nVertices_, &tib, surface.nIndices))
+			{
+				WarnOnce(WarnOnceId::TransientBuffer);
 				continue;
+			}
 
 			memcpy(tvb.data, frames_[0].vertices.data(), tvb.size);
 			memcpy(tib.data, &indices_[surface.startIndex], tib.size);

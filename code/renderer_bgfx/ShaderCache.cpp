@@ -189,7 +189,7 @@ static bgfx::ShaderHandle CreateShader(const char *name, shaderc::ShaderType::En
 	
 	if (!shaderc::compileShader(params))
 	{
-		ri.Printf(PRINT_ERROR, "Error compiling shader %s\n", params.inputFilePath);
+		ri.Printf(PRINT_WARNING, "Error compiling shader %s\n", params.inputFilePath);
 		return BGFX_INVALID_HANDLE;
 	}
 

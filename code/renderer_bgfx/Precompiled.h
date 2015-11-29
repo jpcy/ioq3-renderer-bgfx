@@ -1185,6 +1185,16 @@ struct VertexBuffer
 	bgfx::VertexBufferHandle handle;
 };
 
+struct WarnOnceId
+{
+	enum Enum
+	{
+		TransientBuffer,
+		Num
+	};
+};
+
+void WarnOnce(WarnOnceId::Enum id);
 void Window_Initialize(bool gl);
 void Window_Shutdown();
 

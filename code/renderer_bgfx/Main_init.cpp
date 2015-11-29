@@ -88,6 +88,17 @@ bgfx::VertexDecl Vertex::decl;
 
 std::unique_ptr<Main> g_main;
 
+void WarnOnce(WarnOnceId::Enum id)
+{
+	static bool warned[WarnOnceId::Num];
+
+	if (!warned[id])
+	{
+		ri.Printf(PRINT_WARNING, "BGFX transient buffer alloc failed\n");
+		warned[id] = true;
+	}
+}
+
 ConsoleVariables::ConsoleVariables()
 {
 	backend = ri.Cvar_Get("r_backend", "", CVAR_ARCHIVE | CVAR_LATCH);

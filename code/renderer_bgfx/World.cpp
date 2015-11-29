@@ -1234,7 +1234,10 @@ public:
 				bgfx::TransientIndexBuffer tib;
 
 				if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, lastVertex - firstVertex + 1, &tib, surface.nIndices))
+				{
+					WarnOnce(WarnOnceId::TransientBuffer);
 					return;
+				}
 
 				memcpy(tvb.data, &vertices_[surface.bufferIndex][firstVertex], tvb.size);
 				auto indices = (uint16_t *)tib.data;

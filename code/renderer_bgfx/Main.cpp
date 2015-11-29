@@ -285,7 +285,10 @@ void Main::flushStretchPics()
 		bgfx::TransientIndexBuffer tib;
 
 		if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, (uint32_t)stretchPicVertices_.size(), &tib, (uint32_t)stretchPicIndices_.size()))
+		{
+			WarnOnce(WarnOnceId::TransientBuffer);
 			return;
+		}
 
 		memcpy(tvb.data, &stretchPicVertices_[0], sizeof(Vertex) * stretchPicVertices_.size());
 		memcpy(tib.data, &stretchPicIndices_[0], sizeof(uint16_t) * stretchPicIndices_.size());
@@ -421,7 +424,10 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		bgfx::TransientIndexBuffer tib;
 
 		if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, polygon.nVertices, &tib, (polygon.nVertices - 2) * 3)) 
+		{
+			WarnOnce(WarnOnceId::TransientBuffer);
 			return;
+		}
 
 		auto vertices = (Vertex *)tvb.data;
 		auto indices = (uint16_t *)tib.data;
@@ -686,7 +692,10 @@ void Main::renderQuad(DrawCallList *drawCallList, vec3 position, vec3 normal, ve
 	bgfx::TransientIndexBuffer tib;
 
 	if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, nVertices, &tib, nIndices)) 
+	{
+		WarnOnce(WarnOnceId::TransientBuffer);
 		return;
+	}
 
 	auto vertices = (Vertex *)tvb.data;
 	vertices[0].pos = position + left + up;
@@ -743,7 +752,10 @@ void Main::renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3
 	bgfx::TransientIndexBuffer tib;
 
 	if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, nVertices, &tib, nIndices)) 
+	{
+		WarnOnce(WarnOnceId::TransientBuffer);
 		return;
+	}
 
 	auto vertices = (Vertex *)tvb.data;
 	vertices[0].pos = start + up * spanWidth;
@@ -813,7 +825,10 @@ void Main::renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity)
 	bgfx::TransientIndexBuffer tib;
 
 	if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, nVertices, &tib, nIndices)) 
+	{
+		WarnOnce(WarnOnceId::TransientBuffer);
 		return;
+	}
 
 	for (int i = 0; i < nSegments; i++)
 	{
