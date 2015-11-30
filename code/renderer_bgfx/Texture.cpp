@@ -171,10 +171,11 @@ void TextureCache::createBuiltinTextures()
 
 	// Scratch textures.
 	image.width = image.height = defaultSize;
-	image.memory = nullptr;
 
 	for (size_t i = 0; i < scratchTextures_.size(); i++)
 	{
+		image.allocMemory();
+		Com_Memset(image.memory->data, 0, image.memory->size);
 		scratchTextures_[i] = createTexture("*scratch", image, TextureType::ColorAlpha, TextureFlags::Picmip | TextureFlags::ClampToEdge);
 	}
 }

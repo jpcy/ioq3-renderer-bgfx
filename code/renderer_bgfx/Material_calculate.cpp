@@ -567,6 +567,12 @@ void Material::setStageTextureSampler(size_t stageIndex, int sampler) const
 	assert(stage.active);
 	auto &bundle = stage.bundles[sampler];
 
+	if (bundle.isVideoMap)
+	{
+		ri.CIN_RunCinematic(bundle.videoMapHandle);
+		ri.CIN_UploadCinematic(bundle.videoMapHandle);
+	}
+
 	if (!bundle.textures[0])
 		return;
 
