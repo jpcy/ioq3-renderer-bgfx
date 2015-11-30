@@ -133,6 +133,16 @@ struct VisCache
 	std::vector<Surface *> portalSurfaces;
 };
 
+static vec2 AtlasTexCoord(vec2 uv, int index, int nTilesPerDimension)
+{
+	const int tileX = index % nTilesPerDimension;
+	const int tileY = index / nTilesPerDimension;
+	vec2 result;
+	result.u = (tileX / (float)nTilesPerDimension) + (uv.u / (float)nTilesPerDimension);
+	result.v = (tileY / (float)nTilesPerDimension) + (uv.v / (float)nTilesPerDimension);
+	return result;
+}
+
 class WorldModel : public Model
 {
 public:
@@ -178,7 +188,7 @@ public:
 		}
 	}
 
-	void addSurface(size_t index, Material *material, const Vertex *vertices, size_t nVertices, const uint16_t *indices, size_t nIndices)
+	void addSurface(size_t index, Material *material, const Vertex *vertices, size_t nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex, int nLightmapTilesPerDimension)
 	{
 		// Create a temp surface.
 		auto &ts = tempSurfaces_[index];
@@ -192,6 +202,13 @@ public:
 		// Append the geometry.
 		tempVertices_.resize(tempVertices_.size() + nVertices);
 		memcpy(&tempVertices_[ts.firstVertex], vertices, nVertices * sizeof(*vertices));
+
+		for (size_t i = 0; i < nVertices; i++)
+		{
+			Vertex *v = &tempVertices_[ts.firstVertex + i];
+			v->texCoord2 = AtlasTexCoord(v->texCoord2, lightmapIndex, nLightmapTilesPerDimension);
+		}
+
 		tempIndices_.resize(tempIndices_.size() + nIndices);
 		memcpy(&tempIndices_[ts.firstIndex], indices, nIndices * sizeof(*indices));
 	}
@@ -464,7 +481,7 @@ public:
 
 	const Texture *getLightmap(size_t index) const override
 	{
-		return index < lightmaps_.size() ? lightmaps_[index] : nullptr;
+		return index < lightmapAtlases_.size() ? lightmapAtlases_[index] : nullptr;
 	}
 
 	bool getEntityToken(char *buffer, int size) override
@@ -1290,7 +1307,10 @@ private:
 	};
 
 	std::vector<Fog> fogs_;
-	std::vector<const Texture *> lightmaps_;
+	const int lightmapSize_ = 128;
+	int lightmapAtlasSize_;
+	std::vector<const Texture *> lightmapAtlases_;
+	int nLightmapsPerAtlas_;
 	vec3 lightGridSize_ = { 64, 64, 128 };
 	vec3 lightGridInverseSize_;
 	std::vector<uint8_t> lightGridData_;
@@ -1579,28 +1599,64 @@ private:
 		// Lightmaps
 		if (header->lumps[LUMP_LIGHTMAPS].filelen > 0)
 		{
-			const int size = 128;
-			const size_t dataSize = size * size * 3;
-			const uint8_t *data = &fileData_[header->lumps[LUMP_LIGHTMAPS].fileofs];
-			lightmaps_.resize(header->lumps[LUMP_LIGHTMAPS].filelen / dataSize);
+			const size_t srcDataSize = lightmapSize_ * lightmapSize_ * 3;
+			const uint8_t *srcData = &fileData_[header->lumps[LUMP_LIGHTMAPS].fileofs];
+			const size_t nLightmaps = header->lumps[LUMP_LIGHTMAPS].filelen / srcDataSize;
 
-			for (size_t i = 0; i < lightmaps_.size(); i++)
+			if (nLightmaps)
 			{
-				Image image;
-				image.width = size;
-				image.height = size;
-				image.nComponents = 4;
-				image.allocMemory();
+				// Calculate the smallest square POT atlas size.
+				// 1024 is 4MB, 2048 is 16MB. Anything over 1024 is likely to waste a lot of memory for empty space, so use multiple pages in that case.
+				const int sr = (int)ceil(sqrtf(nLightmaps));
+				lightmapAtlasSize_ = 1;
 
-				// Expand from 24bpp to 32bpp.
-				for (size_t j = 0; j < size * size; j++)
+				while (lightmapAtlasSize_ < sr)
+					lightmapAtlasSize_ *= 2;
+
+				lightmapAtlasSize_ = std::min(1024, lightmapAtlasSize_ * lightmapSize_);
+				nLightmapsPerAtlas_ = pow(lightmapAtlasSize_ / lightmapSize_, 2);
+				lightmapAtlases_.resize(ceil(nLightmaps / (float)nLightmapsPerAtlas_));
+
+				// Pack lightmaps into atlas(es).
+				size_t lightmapIndex = 0;
+
+				for (size_t i = 0; i < lightmapAtlases_.size(); i++)
 				{
-					overbrightenColor(&data[j * 3], &image.memory->data[j * 4]);
-					image.memory->data[j * 4 + 3] = 0xff;
+					Image image;
+					image.width = lightmapAtlasSize_;
+					image.height = lightmapAtlasSize_;
+					image.nComponents = 4;
+					image.allocMemory();
+					int nAtlasedLightmaps = 0;
+
+					for (;;)
+					{
+						// Expand from 24bpp to 32bpp.
+						for (size_t y = 0; y < lightmapSize_; y++)
+						{
+							for (size_t x = 0; x < lightmapSize_; x++)
+							{
+								const size_t srcOffset = (x + y * lightmapSize_) * 3;
+								const int nLightmapsPerDimension = lightmapAtlasSize_ / lightmapSize_;
+								const int lightmapX = (nAtlasedLightmaps % nLightmapsPerAtlas_) % nLightmapsPerDimension;
+								const int lightmapY = (nAtlasedLightmaps % nLightmapsPerAtlas_) / nLightmapsPerDimension;
+								const size_t destOffset = ((lightmapX * lightmapSize_ + x) + (lightmapY * lightmapSize_ + y) * lightmapAtlasSize_) * image.nComponents;
+								overbrightenColor(&srcData[srcOffset], &image.memory->data[destOffset]);
+								image.memory->data[destOffset + 3] = 0xff;
+							}
+						}
+
+						nAtlasedLightmaps++;
+						lightmapIndex++;
+
+						if (nAtlasedLightmaps >= nLightmapsPerAtlas_ || lightmapIndex >= nLightmaps)
+							break;
+					
+						srcData += srcDataSize;
+					}
+
+					lightmapAtlases_[i] = g_main->textureCache->createTexture(va("*lightmap%d", i), image, TextureType::ColorAlpha, TextureFlags::ClampToEdge);
 				}
-				
-				lightmaps_[i] = g_main->textureCache->createTexture(va("*lightmap%d", i), image, TextureType::ColorAlpha, TextureFlags::ClampToEdge);
-				data += dataSize;
 			}
 		}
 
@@ -1666,13 +1722,9 @@ private:
 			fileMaterial++;
 		}
 
-		// Surfaces
-		auto fileSurfaces = (const dsurface_t *)(fileData_ + header->lumps[LUMP_SURFACES].fileofs);
-		auto fileDrawVerts = (const drawVert_t *)(fileData_ + header->lumps[LUMP_DRAWVERTS].fileofs);
-		auto fileDrawIndices = (const int *)(fileData_ + header->lumps[LUMP_DRAWINDEXES].fileofs);
-
 		// Vertices
 		std::vector<Vertex> vertices(header->lumps[LUMP_DRAWVERTS].filelen / sizeof(drawVert_t));
+		auto fileDrawVerts = (const drawVert_t *)(fileData_ + header->lumps[LUMP_DRAWVERTS].fileofs);
 
 		for (size_t i = 0; i < vertices.size(); i++)
 		{
@@ -1690,6 +1742,7 @@ private:
 
 		// Indices
 		std::vector<uint16_t> indices(header->lumps[LUMP_DRAWINDEXES].filelen / sizeof(int));
+		auto fileDrawIndices = (const int *)(fileData_ + header->lumps[LUMP_DRAWINDEXES].fileofs);
 
 		for (size_t i = 0; i < indices.size(); i++)
 		{
@@ -1698,6 +1751,7 @@ private:
 
 		// Surfaces
 		surfaces_.resize(modelDefs_[0].nSurfaces);
+		auto fileSurfaces = (const dsurface_t *)(fileData_ + header->lumps[LUMP_SURFACES].fileofs);
 
 		for (size_t i = 0; i < surfaces_.size(); i++)
 		{
@@ -1705,16 +1759,15 @@ private:
 			auto &fs = fileSurfaces[i];
 			s.fogIndex = LittleLong(fs.fogNum); // -1 means no fog
 			const int type = LittleLong(fs.surfaceType);
+			int lightmapIndex = LittleLong(fs.lightmapNum);
 
 			// Trisoup is always vertex lit.
 			if (type == MST_TRIANGLE_SOUP)
 			{
-				s.material = findMaterial(LittleLong(fs.shaderNum), MaterialLightmapId::Vertex);
+				lightmapIndex = MaterialLightmapId::Vertex;
 			}
-			else
-			{
-				s.material = findMaterial(LittleLong(fs.shaderNum), LittleLong(fs.lightmapNum));
-			}
+
+			s.material = findMaterial(LittleLong(fs.shaderNum), lightmapIndex);
 
 			// We may have a nodraw surface, because they might still need to be around for movement clipping.
 			if (s.material->surfaceFlags & SURF_NODRAW)
@@ -1726,7 +1779,7 @@ private:
 				s.type = SurfaceType::Face;
 				const int firstVertex = LittleLong(fs.firstVert);
 				const int nVertices = LittleLong(fs.numVerts);
-				setSurfaceGeometry(&s, &vertices[firstVertex], nVertices, &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes));
+				setSurfaceGeometry(&s, &vertices[firstVertex], nVertices, &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex);
 
 				// Setup cullinfo.
 				s.cullinfo.type = CULLINFO_PLANE | CULLINFO_BOX;
@@ -1749,13 +1802,13 @@ private:
 			else if (type == MST_TRIANGLE_SOUP)
 			{
 				s.type = SurfaceType::Mesh;
-				setSurfaceGeometry(&s, &vertices[LittleLong(fs.firstVert)], LittleLong(fs.numVerts), &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes));
+				setSurfaceGeometry(&s, &vertices[LittleLong(fs.firstVert)], LittleLong(fs.numVerts), &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex);
 			}
 			else if (type == MST_PATCH)
 			{
 				s.type = SurfaceType::Patch;
 				s.patch = Patch_Subdivide(LittleLong(fs.patchWidth), LittleLong(fs.patchHeight), &vertices[LittleLong(fs.firstVert)]);
-				setSurfaceGeometry(&s, s.patch->verts, s.patch->numVerts, s.patch->indexes, s.patch->numIndexes);
+				setSurfaceGeometry(&s, s.patch->verts, s.patch->numVerts, s.patch->indexes, s.patch->numIndexes, lightmapIndex);
 			}
 			else if (type == MST_FLARE)
 			{
@@ -1772,12 +1825,13 @@ private:
 			for (size_t j = 0; j < md.nSurfaces; j++)
 			{
 				auto &fs = fileSurfaces[md.firstSurface + j];
-				auto material = findMaterial(LittleLong(fs.shaderNum), LittleLong(fs.lightmapNum));
 				const int type = LittleLong(fs.surfaceType);
+				const int lightmapIndex = LittleLong(fs.lightmapNum);
+				auto material = findMaterial(LittleLong(fs.shaderNum), lightmapIndex);
 
 				if (type == MST_PLANAR || type == MST_TRIANGLE_SOUP)
 				{
-					model->addSurface(j, material, &vertices[LittleLong(fs.firstVert)], LittleLong(fs.numVerts), &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes));
+					model->addSurface(j, material, &vertices[LittleLong(fs.firstVert)], LittleLong(fs.numVerts), &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex % nLightmapsPerAtlas_, lightmapAtlasSize_ / lightmapSize_);
 				}
 			}
 
@@ -1869,7 +1923,7 @@ private:
 		}
 	}
 
-	void setSurfaceGeometry(Surface *surface, const Vertex *vertices, size_t nVertices, const uint16_t *indices, size_t nIndices)
+	void setSurfaceGeometry(Surface *surface, const Vertex *vertices, size_t nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex)
 	{
 		auto *bufferVertices = &vertices_[currentGeometryBuffer_];
 
@@ -1886,6 +1940,12 @@ private:
 		auto startVertex = (const uint16_t)bufferVertices->size();
 		bufferVertices->resize(bufferVertices->size() + nVertices);
 		memcpy(&(*bufferVertices)[startVertex], vertices, nVertices * sizeof(Vertex));
+
+		for (size_t i = 0; i < nVertices; i++)
+		{
+			Vertex *v = &(*bufferVertices)[startVertex + i];
+			v->texCoord2 = AtlasTexCoord(v->texCoord2, lightmapIndex % nLightmapsPerAtlas_, lightmapAtlasSize_ / lightmapSize_);
+		}
 
 		// The surface needs to know which vertex buffer to use.
 		surface->bufferIndex = currentGeometryBuffer_;
@@ -1916,6 +1976,11 @@ private:
 		if (materialIndex < 0 || materialIndex >= materials_.size())
 		{
 			ri.Error(ERR_DROP, "%s: bad material index %i", name_, materialIndex);
+		}
+
+		if (lightmapIndex > 0)
+		{
+			lightmapIndex /= nLightmapsPerAtlas_;
 		}
 
 		auto material = g_main->materialCache->findMaterial(materials_[materialIndex].name, lightmapIndex, true);
