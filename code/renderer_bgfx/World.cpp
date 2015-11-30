@@ -1648,11 +1648,10 @@ private:
 
 						nAtlasedLightmaps++;
 						lightmapIndex++;
+						srcData += srcDataSize;
 
 						if (nAtlasedLightmaps >= nLightmapsPerAtlas_ || lightmapIndex >= nLightmaps)
 							break;
-					
-						srcData += srcDataSize;
 					}
 
 					lightmapAtlases_[i] = g_main->textureCache->createTexture(va("*lightmap%d", i), image, TextureType::ColorAlpha, TextureFlags::ClampToEdge);
