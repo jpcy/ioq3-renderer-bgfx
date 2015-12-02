@@ -297,28 +297,29 @@ void Main::flushStretchPics()
 		if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, (uint32_t)stretchPicVertices_.size(), &tib, (uint32_t)stretchPicIndices_.size()))
 		{
 			WarnOnce(WarnOnceId::TransientBuffer);
-			return;
 		}
-
-		memcpy(tvb.data, &stretchPicVertices_[0], sizeof(Vertex) * stretchPicVertices_.size());
-		memcpy(tib.data, &stretchPicIndices_[0], sizeof(uint16_t) * stretchPicIndices_.size());
-		stretchPicMaterial_->setTime(floatTime_);
-
-		for (size_t i = 0; i < stretchPicMaterial_->getNumStages(); i++)
+		else
 		{
-			uniforms->portalClip.set(vec4(0, 0, 0, 0));
-			stretchPicMaterial_->setStageShaderUniforms(i);
-			stretchPicMaterial_->setStageTextureSamplers(i);
-			uint64_t state = stretchPicMaterial_->calculateStageState(i, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE);
+			memcpy(tvb.data, &stretchPicVertices_[0], sizeof(Vertex) * stretchPicVertices_.size());
+			memcpy(tib.data, &stretchPicIndices_[0], sizeof(uint16_t) * stretchPicIndices_.size());
+			stretchPicMaterial_->setTime(floatTime_);
 
-			// Depth testing and writing should always be off for 2D drawing.
-			state &= ~BGFX_STATE_DEPTH_TEST_MASK;
-			state &= ~BGFX_STATE_DEPTH_WRITE;
+			for (size_t i = 0; i < stretchPicMaterial_->getNumStages(); i++)
+			{
+				uniforms->portalClip.set(vec4(0, 0, 0, 0));
+				stretchPicMaterial_->setStageShaderUniforms(i);
+				stretchPicMaterial_->setStageTextureSamplers(i);
+				uint64_t state = stretchPicMaterial_->calculateStageState(i, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE);
+
+				// Depth testing and writing should always be off for 2D drawing.
+				state &= ~BGFX_STATE_DEPTH_TEST_MASK;
+				state &= ~BGFX_STATE_DEPTH_WRITE;
 			
-			bgfx::setState(state);
-			bgfx::setVertexBuffer(&tvb);
-			bgfx::setIndexBuffer(&tib);
-			bgfx::submit(viewId, stretchPicMaterial_->calculateStageShaderProgramHandle(i));
+				bgfx::setState(state);
+				bgfx::setVertexBuffer(&tvb);
+				bgfx::setIndexBuffer(&tib);
+				bgfx::submit(viewId, stretchPicMaterial_->calculateStageShaderProgramHandle(i));
+			}
 		}
 	}
 

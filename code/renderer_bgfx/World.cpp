@@ -1253,7 +1253,7 @@ public:
 				if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, lastVertex - firstVertex + 1, &tib, surface.nIndices))
 				{
 					WarnOnce(WarnOnceId::TransientBuffer);
-					return;
+					continue;
 				}
 
 				memcpy(tvb.data, &vertices_[surface.bufferIndex][firstVertex], tvb.size);
