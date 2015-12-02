@@ -1347,11 +1347,13 @@ private:
 	struct Polygon
 	{
 		Material *material;
+		int fogIndex;
 		size_t firstVertex, nVertices;
 	};
 
 	std::vector<DynamicLight> sceneDynamicLights_;
 	std::vector<Polygon> scenePolygons_;
+	std::vector<Polygon *> sortedScenePolygons_;
 	std::vector<polyVert_t> scenePolygonVertices_;
 	DrawCallList drawCalls_;
 	VertexBuffer fsVertexBuffer_;

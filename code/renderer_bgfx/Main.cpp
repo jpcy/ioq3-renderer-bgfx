@@ -162,6 +162,15 @@ void Main::addPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts
 		p.material = materialCache->getMaterial(hShader); 
 		p.firstVertex = firstVertex + i * nVerts;
 		p.nVertices = nVerts;
+		Bounds bounds;
+		bounds.setupForAddingPoints();
+
+		for (size_t i = 0; i < p.nVertices; i++)
+		{
+			bounds.addPoint(scenePolygonVertices_[p.firstVertex + i].xyz);
+		}
+
+		p.fogIndex = world->findFogIndex(bounds);
 		scenePolygons_.push_back(p);
 	}
 }
@@ -185,6 +194,7 @@ void Main::renderScene(const refdef_t *def)
 	sceneDynamicLights_.clear();
 	sceneEntities_.clear();
 	scenePolygons_.clear();
+	sortedScenePolygons_.clear();
 	scenePolygonVertices_.clear();
 }
 
@@ -418,46 +428,97 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		renderEntity(&drawCalls_, cameraPosition, cameraRotation, &entity);
 	}
 
-	for (auto &polygon : scenePolygons_)
+	if (!scenePolygons_.empty())
 	{
-		bgfx::TransientVertexBuffer tvb;
-		bgfx::TransientIndexBuffer tib;
-
-		if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, polygon.nVertices, &tib, (polygon.nVertices - 2) * 3)) 
+		// Sort polygons by material and fogIndex for batching.
+		for (auto &polygon : scenePolygons_)
 		{
-			WarnOnce(WarnOnceId::TransientBuffer);
-			return;
+			sortedScenePolygons_.push_back(&polygon);
 		}
 
-		auto vertices = (Vertex *)tvb.data;
-		auto indices = (uint16_t *)tib.data;
-		Bounds bounds;
-		bounds.setupForAddingPoints();
-
-		for (size_t i = 0; i < polygon.nVertices; i++)
+		std::sort(sortedScenePolygons_.begin(), sortedScenePolygons_.end(), [](Polygon *a, Polygon *b)
 		{
-			auto &v = vertices[i];
-			auto &pv = scenePolygonVertices_[polygon.firstVertex + i];
-			v.pos = pv.xyz;
-			v.texCoord = pv.st;
-			v.color = vec4::fromBytes(pv.modulate);
-			bounds.addPoint(v.pos);
-		}
+			if (a->material->index < b->material->index)
+				return true;
+			else if (a->material->index == b->material->index)
+			{
+				return a->fogIndex < b->fogIndex;
+			}
 
-		for (size_t i = 0; i < polygon.nVertices - 2; i++)
+			return false;
+		});
+
+		size_t batchStart = 0;
+		
+		for (;;)
 		{
-			indices[i * 3 + 0] = 0;
-			indices[i * 3 + 1] = uint16_t(i) + 1;
-			indices[i * 3 + 2] = uint16_t(i) + 2;
-		}
+			uint32_t nVertices = 0, nIndices = 0;
+			size_t batchEnd;
 
-		DrawCall dc;
-		dc.fogIndex = world->findFogIndex(bounds);
-		dc.material = polygon.material;
-		dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
-		dc.vb.transientHandle = tvb;
-		dc.ib.transientHandle = tib;
-		drawCalls_.push_back(dc);
+			// Find the last polygon index that matches the current material and fog. Count geo as we go.
+			for (batchEnd = batchStart; batchEnd < sortedScenePolygons_.size(); batchEnd++)
+			{
+				const Polygon *p = sortedScenePolygons_[batchEnd];
+
+				if (p->material != sortedScenePolygons_[batchStart]->material || p->fogIndex != sortedScenePolygons_[batchStart]->fogIndex)
+					break;
+				
+				nVertices += p->nVertices;
+				nIndices += (p->nVertices - 2) * 3;
+			}
+
+			batchEnd = std::max(batchStart, batchEnd - 1);
+
+			// Got a range of polygons to batch. Build a draw call.
+			bgfx::TransientVertexBuffer tvb;
+			bgfx::TransientIndexBuffer tib;
+
+			if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, nVertices, &tib, nIndices) )
+			{
+				WarnOnce(WarnOnceId::TransientBuffer);
+				break;
+			}
+
+			auto vertices = (Vertex *)tvb.data;
+			auto indices = (uint16_t *)tib.data;
+			uint32_t currentVertex = 0, currentIndex = 0;
+
+			for (size_t i = batchStart; i <= batchEnd; i++)
+			{
+				const Polygon *p = sortedScenePolygons_[i];
+				const uint32_t firstVertex = currentVertex;
+
+				for (size_t j = 0; j < p->nVertices; j++)
+				{
+					auto &v = vertices[currentVertex++];
+					auto &pv = scenePolygonVertices_[p->firstVertex + j];
+					v.pos = pv.xyz;
+					v.texCoord = pv.st;
+					v.color = vec4::fromBytes(pv.modulate);
+				}
+
+				for (size_t j = 0; j < p->nVertices - 2; j++)
+				{
+					indices[currentIndex++] = firstVertex + 0;
+					indices[currentIndex++] = firstVertex + uint16_t(j) + 1;
+					indices[currentIndex++] = firstVertex + uint16_t(j) + 2;
+				}
+			}
+
+			DrawCall dc;
+			dc.fogIndex = sortedScenePolygons_[batchStart]->fogIndex;
+			dc.material = sortedScenePolygons_[batchStart]->material;
+			dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
+			dc.vb.transientHandle = tvb;
+			dc.ib.transientHandle = tib;
+			drawCalls_.push_back(dc);
+
+			// Iterate.
+			batchStart = batchEnd + 1;
+
+			if (batchStart >= sortedScenePolygons_.size())
+				break;
+		}
 	}
 
 	// Do material CPU deforms.
