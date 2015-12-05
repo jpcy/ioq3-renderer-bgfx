@@ -1208,7 +1208,7 @@ public:
 	virtual void sampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir) const = 0;
 	virtual int findFogIndex(vec3 position, float radius) const = 0;
 	virtual int findFogIndex(const Bounds &bounds) const = 0;
-	virtual void calculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &viewMatrix, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT) const = 0;
+	virtual void calculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMatrix, vec3 localViewPosition, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT) const = 0;
 	virtual int markFragments(int numPoints, const vec3_t *points, const vec3_t projection, int maxPoints, vec3_t pointBuffer, int maxFragments, markFragment_t *fragmentBuffer) = 0;
 	virtual Bounds getBounds(uint8_t visCacheId) const = 0;
 	virtual Material *getSkyMaterial(uint8_t visCacheId) const = 0;

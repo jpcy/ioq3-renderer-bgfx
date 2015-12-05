@@ -375,8 +375,8 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		zMax = world->getBounds(visCacheId).calculateFarthestCornerDistance(cameraPosition);
 	}
 
-	mat4 viewMatrix = toOpenGlMatrix * mat4::view(cameraPosition, cameraRotation);
-	mat4 projectionMatrix = mat4::perspectiveProjection(fov.x, fov.y, zMin, zMax);
+	const mat4 viewMatrix = toOpenGlMatrix * mat4::view(cameraPosition, cameraRotation);
+	const mat4 projectionMatrix = mat4::perspectiveProjection(fov.x, fov.y, zMin, zMax);
 
 	if (isWorldCamera && isMainCamera)
 	{
@@ -574,6 +574,8 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 		currentEntity = dc.entity;
 		mat->setTime(floatTime_);
+		const vec3 localViewPosition = currentEntity ? currentEntity->localViewPosition : cameraPosition;
+		const mat4 modelViewMatrix(viewMatrix * dc.modelMatrix);
 
 		for (size_t i = 0; i < mat->getNumStages(); i++)
 		{
@@ -587,21 +589,13 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			}
 
 			uniforms->viewOrigin.set(cameraPosition);
-
-			if (currentEntity)
-			{
-				uniforms->localViewOrigin.set(currentEntity->localViewPosition);
-			}
-			else
-			{
-				uniforms->localViewOrigin.set(cameraPosition);
-			}
+			uniforms->localViewOrigin.set(localViewPosition);
 
 			if (dc.fogIndex >= 0 && mat->stages[i].adjustColorsForFog != MaterialAdjustColorsForFog::None)
 			{
 				vec4 fogDistance, fogDepth;
 				float eyeT;
-				world->calculateFog(dc.fogIndex, dc.modelMatrix, viewMatrix, nullptr, &fogDistance, &fogDepth, &eyeT);
+				world->calculateFog(dc.fogIndex, dc.modelMatrix, modelViewMatrix, localViewPosition, nullptr, &fogDistance, &fogDepth, &eyeT);
 
 				uniforms->fogEnabled.set(vec4(1, 0, 0, 0));
 				uniforms->fogDistance.set(fogDistance);
@@ -642,7 +636,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				mat->setFogShaderUniforms();
 				vec4 fogColor, fogDistance, fogDepth;
 				float eyeT;
-				world->calculateFog(dc.fogIndex, dc.modelMatrix, viewMatrix, &fogColor, &fogDistance, &fogDepth, &eyeT);
+				world->calculateFog(dc.fogIndex, dc.modelMatrix, modelViewMatrix, localViewPosition, &fogColor, &fogDistance, &fogDepth, &eyeT);
 				uniforms->color.set(fogColor);
 				uniforms->fogDistance.set(fogDistance);
 				uniforms->fogDepth.set(fogDepth);

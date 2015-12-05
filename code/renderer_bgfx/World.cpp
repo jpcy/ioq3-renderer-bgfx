@@ -633,7 +633,7 @@ public:
 		return -1;
 	}
 
-	void calculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &viewMatrix, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT) const override
+	void calculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMatrix, vec3 localViewPosition, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT) const override
 	{
 		assert(fogIndex != -1);
 		assert(fogDistance);
@@ -649,12 +649,13 @@ public:
 			(*fogColor)[3] = ((unsigned char *)(&fog.colorInt))[3] / 255.0f;
 		}
 
+		// Grab the entity position and rotation from the model matrix instead of passing them in as more parameters.
 		const vec3 position(modelMatrix[12], modelMatrix[13], modelMatrix[14]);
-		vec3 local = vec3::empty - g_main->cameraPosition;
-
-		(*fogDistance)[0] = -viewMatrix[2];
-		(*fogDistance)[1] = -viewMatrix[6];
-		(*fogDistance)[2] = -viewMatrix[10];
+		const mat3 rotation(modelMatrix);
+		vec3 local = position - g_main->cameraPosition;
+		(*fogDistance)[0] = -modelViewMatrix[2];
+		(*fogDistance)[1] = -modelViewMatrix[6];
+		(*fogDistance)[2] = -modelViewMatrix[10];
 		(*fogDistance)[3] = vec3::dotProduct(local, g_main->cameraRotation[0]);
 
 		// scale the fog vectors based on the fog's thickness
@@ -663,12 +664,11 @@ public:
 		// rotate the gradient vector for this orientation
 		if (fog.hasSurface)
 		{
-			const mat3 rotation(modelMatrix);
 			(*fogDepth)[0] = fog.surface[0] * rotation[0][0] + fog.surface[1] * rotation[0][1] + fog.surface[2] * rotation[0][2];
 			(*fogDepth)[1] = fog.surface[0] * rotation[1][0] + fog.surface[1] * rotation[1][1] + fog.surface[2] * rotation[1][2];
 			(*fogDepth)[2] = fog.surface[0] * rotation[2][0] + fog.surface[1] * rotation[2][1] + fog.surface[2] * rotation[2][2];
 			(*fogDepth)[3] = -fog.surface[3] + vec3::dotProduct(position, fog.surface);
-			*eyeT = vec3::dotProduct(g_main->cameraPosition, fogDepth->xyz()) + (*fogDepth)[3];
+			*eyeT = vec3::dotProduct(localViewPosition, fogDepth->xyz()) + (*fogDepth)[3];
 		}
 		else
 		{
