@@ -39,7 +39,7 @@ void main()
 
 	if (u_NumDeforms.x > 0)
 	{
-		position = DeformPosition(position, normal, a_texcoord0, u_Time.x);
+		CalculateDeform(position, normal, a_texcoord0, u_Time.x);
 	}
 
 	if (u_TCGen0 != TCGEN_NONE)

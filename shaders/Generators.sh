@@ -22,7 +22,7 @@ uniform vec4   u_DirectedLight;
 uniform vec4   u_ModelLightDir;
 uniform vec4  u_PortalRange;
 
-vec3 CalculateDeform(const vec3 pos, const vec3 normal, const vec2 st, float time, float gen, float wave, float base, float amplitude, float freq, float phase, float spread, vec4 moveDir)
+void CalculateDeformSingle(inout vec3 pos, vec3 normal, const vec2 st, float time, float gen, float wave, float base, float amplitude, float freq, float phase, float spread, vec4 moveDir)
 {
 	if (gen == DGEN_BULGE)
 	{
@@ -63,24 +63,20 @@ vec3 CalculateDeform(const vec3 pos, const vec3 normal, const vec2 st, float tim
 
 	if (gen == DGEN_MOVE)
 	{
-		return pos + moveDir.xyz * (base + func * amplitude);
+		pos = pos + moveDir.xyz * (base + func * amplitude);
 	}
 	else
 	{
-		return pos + normal * (base + func * amplitude);
+		pos = pos + normal * (base + func * amplitude);
 	}
 }
 
-vec3 DeformPosition(const vec3 pos, const vec3 normal, const vec2 st, float time)
+void CalculateDeform(inout vec3 pos, vec3 normal, const vec2 st, float time)
 {
-	vec3 deformedPos = pos;
-
 	for (int i = 0; i < u_NumDeforms.x; i++)
 	{
-		deformedPos = CalculateDeform(deformedPos, normal, st, time, u_Deform_Gen_Wave_Base_Amplitude[i].x, u_Deform_Gen_Wave_Base_Amplitude[i].y, u_Deform_Gen_Wave_Base_Amplitude[i].z, u_Deform_Gen_Wave_Base_Amplitude[i].w, u_Deform_Frequency_Phase_Spread[i].x, u_Deform_Frequency_Phase_Spread[i].y, u_Deform_Frequency_Phase_Spread[i].z, u_DeformMoveDirs[i]);
+		CalculateDeformSingle(pos, normal, st, time, u_Deform_Gen_Wave_Base_Amplitude[i].x, u_Deform_Gen_Wave_Base_Amplitude[i].y, u_Deform_Gen_Wave_Base_Amplitude[i].z, u_Deform_Gen_Wave_Base_Amplitude[i].w, u_Deform_Frequency_Phase_Spread[i].x, u_Deform_Frequency_Phase_Spread[i].y, u_Deform_Frequency_Phase_Spread[i].z, u_DeformMoveDirs[i]);
 	}
-
-	return deformedPos;
 }
 
 vec2 GenTexCoords(vec3 position, vec3 normal, vec2 texCoord1, vec2 texCoord2)

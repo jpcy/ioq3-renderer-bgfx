@@ -33,7 +33,7 @@ void main()
 
 	if (u_NumDeforms.x > 0)
 	{
-		v_position = DeformPosition(v_position, a_normal, a_texcoord0, u_Time.x);
+		CalculateDeform(v_position, a_normal, a_texcoord0, u_Time.x);
 	}
 
 	gl_Position = ApplyDepthRange(mul(u_viewProj, vec4(v_position, 1.0)), u_DepthRange.x, u_DepthRange.y);

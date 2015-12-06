@@ -62,7 +62,6 @@ bool Material::isCpuDeform(MaterialDeform deform) const
 {
 	switch (deform)
 	{
-		case MaterialDeform::Normals:
 		case MaterialDeform::Autosprite:
 		case MaterialDeform::Autosprite2:
 			return true;

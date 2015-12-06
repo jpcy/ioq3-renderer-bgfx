@@ -60,23 +60,6 @@ void Material::doCpuDeforms(DrawCall *dc) const
 
 		switch (ds.deformation)
 		{
-		case MaterialDeform::Normals:
-			for (uint32_t i = 0; i < nVertices; i++)
-			{
-				Vertex &v = vertices[i];
-				float scale = 0.98f;
-				scale = R_NoiseGet4f(v.pos.x * scale, v.pos.y * scale, v.pos.z * scale, time_ * ds.deformationWave.frequency);
-				v.normal.x += ds.deformationWave.amplitude * scale;
-				scale = 0.98f;
-				scale = R_NoiseGet4f(100 + v.pos.x * scale, v.pos.y * scale, v.pos.z * scale, time_ * ds.deformationWave.frequency);
-				v.normal.y += ds.deformationWave.amplitude * scale;
-				scale = 0.98f;
-				scale = R_NoiseGet4f(200 + v.pos.x * scale, v.pos.y * scale, v.pos.z * scale, time_ * ds.deformationWave.frequency);
-				v.normal.z += ds.deformationWave.amplitude * scale;
-				v.normal.normalizeFast();
-			}
-			break;
-
 		// Assuming the geometry is triangulated quads.
 		// Autosprite will rebuild them as forward facing sprites.
 		// Autosprite2 will pivot a rectangular quad along the center of its long axis.
@@ -299,6 +282,7 @@ void Material::doCpuDeforms(DrawCall *dc) const
 			break;
 		}
 
+		case MaterialDeform::Normals:
 		case MaterialDeform::Text0:
 		case MaterialDeform::Text1:
 		case MaterialDeform::Text2:
