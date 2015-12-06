@@ -124,10 +124,9 @@ struct DrawCall
 		bgfx::DynamicVertexBufferHandle dynamicHandle;
 		bgfx::TransientVertexBuffer transientHandle;
 
-		/// @remarks Used by static buffers.
+		/// @remarks Not used by dynamic buffers.
 		uint32_t firstVertex = 0;
 
-		/// @remarks Not used by transient buffers.
 		uint32_t nVertices = 0;
 	};
 
@@ -137,11 +136,7 @@ struct DrawCall
 		bgfx::IndexBufferHandle staticHandle;
 		bgfx::DynamicIndexBufferHandle dynamicHandle;
 		bgfx::TransientIndexBuffer transientHandle;
-
-		/// @remarks Not used by transient buffers.
 		uint32_t firstIndex = 0;
-
-		/// @remarks Not used by transient buffers.
 		uint32_t nIndices = 0;
 	};
 
@@ -195,6 +190,9 @@ struct Entity
 
 	vec3 directedLight;
 };
+
+/// @brief Given a triangulated quad, extract the unique corner vertices.
+std::array<Vertex *, 4> ExtractQuadCorners(Vertex *vertices, const uint16_t *indices);
 
 struct Image
 {

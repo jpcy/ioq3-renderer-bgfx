@@ -24,6 +24,24 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 namespace renderer {
 
+std::array<Vertex *, 4> ExtractQuadCorners(Vertex *vertices, const uint16_t *indices)
+{
+	std::array<uint16_t, 6> sorted;
+	memcpy(sorted.data(), indices, sizeof(uint16_t) * sorted.size());
+	std::sort(sorted.begin(), sorted.end());
+	std::array<Vertex *, 4> corners;
+	size_t cornerIndex = 0;
+
+	for (size_t i = 0; i < sorted.size(); i++)
+	{
+		if (i == 0 || sorted[i] != sorted[i - 1])
+			corners[cornerIndex++] = &vertices[sorted[i]];
+	}
+
+	assert(cornerIndex == 4); // Should be exactly 4 unique vertices.
+	return corners;
+}
+
 bool DrawCall::operator<(const DrawCall &other) const
 {
 	assert(material);
@@ -329,6 +347,9 @@ void Main::flushStretchPics()
 
 static void SetDrawCallGeometry(const DrawCall &dc)
 {
+	assert(dc.vb.nVertices);
+	assert(dc.ib.nIndices);
+
 	if (dc.vb.type == DrawCall::BufferType::Static)
 	{
 		bgfx::setVertexBuffer(dc.vb.staticHandle, dc.vb.firstVertex, dc.vb.nVertices);
@@ -339,7 +360,7 @@ static void SetDrawCallGeometry(const DrawCall &dc)
 	}
 	else if (dc.vb.type == DrawCall::BufferType::Transient)
 	{
-		bgfx::setVertexBuffer(&dc.vb.transientHandle);
+		bgfx::setVertexBuffer(&dc.vb.transientHandle, dc.vb.firstVertex, dc.vb.nVertices);
 	}
 
 	if (dc.ib.type == DrawCall::BufferType::Static)
@@ -352,7 +373,7 @@ static void SetDrawCallGeometry(const DrawCall &dc)
 	}
 	else if (dc.ib.type == DrawCall::BufferType::Transient)
 	{
-		bgfx::setIndexBuffer(&dc.ib.transientHandle);
+		bgfx::setIndexBuffer(&dc.ib.transientHandle, dc.ib.firstIndex, dc.ib.nIndices);
 	}
 }
 
@@ -511,7 +532,9 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			dc.material = sortedScenePolygons_[batchStart]->material;
 			dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 			dc.vb.transientHandle = tvb;
+			dc.vb.nVertices = nVertices;
 			dc.ib.transientHandle = tib;
+			dc.ib.nIndices = nIndices;
 			drawCalls_.push_back(dc);
 
 			// Iterate.
@@ -781,7 +804,9 @@ void Main::renderQuad(DrawCallList *drawCallList, vec3 position, vec3 normal, ve
 	dc.material = mat;
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
+	dc.vb.nVertices = nVertices;
 	dc.ib.transientHandle = tib;
+	dc.ib.nIndices = nIndices;
 	drawCallList->push_back(dc);
 }
 
@@ -838,7 +863,9 @@ void Main::renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3
 	dc.material = mat;
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
+	dc.vb.nVertices = nVertices;
 	dc.ib.transientHandle = tib;
+	dc.ib.nIndices = nIndices;
 	drawCallList->push_back(dc);
 }
 
@@ -910,7 +937,9 @@ void Main::renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity)
 	dc.material = materialCache->getMaterial(entity->e.customShader);
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
+	dc.vb.nVertices = nVertices;
 	dc.ib.transientHandle = tib;
+	dc.ib.nIndices = nIndices;
 	drawCallList->push_back(dc);
 }
 

@@ -427,20 +427,22 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 
 		if (!isAnimated && mat->hasCpuDeforms())
 		{
-			bgfx::TransientVertexBuffer tvb;
-			bgfx::TransientIndexBuffer tib;
+			bgfx::TransientVertexBuffer stvb;
+			bgfx::TransientIndexBuffer stib;
 
-			if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, nVertices_, &tib, surface.nIndices))
+			if (!bgfx::allocTransientBuffers(&stvb, Vertex::decl, nVertices_, &stib, surface.nIndices))
 			{
 				WarnOnce(WarnOnceId::TransientBuffer);
 				continue;
 			}
 
-			memcpy(tvb.data, frames_[0].vertices.data(), tvb.size);
-			memcpy(tib.data, &indices_[surface.startIndex], tib.size);
+			memcpy(stvb.data, frames_[0].vertices.data(), stvb.size);
+			memcpy(stib.data, &indices_[surface.startIndex], stib.size);
 			dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
-			dc.vb.transientHandle = tvb;
-			dc.ib.transientHandle = tib;
+			dc.vb.transientHandle = stvb;
+			dc.vb.nVertices = nVertices_;
+			dc.ib.transientHandle = stib;
+			dc.ib.nIndices = surface.nIndices;
 		}
 		else
 		{
@@ -453,9 +455,9 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 			{
 				dc.vb.type = DrawCall::BufferType::Static;
 				dc.vb.staticHandle = vertexBuffer_.handle;
-				dc.vb.nVertices = nVertices_;
 			}
 		
+			dc.vb.nVertices = nVertices_;
 			dc.ib.type = DrawCall::BufferType::Static;
 			dc.ib.staticHandle = indexBuffer_.handle;
 			dc.ib.firstIndex = surface.startIndex;

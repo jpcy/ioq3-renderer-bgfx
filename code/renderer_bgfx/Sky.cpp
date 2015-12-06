@@ -642,9 +642,9 @@ void Sky_Render(DrawCallList *drawCallList, vec3 viewPosition, uint8_t visCacheI
 			if (!TessellateSkyBoxSide(i, nullptr, nullptr, &nVertices, &nIndices, zMax))
 				continue;
 
-			DrawCall drawCall;
+			DrawCall dc;
 
-			if (!bgfx::allocTransientBuffers(&drawCall.vb.transientHandle, Vertex::decl, nVertices, &drawCall.ib.transientHandle, nIndices)) 
+			if (!bgfx::allocTransientBuffers(&dc.vb.transientHandle, Vertex::decl, nVertices, &dc.ib.transientHandle, nIndices)) 
 			{
 				WarnOnce(WarnOnceId::TransientBuffer);
 				return;
@@ -653,15 +653,17 @@ void Sky_Render(DrawCallList *drawCallList, vec3 viewPosition, uint8_t visCacheI
 			sky_min = 0;
 			sky_max = 1;
 			Com_Memset( s_skyTexCoords, 0, sizeof( s_skyTexCoords ) );
-			TessellateSkyBoxSide(i, (Vertex *)drawCall.vb.transientHandle.data, (uint16_t *)drawCall.ib.transientHandle.data, nullptr, nullptr, zMax);
-			drawCall.vb.type = drawCall.ib.type = DrawCall::BufferType::Transient;
-			drawCall.flags = DrawCallFlags::SkyboxSideFirst + i;
-			drawCall.material = mat;
+			TessellateSkyBoxSide(i, (Vertex *)dc.vb.transientHandle.data, (uint16_t *)dc.ib.transientHandle.data, nullptr, nullptr, zMax);
+			dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
+			dc.vb.nVertices = nVertices;
+			dc.ib.nIndices = nIndices;
+			dc.flags = DrawCallFlags::SkyboxSideFirst + i;
+			dc.material = mat;
 
 			// Write depth as 1.
-			drawCall.zOffset = 1.0f;
-			drawCall.zScale = 0.0f;
-			drawCallList->push_back(drawCall);
+			dc.zOffset = 1.0f;
+			dc.zScale = 0.0f;
+			drawCallList->push_back(dc);
 		}
 	}
 
@@ -670,22 +672,24 @@ void Sky_Render(DrawCallList *drawCallList, vec3 viewPosition, uint8_t visCacheI
 	{
 		uint32_t nVertices, nIndices;
 		TessellateCloudBox(nullptr, nullptr, &nVertices, &nIndices, zMax);
-		DrawCall drawCall;
+		DrawCall dc;
 
-		if (!bgfx::allocTransientBuffers(&drawCall.vb.transientHandle, Vertex::decl, nVertices, &drawCall.ib.transientHandle, nIndices)) 
+		if (!bgfx::allocTransientBuffers(&dc.vb.transientHandle, Vertex::decl, nVertices, &dc.ib.transientHandle, nIndices)) 
 		{
 			WarnOnce(WarnOnceId::TransientBuffer);
 			return;
 		}
 
-		TessellateCloudBox((Vertex *)drawCall.vb.transientHandle.data, (uint16_t *)drawCall.ib.transientHandle.data, nullptr, nullptr, zMax);
-		drawCall.vb.type = drawCall.ib.type = DrawCall::BufferType::Transient;
-		drawCall.material = mat;
+		TessellateCloudBox((Vertex *)dc.vb.transientHandle.data, (uint16_t *)dc.ib.transientHandle.data, nullptr, nullptr, zMax);
+		dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
+		dc.vb.nVertices = nVertices;
+		dc.ib.nIndices = nIndices;
+		dc.material = mat;
 
 		// Write depth as 1.
-		drawCall.zOffset = 1.0f;
-		drawCall.zScale = 0.0f;
-		drawCallList->push_back(drawCall);
+		dc.zOffset = 1.0f;
+		dc.zScale = 0.0f;
+		drawCallList->push_back(dc);
 	}
 }
 

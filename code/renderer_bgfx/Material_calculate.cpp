@@ -49,9 +49,9 @@ void Material::doCpuDeforms(DrawCall *dc) const
 		return;
 
 	auto vertices = (Vertex *)dc->vb.transientHandle.data;
-	const size_t nVertices = dc->vb.transientHandle.size / sizeof(Vertex);
+	const size_t nVertices = dc->vb.nVertices;
 	auto indices = (uint16_t *)dc->ib.transientHandle.data;
-	const size_t nIndices = dc->ib.transientHandle.size / sizeof(uint16_t);
+	const size_t nIndices = dc->ib.nIndices;
 
 	for (auto &ds : deforms)
 	{
@@ -66,6 +66,11 @@ void Material::doCpuDeforms(DrawCall *dc) const
 		case MaterialDeform::Autosprite:
 		case MaterialDeform::Autosprite2:
 		{
+			if ((nVertices % 4) != 0)
+			{
+				ri.Printf(PRINT_WARNING, "Autosprite material %s had odd vertex count %d\n", name, nVertices);
+			}
+
 			if ((nIndices % 6) != 0)
 			{
 				ri.Printf(PRINT_WARNING, "Autosprite material %s had odd index count %d\n", name, nIndices);
@@ -75,7 +80,6 @@ void Material::doCpuDeforms(DrawCall *dc) const
 
 			if (g_main->currentEntity)
 			{
-				// ???
 				forward.x = vec3::dotProduct(g_main->sceneRotation[0], g_main->currentEntity->e.axis[0]);
 				forward.y = vec3::dotProduct(g_main->sceneRotation[0], g_main->currentEntity->e.axis[1]);
 				forward.z = vec3::dotProduct(g_main->sceneRotation[0], g_main->currentEntity->e.axis[2]);
@@ -96,41 +100,16 @@ void Material::doCpuDeforms(DrawCall *dc) const
 			// Iterate through triangulated quads.
 			for (size_t quadIndex = 0; quadIndex < nIndices / 6; quadIndex++)
 			{
-				const size_t firstIndex = quadIndex * 6;
+				const size_t firstIndex = dc->ib.firstIndex + quadIndex * 6;
+				const size_t firstVertex = dc->vb.firstVertex + quadIndex * 4;
 
-				// Vertices may not be contiguous. Grab the unique vertices.
-				Vertex *v[4] = {0};
-				uint16_t oldIndices[4];
+				// Get the quad corner vertices and their indexes.
+				auto v = ExtractQuadCorners(vertices, &indices[firstIndex]);
+				std::array<uint16_t, 4> vi;
 
-				for (size_t j = 0; j < 6; j++)
-				{
-					uint16_t index = indices[firstIndex + j];
-					size_t k;
-					bool alreadyAdded = false;
+				for (size_t i = 0; i < vi.size(); i++)
+					vi[i] = uint16_t(v[i] - vertices);
 
-					for (k = 0; k < 4; k++)
-					{
-						if (!v[k])
-						{
-							break;
-						}
-						else if (oldIndices[k] == index)
-						{
-							alreadyAdded = true;
-							break;
-						}
-					}
-
-					if (alreadyAdded)
-						continue;
-
-					if (k < 4)
-					{
-						v[k] = &vertices[index];
-						oldIndices[k] = index;
-					}
-				}
-				
 				if (ds.deformation == MaterialDeform::Autosprite)
 				{
 					// find the midpoint
@@ -168,6 +147,7 @@ void Material::doCpuDeforms(DrawCall *dc) const
 						VectorScale(up, axisLength, up);
 					}
 
+					// Rebuild quad facing the main camera.
 					v[0]->pos = mid + left + up;
 					v[1]->pos = mid - left + up;
 					v[2]->pos = mid - left - up;
@@ -182,12 +162,12 @@ void Material::doCpuDeforms(DrawCall *dc) const
 					v[2]->texCoord = v[2]->texCoord2 = vec2(1, 1);
 					v[3]->texCoord = v[3]->texCoord2 = vec2(0, 1);
 
-					indices[firstIndex + 0] = oldIndices[0];
-					indices[firstIndex + 1] = oldIndices[1];
-					indices[firstIndex + 2] = oldIndices[3];
-					indices[firstIndex + 3] = oldIndices[3];
-					indices[firstIndex + 4] = oldIndices[1];
-					indices[firstIndex + 5] = oldIndices[2];
+					indices[firstIndex + 0] = vi[0];
+					indices[firstIndex + 1] = vi[1];
+					indices[firstIndex + 2] = vi[3];
+					indices[firstIndex + 3] = vi[3];
+					indices[firstIndex + 4] = vi[1];
+					indices[firstIndex + 5] = vi[2];
 				}
 				else if (ds.deformation == MaterialDeform::Autosprite2)
 				{
@@ -205,7 +185,14 @@ void Material::doCpuDeforms(DrawCall *dc) const
 					int		nums[2];
 					vec3_t	mid[2];
 					vec3_t	major, minor;
-					float	*v1, *v2;
+					float *v1, *v2;
+
+					uint16_t smallestIndex = indices[firstIndex];
+
+					for (size_t i = 0; i < vi.size(); i++)
+					{
+						smallestIndex = std::min(smallestIndex, vi[i]);
+					}
 
 					// find the midpoint
 					// identify the two shortest edges
@@ -263,8 +250,8 @@ void Material::doCpuDeforms(DrawCall *dc) const
 						int k;
 
 						for (k = 0 ; k < 5 ; k++) {
-							if (indices[firstIndex + k ] == firstIndex + edgeVerts[nums[j]][0]
-								&& indices[firstIndex + k + 1 ] == firstIndex + edgeVerts[nums[j]][1]) {
+							if (indices[firstIndex + k ] == smallestIndex + edgeVerts[nums[j]][0]
+								&& indices[firstIndex + k + 1 ] == smallestIndex + edgeVerts[nums[j]][1]) {
 								break;
 							}
 						}
