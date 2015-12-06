@@ -45,7 +45,7 @@ void Material::doCpuDeforms(DrawCall *dc) const
 {
 	assert(dc);
 
-	if (!requiresCpuDeforms() || dc->vb.type != DrawCall::BufferType::Transient || dc->ib.type != DrawCall::BufferType::Transient)
+	if (!hasCpuDeforms() || dc->vb.type != DrawCall::BufferType::Transient || dc->ib.type != DrawCall::BufferType::Transient)
 		return;
 
 	auto vertices = (Vertex *)dc->vb.transientHandle.data;
@@ -53,37 +53,13 @@ void Material::doCpuDeforms(DrawCall *dc) const
 	auto indices = (uint16_t *)dc->ib.transientHandle.data;
 	const size_t nIndices = dc->ib.transientHandle.size / sizeof(uint16_t);
 
-	for (size_t i = 0; i < numDeforms; i++)
+	for (auto &ds : deforms)
 	{
-		auto &ds = deforms[i];
+		if (!isCpuDeform(ds.deformation))
+			continue;
 
 		switch (ds.deformation)
 		{
-		case MaterialDeform::Wave:
-			if (ds.deformationWave.frequency == 0)
-			{
-				const float scale = evaluateWaveForm(ds.deformationWave);
-
-				for (uint32_t i = 0; i < nVertices; i++)
-				{
-					Vertex &v = vertices[i];
-					v.pos += v.normal * scale;
-				}
-			}
-			else
-			{
-				float *table = tableForFunc(ds.deformationWave.func);
-
-				for (uint32_t i = 0; i < nVertices; i++)
-				{
-					Vertex &v = vertices[i];
-					const float offset = (v.pos.x + v.pos.y + v.pos.z) * ds.deformationSpread;
-					const float scale = WAVEVALUE(table, ds.deformationWave.base, ds.deformationWave.amplitude, ds.deformationWave.phase + offset, ds.deformationWave.frequency);
-					v.pos += v.normal * scale;
-				}
-			}
-			break;
-
 		case MaterialDeform::Normals:
 			for (uint32_t i = 0; i < nVertices; i++)
 			{
@@ -98,29 +74,6 @@ void Material::doCpuDeforms(DrawCall *dc) const
 				scale = R_NoiseGet4f(200 + v.pos.x * scale, v.pos.y * scale, v.pos.z * scale, time_ * ds.deformationWave.frequency);
 				v.normal.z += ds.deformationWave.amplitude * scale;
 				v.normal.normalizeFast();
-			}
-			break;
-
-		case MaterialDeform::Bulge:
-			for (uint32_t i = 0; i < nVertices; i++)
-			{
-				Vertex &v = vertices[i];
-				const int offset = (float)(Main::funcTableSize / (M_PI * 2)) * (v.texCoord.u * ds.bulgeWidth + time_ * ds.bulgeSpeed);
-				const float scale = g_main->sinTable[offset & Main::funcTableMask] * ds.bulgeHeight;
-				v.pos += v.normal * scale;
-			}
-			break;
-
-		case MaterialDeform::Move:
-			{
-				const float scale = WAVEVALUE(tableForFunc(ds.deformationWave.func), ds.deformationWave.base, ds.deformationWave.amplitude, ds.deformationWave.phase, ds.deformationWave.frequency);
-				const vec3 offset(ds.moveVector * scale);
-
-				for (uint32_t i = 0; i < nVertices; i++)
-				{
-					Vertex &v = vertices[i];
-					v.pos += offset;
-				}
 			}
 			break;
 
@@ -354,9 +307,6 @@ void Material::doCpuDeforms(DrawCall *dc) const
 		case MaterialDeform::Text5:
 		case MaterialDeform::Text6:
 		case MaterialDeform::Text7:
-			break;
-
-		default:
 			break;
 		}
 	}
@@ -916,7 +866,7 @@ void Material::calculateColors(const MaterialStage &stage, vec4 *baseColor, vec4
 
 void Material::setDeformUniforms() const
 {
-	if (requiresCpuDeforms())
+	if (!hasGpuDeforms())
 	{
 		g_main->uniforms->nDeforms.set(vec4(0, 0, 0, 0));
 		return;
@@ -925,10 +875,12 @@ void Material::setDeformUniforms() const
 	vec4 moveDirs[maxDeforms];
 	vec4 gen_Wave_Base_Amplitude[maxDeforms];
 	vec4 frequency_Phase_Spread[maxDeforms];
+	size_t i = 0;
 
-	for (size_t i = 0; i < numDeforms; i++)
+	for (auto &ds : deforms)
 	{
-		auto &ds = deforms[i];
+		if (!isGpuDeform(ds.deformation))
+			continue;
 
 		switch (ds.deformation)
 		{
@@ -951,12 +903,14 @@ void Material::setDeformUniforms() const
 		default:
 			break;
 		}
+
+		i++;
 	}
 
-	g_main->uniforms->nDeforms.set(vec4(numDeforms, 0, 0, 0));
-	g_main->uniforms->deformMoveDirs.set(moveDirs, numDeforms);
-	g_main->uniforms->deform_Gen_Wave_Base_Amplitude.set(gen_Wave_Base_Amplitude, numDeforms);
-	g_main->uniforms->deform_Frequency_Phase_Spread.set(frequency_Phase_Spread, numDeforms);
+	g_main->uniforms->nDeforms.set(vec4(i, 0, 0, 0));
+	g_main->uniforms->deformMoveDirs.set(moveDirs, i);
+	g_main->uniforms->deform_Gen_Wave_Base_Amplitude.set(gen_Wave_Base_Amplitude, i);
+	g_main->uniforms->deform_Frequency_Phase_Spread.set(frequency_Phase_Spread, i);
 }
 
 } // namespace renderer

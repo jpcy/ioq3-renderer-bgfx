@@ -527,7 +527,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	{
 		assert(dc.material);
 
-		if (dc.material->requiresCpuDeforms())
+		if (dc.material->hasCpuDeforms())
 		{
 			// Material requires CPU deforms, but geometry isn't available in system memory.
 			if (dc.vb.type != DrawCall::BufferType::Transient || dc.ib.type != DrawCall::BufferType::Transient)

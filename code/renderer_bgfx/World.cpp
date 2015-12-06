@@ -1230,7 +1230,7 @@ public:
 			dc.fogIndex = surface.fogIndex;
 			dc.material = surface.material;
 
-			if (surface.material->requiresCpuDeforms())
+			if (surface.material->hasCpuDeforms())
 			{
 				// Find the range of vertices used by this surface.
 				// Because they're batched together, they're not guaranteed to be contiguous, so just grab the whole range.

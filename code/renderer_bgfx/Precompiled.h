@@ -569,7 +569,17 @@ public:
 	Material(const char *name);
 	size_t getNumStages() const { return numUnfoggedPasses; }
 	int32_t getDepth() const { return (int32_t)sort; }
-	bool requiresCpuDeforms() const;
+
+	/// @name deforms
+	/// @{
+
+	int getNumGpuDeforms() const;
+	bool hasCpuDeforms() const;
+	bool hasGpuDeforms() const;
+	bool isCpuDeform(MaterialDeform deform) const;
+	bool isGpuDeform(MaterialDeform deform) const;
+
+	/// @}
 
 	char name[MAX_QPATH];		// game path, including extension
 	int lightmapIndex = MaterialLightmapId::None;			// for a shader to match, both name and lightmapIndex must match

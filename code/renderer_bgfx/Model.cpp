@@ -425,7 +425,7 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 			dc.zScale = 0.3f;
 		}
 
-		if (!isAnimated && mat->requiresCpuDeforms())
+		if (!isAnimated && mat->hasCpuDeforms())
 		{
 			bgfx::TransientVertexBuffer tvb;
 			bgfx::TransientIndexBuffer tib;
