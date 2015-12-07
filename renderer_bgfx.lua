@@ -32,7 +32,7 @@ function createBgfxProject(bgfxPath, bxPath)
 	configuration "vs*"
 		includedirs { path.join(bxPath, "include/compat/msvc") }
 	configuration { "windows", "gmake" }
-		defines { "WIN32", "_WIN32" }
+		buildoptions { "-std=c++0x" }
 		includedirs { path.join(bxPath, "include/compat/mingw") }
 	configuration {}
 	
@@ -47,13 +47,16 @@ function createRendererProject(bgfxPath, bxPath, ioq3Path, rendererPath, sdlLib3
 	project "renderer_bgfx"
 	language "C++"
 	kind "SharedLib"
-	pchheader "Precompiled.h"
-	pchsource(path.join(rendererPath, "code/renderer_bgfx/Precompiled.cpp"))
 	
 	configuration "x64"
 		targetname "renderer_bgfx_x86_64"
 	configuration "not x64"
 		targetname "renderer_bgfx_x86"
+	configuration {}
+	
+	configuration "vs*"
+		pchheader "Precompiled.h"
+		pchsource(path.join(rendererPath, "code/renderer_bgfx/Precompiled.cpp"))
 	configuration {}
 	
 	defines
@@ -119,6 +122,7 @@ function createRendererProject(bgfxPath, bxPath, ioq3Path, rendererPath, sdlLib3
 	
 	links
 	{
+		"gdi32",
 		"psapi",
 		"OpenGL32",
 		"d3dcompiler",
@@ -130,7 +134,7 @@ function createRendererProject(bgfxPath, bxPath, ioq3Path, rendererPath, sdlLib3
 	
 	configuration(path.getrelative(path.getabsolute("."), path.join(rendererPath, "shaders/*.*")))
 		buildmessage "Stringifying %{file.name}"
-		buildcommands("cscript.exe \"" .. path.join(ioq3Path, "misc/msvc/glsl_stringify.vbs") .. "\" //Nologo \"%{file.relpath}\" \"%{prj.location}\\dynamic\\renderer_bgfx\\%{file.basename}.c\"")
+		buildcommands("cscript.exe \"" .. path.join(ioq3Path, "misc/msvc/glsl_stringify.vbs") .. "\" \"%{file.abspath}\" \"" .. path.join("%{prj.location}", "dynamic\\renderer_bgfx\\%{file.basename}.c\""))
 		buildoutputs "%{prj.location}\\dynamic\\renderer_bgfx\\%{file.basename}.c"
 	
 	configuration "not x64"
@@ -139,6 +143,13 @@ function createRendererProject(bgfxPath, bxPath, ioq3Path, rendererPath, sdlLib3
 		links(sdlLib64)
 	configuration "vs*"
 		buildoptions { "/wd\"4316\"", "/wd\"4351\"" } -- Silence some warnings
+	configuration { "gmake" }
+		buildoptions { "-std=c++14" }
+		linkoptions
+		{
+			"-static-libgcc",
+			"-static-libstdc++"
+		}
 end
 
 --
@@ -161,8 +172,7 @@ function createShadercProject(bgfxPath, bxPath, rendererPath)
 	configuration "vs*"
 		includedirs
 		{
-			path.join(bxPath, "include/compat/msvc"),
-			path.join(GLSL_OPTIMIZER, "src/glsl/msvc")
+			path.join(bxPath, "include/compat/msvc")
 		}
 
 		-- glsl-optimizer
@@ -180,8 +190,10 @@ function createShadercProject(bgfxPath, bxPath, rendererPath)
 			"/wd4291", -- 'declaration' : no matching operator delete found; memory will not be freed if initialization throws an exception
 			"/wd4996" -- warning C4996: 'strdup': The POSIX name for this item is deprecated. Instead, use the ISO C++ conformant name: _strdup.
 		}
-
-	configuration {}
+	configuration { "windows", "gmake" }
+		buildoptions { "-std=c++0x" }
+		includedirs { path.join(bxPath, "include/compat/mingw") }	
+	filter {}
 	
 	defines { "SHADERC_LIB" }
 

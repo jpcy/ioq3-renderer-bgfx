@@ -26,11 +26,11 @@ end
 local RENDERER_PATH = path.getabsolute(".")
 	
 if os.get() == "windows" then
-	os.mkdir("build")
 	os.mkdir("build/bin_x86")
 	os.mkdir("build/bin_x64")
 	os.mkdir("build/bin_debug_x86")
 	os.mkdir("build/bin_debug_x64")
+	os.mkdir("build/dynamic/renderer_bgfx")
 	os.copyfile("D3DCompiler_47.dll", "build/bin_x86/D3DCompiler_47.dll")
 	os.copyfile("D3DCompiler_47.dll", "build/bin_x64/D3DCompiler_47.dll")
 	os.copyfile("D3DCompiler_47.dll", "build/bin_debug_x86/D3DCompiler_47.dll")
