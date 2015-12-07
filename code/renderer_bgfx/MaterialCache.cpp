@@ -25,7 +25,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 namespace renderer {
 
 // This is unfortunate, but the skin files aren't compatable with our normal parsing rules.
-static char *CommaParse(char **data_p)
+static const char *CommaParse(char **data_p)
 {
 	char *data = *data_p;
 	static char com_token[MAX_TOKEN_CHARS];

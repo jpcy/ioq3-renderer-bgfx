@@ -239,7 +239,7 @@ void ShaderCache::initialize()
 {
 	createBundle(&fog_, "Fog", constants_, nullptr);
 	char defines[2048];
-	#define DEFINE(x) Q_strcat(defines, sizeof(defines), x); Q_strcat(defines, sizeof(defines), ";");
+	#define DEFINE(x) { Q_strcat(defines, sizeof(defines), x); Q_strcat(defines, sizeof(defines), ";"); }
 
 	for (size_t i = 0; i < GenericPermutations::Count; i++)
 	{

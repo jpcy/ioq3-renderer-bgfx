@@ -53,7 +53,7 @@ public:
 
 struct infoParm_t
 {
-	char *name;
+	const char *name;
 	unsigned int clearSolid, surfaceFlags, contents;
 };
 
