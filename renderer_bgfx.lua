@@ -193,7 +193,7 @@ function createShadercProject(bgfxPath, bxPath, rendererPath)
 	configuration { "windows", "gmake" }
 		buildoptions { "-std=c++0x" }
 		includedirs { path.join(bxPath, "include/compat/mingw") }	
-	filter {}
+	configuration {}
 	
 	defines { "SHADERC_LIB" }
 
