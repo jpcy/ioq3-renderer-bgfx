@@ -221,7 +221,7 @@ public:
 
 	void batchSurfaces()
 	{
-		if (tempSurfaces_.empty())
+		if (tempVertices_.empty() || tempIndices_.empty())
 			return;
 
 		// Allocate buffers for the batched geometry.
@@ -238,6 +238,9 @@ public:
 			// Get the material from the first temp surface that hasn't been batched.
 			for (const auto &ts : tempSurfaces_)
 			{
+				if (!ts.material)
+					continue;
+
 				if (!ts.batched)
 				{
 					material = ts.material;
@@ -275,7 +278,7 @@ public:
 			// Batch all temp surfaces with this material.
 			for (auto &ts : tempSurfaces_)
 			{
-				if (ts.material != material)
+				if (!ts.material || ts.material != material)
 					continue;
 
 				memcpy(&vertices[currentVertex], &tempVertices_[ts.firstVertex], sizeof(Vertex) * ts.nVertices);
@@ -318,10 +321,12 @@ private:
 	uint32_t nVertices_;
 	IndexBuffer indexBuffer_;
 
-	// Not used after surfaces are batchd.
+	/// @remarks Not used after surfaces are batched.
 	struct TempSurface
 	{
-		Material *material;
+		/// @remarks Temp surfaces with no material are ignored.
+		Material *material = nullptr;
+
 		uint32_t firstVertex;
 		uint32_t nVertices;
 		uint32_t firstIndex;
