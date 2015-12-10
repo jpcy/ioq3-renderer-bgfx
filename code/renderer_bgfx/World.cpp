@@ -194,6 +194,13 @@ public:
 		}
 	}
 
+	void addPatchSurface(size_t index, Material *material, int width, int height, const Vertex *points, int lightmapIndex, int nLightmapTilesPerDimension)
+	{
+		Patch *patch = Patch_Subdivide(width, height, points);
+		addSurface(index, material, patch->verts, patch->numVerts, patch->indexes, patch->numIndexes, lightmapIndex, nLightmapTilesPerDimension);
+		Patch_Free(patch);
+	}
+
 	void addSurface(size_t index, Material *material, const Vertex *vertices, size_t nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex, int nLightmapTilesPerDimension)
 	{
 		// Create a temp surface.
@@ -1900,6 +1907,10 @@ private:
 				if (type == MST_PLANAR || type == MST_TRIANGLE_SOUP)
 				{
 					model->addSurface(j, material, &vertices[LittleLong(fs.firstVert)], LittleLong(fs.numVerts), &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex % nLightmapsPerAtlas_, lightmapAtlasSize_ / lightmapSize_);
+				}
+				else if (type == MST_PATCH)
+				{
+					model->addPatchSurface(j, material, LittleLong(fs.patchWidth), LittleLong(fs.patchHeight), &vertices[LittleLong(fs.firstVert)], lightmapIndex % nLightmapsPerAtlas_, lightmapAtlasSize_ / lightmapSize_);
 				}
 			}
 
