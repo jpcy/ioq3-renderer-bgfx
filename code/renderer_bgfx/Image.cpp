@@ -119,9 +119,10 @@ static void FinalizeImage(Image *image, uint8_t *data, int flags)
 		{
 			uint8_t *mipDest = mipSource + (width * height * image->nComponents);
 
-#ifdef _DEBUG
+#if 1
 			stbir_resize_uint8(mipSource, width, height, 0, mipDest, std::max(1, width >> 1), std::max(1, height >> 1), 0, image->nComponents);
 #else
+			// Causes lightshaft artifacts.
 			bgfx::imageRgba8Downsample2x2(width, height, width * image->nComponents, mipSource, mipDest);
 #endif
 			mipSource = mipDest;
