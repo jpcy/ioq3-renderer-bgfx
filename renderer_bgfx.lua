@@ -120,6 +120,12 @@ function createRendererProject(bgfxPath, bxPath, ioq3Path, rendererPath, sdlLib3
 		path.join(rendererPath, "code/stb")
 	}
 	
+	configuration "vs*"
+		includedirs { path.join(bxPath, "include/compat/msvc") }
+	configuration { "windows", "gmake" }
+		includedirs { path.join(bxPath, "include/compat/mingw") }
+	configuration {}
+	
 	links
 	{
 		"gdi32",

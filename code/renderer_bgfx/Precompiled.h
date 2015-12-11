@@ -46,7 +46,9 @@ using namespace math;
 
 #include "bgfx/bgfx.h"
 #include "bgfx/bgfxplatform.h"
+#include "bx/debug.h"
 #include "bx/fpumath.h"
+#include "bx/string.h"
 
 #define BIT(x) (1<<(x))
 
@@ -60,6 +62,23 @@ class Material;
 class Skin;
 class Texture;
 struct Vertex;
+
+struct BgfxCallback : bgfx::CallbackI
+{
+	void fatal(bgfx::Fatal::Enum _code, const char* _str) override;
+	void traceVargs(const char* _filePath, uint16_t _line, const char* _format, va_list _argList) override;
+	uint32_t cacheReadSize(uint64_t _id) override;
+	bool cacheRead(uint64_t _id, void* _data, uint32_t _size) override;
+	void cacheWrite(uint64_t _id, const void* _data, uint32_t _size) override;
+	void screenShot(const char* _filePath, uint32_t _width, uint32_t _height, uint32_t _pitch, const void* _data, uint32_t _size, bool _yflip) override;
+	void captureBegin(uint32_t _width, uint32_t _height, uint32_t _pitch, bgfx::TextureFormat::Enum _format, bool _yflip) override;
+	void captureEnd() override;
+	void captureFrame(const void* _data, uint32_t _size) override;
+
+private:
+	std::vector<uint8_t> screenShotDataBuffer_;
+	std::vector<uint8_t> screenShotFileBuffer_;
+};
 
 struct ConsoleVariables
 {

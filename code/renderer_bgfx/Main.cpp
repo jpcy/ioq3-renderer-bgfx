@@ -22,6 +22,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Precompiled.h"
 #pragma hdrstop
 
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
 namespace renderer {
 
 std::array<Vertex *, 4> ExtractQuadCorners(Vertex *vertices, const uint16_t *indices)
@@ -40,6 +43,124 @@ std::array<Vertex *, 4> ExtractQuadCorners(Vertex *vertices, const uint16_t *ind
 
 	assert(cornerIndex == 4); // Should be exactly 4 unique vertices.
 	return corners;
+}
+
+void BgfxCallback::fatal(bgfx::Fatal::Enum _code, const char* _str)
+{
+	if (bgfx::Fatal::DebugCheck == _code)
+	{
+		bx::debugBreak();
+	}
+	else
+	{
+		BX_TRACE("0x%08x: %s", _code, _str);
+		BX_UNUSED(_code, _str);
+		abort();
+	}
+}
+
+void BgfxCallback::traceVargs(const char* _filePath, uint16_t _line, const char* _format, va_list _argList)
+{
+	char temp[2048];
+	char* out = temp;
+	int32_t len   = bx::snprintf(out, sizeof(temp), "%s (%d): ", _filePath, _line);
+	int32_t total = len + bx::vsnprintf(out + len, sizeof(temp)-len, _format, _argList);
+	if ( (int32_t)sizeof(temp) < total)
+	{
+		out = (char*)alloca(total+1);
+		memcpy(out, temp, len);
+		bx::vsnprintf(out + len, total-len, _format, _argList);
+	}
+	out[total] = '\0';
+	bx::debugOutput(out);
+}
+
+uint32_t BgfxCallback::cacheReadSize(uint64_t _id)
+{
+	return 0;
+}
+
+bool BgfxCallback::cacheRead(uint64_t _id, void* _data, uint32_t _size)
+{
+	return false;
+}
+
+void BgfxCallback::cacheWrite(uint64_t _id, const void* _data, uint32_t _size)
+{
+}
+
+struct ImageWriteBuffer
+{
+	std::vector<uint8_t> *data;
+	size_t bytesWritten;
+};
+
+static void ImageWriteCallback(void *context, void *data, int size)
+{
+	auto buffer = (ImageWriteBuffer *)context;
+
+	if (buffer->data->size() < buffer->bytesWritten + size)
+	{
+		buffer->data->resize(buffer->bytesWritten + size);
+	}
+
+	memcpy(&buffer->data->data()[buffer->bytesWritten], data, size);
+	buffer->bytesWritten += size;
+}
+
+void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _height, uint32_t _pitch, const void* _data, uint32_t _size, bool _yflip)
+{
+	// Convert from BGRA to RGBA, and flip y if needed.
+	if (screenShotDataBuffer_.size() < _size)
+	{
+		screenShotDataBuffer_.resize(_size);
+	}
+
+	for (uint32_t y = 0; y < _height; y++)
+	{
+		for (uint32_t x = 0; x < _width; x++)
+		{
+			auto colorIn = &((const uint8_t *)_data)[x * 4 + (_yflip ? _height - 1 - y : y) * _pitch];
+			uint8_t *colorOut = &screenShotDataBuffer_[x * 4 + y * _pitch];
+			colorOut[0] = colorIn[2];
+			colorOut[1] = colorIn[1];
+			colorOut[2] = colorIn[0];
+			colorOut[3] = colorIn[3];
+		}
+	}
+
+	// Write to file buffer.
+	const char *extension = COM_GetExtension(_filePath);
+	ImageWriteBuffer buffer;
+	buffer.data = &screenShotFileBuffer_;
+	buffer.bytesWritten = 0;
+
+	if (!Q_stricmp(extension, "png"))
+	{
+		stbi_write_png_to_func(ImageWriteCallback, &buffer, _width, _height, _pitch / _width, screenShotDataBuffer_.data(), _pitch);
+	}
+	else
+	{
+		stbi_write_tga_to_func(ImageWriteCallback, &buffer, _width, _height, _pitch / _width, screenShotDataBuffer_.data());
+	}
+
+	// Write file buffer to file.
+	if (buffer.bytesWritten > 0)
+	{
+		ri.FS_WriteFile(_filePath, buffer.data->data(), buffer.bytesWritten);
+	}
+}
+
+void BgfxCallback::captureBegin(uint32_t _width, uint32_t _height, uint32_t _pitch, bgfx::TextureFormat::Enum _format, bool _yflip)
+{
+}
+
+void BgfxCallback::captureEnd()
+{
+}
+
+void BgfxCallback::captureFrame(const void* _data, uint32_t _size)
+{
 }
 
 bool DrawCall::operator<(const DrawCall &other) const

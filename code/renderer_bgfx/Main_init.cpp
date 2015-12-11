@@ -73,6 +73,8 @@ static const Backend backends[] =
 
 static const size_t nBackends = ARRAY_LEN(backends);
 
+BgfxCallback bgfxCallback;
+
 const mat4 Main::toOpenGlMatrix
 (
 	0, 0, -1, 0,
@@ -145,16 +147,84 @@ ConsoleVariables::ConsoleVariables()
 	railSegmentLength = ri.Cvar_Get("r_railSegmentLength", "32", CVAR_ARCHIVE);
 }
 
-static void ReloadShaders()
+static void Cmd_ReloadShaders()
 {
 	g_main->shaderCache.release();
 	g_main->shaderCache = std::make_unique<ShaderCache>();
 	g_main->shaderCache->initialize();
 }
 
+static void TakeScreenshot(const char *extension)
+{
+	const bool silent = !strcmp(ri.Cmd_Argv(1), "silent");
+	static int lastNumber = -1;
+	char filename[MAX_OSPATH];
+
+	if (ri.Cmd_Argc() == 2 && !silent)
+	{
+		// Explicit filename.
+		Com_sprintf(filename, MAX_OSPATH, "screenshots/%s.%s", ri.Cmd_Argv(1), extension);
+	}
+	else
+	{
+		// Scan for a free filename.
+		// If we have saved a previous screenshot, don't scan again, because recording demo avis can involve thousands of shots.
+		if (lastNumber == -1)
+			lastNumber = 0;
+
+		// Scan for a free number.
+		for (; lastNumber <= 9999; lastNumber++)
+		{
+			if (lastNumber < 0 || lastNumber > 9999)
+			{
+				Com_sprintf(filename, MAX_OSPATH, "screenshots/shot9999.%s", extension);
+			}
+			else
+			{
+				int a = lastNumber / 1000;
+				lastNumber -= a * 1000;
+				int b = lastNumber / 100;
+				lastNumber -= b * 100;
+				int c = lastNumber / 10;
+				lastNumber -= c * 10;
+				int d = lastNumber;
+				Com_sprintf(filename, MAX_OSPATH, "screenshots/shot%i%i%i%i.%s", a, b, c, d, extension);
+			}
+
+			if (!ri.FS_FileExists(filename))
+				break; // File doesn't exist.
+		}
+
+		if (lastNumber >= 9999)
+		{
+			ri.Printf(PRINT_ALL, "ScreenShot: Couldn't create a file\n"); 
+			return;
+		}
+
+		lastNumber++;
+	}
+
+	bgfx::saveScreenShot(filename);
+
+	if (!silent)
+		ri.Printf(PRINT_ALL, "Wrote %s\n", filename);
+}
+
+static void Cmd_Screenshot()
+{
+	TakeScreenshot("tga");
+}
+
+static void Cmd_ScreenshotPNG()
+{
+	TakeScreenshot("png");
+}
+
 Main::Main()
 {
-	ri.Cmd_AddCommand("r_reloadShaders", ReloadShaders);
+	ri.Cmd_AddCommand("r_reloadShaders", Cmd_ReloadShaders);
+	ri.Cmd_AddCommand("screenshot", Cmd_Screenshot);
+	ri.Cmd_AddCommand("screenshotPNG", Cmd_ScreenshotPNG);
 
 	sunDirection.normalize();
 
@@ -194,6 +264,8 @@ Main::Main()
 Main::~Main()
 {
 	ri.Cmd_RemoveCommand("r_reloadShaders");
+	ri.Cmd_RemoveCommand("screenshot");
+	ri.Cmd_RemoveCommand("screenshotPNG");
 }
 
 void Main::initialize()
@@ -213,7 +285,7 @@ void Main::initialize()
 		}
 
 		Window_Initialize(backend == bgfx::RendererType::OpenGL);
-		bgfx::init(backend);
+		bgfx::init(backend, 0, 0, &bgfxCallback);
 
 		for (size_t i = 0; i < nBackends; i++)
 		{
