@@ -445,7 +445,6 @@ void Main::flushStretchPics()
 
 			for (size_t i = 0; i < stretchPicMaterial_->getNumStages(); i++)
 			{
-				uniforms->portalClip.set(vec4(0, 0, 0, 0));
 				stretchPicMaterial_->setStageShaderUniforms(i);
 				stretchPicMaterial_->setStageTextureSamplers(i);
 				uint64_t state = stretchPicMaterial_->calculateStageState(i, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE);
@@ -539,31 +538,6 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		cameraRotation = rotation;
 	}
 
-	if (!isMainCamera)
-	{
-		uniforms->portalClip.set(vec4(1, 0, 0, 0));
-		uniforms->portalPlane.set(portalPlane);
-	}
-	else
-	{
-		uniforms->portalClip.set(vec4(0, 0, 0, 0));
-	}
-
-	// Setup dynamic lights.
-	uniforms->nDynamicLights.set(vec4(sceneDynamicLights_.size(), 0, 0, 0));
-	vec4 dlightColors[DynamicLight::max];
-	vec4 dlightPositions[DynamicLight::max];
-
-	for (size_t i = 0; i < sceneDynamicLights_.size(); i++)
-	{
-		const auto &dl = sceneDynamicLights_[i];
-		dlightColors[i] = vec4(dl.color.r, dl.color.g, dl.color.b, dl.intensity);
-		dlightPositions[i] = dl.position;
-	}
-
-	uniforms->dlightColors.set(dlightColors, DynamicLight::max);
-	uniforms->dlightPositions.set(dlightPositions, DynamicLight::max);
-	
 	// Build draw calls. Order doesn't matter.
 	drawCalls_.clear();
 
@@ -679,6 +653,9 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		}
 	}
 
+	if (drawCalls_.empty())
+		return;
+
 	// Do material CPU deforms.
 	for (DrawCall &dc : drawCalls_)
 	{
@@ -699,6 +676,32 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 	// Sort draw calls.
 	std::sort(drawCalls_.begin(), drawCalls_.end());
+
+	// Set portal clipping.
+	if (!isMainCamera)
+	{
+		uniforms->portalClip.set(vec4(1, 0, 0, 0));
+		uniforms->portalPlane.set(portalPlane);
+	}
+	else
+	{
+		uniforms->portalClip.set(vec4(0, 0, 0, 0));
+	}
+
+	// Setup dynamic lights.
+	uniforms->nDynamicLights.set(vec4(sceneDynamicLights_.size(), 0, 0, 0));
+	vec4 dlightColors[DynamicLight::max];
+	vec4 dlightPositions[DynamicLight::max];
+
+	for (size_t i = 0; i < sceneDynamicLights_.size(); i++)
+	{
+		const auto &dl = sceneDynamicLights_[i];
+		dlightColors[i] = vec4(dl.color.r, dl.color.g, dl.color.b, dl.intensity);
+		dlightPositions[i] = dl.position;
+	}
+
+	uniforms->dlightColors.set(dlightColors, DynamicLight::max);
+	uniforms->dlightPositions.set(dlightPositions, DynamicLight::max);
 
 	// Issue draw calls.
 	const uint8_t viewId = pushView(ViewFlags::ClearDepth, rect, viewMatrix, projectionMatrix);
