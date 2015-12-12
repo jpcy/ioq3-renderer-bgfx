@@ -66,11 +66,6 @@ void Material::doCpuDeforms(DrawCall *dc) const
 		case MaterialDeform::Autosprite:
 		case MaterialDeform::Autosprite2:
 		{
-			if ((nVertices % 4) != 0)
-			{
-				ri.Printf(PRINT_WARNING, "Autosprite material %s had odd vertex count %d\n", name, nVertices);
-			}
-
 			if ((nIndices % 6) != 0)
 			{
 				ri.Printf(PRINT_WARNING, "Autosprite material %s had odd index count %d\n", name, nIndices);
