@@ -560,8 +560,6 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 	for (auto &entity : sceneEntities_)
 	{
-		entity.isInWorldScene = isWorldCamera;
-
 		if (isMainCamera && (entity.e.renderfx & RF_THIRD_PERSON) != 0)
 			continue;
 
@@ -1115,7 +1113,7 @@ void Main::setupEntityLighting(Entity *entity)
 	}
 
 	// If not a world model, only use dynamic lights (menu system, etc.)
-	if (entity->isInWorldScene && world->hasLightGrid())
+	if (isWorldCamera && world->hasLightGrid())
 	{
 		world->sampleLightGrid(lightPosition, &entity->ambientLight, &entity->directedLight, &entity->lightDir);
 	}

@@ -191,8 +191,6 @@ struct Entity
 {
 	refEntity_t e;
 
-	bool isInWorldScene;
-
 	vec3 localViewPosition;
 
 	/// Normalized direction towards light, in world space.
