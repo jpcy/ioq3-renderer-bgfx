@@ -548,6 +548,21 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	{
 		uniforms->portalClip.set(vec4(0, 0, 0, 0));
 	}
+
+	// Setup dynamic lights.
+	uniforms->nDynamicLights.set(vec4(sceneDynamicLights_.size(), 0, 0, 0));
+	vec4 dlightColors[DynamicLight::max];
+	vec4 dlightPositions[DynamicLight::max];
+
+	for (size_t i = 0; i < sceneDynamicLights_.size(); i++)
+	{
+		const auto &dl = sceneDynamicLights_[i];
+		dlightColors[i] = vec4(dl.color.r, dl.color.g, dl.color.b, dl.intensity);
+		dlightPositions[i] = dl.position;
+	}
+
+	uniforms->dlightColors.set(dlightColors, DynamicLight::max);
+	uniforms->dlightPositions.set(dlightPositions, DynamicLight::max);
 	
 	// Build draw calls. Order doesn't matter.
 	drawCalls_.clear();
@@ -1091,12 +1106,6 @@ void Main::renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Ent
 
 void Main::setupEntityLighting(Entity *entity)
 {
-	// at the edge of a dlight's influence, this amount of light will be added
-	const float DLIGHT_AT_RADIUS = 16;
-
-	// never calculate a range less than this to prevent huge light numbers
-	const float DLIGHT_MINIMUM_RADIUS = 16;
-
 	assert(entity);
 
 	// Trace a sample point down to find ambient light.
@@ -1121,7 +1130,6 @@ void Main::setupEntityLighting(Entity *entity)
 	{
 		entity->ambientLight = vec3(identityLight * 150);
 		entity->directedLight = vec3(identityLight * 150);
-		//VectorCopy( tr.sunDirection, ent->lightDir );
 	}
 
 	// Bonus items and view weapons have a fixed minimum add.
@@ -1130,20 +1138,6 @@ void Main::setupEntityLighting(Entity *entity)
 		// Give everything a minimum light add.
 		entity->ambientLight += vec3(identityLight * 32);
 	}
-
-	// Modify the light by dynamic lights.
-	const float d = entity->directedLight.length();
-	vec3 lightDir(entity->lightDir * d);
-
-	/*for (const DynamicLight &dl : sceneDynamicLights_)
-	{
-		vec3 dir(dl.position - lightPosition);
-		float d = std::max(dir.normalize(), DLIGHT_MINIMUM_RADIUS);
-		const float power = DLIGHT_AT_RADIUS * (dl.radius * dl.radius);
-		d = power / (d * d);
-		entity->directedLight = entity->directedLight + dl.color.xyz() * d;
-		lightDir = lightDir + dir * d;
-	}*/
 
 	// Clamp ambient.
 	for (size_t i = 0; i < 3; i++)
@@ -1158,11 +1152,9 @@ void Main::setupEntityLighting(Entity *entity)
 	((uint8_t *)&entity->ambientLightInt)[3] = 0xff;
 	
 	// Transform the direction to local space.
-	lightDir.normalize();
-	entity->lightDir = lightDir;
-	entity->modelLightDir[0] = vec3::dotProduct(lightDir, entity->e.axis[0]);
-	entity->modelLightDir[1] = vec3::dotProduct(lightDir, entity->e.axis[1]);
-	entity->modelLightDir[2] = vec3::dotProduct(lightDir, entity->e.axis[2]);
+	entity->modelLightDir[0] = vec3::dotProduct(entity->lightDir, entity->e.axis[0]);
+	entity->modelLightDir[1] = vec3::dotProduct(entity->lightDir, entity->e.axis[1]);
+	entity->modelLightDir[2] = vec3::dotProduct(entity->lightDir, entity->e.axis[2]);
 }
 
 } // namespace renderer

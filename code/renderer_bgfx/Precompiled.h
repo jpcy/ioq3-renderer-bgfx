@@ -182,9 +182,10 @@ struct DynamicIndexBuffer
 
 struct DynamicLight
 {
-	vec3 position;
+	static const size_t max = 32;
 	vec4 color;
-	float radius;
+	float intensity;
+	vec3 position;
 };
 
 struct Entity
@@ -1173,6 +1174,14 @@ struct Uniforms
 
 	/// @remarks Only x used.
 	Uniform_vec4 time = "u_Time";
+
+	/// @remarks Only x used.
+	Uniform_vec4 nDynamicLights = "u_NumDynamicLights";
+
+	/// @remarks w is intensity.
+	Uniform_vec4 dlightColors = { "u_DynamicLightColors", DynamicLight::max };
+
+	Uniform_vec4 dlightPositions = { "u_DynamicLightPositions", DynamicLight::max };
 };
 
 struct Vertex

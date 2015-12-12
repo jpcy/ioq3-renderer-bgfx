@@ -536,7 +536,7 @@ static void RE_AddLightToScene(const vec3_t org, float intensity, float r, float
 	DynamicLight light;
 	light.position = org;
 	light.color = vec4(r, g, b, 1);
-	light.radius = intensity;
+	light.intensity = intensity;
 	g_main->addDynamicLightToScene(light);
 }
 

@@ -226,6 +226,7 @@ ShaderCache::ShaderCache()
 	CONSTANT("GEN_COLOR=%d;", Uniforms::Generators::Color);
 	CONSTANT("GEN_TEXCOORD=%d;", Uniforms::Generators::TexCoord);
 	CONSTANT("MAX_DEFORMS=%d;", Material::maxDeforms);
+	CONSTANT("MAX_DLIGHTS=%d;", DynamicLight::max);
 	CONSTANT("TCGEN_NONE=%d;", MaterialTexCoordGen::None);
 	CONSTANT("TCGEN_ENVIRONMENT_MAPPED=%d;", MaterialTexCoordGen::EnvironmentMapped);
 	CONSTANT("TCGEN_FOG=%d;", MaterialTexCoordGen::Fog);
