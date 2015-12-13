@@ -94,6 +94,7 @@ struct ConsoleVariables
 	cvar_t *ignorehwgamma;
 	cvar_t *allowResize;
 	cvar_t *centerWindow;
+	cvar_t *maxAnisotropy;
 	cvar_t *msaa;
 	cvar_t *wireframe;
 	cvar_t *bgfx_stats;

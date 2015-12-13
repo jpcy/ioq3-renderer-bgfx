@@ -64,14 +64,19 @@ void Texture::update(const bgfx::Memory *mem, int x, int y, int width, int heigh
 
 uint32_t Texture::calculateBgfxFlags() const
 {
-	uint32_t bfgxFlags = BGFX_TEXTURE_NONE;
+	uint32_t bgfxFlags = BGFX_TEXTURE_NONE;
 
 	if (flags_ & TextureFlags::ClampToEdge)
 	{
-		bfgxFlags |= BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP;
+		bgfxFlags |= BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP;
 	}
 
-	return bfgxFlags;
+	if (g_main->cvars.maxAnisotropy->integer)
+	{
+		bgfxFlags |= BGFX_TEXTURE_MIN_ANISOTROPIC | BGFX_TEXTURE_MAG_ANISOTROPIC;
+	}
+
+	return bgfxFlags;
 }
 
 TextureCache::TextureCache() : hashTable_()

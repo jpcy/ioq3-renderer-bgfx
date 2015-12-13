@@ -18,5 +18,6 @@ Select the renderer in-game with `cl_renderer bgfx` followed by `vid_restart`.
 Console Variable | Description
 -----------------| ----------------------------------------------
 r_backend        | Rendering backend - OpenGL, Direct3D 9 etc.
+r_maxAnisotropy  | Enable [anisotropic filtering](https://en.wikipedia.org/wiki/Anisotropic_filtering).
 r_msaa           | Multisample anti-aliasing. 2x, 4x, 8x, or 16x.
 r_bgfx_stats     | Show bgfx statistics.

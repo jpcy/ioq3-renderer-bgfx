@@ -128,6 +128,7 @@ ConsoleVariables::ConsoleVariables()
 	ignorehwgamma = ri.Cvar_Get("r_ignorehwgamma", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	allowResize = ri.Cvar_Get("r_allowResize", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	centerWindow = ri.Cvar_Get("r_centerWindow", "0", CVAR_ARCHIVE | CVAR_LATCH);
+	maxAnisotropy = ri.Cvar_Get("r_maxAnisotropy", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	msaa = ri.Cvar_Get("r_msaa", "4", CVAR_ARCHIVE | CVAR_LATCH);
 	wireframe = ri.Cvar_Get("r_wireframe", "0", CVAR_CHEAT);
 	bgfx_stats = ri.Cvar_Get("r_bgfx_stats", "0", CVAR_CHEAT);
@@ -298,6 +299,11 @@ void Main::initialize()
 	}
 
 	uint32_t resetFlags = 0;
+
+	if (cvars.maxAnisotropy->integer)
+	{
+		resetFlags |= BGFX_RESET_MAXANISOTROPY;
+	}
 
 	if (cvars.msaa->integer == 2)
 	{
