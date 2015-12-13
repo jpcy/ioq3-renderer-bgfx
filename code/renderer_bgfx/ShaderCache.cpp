@@ -33,7 +33,6 @@ extern "C"
 	extern const char *fallbackShader_Generators;
 	extern const char *fallbackShader_Generic_fragment;
 	extern const char *fallbackShader_Generic_vertex;
-	extern const char *fallbackShader_Lighting;
 	extern const char *fallbackShader_TextureColor_fragment;
 	extern const char *fallbackShader_TextureColor_vertex;
 	extern const char *fallbackShader_varying_def;
@@ -56,7 +55,6 @@ static const FallbackShader fallbackShaders[] =
 	{ "shaders/Generators.sh", fallbackShader_Generators },
 	{ "shaders/Generic_fragment.sc", fallbackShader_Generic_fragment },
 	{ "shaders/Generic_vertex.sc", fallbackShader_Generic_vertex },
-	{ "shaders/Lighting.sh", fallbackShader_Lighting },
 	{ "shaders/TextureColor_fragment.sc", fallbackShader_TextureColor_fragment },
 	{ "shaders/TextureColor_vertex.sc", fallbackShader_TextureColor_vertex },
 	{ "shaders/varying_def.sc", fallbackShader_varying_def }

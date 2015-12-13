@@ -4,23 +4,23 @@ uniform vec4 u_Generators;
 #define u_AlphaGen u_Generators[GEN_ALPHA]
 
 // tcmod
-uniform vec4   u_DiffuseTexMatrix;
-uniform vec4   u_DiffuseTexOffTurb;
+uniform vec4 u_DiffuseTexMatrix;
+uniform vec4 u_DiffuseTexOffTurb;
 
-uniform vec4   u_LocalViewOrigin;
+uniform vec4 u_LocalViewOrigin;
 
-uniform vec4   u_TCGen0Vector0;
-uniform vec4   u_TCGen0Vector1;
+uniform vec4 u_TCGen0Vector0;
+uniform vec4 u_TCGen0Vector1;
 
 uniform vec4 u_NumDeforms; // only x used
 uniform vec4 u_DeformMoveDirs[MAX_DEFORMS]; // only xyz used
 uniform vec4 u_Deform_Gen_Wave_Base_Amplitude[MAX_DEFORMS];
 uniform vec4 u_Deform_Frequency_Phase_Spread[MAX_DEFORMS];
 
-uniform vec4   u_AmbientLight;
-uniform vec4   u_DirectedLight;
-uniform vec4   u_ModelLightDir;
-uniform vec4  u_PortalRange;
+uniform vec4 u_AmbientLight;
+uniform vec4 u_DirectedLight;
+uniform vec4 u_ModelLightDir;
+uniform vec4 u_PortalRange;
 
 void CalculateDeformSingle(inout vec3 pos, vec3 normal, const vec2 st, float time, float gen, float wave, float base, float amplitude, float freq, float phase, float spread, vec4 moveDir)
 {
@@ -123,9 +123,8 @@ vec4 CalcColor(vec4 vertColor, vec4 baseColor, vec4 colorAttrib, vec3 position, 
 	
 	if (u_ColorGen == CGEN_LIGHTING_DIFFUSE)
 	{
-		float incoming = clamp(dot(normal, u_ModelLightDir.xyz), 0.0, 1.0);
-
-		color.rgb = clamp(u_DirectedLight.xyz * incoming + u_AmbientLight.xyz, 0.0, 1.0);
+		float incoming = saturate(dot(normal, u_ModelLightDir.xyz));
+		color.rgb = saturate(u_DirectedLight.xyz * incoming + u_AmbientLight.xyz);
 	}
 	
 	vec3 viewer = u_LocalViewOrigin.xyz - position;
@@ -135,13 +134,13 @@ vec4 CalcColor(vec4 vertColor, vec4 baseColor, vec4 colorAttrib, vec3 position, 
 		vec3 lightDir = normalize(vec3(-960.0, 1980.0, 96.0) - position);
 		vec3 reflected = -reflect(lightDir, normal);
 		
-		color.a = clamp(dot(reflected, normalize(viewer)), 0.0, 1.0);
+		color.a = saturate(dot(reflected, normalize(viewer)));
 		color.a *= color.a;
 		color.a *= color.a;
 	}
 	else if (u_AlphaGen == AGEN_PORTAL)
 	{
-		color.a = clamp(length(viewer) / u_PortalRange.x, 0.0, 1.0);
+		color.a = saturate(length(viewer) / u_PortalRange.x);
 	}
 	
 	return color;

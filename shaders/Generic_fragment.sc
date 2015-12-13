@@ -2,7 +2,6 @@ $input v_position, v_texcoord0, v_texcoord1, v_normal, v_color0, v_viewDir
 
 #include <bgfx_shader.sh>
 #include "Common.sh"
-#include "Lighting.sh"
 
 SAMPLER2D(u_DiffuseMap, 0);
 SAMPLER2D(u_LightMap, 1);
@@ -48,6 +47,25 @@ void main()
 	}
 
 	vec4 diffuse = texture2D(u_DiffuseMap, v_texcoord0);
+	float alpha = diffuse.a * v_color0.a;
+
+#if defined(USE_ALPHA_TEST)
+	if (u_AlphaTest.x == ATEST_GT_0)
+	{
+		if (alpha <= 0.0)
+			discard;
+	}
+	else if (u_AlphaTest.x == ATEST_LT_128)
+	{
+		if (alpha >= 0.5)
+			discard;
+	}
+	else if (u_AlphaTest.x == ATEST_GE_128)
+	{
+		if (alpha < 0.5)
+			discard;
+	}
+#endif
 
 	if (u_LightType.x == LIGHT_MAP)
 	{
@@ -75,26 +93,6 @@ void main()
 			gl_FragColor.rgb += diffuse.rgb * v_color0.rgb * (color * attenuation * lambert(v_normal.xyz, normalize(dir)));
 		}
 	}
-	
-	float alpha = diffuse.a * v_color0.a;
-
-#if defined(USE_ALPHA_TEST)
-	if (u_AlphaTest.x == ATEST_GT_0)
-	{
-		if (alpha <= 0.0)
-			discard;
-	}
-	else if (u_AlphaTest.x == ATEST_LT_128)
-	{
-		if (alpha >= 0.5)
-			discard;
-	}
-	else if (u_AlphaTest.x == ATEST_GE_128)
-	{
-		if (alpha < 0.5)
-			discard;
-	}
-#endif
 
 	gl_FragColor.a = alpha;
 }

@@ -63,7 +63,7 @@ void main()
 
 	if (u_FogEnabled.x != 0)
 	{
-		v_color0 *= vec4(1.0, 1.0, 1.0, 1.0) - u_FogColorMask * sqrt(clamp(CalcFog(position), 0.0, 1.0));
+		v_color0 *= vec4_splat(1.0) - u_FogColorMask * sqrt(saturate(CalcFog(position)));
 	}
 
 	v_texcoord1 = a_texcoord1;

@@ -74,7 +74,6 @@ function createRendererProject(bgfxPath, bxPath, ioq3Path, rendererPath, sdlLib3
 		"%{prj.location}/dynamic/renderer_bgfx/Generators.c",
 		"%{prj.location}/dynamic/renderer_bgfx/Generic_fragment.c",
 		"%{prj.location}/dynamic/renderer_bgfx/Generic_vertex.c",
-		"%{prj.location}/dynamic/renderer_bgfx/Lighting.c",
 		"%{prj.location}/dynamic/renderer_bgfx/TextureColor_fragment.c",
 		"%{prj.location}/dynamic/renderer_bgfx/TextureColor_vertex.c",
 		"%{prj.location}/dynamic/renderer_bgfx/varying_def.c",
