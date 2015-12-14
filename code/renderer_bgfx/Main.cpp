@@ -22,6 +22,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Precompiled.h"
 #pragma hdrstop
 
+#include "../jo_jpeg.cpp"
+
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
@@ -108,6 +110,11 @@ static void ImageWriteCallback(void *context, void *data, int size)
 	buffer->bytesWritten += size;
 }
 
+static void ImageWriteCallbackConst(void *context, const void *data, int size)
+{
+	ImageWriteCallback(context, (void *)data, size);
+}
+
 void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _height, uint32_t _pitch, const void* _data, uint32_t _size, bool _yflip)
 {
 	// Convert from BGRA to RGBA, and flip y if needed.
@@ -137,11 +144,29 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 
 	if (!Q_stricmp(extension, "png"))
 	{
-		stbi_write_png_to_func(ImageWriteCallback, &buffer, _width, _height, _pitch / _width, screenShotDataBuffer_.data(), _pitch);
+		if (!stbi_write_png_to_func(ImageWriteCallback, &buffer, _width, _height, _pitch / _width, screenShotDataBuffer_.data(), _pitch))
+		{
+			ri.Printf(PRINT_ALL, "Screenshot: error writing png file\n");
+			return;
+		}
+	}
+	else if (!Q_stricmp(extension, "jpg"))
+	{
+		if (!jo_write_jpg_to_func(ImageWriteCallbackConst, &buffer, screenShotDataBuffer_.data(), _width, _height, _pitch / _width, g_main->cvars.screenshotJpegQuality->integer))
+		{
+			ri.Printf(PRINT_ALL, "Screenshot: error writing jpg file\n");
+			return;
+		}
+
+		jo_write_jpg("D:\\test.jpg", screenShotDataBuffer_.data(), _width, _height, _pitch / _width, g_main->cvars.screenshotJpegQuality->integer);
 	}
 	else
 	{
-		stbi_write_tga_to_func(ImageWriteCallback, &buffer, _width, _height, _pitch / _width, screenShotDataBuffer_.data());
+		if (!stbi_write_tga_to_func(ImageWriteCallback, &buffer, _width, _height, _pitch / _width, screenShotDataBuffer_.data()))
+		{
+			ri.Printf(PRINT_ALL, "Screenshot: error writing tga file\n");
+			return;
+		}
 	}
 
 	// Write file buffer to file.

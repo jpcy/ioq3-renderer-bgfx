@@ -132,6 +132,7 @@ ConsoleVariables::ConsoleVariables()
 	msaa = ri.Cvar_Get("r_msaa", "4", CVAR_ARCHIVE | CVAR_LATCH);
 	picmip = ri.Cvar_Get("r_picmip", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	ri.Cvar_CheckRange(picmip, 0, 16, qtrue);
+	screenshotJpegQuality = ri.Cvar_Get("r_screenshotJpegQuality", "90", CVAR_ARCHIVE);
 	wireframe = ri.Cvar_Get("r_wireframe", "0", CVAR_CHEAT);
 	bgfx_stats = ri.Cvar_Get("r_bgfx_stats", "0", CVAR_CHEAT);
 	debugText = ri.Cvar_Get("r_debugText", "0", CVAR_CHEAT);
@@ -218,6 +219,11 @@ static void Cmd_Screenshot()
 	TakeScreenshot("tga");
 }
 
+static void Cmd_ScreenshotJPEG()
+{
+	TakeScreenshot("jpg");
+}
+
 static void Cmd_ScreenshotPNG()
 {
 	TakeScreenshot("png");
@@ -227,6 +233,7 @@ Main::Main()
 {
 	ri.Cmd_AddCommand("r_reloadShaders", Cmd_ReloadShaders);
 	ri.Cmd_AddCommand("screenshot", Cmd_Screenshot);
+	ri.Cmd_AddCommand("screenshotJPEG", Cmd_ScreenshotJPEG);
 	ri.Cmd_AddCommand("screenshotPNG", Cmd_ScreenshotPNG);
 
 	sunDirection.normalize();
@@ -268,6 +275,7 @@ Main::~Main()
 {
 	ri.Cmd_RemoveCommand("r_reloadShaders");
 	ri.Cmd_RemoveCommand("screenshot");
+	ri.Cmd_RemoveCommand("screenshotJPEG");
 	ri.Cmd_RemoveCommand("screenshotPNG");
 }
 

@@ -97,6 +97,7 @@ struct ConsoleVariables
 	cvar_t *maxAnisotropy;
 	cvar_t *msaa;
 	cvar_t *picmip;
+	cvar_t *screenshotJpegQuality;
 	cvar_t *wireframe;
 	cvar_t *bgfx_stats;
 	cvar_t *debugText;
