@@ -125,7 +125,19 @@ Texture *TextureCache::findTexture(const char *name, TextureType type, int flags
 	}
 
 	// Load it from a file.
-	Image image(name, (flags & (TextureFlags::Mipmap | TextureFlags::Picmip)) ? Image::Flags::GenerateMipmaps : 0);
+	int imageFlags = 0;
+
+	if (flags & (TextureFlags::Mipmap | TextureFlags::Picmip))
+	{
+		imageFlags |= Image::Flags::GenerateMipmaps;
+	}
+
+	if (flags & TextureFlags::Picmip)
+	{
+		imageFlags |= Image::Flags::Picmip;
+	}
+
+	Image image(name, imageFlags);
 
 	if (!image.memory)
 		return nullptr;

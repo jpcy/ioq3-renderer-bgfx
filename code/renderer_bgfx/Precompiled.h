@@ -96,6 +96,7 @@ struct ConsoleVariables
 	cvar_t *centerWindow;
 	cvar_t *maxAnisotropy;
 	cvar_t *msaa;
+	cvar_t *picmip;
 	cvar_t *wireframe;
 	cvar_t *bgfx_stats;
 	cvar_t *debugText;
@@ -224,7 +225,8 @@ struct Image
 	{
 		enum
 		{
-			GenerateMipmaps = 1
+			GenerateMipmaps = BIT(0),
+			Picmip          = BIT(1)
 		};
 	};
 
