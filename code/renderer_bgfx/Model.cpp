@@ -338,6 +338,9 @@ Bounds Model_md3::getBounds() const
 
 Transform Model_md3::getTag(const char *name, int frame) const
 {
+	// It is possible to have a bad frame while changing models, so don't error.
+	frame = std::min(frame, int(frames_.size() - 1));
+
 	for (size_t i = 0; i < tagNames_.size(); i++)
 	{
 		if (!strcmp(tagNames_[i].name, name))
@@ -351,6 +354,10 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 {
 	// Can't render models with no geometry.
 	if (!bgfx::isValid(indexBuffer_.handle))
+		return;
+
+	// It is possible to have a bad frame while changing models.
+	if (entity->e.frame >= frames_.size() || entity->e.oldframe >= frames_.size())
 		return;
 
 	const auto modelMatrix = mat4::transform(entity->e.axis, entity->e.origin);
