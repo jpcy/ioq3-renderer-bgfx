@@ -24,19 +24,16 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "../shaderc/shaderc.h"
 
-extern "C"
-{
-	extern const char *fallbackShader_bgfx_shader;
-	extern const char *fallbackShader_Common;
-	extern const char *fallbackShader_Fog_fragment;
-	extern const char *fallbackShader_Fog_vertex;
-	extern const char *fallbackShader_Generators;
-	extern const char *fallbackShader_Generic_fragment;
-	extern const char *fallbackShader_Generic_vertex;
-	extern const char *fallbackShader_TextureColor_fragment;
-	extern const char *fallbackShader_TextureColor_vertex;
-	extern const char *fallbackShader_varying_def;
-}
+extern const char *fallbackShader_bgfx_shader;
+extern const char *fallbackShader_Common;
+extern const char *fallbackShader_Fog_fragment;
+extern const char *fallbackShader_Fog_vertex;
+extern const char *fallbackShader_Generators;
+extern const char *fallbackShader_Generic_fragment;
+extern const char *fallbackShader_Generic_vertex;
+extern const char *fallbackShader_TextureColor_fragment;
+extern const char *fallbackShader_TextureColor_vertex;
+extern const char *fallbackShader_varying_def;
 
 namespace renderer {
 
@@ -129,7 +126,7 @@ struct CompileShaderCallback : public shaderc::CallbackI
 
 	void writeLog(const char* _str) override
 	{
-		ri.Printf(PRINT_WARNING, _str);
+		ri.Printf(PRINT_WARNING, "%s", _str);
 	}
 
 	const bgfx::Memory *mem;
@@ -223,8 +220,8 @@ ShaderCache::ShaderCache()
 	CONSTANT("GEN_ALPHA=%d;", Uniforms::Generators::Alpha);
 	CONSTANT("GEN_COLOR=%d;", Uniforms::Generators::Color);
 	CONSTANT("GEN_TEXCOORD=%d;", Uniforms::Generators::TexCoord);
-	CONSTANT("MAX_DEFORMS=%d;", Material::maxDeforms);
-	CONSTANT("MAX_DLIGHTS=%d;", DynamicLight::max);
+	CONSTANT("MAX_DEFORMS=%d;", (int)Material::maxDeforms);
+	CONSTANT("MAX_DLIGHTS=%d;", (int)DynamicLight::max);
 	CONSTANT("TCGEN_NONE=%d;", MaterialTexCoordGen::None);
 	CONSTANT("TCGEN_ENVIRONMENT_MAPPED=%d;", MaterialTexCoordGen::EnvironmentMapped);
 	CONSTANT("TCGEN_FOG=%d;", MaterialTexCoordGen::Fog);

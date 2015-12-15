@@ -134,7 +134,7 @@ bool Material::parse(char **text)
 		{
 			if (stageIndex >= maxStages)
 			{
-				ri.Printf(PRINT_WARNING, "WARNING: too many stages in shader %s (max is %i)\n", name, maxStages);
+				ri.Printf(PRINT_WARNING, "WARNING: too many stages in shader %s (max is %i)\n", name, (int)maxStages);
 				return false;
 			}
 
@@ -1010,7 +1010,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 				if (token[0] == 0)
 				{
-					ri.Printf(PRINT_WARNING, "WARNING: missing range parameter for alphaGen portal in shader '%s', defaulting to %i\n", name, portalRange);
+					ri.Printf(PRINT_WARNING, "WARNING: missing range parameter for alphaGen portal in shader '%s', defaulting to %g\n", name, portalRange);
 				}
 				else
 				{

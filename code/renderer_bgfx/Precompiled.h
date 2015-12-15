@@ -50,6 +50,8 @@ using namespace math;
 #include "bx/fpumath.h"
 #include "bx/string.h"
 
+#undef None
+
 #define BIT(x) (1<<(x))
 
 namespace renderer {

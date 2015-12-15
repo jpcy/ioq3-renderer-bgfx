@@ -1208,7 +1208,7 @@ public:
 							// Making assumptions about the geometry. CPU deforms are only used by autosprite and autosprite2, which assume triangulated quads.
 							if ((s->indices.size() % 6) != 0)
 							{
-								ri.Printf(PRINT_WARNING, "CPU deform geometry for material %s had odd index count %d\n", bs.material->name, s->indices.size());
+								ri.Printf(PRINT_WARNING, "CPU deform geometry for material %s had odd index count %d\n", bs.material->name, (int)s->indices.size());
 							}
 
 							// Make room in destination.
@@ -1530,7 +1530,7 @@ private:
 			l.filelen = LittleLong(l.filelen);
 
 			if (lumpSizes[i] != 0 && (l.filelen % lumpSizes[i]))
-				ri.Error(ERR_DROP, "%s: lump %d has bad size", i);
+				ri.Error(ERR_DROP, "%s: lump %d has bad size", name_, (int)i);
 		}
 
 		// Entities
@@ -1730,7 +1730,7 @@ private:
 							break;
 					}
 
-					lightmapAtlases_[i] = g_main->textureCache->createTexture(va("*lightmap%d", i), image, TextureType::ColorAlpha, TextureFlags::ClampToEdge);
+					lightmapAtlases_[i] = g_main->textureCache->createTexture(va("*lightmap%d", (int)i), image, TextureType::ColorAlpha, TextureFlags::ClampToEdge);
 				}
 			}
 		}

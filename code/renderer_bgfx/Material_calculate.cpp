@@ -68,7 +68,7 @@ void Material::doCpuDeforms(DrawCall *dc) const
 		{
 			if ((nIndices % 6) != 0)
 			{
-				ri.Printf(PRINT_WARNING, "Autosprite material %s had odd index count %d\n", name, nIndices);
+				ri.Printf(PRINT_WARNING, "Autosprite material %s had odd index count %d\n", name, (int)nIndices);
 			}
 
 			vec3 forward, leftDir, upDir;

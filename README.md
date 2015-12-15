@@ -1,13 +1,16 @@
 A renderer for [ioquake3](https://github.com/ioquake/ioq3) written in C++ and using [bgfx](https://github.com/bkaradzic/bgfx) to support multiple rendering APIs.
 
+## Compiling - Prerequisites
+Checkout [bgfx](https://github.com/bkaradzic/bgfx) and [bx](https://github.com/bkaradzic/bx) to the same parent directory as ioq3-renderer-bgfx.
+
 ## Compiling - Visual Studio
 Use [ioq3-premake-msvc](https://github.com/jpcy/ioq3-premake-msvc).
 
 ## Compiling - MinGW
 
-1. Checkout this repository and [ioquake3](https://github.com/ioquake/ioq3) to the same parent directory.
+1. Checkout [ioquake3](https://github.com/ioquake/ioq3) to the same parent directory as ioq3-renderer-bgfx.
 2. Run `./premake5 gmake`.
-3. Enter the `build` directory and run `make help` for options.
+3. Enter the `build` directory and run `make help` for build options.
 
 ## Usage
 
