@@ -157,8 +157,6 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 			ri.Printf(PRINT_ALL, "Screenshot: error writing jpg file\n");
 			return;
 		}
-
-		jo_write_jpg("D:\\test.jpg", screenShotDataBuffer_.data(), _width, _height, _pitch / _width, g_main->cvars.screenshotJpegQuality->integer);
 	}
 	else
 	{

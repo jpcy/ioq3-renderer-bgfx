@@ -299,7 +299,7 @@ bool jo_write_jpg_to_func(jo_write_func *func, void *context, const void *data, 
 	func(context, YTable, sizeof(YTable));
 	jo_putc(func, context, 1);
 	func(context, UVTable, sizeof(UVTable));
-	const unsigned char head1[] = { 0xFF,0xC0,0,0x11,8,height>>8,height&0xFF,width>>8,width&0xFF,3,1,0x11,0,2,0x11,1,3,0x11,1,0xFF,0xC4,0x01,0xA2,0 };
+	const unsigned char head1[] = { 0xFF,0xC0,0,0x11,8,(unsigned char)(height>>8),(unsigned char)(height&0xFF),(unsigned char)(width>>8),(unsigned char)(width&0xFF),3,1,0x11,0,2,0x11,1,3,0x11,1,0xFF,0xC4,0x01,0xA2,0 };
 	func(context, head1, sizeof(head1));
 	func(context, std_dc_luminance_nrcodes+1, sizeof(std_dc_luminance_nrcodes)-1);
 	func(context, std_dc_luminance_values, sizeof(std_dc_luminance_values));
