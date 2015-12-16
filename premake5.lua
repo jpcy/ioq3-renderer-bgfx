@@ -72,7 +72,6 @@ solution "renderer_bgfx"
 		defines { "_WIN64", "__WIN64__" }
 
 dofile("renderer_bgfx.lua")
-createBgfxProject(BGFX_PATH, BX_PATH)
 
 if os.get() == "windows" then
 	createRendererProject(BGFX_PATH, BX_PATH, RENDERER_PATH, path.join(IOQ3_PATH, "code/SDL2/include"), path.join(IOQ3_PATH, "code/libs/win32/libSDL2"), path.join(IOQ3_PATH, "code/libs/win64/libSDL264"))

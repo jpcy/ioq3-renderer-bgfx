@@ -1,59 +1,14 @@
-function createBgfxProject(bgfxPath, bxPath)
-	project "bgfx"
-	kind "StaticLib"
-	language "C++"
-	defines "__STDC_FORMAT_MACROS"
-	
-	files
-	{
-		path.join(bgfxPath, "src/*.cpp"),
-		path.join(bgfxPath, "src/*.h"),
-		path.join(bgfxPath, "include/*.h")
-	}
-	
-	includedirs
-	{
-		path.join(bgfxPath, "include"),
-		path.join(bgfxPath, "3rdparty"),
-		path.join(bgfxPath, "3rdparty/dxsdk/include"),
-		path.join(bgfxPath, "3rdparty/khronos"),
-		bxPath,
-		path.join(bxPath, "include"),
-	}
-	
-	removefiles
-	{
-		path.join(bgfxPath, "src/amalgamated.cpp"),
-		path.join(bgfxPath, "src/ovr.cpp"),
-		path.join(bgfxPath, "src/glcontext_ppapi.cpp"),
-		path.join(bgfxPath, "src/glcontext_glx.cpp"),
-		path.join(bgfxPath, "src/glcontext_egl.cpp")
-	}
-	
-	configuration "Debug"
-		defines "BGFX_CONFIG_DEBUG=1"
-		
-	configuration "gmake"
-		buildoptions "-std=c++0x"
-		
-	configuration "linux"
-		buildoptions "-fPIC"
-		
-	configuration "vs*"
-		includedirs(path.join(bxPath, "include/compat/msvc"))
-		
-	configuration { "windows", "gmake" }
-		includedirs(path.join(bxPath, "include/compat/mingw"))
-end
-
-
 function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sdlLib32, sdlLib64)
 	project "renderer_bgfx"
 	kind "SharedLib"
 	language "C++"
 	targetprefix ""
 	
-	defines "USE_RENDERER_DLOPEN"
+	defines
+	{
+		"__STDC_FORMAT_MACROS", -- bgfx
+		"USE_RENDERER_DLOPEN"
+	}
 
 	files
 	{
@@ -67,6 +22,7 @@ function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sd
 		"%{prj.location}/dynamic/renderer_bgfx/TextureColor_fragment.cpp",
 		"%{prj.location}/dynamic/renderer_bgfx/TextureColor_vertex.cpp",
 		"%{prj.location}/dynamic/renderer_bgfx/varying_def.cpp",
+		path.join(bgfxPath, "src/amalgamated.cpp"),
 		path.join(rendererPath, "code/qcommon/cm_public.h"),
 		path.join(rendererPath, "code/qcommon/puff.c"),
 		path.join(rendererPath, "code/qcommon/puff.h"),
@@ -98,10 +54,12 @@ function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sd
 	{
 		path.join(bxPath, "include"),
 		path.join(bgfxPath, "include"),
+		path.join(bgfxPath, "3rdparty/dxsdk/include"),
+		path.join(bgfxPath, "3rdparty/khronos"),
 		path.join(rendererPath, "code/stb")
 	}
 	
-	links { "bgfx", "shaderc" }
+	links "shaderc"
 	
 	vpaths
 	{
@@ -117,6 +75,9 @@ function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sd
 		linuxSdlCflags = os.outputof("pkg-config --silence-errors --cflags sdl2")
 		linuxArchDefine = "ARCH_STRING=" .. os.outputof("uname -m")
 	end
+	
+	configuration "Debug"
+		defines "BGFX_CONFIG_DEBUG=1"
 	
 	configuration "gmake"
 		buildoptions "-std=c++14"
