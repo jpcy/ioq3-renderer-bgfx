@@ -2,6 +2,7 @@ $input v_position, v_texcoord0, v_texcoord1, v_normal, v_color0, v_viewDir
 
 #include <bgfx_shader.sh>
 #include "Common.sh"
+#include "Defines.sh"
 
 SAMPLER2D(u_DiffuseMap, 0);
 SAMPLER2D(u_LightMap, 1);

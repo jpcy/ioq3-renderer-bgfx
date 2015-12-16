@@ -26,6 +26,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 extern const char *fallbackShader_bgfx_shader;
 extern const char *fallbackShader_Common;
+extern const char *fallbackShader_Defines;
 extern const char *fallbackShader_Fog_fragment;
 extern const char *fallbackShader_Fog_vertex;
 extern const char *fallbackShader_Generators;
@@ -47,6 +48,7 @@ static const FallbackShader fallbackShaders[] =
 {
 	{ "shaders/bgfx_shader.sh", fallbackShader_bgfx_shader },
 	{ "shaders/Common.sh", fallbackShader_Common },
+	{ "shaders/Defines.sh", fallbackShader_Defines },
 	{ "shaders/Fog_fragment.sc", fallbackShader_Fog_fragment },
 	{ "shaders/Fog_vertex.sc", fallbackShader_Fog_vertex },
 	{ "shaders/Generators.sh", fallbackShader_Generators },
@@ -132,7 +134,7 @@ struct CompileShaderCallback : public shaderc::CallbackI
 	const bgfx::Memory *mem;
 };
 
-static bgfx::ShaderHandle CreateShader(const char *name, shaderc::ShaderType::Enum type, const char *defines = nullptr, size_t permutationIndex = 0)
+static bgfx::ShaderHandle CreateShader(const char *name, shaderc::ShaderType::Enum type, const char *defines, size_t permutationIndex)
 {
 	const bgfx::RendererType::Enum backend = bgfx::getCaps()->rendererType;
 	const char *backendName = nullptr;
@@ -191,117 +193,14 @@ static bgfx::ShaderHandle CreateShader(const char *name, shaderc::ShaderType::En
 	return bgfx::createShader(callback.mem);
 }
 
-ShaderCache::ShaderCache()
-{
-	constants_[0] = 0;
-	#define CONSTANT(format, ...) { char temp[256]; Com_sprintf(temp, sizeof(temp), format, ##__VA_ARGS__); Q_strcat(constants_, sizeof(constants_), temp); }
-	CONSTANT("AGEN_IDENTITY=%d;", MaterialAlphaGen::Identity);
-	CONSTANT("AGEN_LIGHTING_SPECULAR=%d;", MaterialAlphaGen::LightingSpecular);
-	CONSTANT("AGEN_PORTAL=%d;", MaterialAlphaGen::Portal);
-	CONSTANT("ATEST_GT_0=%d;", MaterialAlphaTest::GT_0);
-	CONSTANT("ATEST_LT_128=%d;", MaterialAlphaTest::LT_128);
-	CONSTANT("ATEST_GE_128=%d;", MaterialAlphaTest::GE_128);
-	CONSTANT("CGEN_IDENTITY=%d;", MaterialColorGen::Identity);
-	CONSTANT("CGEN_LIGHTING_DIFFUSE=%d;", MaterialColorGen::LightingDiffuse);
-	CONSTANT("DGEN_NONE=%d;", MaterialDeform::None);
-	CONSTANT("DGEN_WAVE=%d;", MaterialDeform::Wave);
-	CONSTANT("DGEN_BULGE=%d;", MaterialDeform::Bulge);
-	CONSTANT("DGEN_MOVE=%d;", MaterialDeform::Move);
-	CONSTANT("DGEN_WAVE_NONE=%d;", MaterialWaveformGenFunc::None);
-	CONSTANT("DGEN_WAVE_SIN=%d;", MaterialWaveformGenFunc::Sin);
-	CONSTANT("DGEN_WAVE_SQUARE=%d;", MaterialWaveformGenFunc::Square);
-	CONSTANT("DGEN_WAVE_TRIANGLE=%d;", MaterialWaveformGenFunc::Triangle);
-	CONSTANT("DGEN_WAVE_SAWTOOTH=%d;", MaterialWaveformGenFunc::Sawtooth);
-	CONSTANT("DGEN_WAVE_INVERSE_SAWTOOTH=%d;", MaterialWaveformGenFunc::InverseSawtooth);
-	CONSTANT("LIGHT_NONE=%d;", MaterialLight::None);
-	CONSTANT("LIGHT_MAP=%d;", MaterialLight::Map);
-	CONSTANT("LIGHT_VERTEX=%d;", MaterialLight::Vertex);
-	CONSTANT("LIGHT_VECTOR=%d;", MaterialLight::Vector);
-	CONSTANT("GEN_ALPHA=%d;", Uniforms::Generators::Alpha);
-	CONSTANT("GEN_COLOR=%d;", Uniforms::Generators::Color);
-	CONSTANT("GEN_TEXCOORD=%d;", Uniforms::Generators::TexCoord);
-	CONSTANT("MAX_DEFORMS=%d;", (int)Material::maxDeforms);
-	CONSTANT("MAX_DLIGHTS=%d;", (int)DynamicLight::max);
-	CONSTANT("TCGEN_NONE=%d;", MaterialTexCoordGen::None);
-	CONSTANT("TCGEN_ENVIRONMENT_MAPPED=%d;", MaterialTexCoordGen::EnvironmentMapped);
-	CONSTANT("TCGEN_FOG=%d;", MaterialTexCoordGen::Fog);
-	CONSTANT("TCGEN_LIGHTMAP=%d;", MaterialTexCoordGen::Lightmap);
-	CONSTANT("TCGEN_TEXTURE=%d;", MaterialTexCoordGen::Texture);
-	CONSTANT("TCGEN_VECTOR=%d;", MaterialTexCoordGen::Vector);
-	#undef CONSTANT
-}
-
 void ShaderCache::initialize()
 {
-	createBundle(&fog_, "Fog", constants_, nullptr);
+	createBundle(&fog_, "Fog", nullptr, nullptr);
 	char defines[2048];
 	#define DEFINE(x) { Q_strcat(defines, sizeof(defines), x); Q_strcat(defines, sizeof(defines), ";"); }
 
 	for (size_t i = 0; i < GenericPermutations::Count; i++)
 	{
-		Q_strncpyz(defines, constants_, sizeof(defines));
-
-		if (g_main->cvars.deluxeSpecular->value > 0.000001f)
-			DEFINE(va("r_deluxeSpecular=%f;", g_main->cvars.deluxeSpecular->value));
-
-		if (g_main->cvars.specularIsMetallic->value)
-			DEFINE("SPECULAR_IS_METALLIC");
-
-		if (1)
-			DEFINE("SWIZZLE_NORMALMAP");
-
-		const bool phong = g_main->cvars.normalMapping->integer || g_main->cvars.specularMapping->integer;
-
-		if (phong)
-			DEFINE("USE_PHONG_SHADING");
-
-		if (g_main->cvars.deluxeMapping->integer && phong)
-			DEFINE("USE_DELUXEMAP");
-
-		if (g_main->cvars.normalMapping->integer)
-		{
-			DEFINE("USE_NORMALMAP");
-
-			if (g_main->cvars.normalMapping->integer == 2)
-				DEFINE("USE_OREN_NAYAR");
-
-			if (g_main->cvars.normalMapping->integer == 3)
-				DEFINE("USE_TRIACE_OREN_NAYAR");
-
-#ifdef USE_VERT_TANGENT_SPACE
-			DEFINE("USE_VERT_TANGENT_SPACE");
-#endif
-		}
-
-		if (g_main->cvars.specularMapping->integer)
-		{
-			DEFINE("USE_SPECULARMAP");
-
-			switch (g_main->cvars.specularMapping->integer)
-			{
-			case 1:
-			default:
-				DEFINE("USE_BLINN");
-				break;
-
-			case 2:
-				DEFINE("USE_BLINN_FRESNEL");
-				break;
-
-			case 3:
-				DEFINE("USE_MCAULEY");
-				break;
-
-			case 4:
-				DEFINE("USE_GOTANDA");
-				break;
-
-			case 5:
-				DEFINE("USE_LAZAROV");
-				break;
-			}
-		}
-
 		if (i & GenericPermutations::AlphaTest)
 		{
 			DEFINE("USE_ALPHA_TEST");

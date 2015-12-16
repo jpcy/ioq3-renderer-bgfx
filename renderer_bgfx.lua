@@ -14,6 +14,7 @@ function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sd
 	{
 		"%{prj.location}/dynamic/renderer_bgfx/bgfx_shader.cpp",
 		"%{prj.location}/dynamic/renderer_bgfx/Common.cpp",
+		"%{prj.location}/dynamic/renderer_bgfx/Defines.cpp",
 		"%{prj.location}/dynamic/renderer_bgfx/Fog_fragment.cpp",
 		"%{prj.location}/dynamic/renderer_bgfx/Fog_vertex.cpp",
 		"%{prj.location}/dynamic/renderer_bgfx/Generators.cpp",
@@ -54,6 +55,7 @@ function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sd
 	{
 		path.join(bxPath, "include"),
 		path.join(bgfxPath, "include"),
+		path.join(bgfxPath, "3rdparty"),
 		path.join(bgfxPath, "3rdparty/dxsdk/include"),
 		path.join(bgfxPath, "3rdparty/khronos"),
 		path.join(rendererPath, "code/stb")

@@ -3,6 +3,7 @@ $output v_position, v_texcoord0, v_texcoord1, v_normal, v_color0, v_viewDir
 
 #include <bgfx_shader.sh>
 #include "Common.sh"
+#include "Defines.sh"
 #include "Generators.sh"
 
 uniform vec4 u_DepthRange;

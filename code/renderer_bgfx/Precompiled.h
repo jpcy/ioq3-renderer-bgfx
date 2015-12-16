@@ -50,6 +50,8 @@ using namespace math;
 #include "bx/fpumath.h"
 #include "bx/string.h"
 
+#include "../../shaders/Defines.sh"
+
 #undef None
 
 #define BIT(x) (1<<(x))
@@ -87,30 +89,26 @@ struct ConsoleVariables
 	ConsoleVariables();
 
 	cvar_t *backend;
-	cvar_t *mode;
-	cvar_t *fullscreen;
-	cvar_t *noborder;
-	cvar_t *customwidth;
-	cvar_t *customheight;
-	cvar_t *customPixelAspect;
-	cvar_t *ignorehwgamma;
-	cvar_t *allowResize;
-	cvar_t *centerWindow;
+	cvar_t *bgfx_stats;
+	cvar_t *debugText;
 	cvar_t *maxAnisotropy;
 	cvar_t *msaa;
+	cvar_t *overBrightBits;
 	cvar_t *picmip;
 	cvar_t *screenshotJpegQuality;
 	cvar_t *wireframe;
-	cvar_t *bgfx_stats;
-	cvar_t *debugText;
-	cvar_t *normalMapping;
-	cvar_t *specularMapping;
-	cvar_t *deluxeMapping;
-	cvar_t *deluxeSpecular;
-	cvar_t *specularIsMetallic;
-	cvar_t *overBrightBits;
-	cvar_t *ambientScale;
-	cvar_t *directedScale;
+
+	/// @name Window
+	/// @{
+	cvar_t *allowResize;
+	cvar_t *centerWindow;
+	cvar_t *customheight;
+	cvar_t *customwidth;
+	cvar_t *customPixelAspect;
+	cvar_t *fullscreen;
+	cvar_t *mode;
+	cvar_t *noborder;
+	/// @}
 
 	/// @name Railgun
 	/// @{
@@ -187,7 +185,7 @@ struct DynamicIndexBuffer
 
 struct DynamicLight
 {
-	static const size_t max = 32;
+	static const size_t max = MAX_DLIGHTS;
 	vec4 color;
 	float intensity;
 	vec3 position;
@@ -257,31 +255,32 @@ enum class MaterialAdjustColorsForFog
 
 enum class MaterialAlphaGen
 {
-	Identity,
+	Identity         = AGEN_IDENTITY,
+	LightingSpecular = AGEN_LIGHTING_SPECULAR,
+	Portal           = AGEN_PORTAL,
 	Skip,
 	Entity,
 	OneMinusEntity,
 	Vertex,
 	OneMinusVertex,
-	LightingSpecular,
 	Waveform,
-	Portal,
-	Const,
+	Const
 };
 
 enum class MaterialAlphaTest
 {
 	None,
-	GT_0,
-	LT_128,
-	GE_128
+	GT_0   = ATEST_GT_0,
+	LT_128 = ATEST_LT_128,
+	GE_128 = ATEST_GE_128
 };
 
 enum class MaterialColorGen
 {
 	Bad,
+	Identity        = CGEN_IDENTITY, // always (1,1,1,1)
+	LightingDiffuse = CGEN_LIGHTING_DIFFUSE,
 	IdentityLighting,	// Main::identityLight
-	Identity,			// always (1,1,1,1)
 	Entity,			// grabbed from entity's modulate field
 	OneMinusEntity,	// grabbed from 1 - entity.modulate
 	ExactVertex,		// tess.vertexColors
@@ -290,7 +289,6 @@ enum class MaterialColorGen
 	VertexLit,		// like Vertex but takes a light direction from the lightgrid
 	OneMinusVertex,
 	Waveform,			// programmatically generated
-	LightingDiffuse,
 	Fog,				// standard fog
 	Const				// fixed color
 };
@@ -304,11 +302,11 @@ enum class MaterialCullType
 
 enum class MaterialDeform
 {
-	None,
-	Wave,
+	None  = DGEN_NONE,
+	Wave  = DGEN_WAVE,
+	Bulge = DGEN_BULGE,
+	Move  = DGEN_MOVE,
 	Normals,
-	Bulge,
-	Move,
 	ProjectionShadow,
 	Autosprite,
 	Autosprite2,
@@ -324,12 +322,12 @@ enum class MaterialDeform
 
 enum class MaterialWaveformGenFunc
 {
-	None,
-	Sin,
-	Square,
-	Triangle,
-	Sawtooth,
-	InverseSawtooth,
+	None            = DGEN_WAVE_NONE,
+	Sin             = DGEN_WAVE_SIN,
+	Square          = DGEN_WAVE_SQUARE,
+	Triangle        = DGEN_WAVE_TRIANGLE,
+	Sawtooth        = DGEN_WAVE_SAWTOOTH,
+	InverseSawtooth = DGEN_WAVE_INVERSE_SAWTOOTH,
 	Noise
 };
 
@@ -376,10 +374,10 @@ enum class MaterialFogPass
 
 enum class MaterialLight
 {
-	None,
-	Map,
-	Vertex,
-	Vector
+	None   = LIGHT_NONE,
+	Map    = LIGHT_MAP,
+	Vertex = LIGHT_VERTEX,
+	Vector = LIGHT_VECTOR
 };
 
 struct MaterialLightmapId
@@ -461,18 +459,17 @@ enum class MaterialStageType
 
 enum class MaterialTexCoordGen
 {
-	None,
-
-	/// Clear to 0,0
-	Identity,
-
-	Lightmap,
-	Texture,
-	EnvironmentMapped,
-	Fog,
+	None = TCGEN_NONE,
+	EnvironmentMapped = TCGEN_ENVIRONMENT_MAPPED,
+	Fog = TCGEN_FOG,
+	Lightmap = TCGEN_LIGHTMAP,
+	Texture = TCGEN_TEXTURE,
 
 	/// S and T from world coordinates.
-	Vector
+	Vector = TCGEN_VECTOR,
+
+	/// Clear to 0,0
+	Identity
 };
 
 enum class MaterialTexMod
@@ -641,7 +638,7 @@ public:
 	int vertexAttribs = 0;          // not all shaders will need all data to be gathered
 
 	int numDeforms = 0;
-	static const size_t maxDeforms = 3;
+	static const size_t maxDeforms = MAX_DEFORMS;
 	MaterialDeformStage deforms[maxDeforms];
 
 	int numUnfoggedPasses = 0;
@@ -904,7 +901,6 @@ public:
 		};
 	};
 
-	ShaderCache();
 	void initialize();
 
 	struct GetHandleFlags
@@ -927,7 +923,6 @@ private:
 
 	bool createBundle(Bundle *bundle, const char *name, const char *vertexDefines, const char *fragmentDefines, size_t vertexPermutationIndex = 0, size_t fragmentPermutationIndex = 0);
 
-	char constants_[1024];
 	Bundle fog_, generic_[GenericPermutations::Count], textureColor_;
 };
 
@@ -1110,7 +1105,7 @@ struct Uniforms
 
 	struct Generators
 	{
-		enum { TexCoord, Color, Alpha };
+		enum { Alpha = GEN_ALPHA, Color = GEN_COLOR, TexCoord = GEN_TEXCOORD };
 	};
 
 	Uniform_vec4 generators = "u_Generators";

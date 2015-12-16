@@ -1,3 +1,5 @@
+#include "Defines.sh"
+
 uniform vec4 u_Generators;
 #define u_TCGen0 u_Generators[GEN_TEXCOORD]
 #define u_ColorGen u_Generators[GEN_COLOR]
