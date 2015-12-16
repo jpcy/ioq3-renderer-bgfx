@@ -614,8 +614,6 @@ public:
 			(*directedLight) *= totalFactor;
 		}
 
-		(*ambientLight) *= g_main->cvars.ambientScale->value;
-		(*directedLight) *= g_main->cvars.directedScale->value;
 		(*lightDir) = direction;
 		lightDir->normalizeFast();
 	}

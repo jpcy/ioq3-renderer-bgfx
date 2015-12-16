@@ -119,33 +119,27 @@ ConsoleVariables::ConsoleVariables()
 		#undef FORMAT
 	}
 
-	mode = ri.Cvar_Get("r_mode", "3", CVAR_ARCHIVE | CVAR_LATCH);
-	fullscreen = ri.Cvar_Get("r_fullscreen", "1", CVAR_ARCHIVE);
-	noborder = ri.Cvar_Get("r_noborder", "0", CVAR_ARCHIVE | CVAR_LATCH);
-	customwidth = ri.Cvar_Get("r_customwidth", "1600", CVAR_ARCHIVE | CVAR_LATCH);
-	customheight = ri.Cvar_Get("r_customheight", "1024", CVAR_ARCHIVE | CVAR_LATCH);
-	customPixelAspect = ri.Cvar_Get("r_customPixelAspect", "1", CVAR_ARCHIVE | CVAR_LATCH);
-	ignorehwgamma = ri.Cvar_Get("r_ignorehwgamma", "0", CVAR_ARCHIVE | CVAR_LATCH);
-	allowResize = ri.Cvar_Get("r_allowResize", "0", CVAR_ARCHIVE | CVAR_LATCH);
-	centerWindow = ri.Cvar_Get("r_centerWindow", "0", CVAR_ARCHIVE | CVAR_LATCH);
+	bgfx_stats = ri.Cvar_Get("r_bgfx_stats", "0", CVAR_CHEAT);
+	debugText = ri.Cvar_Get("r_debugText", "0", CVAR_CHEAT);
 	maxAnisotropy = ri.Cvar_Get("r_maxAnisotropy", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	msaa = ri.Cvar_Get("r_msaa", "4", CVAR_ARCHIVE | CVAR_LATCH);
+	overBrightBits = ri.Cvar_Get ("r_overBrightBits", "1", CVAR_ARCHIVE | CVAR_LATCH);
 	picmip = ri.Cvar_Get("r_picmip", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	ri.Cvar_CheckRange(picmip, 0, 16, qtrue);
 	screenshotJpegQuality = ri.Cvar_Get("r_screenshotJpegQuality", "90", CVAR_ARCHIVE);
 	wireframe = ri.Cvar_Get("r_wireframe", "0", CVAR_CHEAT);
-	bgfx_stats = ri.Cvar_Get("r_bgfx_stats", "0", CVAR_CHEAT);
-	debugText = ri.Cvar_Get("r_debugText", "0", CVAR_CHEAT);
 
-	normalMapping = ri.Cvar_Get("r_normalMapping", "0", CVAR_ARCHIVE | CVAR_LATCH);
-	specularMapping = ri.Cvar_Get("r_specularMapping", "0", CVAR_ARCHIVE | CVAR_LATCH);
-	deluxeMapping = ri.Cvar_Get("r_deluxeMapping", "1", CVAR_ARCHIVE | CVAR_LATCH);
-	deluxeSpecular = ri.Cvar_Get("r_deluxeSpecular", "0.3", CVAR_ARCHIVE | CVAR_LATCH);
-	specularIsMetallic = ri.Cvar_Get("r_specularIsMetallic", "0", CVAR_ARCHIVE | CVAR_LATCH);
-	overBrightBits = ri.Cvar_Get ("r_overBrightBits", "1", CVAR_ARCHIVE | CVAR_LATCH);
-	ambientScale = ri.Cvar_Get("r_ambientScale", "0.6", CVAR_CHEAT);
-	directedScale = ri.Cvar_Get("r_directedScale", "1", CVAR_CHEAT);
+	// Window
+	allowResize = ri.Cvar_Get("r_allowResize", "0", CVAR_ARCHIVE | CVAR_LATCH);
+	centerWindow = ri.Cvar_Get("r_centerWindow", "0", CVAR_ARCHIVE | CVAR_LATCH);
+	customheight = ri.Cvar_Get("r_customheight", "1024", CVAR_ARCHIVE | CVAR_LATCH);
+	customwidth = ri.Cvar_Get("r_customwidth", "1600", CVAR_ARCHIVE | CVAR_LATCH);
+	customPixelAspect = ri.Cvar_Get("r_customPixelAspect", "1", CVAR_ARCHIVE | CVAR_LATCH);
+	fullscreen = ri.Cvar_Get("r_fullscreen", "1", CVAR_ARCHIVE);
+	mode = ri.Cvar_Get("r_mode", "3", CVAR_ARCHIVE | CVAR_LATCH);
+	noborder = ri.Cvar_Get("r_noborder", "0", CVAR_ARCHIVE | CVAR_LATCH);
 
+	// Railgun
 	railWidth = ri.Cvar_Get("r_railWidth", "16", CVAR_ARCHIVE);
 	railCoreWidth = ri.Cvar_Get("r_railCoreWidth", "6", CVAR_ARCHIVE);
 	railSegmentLength = ri.Cvar_Get("r_railSegmentLength", "32", CVAR_ARCHIVE);

@@ -366,6 +366,7 @@ void Material::setStageTextureSamplers(size_t stageIndex) const
 	setStageTextureSampler(stageIndex, MaterialTextureBundleIndex::DiffuseMap);
 	setStageTextureSampler(stageIndex, MaterialTextureBundleIndex::Lightmap);
 
+#if 0
 	if (stage.light != MaterialLight::None)
 	{
 		// bind textures that are sampled and used in the glsl shader, and
@@ -414,6 +415,7 @@ void Material::setStageTextureSamplers(size_t stageIndex) const
 
 		g_main->uniforms->enableTextures.set(enableTextures);
 	}
+#endif
 }
 
 vec4 Material::calculateStageFogColorMask(size_t stageIndex) const

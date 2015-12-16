@@ -303,9 +303,6 @@ void Window_Initialize(bool gl)
 	ri.Error(ERR_FATAL, "Could not load OpenGL subsystem");
 
 success:
-	// Only using SDL_SetWindowBrightness to determine if hardware gamma is supported
-	glConfig.deviceSupportsGamma = (g_main->cvars.ignorehwgamma->integer == 0 && SDL_SetWindowBrightness(SDL_window, 1.0f) >= 0) ? qtrue : qfalse;
-
 	// This depends on SDL_INIT_VIDEO, hence having it here
 	ri.IN_Init(SDL_window);
 
