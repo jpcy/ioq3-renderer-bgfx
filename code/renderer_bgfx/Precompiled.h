@@ -39,6 +39,7 @@ extern "C"
 #include "../qcommon/qfiles.h"
 #include "../qcommon/qcommon.h"
 #include "../renderercommon/tr_public.h"
+#undef MAX_DLIGHTS
 }
 
 #include "../math/Math.h"
@@ -885,22 +886,14 @@ enum class ShaderProgramId
 {
 	Fog,
 	Generic,
-	TextureColor
+	Generic_AlphaTest,
+	TextureColor,
+	Num
 };
 
 class ShaderCache
 {
 public:
-	struct GenericPermutations
-	{
-		enum
-		{
-			AlphaTest = BIT(0),
-			Count     = BIT(1),
-			All       = Count - 1
-		};
-	};
-
 	void initialize();
 
 	struct GetHandleFlags
@@ -911,7 +904,7 @@ public:
 		};
 	};
 
-	bgfx::ProgramHandle getHandle(ShaderProgramId program, int programIndex = 0, int flags = 0) const;
+	bgfx::ProgramHandle getHandle(ShaderProgramId programId, int flags = 0) const;
 
 private:
 	struct Bundle
@@ -921,9 +914,9 @@ private:
 		ShaderProgram program;
 	};
 
-	bool createBundle(Bundle *bundle, const char *name, const char *vertexDefines, const char *fragmentDefines, size_t vertexPermutationIndex = 0, size_t fragmentPermutationIndex = 0);
+	bool createBundle(ShaderProgramId programId, const bgfx::Memory *vertexMem, const bgfx::Memory *fragmentMem);
 
-	Bundle fog_, generic_[GenericPermutations::Count], textureColor_;
+	std::array<Bundle, (size_t)ShaderProgramId::Num> bundles_;
 };
 
 class Skin

@@ -803,7 +803,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		if (dc.fogIndex >= 0 && mat->fogPass != MaterialFogPass::None && (mat->surfaceFlags & SURF_SKY) == 0)
 		{
 			// Make sure fog shader is valid. Don't want to fall back to generic if it isn't, just don't draw the fog.
-			auto fogShaderHandle = shaderCache->getHandle(ShaderProgramId::Fog, 0, ShaderCache::GetHandleFlags::ReturnInvalid);
+			auto fogShaderHandle = shaderCache->getHandle(ShaderProgramId::Fog, ShaderCache::GetHandleFlags::ReturnInvalid);
 
 			if (bgfx::isValid(fogShaderHandle))
 			{

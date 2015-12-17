@@ -1,9 +1,9 @@
 #include "Defines.sh"
 
 uniform vec4 u_Generators;
-#define u_TCGen0 u_Generators[GEN_TEXCOORD]
-#define u_ColorGen u_Generators[GEN_COLOR]
-#define u_AlphaGen u_Generators[GEN_ALPHA]
+#define u_TCGen0 int(u_Generators[GEN_TEXCOORD])
+#define u_ColorGen int(u_Generators[GEN_COLOR])
+#define u_AlphaGen int(u_Generators[GEN_ALPHA])
 
 // tcmod
 uniform vec4 u_DiffuseTexMatrix;
@@ -24,7 +24,7 @@ uniform vec4 u_DirectedLight;
 uniform vec4 u_ModelLightDir;
 uniform vec4 u_PortalRange;
 
-void CalculateDeformSingle(inout vec3 pos, vec3 normal, const vec2 st, float time, float gen, float wave, float base, float amplitude, float freq, float phase, float spread, vec4 moveDir)
+void CalculateDeformSingle(inout vec3 pos, vec3 normal, const vec2 st, float time, int gen, int wave, float base, float amplitude, float freq, float phase, float spread, vec4 moveDir)
 {
 	if (gen == DGEN_BULGE)
 	{
@@ -75,9 +75,9 @@ void CalculateDeformSingle(inout vec3 pos, vec3 normal, const vec2 st, float tim
 
 void CalculateDeform(inout vec3 pos, vec3 normal, const vec2 st, float time)
 {
-	for (int i = 0; i < u_NumDeforms.x; i++)
+	for (int i = 0; i < int(u_NumDeforms.x); i++)
 	{
-		CalculateDeformSingle(pos, normal, st, time, u_Deform_Gen_Wave_Base_Amplitude[i].x, u_Deform_Gen_Wave_Base_Amplitude[i].y, u_Deform_Gen_Wave_Base_Amplitude[i].z, u_Deform_Gen_Wave_Base_Amplitude[i].w, u_Deform_Frequency_Phase_Spread[i].x, u_Deform_Frequency_Phase_Spread[i].y, u_Deform_Frequency_Phase_Spread[i].z, u_DeformMoveDirs[i]);
+		CalculateDeformSingle(pos, normal, st, time, int(u_Deform_Gen_Wave_Base_Amplitude[i].x), int(u_Deform_Gen_Wave_Base_Amplitude[i].y), u_Deform_Gen_Wave_Base_Amplitude[i].z, u_Deform_Gen_Wave_Base_Amplitude[i].w, u_Deform_Frequency_Phase_Spread[i].x, u_Deform_Frequency_Phase_Spread[i].y, u_Deform_Frequency_Phase_Spread[i].z, u_DeformMoveDirs[i]);
 	}
 }
 

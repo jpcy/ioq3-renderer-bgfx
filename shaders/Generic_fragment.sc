@@ -51,28 +51,28 @@ void main()
 	float alpha = diffuse.a * v_color0.a;
 
 #if defined(USE_ALPHA_TEST)
-	if (u_AlphaTest.x == ATEST_GT_0)
+	if (int(u_AlphaTest.x) == ATEST_GT_0)
 	{
 		if (alpha <= 0.0)
 			discard;
 	}
-	else if (u_AlphaTest.x == ATEST_LT_128)
+	else if (int(u_AlphaTest.x) == ATEST_LT_128)
 	{
 		if (alpha >= 0.5)
 			discard;
 	}
-	else if (u_AlphaTest.x == ATEST_GE_128)
+	else if (int(u_AlphaTest.x) == ATEST_GE_128)
 	{
 		if (alpha < 0.5)
 			discard;
 	}
 #endif
 
-	if (u_LightType.x == LIGHT_MAP)
+	if (int(u_LightType.x) == LIGHT_MAP)
 	{
 		gl_FragColor.rgb = diffuse.rgb * texture2D(u_LightMap, v_texcoord1).rgb * v_color0.rgb;
 	}
-	else if (u_LightType.x == LIGHT_VECTOR)
+	else if (int(u_LightType.x) == LIGHT_VECTOR)
 	{
 		vec3 lightColor = u_DirectedLight.xyz * v_color0.rgb;
 		vec3 ambientColor = u_AmbientLight.xyz * v_color0.rgb;
@@ -83,9 +83,9 @@ void main()
 		gl_FragColor.rgb = diffuse.rgb * v_color0.rgb;
 	}
 
-	if (u_LightType.x != LIGHT_NONE)
+	if (int(u_LightType.x) != LIGHT_NONE)
 	{
-		for (int i = 0; i < u_NumDynamicLights.x; i++)
+		for (int i = 0; i < int(u_NumDynamicLights.x); i++)
 		{
 			vec3 dir = u_DynamicLightPositions[i].xyz - v_position;
 			vec3 color = u_DynamicLightColors[i].xyz;

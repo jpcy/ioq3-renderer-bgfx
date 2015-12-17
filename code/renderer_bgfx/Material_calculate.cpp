@@ -468,15 +468,14 @@ bgfx::ProgramHandle Material::calculateStageShaderProgramHandle(size_t stageInde
 {
 	auto &stage = stages[stageIndex];
 	assert(stage.active);
-
-	int index = 0;
+	ShaderProgramId programId = ShaderProgramId::Generic;
 
 	if (stage.alphaTest != MaterialAlphaTest::None)
 	{
-		index |= ShaderCache::GenericPermutations::AlphaTest;
+		programId = ShaderProgramId::Generic_AlphaTest;
 	}
 
-	return g_main->shaderCache->getHandle(ShaderProgramId::Generic, index);
+	return g_main->shaderCache->getHandle(programId, index);
 }
 
 void Material::setStageTextureSampler(size_t stageIndex, int sampler) const

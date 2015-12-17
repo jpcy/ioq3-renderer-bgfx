@@ -1,4 +1,26 @@
-if _ACTION == nil then
+newaction
+{
+	trigger = "shaders",
+	description = "Compile shaders",
+	
+	onStart = function()
+		os.mkdir("build/shaders")
+		dofile("shader.lua")
+		compileShader("Fog", "fragment")
+		compileShader("Fog", "vertex")
+		compileShader("Generic", "fragment")
+		compileShader("Generic", "fragment", "AlphaTest", "#define USE_ALPHA_TEST")
+		compileShader("Generic", "vertex")
+		compileShader("TextureColor", "fragment")
+		compileShader("TextureColor", "vertex")
+    end,
+	
+	onEnd = function()
+        print("Done.")
+    end
+}
+
+if _ACTION == nil or _ACTION == "shaders" then
 	return
 end
 
@@ -23,22 +45,16 @@ os.mkdir("build/bin_x86")
 os.mkdir("build/bin_x64")
 os.mkdir("build/bin_debug_x86")
 os.mkdir("build/bin_debug_x64")
-os.mkdir("build/dynamic/renderer_bgfx")
+os.mkdir("build/shaders")
 	
 if os.get() == "windows" then
 	if not os.isdir(IOQ3_PATH) then
 		print("ioquake3 not found at " .. IOQ3_PATH)
 		os.exit()
 	end
-
-	os.copyfile("D3DCompiler_47.dll", "build/bin_x86/D3DCompiler_47.dll")
-	os.copyfile("D3DCompiler_47.dll", "build/bin_x64/D3DCompiler_47.dll")
-	os.copyfile("D3DCompiler_47.dll", "build/bin_debug_x86/D3DCompiler_47.dll")
-	os.copyfile("D3DCompiler_47.dll", "build/bin_debug_x64/D3DCompiler_47.dll")
 end
 
 solution "renderer_bgfx"
-	language "C"
 	location "build"
 	startproject "renderer_bgfx"
 	platforms { "native", "x32", "x64" }
@@ -78,5 +94,3 @@ if os.get() == "windows" then
 else
 	createRendererProject(BGFX_PATH, BX_PATH, RENDERER_PATH, nil, nil, nil)
 end
-
-createShadercProject(BGFX_PATH, BX_PATH, RENDERER_PATH)

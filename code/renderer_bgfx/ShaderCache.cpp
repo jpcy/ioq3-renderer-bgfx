@@ -22,236 +22,99 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Precompiled.h"
 #pragma hdrstop
 
-#include "../shaderc/shaderc.h"
+#ifdef WIN32
+#include "../../build/shaders/Fog_fragment_d3d9.h"
+#include "../../build/shaders/Fog_vertex_d3d9.h"
+#include "../../build/shaders/Generic_AlphaTest_fragment_d3d9.h"
+#include "../../build/shaders/Generic_fragment_d3d9.h"
+#include "../../build/shaders/Generic_vertex_d3d9.h"
+#include "../../build/shaders/TextureColor_fragment_d3d9.h"
+#include "../../build/shaders/TextureColor_vertex_d3d9.h"
 
-extern const char *fallbackShader_bgfx_shader;
-extern const char *fallbackShader_Common;
-extern const char *fallbackShader_Defines;
-extern const char *fallbackShader_Fog_fragment;
-extern const char *fallbackShader_Fog_vertex;
-extern const char *fallbackShader_Generators;
-extern const char *fallbackShader_Generic_fragment;
-extern const char *fallbackShader_Generic_vertex;
-extern const char *fallbackShader_TextureColor_fragment;
-extern const char *fallbackShader_TextureColor_vertex;
-extern const char *fallbackShader_varying_def;
+#include "../../build/shaders/Fog_fragment_d3d11.h"
+#include "../../build/shaders/Fog_vertex_d3d11.h"
+#include "../../build/shaders/Generic_AlphaTest_fragment_d3d11.h"
+#include "../../build/shaders/Generic_fragment_d3d11.h"
+#include "../../build/shaders/Generic_vertex_d3d11.h"
+#include "../../build/shaders/TextureColor_fragment_d3d11.h"
+#include "../../build/shaders/TextureColor_vertex_d3d11.h"
+#endif
+
+#include "../../build/shaders/Fog_fragment_gl.h"
+#include "../../build/shaders/Fog_vertex_gl.h"
+#include "../../build/shaders/Generic_AlphaTest_fragment_gl.h"
+#include "../../build/shaders/Generic_fragment_gl.h"
+#include "../../build/shaders/Generic_vertex_gl.h"
+#include "../../build/shaders/TextureColor_fragment_gl.h"
+#include "../../build/shaders/TextureColor_vertex_gl.h"
+
+#define BUNDLE(programId, vname, fname, backend) createBundle(programId, bgfx::makeRef(vname##_vertex_##backend, sizeof(vname##_vertex_##backend)), bgfx::makeRef(fname##_fragment_##backend, sizeof(fname##_fragment_##backend)))
 
 namespace renderer {
 
-struct FallbackShader
-{
-	const char *filename;
-	const char *source;
-};
-
-static const FallbackShader fallbackShaders[] =
-{
-	{ "shaders/bgfx_shader.sh", fallbackShader_bgfx_shader },
-	{ "shaders/Common.sh", fallbackShader_Common },
-	{ "shaders/Defines.sh", fallbackShader_Defines },
-	{ "shaders/Fog_fragment.sc", fallbackShader_Fog_fragment },
-	{ "shaders/Fog_vertex.sc", fallbackShader_Fog_vertex },
-	{ "shaders/Generators.sh", fallbackShader_Generators },
-	{ "shaders/Generic_fragment.sc", fallbackShader_Generic_fragment },
-	{ "shaders/Generic_vertex.sc", fallbackShader_Generic_vertex },
-	{ "shaders/TextureColor_fragment.sc", fallbackShader_TextureColor_fragment },
-	{ "shaders/TextureColor_vertex.sc", fallbackShader_TextureColor_vertex },
-	{ "shaders/varying_def.sc", fallbackShader_varying_def }
-};
-
-static const size_t nFallbackShaders = ARRAY_LEN(fallbackShaders);
-
-static void ReleaseFile(const uint8_t* _ptr, void* /*_userData*/)
-{
-	delete [] _ptr;
-}
-
-struct CompileShaderCallback : public shaderc::CallbackI
-{
-	bool fileExists(const char* _filename)
-	{
-		if (ri.FS_ReadFile(_filename, NULL) != -1)
-			return true;
-
-		// If reading from a file fails, try an embedded fallback shader.
-		for (size_t i = 0; i < nFallbackShaders; i++)
-		{
-			if (Q_stricmp(_filename, fallbackShaders[i].filename) == 0)
-				return true;
-		}
-
-		return false;
-	}
-
-	shaderc::Memory readFile(const char* _filename)
-	{
-		void *buf;
-		long size = ri.FS_ReadFile(_filename, &buf);
-		shaderc::Memory mem;
-
-		if (buf)
-		{
-			// Hunk temp memory needs to be freed in reverse order of alloc.
-			auto bufCopy = new uint8_t[size];
-			memcpy(bufCopy, buf, size);
-			ri.FS_FreeFile(buf);
-
-			mem.data = bufCopy;
-			mem.size = size;
-			mem.release = ReleaseFile;
-		}
-		else
-		{
-			// If reading from a file fails, try an embedded fallback shader.
-			for (size_t i = 0; i < nFallbackShaders; i++)
-			{
-				auto &fs = fallbackShaders[i];
-
-				if (Q_stricmp(_filename, fs.filename) == 0)
-				{
-					mem.data = (const uint8_t *)fs.source;
-					mem.size = strlen(fs.source);
-					mem.release = nullptr;
-					break;
-				}
-			}
-		}
-
-		return mem;
-	}
-
-	bool writeFile(const char* _filename, const void* _data, int32_t _size)
-	{
-		mem = bgfx::copy(_data, _size);
-		return true;
-	}
-
-	void writeLog(const char* _str) override
-	{
-		ri.Printf(PRINT_WARNING, "%s", _str);
-	}
-
-	const bgfx::Memory *mem;
-};
-
-static bgfx::ShaderHandle CreateShader(const char *name, shaderc::ShaderType::Enum type, const char *defines, size_t permutationIndex)
-{
-	const bgfx::RendererType::Enum backend = bgfx::getCaps()->rendererType;
-	const char *backendName = nullptr;
-
-	if (backend == bgfx::RendererType::OpenGL)
-	{
-		backendName = "gl";
-	}
-	else if (backend == bgfx::RendererType::Direct3D9)
-	{
-		backendName = "dx9";
-	}
-	else if (backend == bgfx::RendererType::Direct3D11)
-	{
-		backendName = "dx11";
-	}
-	
-	// Compile shader.
-	shaderc::Platform::Enum platform;
-	shaderc::Profile::Enum profile;
-
-	if (backend == bgfx::RendererType::OpenGL)
-	{
-		platform = shaderc::Platform::Linux;
-		profile = shaderc::Profile::Enum(shaderc::Profile::GLSL_Version + 120);
-	}
-	else if (backend == bgfx::RendererType::Direct3D9)
-	{
-		platform = shaderc::Platform::Windows;
-		profile = shaderc::Profile::HLSL3;
-	}
-	else if (backend == bgfx::RendererType::Direct3D11)
-	{
-		platform = shaderc::Platform::Windows;
-		profile = shaderc::Profile::HLSL5;
-	}
-
-	const char *typeName = (type == shaderc::ShaderType::Vertex ? "vertex" : "fragment");
-	const std::string inputFilePath(va("shaders/%s_%s.sc", name, typeName));
-	const std::string varingdefPath("shaders/varying_def.sc");
-
-	shaderc::CompileShaderParameters params(type, platform);
-	params.profile = profile;
-	params.inputFilePath = inputFilePath.c_str();
-	params.varingdefPath = varingdefPath.c_str();
-	params.preprocessorDefines = defines;
-	CompileShaderCallback callback;
-	params.callback = &callback;
-	
-	if (!shaderc::compileShader(params))
-	{
-		ri.Printf(PRINT_WARNING, "Error compiling shader %s\n", params.inputFilePath);
-		return BGFX_INVALID_HANDLE;
-	}
-
-	return bgfx::createShader(callback.mem);
-}
-
 void ShaderCache::initialize()
 {
-	createBundle(&fog_, "Fog", nullptr, nullptr);
-	char defines[2048];
-	#define DEFINE(x) { Q_strcat(defines, sizeof(defines), x); Q_strcat(defines, sizeof(defines), ";"); }
+	const bgfx::RendererType::Enum backend = bgfx::getCaps()->rendererType;
 
-	for (size_t i = 0; i < GenericPermutations::Count; i++)
+	if (backend == bgfx::RendererType::OpenGL)
 	{
-		if (i & GenericPermutations::AlphaTest)
+		BUNDLE(ShaderProgramId::Fog, Fog, Fog, gl);
+		BUNDLE(ShaderProgramId::Generic, Generic, Generic, gl);
+		BUNDLE(ShaderProgramId::Generic_AlphaTest, Generic, Generic_AlphaTest, gl);
+
+		if (!BUNDLE(ShaderProgramId::TextureColor, TextureColor, TextureColor, gl))
 		{
-			DEFINE("USE_ALPHA_TEST");
+			ri.Error(ERR_FATAL, "A valid TextureColor shader is required");
 		}
-
-		// Stop if compiling one of the permutations fails. Don't want to flood the console with too many error messages.
-		if (!createBundle(&generic_[i], "Generic", defines, defines, i, i))
-			break;
 	}
-
-	if (!createBundle(&textureColor_, "TextureColor", nullptr, nullptr))
+#ifdef WIN32
+	else if (backend == bgfx::RendererType::Direct3D9)
 	{
-		ri.Error(ERR_FATAL, "A valid TextureColor shader is required");
+		BUNDLE(ShaderProgramId::Fog, Fog, Fog, d3d9);
+		BUNDLE(ShaderProgramId::Generic, Generic, Generic, d3d9);
+		BUNDLE(ShaderProgramId::Generic_AlphaTest, Generic, Generic_AlphaTest, d3d9);
+
+		if (!BUNDLE(ShaderProgramId::TextureColor, TextureColor, TextureColor, d3d9))
+		{
+			ri.Error(ERR_FATAL, "A valid TextureColor shader is required");
+		}
 	}
-	#undef DEFINE
+	else if (backend == bgfx::RendererType::Direct3D11)
+	{
+		BUNDLE(ShaderProgramId::Fog, Fog, Fog, d3d11);
+		BUNDLE(ShaderProgramId::Generic, Generic, Generic, d3d11);
+		BUNDLE(ShaderProgramId::Generic_AlphaTest, Generic, Generic_AlphaTest, d3d11);
+
+		if (!BUNDLE(ShaderProgramId::TextureColor, TextureColor, TextureColor, d3d11))
+		{
+			ri.Error(ERR_FATAL, "A valid TextureColor shader is required");
+		}
+	}
+#endif
 }
 
-bgfx::ProgramHandle ShaderCache::getHandle(ShaderProgramId program, int programIndex, int flags) const
+bgfx::ProgramHandle ShaderCache::getHandle(ShaderProgramId programId, int flags) const
 {
-	bgfx::ProgramHandle handle = BGFX_INVALID_HANDLE;
-
-	if (program == ShaderProgramId::Fog)
-	{
-		handle = fog_.program.handle;
-	}
-	else if (program == ShaderProgramId::Generic)
-	{
-		handle = generic_[programIndex].program.handle;
-	}
-	else if (program == ShaderProgramId::TextureColor)
-	{
-		handle = textureColor_.program.handle;
-	}
+	bgfx::ProgramHandle handle = bundles_[(int)programId].program.handle;
 
 	if (bgfx::isValid(handle) || (flags & GetHandleFlags::ReturnInvalid))
 		return handle;
 	
 	// Fallback to TextureColor shader program.
-	return textureColor_.program.handle;
+	return bundles_[(int)ShaderProgramId::TextureColor].program.handle;
 }
 
-bool ShaderCache::createBundle(Bundle *bundle, const char *name, const char *vertexDefines, const char *fragmentDefines, size_t vertexPermutationIndex, size_t fragmentPermutationIndex)
+bool ShaderCache::createBundle(ShaderProgramId programId, const bgfx::Memory *vertexMem, const bgfx::Memory *fragmentMem)
 {
-	assert(bundle);
-	assert(name && name[0]);
-	bundle->vertex.handle = CreateShader(name, shaderc::ShaderType::Vertex, vertexDefines, fragmentPermutationIndex);
+	assert(vertexMem);
+	assert(fragmentMem);
+	Bundle *bundle = &bundles_[(int)programId];
+	bundle->vertex.handle = bgfx::createShader(vertexMem);
 
 	if (!bgfx::isValid(bundle->vertex.handle))
 		return false;
 
-	bundle->fragment.handle = CreateShader(name, shaderc::ShaderType::Fragment, fragmentDefines, vertexPermutationIndex);
+	bundle->fragment.handle = bgfx::createShader(fragmentMem);
 
 	if (!bgfx::isValid(bundle->fragment.handle))
 		return false;
