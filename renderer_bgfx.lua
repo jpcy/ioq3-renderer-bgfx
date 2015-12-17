@@ -103,18 +103,18 @@ function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sd
 	configuration { "windows", "gmake" }
 		includedirs(path.join(bxPath, "include/compat/mingw"))
 		linkoptions { "-static-libgcc", "-static-libstdc++" }
-		
-	configuration { "windows", "x64" }
-		links(sdlLib64)
-		
-	configuration { "windows", "not x64" }
+
+	configuration { "windows", "x86" }
 		links(sdlLib32)
 		
-	configuration "x64"
-		targetname "renderer_bgfx_x86_64"
-		
-	configuration "not x64"
+	configuration { "windows", "x86_64" }
+		links(sdlLib64)
+
+	configuration "x86"
 		targetname "renderer_bgfx_x86"
+		
+	configuration "x86_64"
+		targetname "renderer_bgfx_x86_64"
 		
 	configuration {}
 	

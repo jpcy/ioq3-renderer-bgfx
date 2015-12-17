@@ -4,13 +4,28 @@ A renderer for [ioquake3](https://github.com/ioquake/ioq3) written in C++ and us
 Checkout [bgfx](https://github.com/bkaradzic/bgfx) and [bx](https://github.com/bkaradzic/bx) to the same parent directory as ioq3-renderer-bgfx.
 
 ## Compiling - Visual Studio
-Use [ioq3-premake-msvc](https://github.com/jpcy/ioq3-premake-msvc).
+1. Run `CompileShaders.bat`
+2. Use [ioq3-premake-msvc](https://github.com/jpcy/ioq3-premake-msvc).
 
 ## Compiling - MinGW
 
-1. Checkout [ioquake3](https://github.com/ioquake/ioq3) to the same parent directory as ioq3-renderer-bgfx.
-2. Run `./premake5.exe gmake`.
-3. Enter the `build` directory and run `make help` for build options.
+Checkout [ioquake3](https://github.com/ioquake/ioq3) to the same parent directory as ioq3-renderer-bgfx.
+
+```
+./premake5.exe shaders
+./premake5.exe gmake
+cd build
+make
+```
+
+## Compiling - Linux
+
+```
+./premake5 shaders
+./premake5 gmake
+cd build
+make
+```
 
 ## Usage
 

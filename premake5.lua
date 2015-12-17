@@ -41,12 +41,6 @@ end
 local IOQ3_PATH = path.join(path.getabsolute(".."), "ioq3")
 local RENDERER_PATH = path.getabsolute(".")
 
-os.mkdir("build/bin_x86")
-os.mkdir("build/bin_x64")
-os.mkdir("build/bin_debug_x86")
-os.mkdir("build/bin_debug_x64")
-os.mkdir("build/shaders")
-	
 if os.get() == "windows" then
 	if not os.isdir(IOQ3_PATH) then
 		print("ioquake3 not found at " .. IOQ3_PATH)
@@ -55,38 +49,50 @@ if os.get() == "windows" then
 end
 
 solution "renderer_bgfx"
+	configurations { "Release", "Debug" }
 	location "build"
+	
+	if os.is64bit() and not os.is("windows") then
+		platforms { "x86_64", "x86" }
+	else
+		platforms { "x86", "x86_64" }
+	end
+		
 	startproject "renderer_bgfx"
-	platforms { "native", "x32", "x64" }
-	configurations { "Debug", "Release" }
+	
+	configuration "platforms:x86"
+		architecture "x86"
+		
+	configuration "platforms:x86_64"
+		architecture "x86_64"
 	
 	configuration "Debug"
 		optimize "Debug"
 		defines { "_DEBUG" }
 		flags "Symbols"
 		
-	configuration { "Debug", "not x64" }
-		targetdir "build/bin_debug_x86"
+	configuration { "Debug", "x86" }
+		targetdir "build/bin_x86_debug"
 		
-	configuration { "Debug", "x64" }
-		targetdir "build/bin_debug_x64"
+	configuration { "Debug", "x86_64" }
+		targetdir "build/bin_x64_debug"
 		
 	configuration "Release"
 		optimize "Full"
 		defines "NDEBUG"
 		
-	configuration { "Release", "not x64" }
+	configuration { "Release", "x86" }
 		targetdir "build/bin_x86"
 		
-	configuration { "Release", "x64" }
+	configuration { "Release", "x86_64" }
 		targetdir "build/bin_x64"
 		
 	configuration "vs*"
 		defines { "_CRT_SECURE_NO_DEPRECATE" }
 		
-	configuration { "vs*", "x64" }
+	configuration { "vs*", "x86_64" }
 		defines { "_WIN64", "__WIN64__" }
-
+		
 dofile("renderer_bgfx.lua")
 
 if os.get() == "windows" then
