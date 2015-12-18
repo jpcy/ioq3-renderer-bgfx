@@ -97,6 +97,8 @@ function compileShader(bgfxPath, input, type, permutation, defines)
 			command = command .. "`"
 		end
 		
-		os.execute(command)
+		if os.execute(command) ~= 0 then
+			error()
+		end
 	end
 end

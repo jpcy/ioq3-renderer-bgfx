@@ -30,13 +30,18 @@ newaction
 	onStart = function()
 		os.mkdir("build/shaders")
 		dofile("shader.lua")
-		compileShader(BGFX_PATH, "Fog", "fragment")
-		compileShader(BGFX_PATH, "Fog", "vertex")
-		compileShader(BGFX_PATH, "Generic", "fragment")
-		compileShader(BGFX_PATH, "Generic", "fragment", "AlphaTest", "#define USE_ALPHA_TEST")
-		compileShader(BGFX_PATH, "Generic", "vertex")
-		compileShader(BGFX_PATH, "TextureColor", "fragment")
-		compileShader(BGFX_PATH, "TextureColor", "vertex")
+		
+		function compileAllShaders()
+			compileShader(BGFX_PATH, "Fog", "fragment")
+			compileShader(BGFX_PATH, "Fog", "vertex")
+			compileShader(BGFX_PATH, "Generic", "fragment")
+			compileShader(BGFX_PATH, "Generic", "fragment", "AlphaTest", "#define USE_ALPHA_TEST")
+			compileShader(BGFX_PATH, "Generic", "vertex")
+			compileShader(BGFX_PATH, "TextureColor", "fragment")
+			compileShader(BGFX_PATH, "TextureColor", "vertex")
+		end
+
+		pcall(compileAllShaders)
     end,
 	
 	onEnd = function()
