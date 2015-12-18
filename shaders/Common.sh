@@ -15,3 +15,17 @@ vec4 ApplyDepthRange(vec4 v, float offset, float scale)
 
 	return vec4(v.x, v.y, z * v.w, v.w);
 }
+
+float CalcFog(vec3 position, vec4 fogDepth, vec4 fogDistance, float fogEyeT)
+{
+	float s = dot(vec4(position, 1.0), fogDistance) * 8.0;
+	float t = dot(vec4(position, 1.0), fogDepth);
+
+	float eyeOutside = float(fogEyeT < 0.0);
+	float fogged = float(t >= eyeOutside);
+
+	t += 1e-6;
+	t *= fogged / (t - fogEyeT * eyeOutside);
+
+	return s * t;
+}

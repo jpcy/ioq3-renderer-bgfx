@@ -3,34 +3,107 @@ $output v_position, v_texcoord0, v_texcoord1, v_normal, v_color0, v_viewDir
 
 #include <bgfx_shader.sh>
 #include "Common.sh"
-#include "Defines.sh"
-#include "Generators.sh"
+#include "Deform.sh"
+#include "SharedDefines.sh"
 
 uniform vec4 u_DepthRange;
 uniform vec4 u_BaseColor;
 uniform vec4 u_VertColor;
 uniform vec4 u_LightType; // only x used
 uniform vec4 u_ViewOrigin;
+uniform vec4 u_LocalViewOrigin;
 uniform vec4 u_Time; // only x used
 
-uniform vec4 u_FogEnabled;
-uniform vec4 u_FogDistance;
-uniform vec4 u_FogDepth;
-uniform vec4 u_FogEyeT;
+uniform vec4 u_Generators;
+#define u_TCGen0 int(u_Generators[GEN_TEXCOORD])
+#define u_ColorGen int(u_Generators[GEN_COLOR])
+#define u_AlphaGen int(u_Generators[GEN_ALPHA])
+
+// tcgen
+uniform vec4 u_TCGen0Vector0;
+uniform vec4 u_TCGen0Vector1;
+
+// tcmod
+uniform vec4 u_DiffuseTexMatrix;
+uniform vec4 u_DiffuseTexOffTurb;
+
+// colorgen and alphagen
+uniform vec4 u_AmbientLight;
+uniform vec4 u_DirectedLight;
+uniform vec4 u_ModelLightDir;
+uniform vec4 u_PortalRange;
+
+uniform vec4 u_FogEnabled; // only x used
 uniform vec4 u_FogColorMask;
+uniform vec4 u_FogDepth;
+uniform vec4 u_FogDistance;
+uniform vec4 u_FogEyeT; // only x used
 
-float CalcFog(vec3 position)
+vec2 GenTexCoords(vec3 position, vec3 normal, vec2 texCoord1, vec2 texCoord2)
 {
-	float s = dot(vec4(position, 1.0), u_FogDistance) * 8.0;
-	float t = dot(vec4(position, 1.0), u_FogDepth);
+	vec2 tex = texCoord1;
 
-	float eyeOutside = float(u_FogEyeT.x < 0.0);
-	float fogged = float(t >= eyeOutside);
+	if (u_TCGen0 == TCGEN_LIGHTMAP)
+	{
+		tex = texCoord2;
+	}
+	else if (u_TCGen0 == TCGEN_ENVIRONMENT_MAPPED)
+	{
+		vec3 viewer = normalize(u_LocalViewOrigin.xyz - position);
+		vec2 ref = reflect(viewer, normal).yz;
+		tex.x = ref.x * -0.5 + 0.5;
+		tex.y = ref.y *  0.5 + 0.5;
+	}
+	else if (u_TCGen0 == TCGEN_VECTOR)
+	{
+		tex = vec2(dot(position, u_TCGen0Vector0.xyz), dot(position, u_TCGen0Vector1.xyz));
+	}
+	
+	return tex;
+}
 
-	t += 1e-6;
-	t *= fogged / (t - u_FogEyeT.x * eyeOutside);
+vec2 ModTexCoords(vec2 st, vec3 position, vec4 texMatrix, vec4 offTurb)
+{
+	float amplitude = offTurb.z;
+	float phase = offTurb.w * 2.0 * M_PI;
+	vec2 st2;
+	st2.x = st.x * texMatrix.x + (st.y * texMatrix.z + offTurb.x);
+	st2.y = st.x * texMatrix.y + (st.y * texMatrix.w + offTurb.y);
 
-	return s * t;
+	vec2 offsetPos = vec2(position.x + position.z, position.y);
+	
+	vec2 texOffset = sin(offsetPos * (2.0 * M_PI / 1024.0) + vec2(phase, phase));
+	
+	return st2 + texOffset * amplitude;	
+}
+
+vec4 CalcColor(vec4 vertColor, vec4 baseColor, vec4 colorAttrib, vec3 position, vec3 normal)
+{
+	vec4 color = vertColor * colorAttrib + baseColor;
+	
+	if (u_ColorGen == CGEN_LIGHTING_DIFFUSE)
+	{
+		float incoming = saturate(dot(normal, u_ModelLightDir.xyz));
+		color.rgb = saturate(u_DirectedLight.xyz * incoming + u_AmbientLight.xyz);
+	}
+	
+	vec3 viewer = u_LocalViewOrigin.xyz - position;
+
+	if (u_AlphaGen == AGEN_LIGHTING_SPECULAR)
+	{
+		vec3 lightDir = normalize(vec3(-960.0, 1980.0, 96.0) - position);
+		vec3 reflected = -reflect(lightDir, normal);
+		
+		color.a = saturate(dot(reflected, normalize(viewer)));
+		color.a *= color.a;
+		color.a *= color.a;
+	}
+	else if (u_AlphaGen == AGEN_PORTAL)
+	{
+		color.a = saturate(length(viewer) / u_PortalRange.x);
+	}
+	
+	return color;
 }
 
 void main()
@@ -64,7 +137,7 @@ void main()
 
 	if (int(u_FogEnabled.x) != 0)
 	{
-		v_color0 *= vec4_splat(1.0) - u_FogColorMask * sqrt(saturate(CalcFog(position)));
+		v_color0 *= vec4_splat(1.0) - u_FogColorMask * sqrt(saturate(CalcFog(position, u_FogDepth, u_FogDistance, u_FogEyeT.x)));
 	}
 
 	v_texcoord1 = a_texcoord1;

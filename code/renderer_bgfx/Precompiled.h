@@ -51,7 +51,7 @@ using namespace math;
 #include "bx/fpumath.h"
 #include "bx/string.h"
 
-#include "../../shaders/Defines.sh"
+#include "../../shaders/SharedDefines.sh"
 
 #undef None
 
