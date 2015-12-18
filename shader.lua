@@ -8,7 +8,7 @@ else
 	renderers = { "gl" }
 end
 
-function compileShader(input, type, permutation, defines)
+function compileShader(bgfxPath, input, type, permutation, defines)
 	io.write("Compiling " .. input .. "_" .. type)
 	
 	if permutation == nil then
@@ -71,7 +71,7 @@ function compileShader(input, type, permutation, defines)
 			command = "`./shaderc64"
 		end
 		
-		command = command .. " -i shaders -f \"" .. inputFilename .. "\" -o \"" .. globalOutputPath .. outputName .. ".h\" --varyingdef shaders/varying.def.sc --bin2c \"" .. outputName .. "\" --type " .. type
+		command = command .. " -i \"shaders;" .. path.join(bgfxPath, "src") .. "\" -f \"" .. inputFilename .. "\" -o \"" .. globalOutputPath .. outputName .. ".h\" --varyingdef shaders/varying.def.sc --bin2c \"" .. outputName .. "\" --type " .. type
 	
 		if renderer == "gl" then
 			command = command .. " --platform linux"
