@@ -1,11 +1,18 @@
-local globalOutputPath = "build/shaders/"
+local globalOutputPath = "build/"
 local renderers = nil
-local tempFilename = globalOutputPath .. "temp"
+local tempInputFilename = globalOutputPath .. "tempinput"
+local tempOutputFilename = globalOutputPath .. "tempoutput"
+local outputFilename = globalOutputPath .. "Shaders.h"
 
-if os.get() == "windows" then
+if os.is("windows") then
 	renderers = { "gl", "d3d9", "d3d11" }
 else
 	renderers = { "gl" }
+end
+
+function initShaderCompilation()
+	-- Delete output file so we can append to it.
+	os.remove(outputFilename)
 end
 
 function compileShader(bgfxPath, input, type, permutation, defines)
@@ -31,7 +38,7 @@ function compileShader(bgfxPath, input, type, permutation, defines)
 		
 		-- Write the defines and the input file data to a temp file.
 		-- The defines are inserted as the second line, since the varyings must be first.
-		local tempFile = io.open(tempFilename, "w")
+		local tempFile = io.open(tempInputFilename, "w")
 		tempFile:write(inputFileLine .. "\n")
 		tempFile:write(defines .. "\n")
 		
@@ -49,18 +56,11 @@ function compileShader(bgfxPath, input, type, permutation, defines)
 		tempFile:close()
 		
 		-- The temp filename will be used as shaderc input.
-		inputFilename = tempFilename
+		inputFilename = tempInputFilename
 	end
 	
 	-- Compile the shader for all renderers.
 	for _,renderer in pairs(renderers) do
-		local outputName = input .. "_"
-
-		if permutation ~= nil then
-			outputName = outputName .. permutation .. "_"
-		end
-
-		outputName = outputName .. type .. "_" .. renderer
 		local command = nil
 		
 		if os.is("windows") then
@@ -71,7 +71,15 @@ function compileShader(bgfxPath, input, type, permutation, defines)
 			command = "`./shaderc64"
 		end
 		
-		command = command .. " -i \"shaders;" .. path.join(bgfxPath, "src") .. "\" -f \"" .. inputFilename .. "\" -o \"" .. globalOutputPath .. outputName .. ".h\" --varyingdef shaders/varying.def.sc --bin2c \"" .. outputName .. "\" --type " .. type
+		local variableName = input .. "_"
+
+		if permutation ~= nil then
+			variableName = variableName .. permutation .. "_"
+		end
+
+		variableName = variableName .. type .. "_" .. renderer
+		
+		command = command .. " -i \"shaders;" .. path.join(bgfxPath, "src") .. "\" -f \"" .. inputFilename .. "\" -o \"" .. tempOutputFilename .. "\" --varyingdef shaders/varying.def.sc --bin2c \"" .. variableName .. "\" --type " .. type
 	
 		if renderer == "gl" then
 			command = command .. " --platform linux"
@@ -100,5 +108,14 @@ function compileShader(bgfxPath, input, type, permutation, defines)
 		if os.execute(command) ~= 0 then
 			error()
 		end
+		
+		-- Append the temp output file to the real output file.
+		local tempFile = io.open(tempOutputFilename, "r")
+		local tempContent = tempFile:read("*all")
+		tempFile:close()
+		local outputFile = io.open(outputFilename, "a")
+		outputFile:write("\n")
+		outputFile:write(tempContent)
+		outputFile:close()
 	end
 end

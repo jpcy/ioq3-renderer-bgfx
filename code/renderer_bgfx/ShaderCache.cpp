@@ -22,31 +22,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Precompiled.h"
 #pragma hdrstop
 
-#ifdef WIN32
-#include "../../build/shaders/Fog_fragment_d3d9.h"
-#include "../../build/shaders/Fog_vertex_d3d9.h"
-#include "../../build/shaders/Generic_AlphaTest_fragment_d3d9.h"
-#include "../../build/shaders/Generic_fragment_d3d9.h"
-#include "../../build/shaders/Generic_vertex_d3d9.h"
-#include "../../build/shaders/TextureColor_fragment_d3d9.h"
-#include "../../build/shaders/TextureColor_vertex_d3d9.h"
-
-#include "../../build/shaders/Fog_fragment_d3d11.h"
-#include "../../build/shaders/Fog_vertex_d3d11.h"
-#include "../../build/shaders/Generic_AlphaTest_fragment_d3d11.h"
-#include "../../build/shaders/Generic_fragment_d3d11.h"
-#include "../../build/shaders/Generic_vertex_d3d11.h"
-#include "../../build/shaders/TextureColor_fragment_d3d11.h"
-#include "../../build/shaders/TextureColor_vertex_d3d11.h"
-#endif
-
-#include "../../build/shaders/Fog_fragment_gl.h"
-#include "../../build/shaders/Fog_vertex_gl.h"
-#include "../../build/shaders/Generic_AlphaTest_fragment_gl.h"
-#include "../../build/shaders/Generic_fragment_gl.h"
-#include "../../build/shaders/Generic_vertex_gl.h"
-#include "../../build/shaders/TextureColor_fragment_gl.h"
-#include "../../build/shaders/TextureColor_vertex_gl.h"
+#include "../../build/Shaders.h"
 
 #define BUNDLE(programId, vname, fname, backend) createBundle(programId, bgfx::makeRef(vname##_vertex_##backend, sizeof(vname##_vertex_##backend)), bgfx::makeRef(fname##_fragment_##backend, sizeof(fname##_fragment_##backend)))
 

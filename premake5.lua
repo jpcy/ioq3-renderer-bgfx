@@ -30,6 +30,7 @@ newaction
 	onStart = function()
 		os.mkdir("build/shaders")
 		dofile("shader.lua")
+		initShaderCompilation()
 		
 		function compileAllShaders()
 			compileShader(BGFX_PATH, "Fog", "fragment")
