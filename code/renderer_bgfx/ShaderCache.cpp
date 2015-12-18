@@ -26,6 +26,16 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #define BUNDLE(programId, vname, fname, backend) createBundle(programId, bgfx::makeRef(vname##_vertex_##backend, sizeof(vname##_vertex_##backend)), bgfx::makeRef(fname##_fragment_##backend, sizeof(fname##_fragment_##backend)))
 
+#define ALL_BUNDLES(backend)                                                         \
+	BUNDLE(ShaderProgramId::Fog, Fog, Fog, backend);                                 \
+	BUNDLE(ShaderProgramId::Generic, Generic, Generic, backend);                     \
+	BUNDLE(ShaderProgramId::Generic_AlphaTest, Generic, Generic_AlphaTest, backend); \
+	                                                                                 \
+	if (!BUNDLE(ShaderProgramId::TextureColor, TextureColor, TextureColor, backend)) \
+	{                                                                                \
+		ri.Error(ERR_FATAL, "A valid TextureColor shader is required");              \
+	}                                                                             
+
 namespace renderer {
 
 void ShaderCache::initialize()
@@ -34,37 +44,16 @@ void ShaderCache::initialize()
 
 	if (backend == bgfx::RendererType::OpenGL)
 	{
-		BUNDLE(ShaderProgramId::Fog, Fog, Fog, gl);
-		BUNDLE(ShaderProgramId::Generic, Generic, Generic, gl);
-		BUNDLE(ShaderProgramId::Generic_AlphaTest, Generic, Generic_AlphaTest, gl);
-
-		if (!BUNDLE(ShaderProgramId::TextureColor, TextureColor, TextureColor, gl))
-		{
-			ri.Error(ERR_FATAL, "A valid TextureColor shader is required");
-		}
+		ALL_BUNDLES(gl)
 	}
 #ifdef WIN32
 	else if (backend == bgfx::RendererType::Direct3D9)
 	{
-		BUNDLE(ShaderProgramId::Fog, Fog, Fog, d3d9);
-		BUNDLE(ShaderProgramId::Generic, Generic, Generic, d3d9);
-		BUNDLE(ShaderProgramId::Generic_AlphaTest, Generic, Generic_AlphaTest, d3d9);
-
-		if (!BUNDLE(ShaderProgramId::TextureColor, TextureColor, TextureColor, d3d9))
-		{
-			ri.Error(ERR_FATAL, "A valid TextureColor shader is required");
-		}
+		ALL_BUNDLES(d3d9)
 	}
 	else if (backend == bgfx::RendererType::Direct3D11)
 	{
-		BUNDLE(ShaderProgramId::Fog, Fog, Fog, d3d11);
-		BUNDLE(ShaderProgramId::Generic, Generic, Generic, d3d11);
-		BUNDLE(ShaderProgramId::Generic_AlphaTest, Generic, Generic_AlphaTest, d3d11);
-
-		if (!BUNDLE(ShaderProgramId::TextureColor, TextureColor, TextureColor, d3d11))
-		{
-			ri.Error(ERR_FATAL, "A valid TextureColor shader is required");
-		}
+		ALL_BUNDLES(d3d11)
 	}
 #endif
 }
