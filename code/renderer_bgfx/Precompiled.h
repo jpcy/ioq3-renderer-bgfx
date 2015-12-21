@@ -1043,6 +1043,7 @@ struct Uniforms
 	/// @name fog
 	/// @{
 
+	/// @brief Enable fog in the generic shader.
 	/// @remarks Only x used.
 	Uniform_vec4 fogEnabled = "u_FogEnabled";
 

@@ -827,18 +827,22 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			entityUniforms_->modelLightDir.set(currentEntity->modelLightDir);
 		}
 
+		vec4 fogColor, fogDistance, fogDepth;
+		float eyeT;
+
+		if (dc.fogIndex >= 0)
+		{
+			world->calculateFog(dc.fogIndex, dc.modelMatrix, modelViewMatrix, localViewPosition, &fogColor, &fogDistance, &fogDepth, &eyeT);
+			uniforms_->fogDistance.set(fogDistance);
+			uniforms_->fogDepth.set(fogDepth);
+			uniforms_->fogEyeT.set(eyeT);
+		}
+
 		for (size_t i = 0; i < mat->getNumStages(); i++)
 		{
 			if (dc.fogIndex >= 0 && mat->stages[i].adjustColorsForFog != MaterialAdjustColorsForFog::None)
 			{
-				vec4 fogDistance, fogDepth;
-				float eyeT;
-				world->calculateFog(dc.fogIndex, dc.modelMatrix, modelViewMatrix, localViewPosition, nullptr, &fogDistance, &fogDepth, &eyeT);
-
 				uniforms_->fogEnabled.set(vec4(1, 0, 0, 0));
-				uniforms_->fogDistance.set(fogDistance);
-				uniforms_->fogDepth.set(fogDepth);
-				uniforms_->fogEyeT.set(eyeT);
 				matStageUniforms_->fogColorMask.set(mat->calculateStageFogColorMask(i));
 			}
 			else
@@ -880,16 +884,10 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		}
 
 		// Do fog pass.
-		if (dc.fogIndex >= 0 && mat->fogPass != MaterialFogPass::None && (mat->surfaceFlags & SURF_SKY) == 0)
+		if (dc.fogIndex >= 0 && mat->fogPass != MaterialFogPass::None)
 		{
 			mat->setDeformUniforms(matUniforms_.get());
-			vec4 fogColor, fogDistance, fogDepth;
-			float eyeT;
-			world->calculateFog(dc.fogIndex, dc.modelMatrix, modelViewMatrix, localViewPosition, &fogColor, &fogDistance, &fogDepth, &eyeT);
 			matStageUniforms_->color.set(fogColor);
-			uniforms_->fogDistance.set(fogDistance);
-			uniforms_->fogDepth.set(fogDepth);
-			uniforms_->fogEyeT.set(eyeT);
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
 			uint64_t state = dc.state | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA);
