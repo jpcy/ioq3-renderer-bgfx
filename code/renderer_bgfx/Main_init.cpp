@@ -126,7 +126,7 @@ ConsoleVariables::ConsoleVariables()
 	overBrightBits = ri.Cvar_Get ("r_overBrightBits", "1", CVAR_ARCHIVE | CVAR_LATCH);
 	picmip = ri.Cvar_Get("r_picmip", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	ri.Cvar_CheckRange(picmip, 0, 16, qtrue);
-	softSprites = ri.Cvar_Get("r_softSprites", "0", CVAR_ARCHIVE | CVAR_LATCH);
+	softSprites = ri.Cvar_Get("r_softSprites", "0", CVAR_ARCHIVE);
 	screenshotJpegQuality = ri.Cvar_Get("r_screenshotJpegQuality", "90", CVAR_ARCHIVE);
 	wireframe = ri.Cvar_Get("r_wireframe", "0", CVAR_CHEAT);
 

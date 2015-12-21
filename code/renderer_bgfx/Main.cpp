@@ -725,7 +725,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	uniforms->dlightPositions.set(dlightPositions, DynamicLight::max);
 
 	// Render depth.
-	if (isWorldCamera && cvars.softSprites->integer)
+	if (isWorldCamera)
 	{
 		const uint8_t viewId = pushView(ViewFlags::ClearDepth, rect, viewMatrix, projectionMatrix);
 		bgfx::setViewFrameBuffer(viewId, depthFrameBuffer_);

@@ -105,15 +105,18 @@ void Material::doCpuDeforms(DrawCall *dc) const
 				for (size_t i = 0; i < vi.size(); i++)
 					vi[i] = uint16_t(v[i] - vertices);
 
+				// Find the midpoint.
+				const vec3 midpoint = (v[0]->pos + v[1]->pos + v[2]->pos + v[3]->pos) * 0.25f;
+				const float radius = (v[0]->pos - midpoint).length() * 0.707f; // / sqrt(2)
+
+				if (g_main->cvars.softSprites->integer)
+				{
+					// Assumes all quads in this drawcall have the same radius.
+					dc->softSpriteDepth = radius / 2.0f;
+				}
+
 				if (ds.deformation == MaterialDeform::Autosprite)
 				{
-					// find the midpoint
-					vec3 mid = (v[0]->pos + v[1]->pos + v[2]->pos + v[3]->pos) * 0.25f;
-
-					vec3_t delta;
-					VectorSubtract(v[0]->pos, mid, delta);
-					float radius = VectorLength(delta) * 0.707f; // / sqrt(2)
-
 					vec3_t left, up;
 					VectorScale(leftDir, radius, left);
 					VectorScale(upDir, radius, up);
@@ -143,10 +146,10 @@ void Material::doCpuDeforms(DrawCall *dc) const
 					}
 
 					// Rebuild quad facing the main camera.
-					v[0]->pos = mid + left + up;
-					v[1]->pos = mid - left + up;
-					v[2]->pos = mid - left - up;
-					v[3]->pos = mid + left - up;
+					v[0]->pos = midpoint + left + up;
+					v[1]->pos = midpoint - left + up;
+					v[2]->pos = midpoint - left - up;
+					v[3]->pos = midpoint + left - up;
 
 					// Constant normal all the way around.
 					v[0]->normal = v[1]->normal = v[2]->normal = v[3]->normal = -g_main->sceneRotation[0];
