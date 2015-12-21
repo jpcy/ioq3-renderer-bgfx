@@ -126,6 +126,7 @@ ConsoleVariables::ConsoleVariables()
 	overBrightBits = ri.Cvar_Get ("r_overBrightBits", "1", CVAR_ARCHIVE | CVAR_LATCH);
 	picmip = ri.Cvar_Get("r_picmip", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	ri.Cvar_CheckRange(picmip, 0, 16, qtrue);
+	softSprites = ri.Cvar_Get("r_softSprites", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	screenshotJpegQuality = ri.Cvar_Get("r_screenshotJpegQuality", "90", CVAR_ARCHIVE);
 	wireframe = ri.Cvar_Get("r_wireframe", "0", CVAR_CHEAT);
 
@@ -267,6 +268,7 @@ Main::Main()
 
 Main::~Main()
 {
+	bgfx::destroyFrameBuffer(depthFrameBuffer_);
 	ri.Cmd_RemoveCommand("r_reloadShaders");
 	ri.Cmd_RemoveCommand("screenshot");
 	ri.Cmd_RemoveCommand("screenshotJPEG");
@@ -350,6 +352,10 @@ void Main::initialize()
 	indices[0] = 0; indices[1] = 1; indices[2] = 2;
 	indices[3] = 2; indices[4] = 3; indices[5] = 0;
 	fsIndexBuffer_.handle = bgfx::createIndexBuffer(indicesMem);
+
+	// Create depth framebuffer.
+	depthTexture_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
+	depthFrameBuffer_ = bgfx::createFrameBuffer(1, &depthTexture_, true);
 }
 
 static int Font_ReadInt(const uint8_t *data, int *offset)

@@ -29,3 +29,10 @@ float CalcFog(vec3 position, vec4 fogDepth, vec4 fogDistance, float fogEyeT)
 
 	return s * t;
 }
+
+float ToLinearDepth(float z, float near, float far)
+{
+	float linearDepth = 2.0 * near * far / (z * (far - near) - (far + near));
+	linearDepth = (-linearDepth - near) / (far - near);
+	return linearDepth;
+}

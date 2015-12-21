@@ -55,9 +55,7 @@ void BgfxCallback::fatal(bgfx::Fatal::Enum _code, const char* _str)
 	}
 	else
 	{
-		BX_TRACE("0x%08x: %s", _code, _str);
-		BX_UNUSED(_code, _str);
-		abort();
+		ri.Error(ERR_FATAL, "0x%08x: %s", _code, _str);
 	}
 }
 
@@ -419,7 +417,7 @@ uint8_t Main::pushView(int flags, vec4 rect, const mat4 &viewMatrix, const mat4 
 	}
 
 	// Need to clear color in wireframe.
-	if (firstFreeViewId_ == 0 && cvars.wireframe->integer != 0)
+	if (firstFreeViewId_ == (cvars.softSprites->integer ? 1 : 0) && cvars.wireframe->integer != 0)
 	{
 		clearFlags |= BGFX_CLEAR_COLOR;
 	}
@@ -470,7 +468,7 @@ void Main::flushStretchPics()
 			{
 				stretchPicMaterial_->setStageShaderUniforms(i);
 				stretchPicMaterial_->setStageTextureSamplers(i);
-				uint64_t state = stretchPicMaterial_->calculateStageState(i, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE);
+				uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE | stretchPicMaterial_->getStageState(i);
 
 				// Depth testing and writing should always be off for 2D drawing.
 				state &= ~BGFX_STATE_DEPTH_TEST_MASK;
@@ -479,7 +477,7 @@ void Main::flushStretchPics()
 				bgfx::setState(state);
 				bgfx::setVertexBuffer(&tvb);
 				bgfx::setIndexBuffer(&tib);
-				bgfx::submit(viewId, stretchPicMaterial_->calculateStageShaderProgramHandle(i));
+				bgfx::submit(viewId, shaderCache->getHandle(ShaderProgramId::Generic));
 			}
 		}
 	}
@@ -726,7 +724,67 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	uniforms->dlightColors.set(dlightColors, DynamicLight::max);
 	uniforms->dlightPositions.set(dlightPositions, DynamicLight::max);
 
-	// Issue draw calls.
+	// Render depth.
+	if (isWorldCamera && cvars.softSprites->integer)
+	{
+		const uint8_t viewId = pushView(ViewFlags::ClearDepth, rect, viewMatrix, projectionMatrix);
+		bgfx::setViewFrameBuffer(viewId, depthFrameBuffer_);
+
+		for (DrawCall &dc : drawCalls_)
+		{
+			// Material remapping.
+			auto mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
+
+			if (mat->sort != MaterialSort::Opaque)
+				continue;
+
+			mat->setTime(floatTime_);
+			const mat4 modelViewMatrix(viewMatrix * dc.modelMatrix);
+			uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
+			mat->setFogShaderUniforms();
+
+			// See if any of the stages use alpha testing.
+			MaterialStage *alphaTestStage = nullptr;
+
+			for (size_t i = 0; i < mat->getNumStages(); i++)
+			{
+				if (mat->stages[i].alphaTest != MaterialAlphaTest::None)
+				{
+					alphaTestStage = &mat->stages[i];
+					break;
+				}
+			}
+
+			SetDrawCallGeometry(dc);
+			bgfx::setTransform(dc.modelMatrix.get());
+			uint64_t state = BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_DEPTH_WRITE | BGFX_STATE_MSAA;
+
+			if (mat->cullType != MaterialCullType::TwoSided)
+			{
+				bool cullFront = (mat->cullType == MaterialCullType::FrontSided);
+
+				if (g_main->isMirrorCamera)
+					cullFront = !cullFront;
+
+				state |= cullFront ? BGFX_STATE_CULL_CCW : BGFX_STATE_CULL_CW;
+			}
+
+			bgfx::setState(state);
+
+			if (alphaTestStage)
+			{
+				uniforms->alphaTest.set((float)alphaTestStage->alphaTest);
+				alphaTestStage->bundles[MaterialTextureBundleIndex::DiffuseMap].textures[0]->setSampler(MaterialTextureBundleIndex::DiffuseMap);
+				bgfx::submit(viewId, shaderCache->getHandle(ShaderProgramId::Depth_AlphaTest));
+			}
+			else
+			{
+				uniforms->alphaTest.set(vec4::empty);
+				bgfx::submit(viewId, shaderCache->getHandle(ShaderProgramId::Depth));
+			}
+		}
+	}
+
 	const uint8_t viewId = pushView(ViewFlags::ClearDepth, rect, viewMatrix, projectionMatrix);
 
 	for (DrawCall &dc : drawCalls_)
@@ -741,7 +799,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		{
 			uniforms->alphaTest.set(vec4::empty);
 			uniforms->baseColor.set(vec4::white);
-			uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, 0, 0));
+			uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
 			uniforms->generators.set(vec4::empty);
 			uniforms->lightType.set(vec4::empty);
 			uniforms->vertexColor.set(vec4::black);
@@ -764,11 +822,11 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		{
 			if (mat->polygonOffset)
 			{
-				uniforms->depthRange.set(vec4(dc.zOffset + polygonDepthOffset, dc.zScale, 0, 0));
+				uniforms->depthRange.set(vec4(dc.zOffset + polygonDepthOffset, dc.zScale, zMin, zMax));
 			}
 			else
 			{
-				uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, 0, 0));
+				uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
 			}
 
 			uniforms->viewOrigin.set(cameraPosition);
@@ -795,8 +853,33 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			mat->setStageTextureSamplers(i);
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
-			bgfx::setState(mat->calculateStageState(i, dc.state));
-			bgfx::submit(viewId, mat->calculateStageShaderProgramHandle(i));
+			ShaderProgramId shaderProgram;
+			uint64_t state = dc.state | mat->getStageState(i);
+
+			if (cvars.softSprites->integer && dc.softSpriteDepth > 0)
+			{
+				shaderProgram = ShaderProgramId::Generic_SoftSprite;
+				bgfx::setTexture(MaterialTextureBundleIndex::Depth, g_main->uniforms->textures[MaterialTextureBundleIndex::Depth]->handle, depthTexture_);
+				uniforms->softSpriteDepth.set(dc.softSpriteDepth);
+
+				// Change additive blend from (1, 1) to (src alpha, 1) so the soft sprite shader can control alpha.
+				if ((state & BGFX_STATE_BLEND_MASK) == BGFX_STATE_BLEND_ADD)
+				{
+					state &= ~BGFX_STATE_BLEND_MASK;
+					state |= BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE);
+				}
+			}
+			else if (mat->stages[i].alphaTest != MaterialAlphaTest::None)
+			{
+				shaderProgram = ShaderProgramId::Generic_AlphaTest;
+			}
+			else
+			{
+				shaderProgram = ShaderProgramId::Generic;
+			}
+
+			bgfx::setState(state);
+			bgfx::submit(viewId, shaderCache->getHandle(shaderProgram));
 		}
 
 		// Do fog pass.
@@ -809,11 +892,11 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			{
 				if (mat->polygonOffset)
 				{
-					uniforms->depthRange.set(vec4(dc.zOffset + polygonDepthOffset, dc.zScale, 0, 0));
+					uniforms->depthRange.set(vec4(dc.zOffset + polygonDepthOffset, dc.zScale, zMin, zMax));
 				}
 				else
 				{
-					uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, 0, 0));
+					uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
 				}
 
 				mat->setFogShaderUniforms();
@@ -921,53 +1004,6 @@ void Main::renderLightningEntity(DrawCallList *drawCallList, vec3 viewPosition, 
 		renderRailCore(drawCallList, start, end, right, length, cvars.railCoreWidth->integer, materialCache->getMaterial(entity->e.customShader), vec4::fromBytes(entity->e.shaderRGBA), entity);
 		right = right.rotatedAroundDirection(dir, 45);
 	}
-}
-
-void Main::renderQuad(DrawCallList *drawCallList, vec3 position, vec3 normal, vec3 left, vec3 up, Material *mat, vec4 color, Entity *entity)
-{
-	assert(drawCallList);
-	const uint32_t nVertices = 4, nIndices = 6;
-	bgfx::TransientVertexBuffer tvb;
-	bgfx::TransientIndexBuffer tib;
-
-	if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, nVertices, &tib, nIndices)) 
-	{
-		WarnOnce(WarnOnceId::TransientBuffer);
-		return;
-	}
-
-	auto vertices = (Vertex *)tvb.data;
-	vertices[0].pos = position + left + up;
-	vertices[1].pos = position - left + up;
-	vertices[2].pos = position - left - up;
-	vertices[3].pos = position + left - up;
-
-	// Constant normal all the way around.
-	vertices[0].normal = vertices[1].normal = vertices[2].normal = vertices[3].normal = normal;
-
-	// Standard square texture coordinates.
-	vertices[0].texCoord = vertices[0].texCoord2 = vec2(0, 0);
-	vertices[1].texCoord = vertices[1].texCoord2 = vec2(1, 0);
-	vertices[2].texCoord = vertices[2].texCoord2 = vec2(1, 1);
-	vertices[3].texCoord = vertices[3].texCoord2 = vec2(0, 1);
-
-	// Constant color all the way around.
-	vertices[0].color = vertices[1].color = vertices[2].color = vertices[3].color = color;
-
-	auto indices = (uint16_t *)tib.data;
-	indices[0] = 0; indices[1] = 1; indices[2] = 3;
-	indices[3] = 3; indices[4] = 1; indices[5] = 2;
-
-	DrawCall dc;
-	dc.entity = entity;
-	dc.fogIndex = isWorldCamera ? world->findFogIndex(entity->e.origin, entity->e.radius) : -1;
-	dc.material = mat;
-	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
-	dc.vb.transientHandle = tvb;
-	dc.vb.nVertices = nVertices;
-	dc.ib.transientHandle = tib;
-	dc.ib.nIndices = nIndices;
-	drawCallList->push_back(dc);
 }
 
 void Main::renderRailCoreEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity)
@@ -1127,7 +1163,55 @@ void Main::renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Ent
 	if (isMirrorCamera)
 		left = -left;
 
-	renderQuad(drawCallList, entity->e.origin, -viewRotation[0], left, up, materialCache->getMaterial(entity->e.customShader), vec4::fromBytes(entity->e.shaderRGBA), entity);
+	const uint32_t nVertices = 4, nIndices = 6;
+	bgfx::TransientVertexBuffer tvb;
+	bgfx::TransientIndexBuffer tib;
+
+	if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, nVertices, &tib, nIndices)) 
+	{
+		WarnOnce(WarnOnceId::TransientBuffer);
+		return;
+	}
+
+	auto vertices = (Vertex *)tvb.data;
+	const vec3 position(entity->e.origin);
+	vertices[0].pos = position + left + up;
+	vertices[1].pos = position - left + up;
+	vertices[2].pos = position - left - up;
+	vertices[3].pos = position + left - up;
+
+	// Constant normal all the way around.
+	vertices[0].normal = vertices[1].normal = vertices[2].normal = vertices[3].normal = -viewRotation[0];
+
+	// Standard square texture coordinates.
+	vertices[0].texCoord = vertices[0].texCoord2 = vec2(0, 0);
+	vertices[1].texCoord = vertices[1].texCoord2 = vec2(1, 0);
+	vertices[2].texCoord = vertices[2].texCoord2 = vec2(1, 1);
+	vertices[3].texCoord = vertices[3].texCoord2 = vec2(0, 1);
+
+	// Constant color all the way around.
+	vertices[0].color = vertices[1].color = vertices[2].color = vertices[3].color = vec4::fromBytes(entity->e.shaderRGBA);
+
+	auto indices = (uint16_t *)tib.data;
+	indices[0] = 0; indices[1] = 1; indices[2] = 3;
+	indices[3] = 3; indices[4] = 1; indices[5] = 2;
+
+	DrawCall dc;
+
+	if (g_main->cvars.softSprites->integer)
+	{
+		dc.softSpriteDepth = entity->e.radius / 2.0f;
+	}
+
+	dc.entity = entity;
+	dc.fogIndex = isWorldCamera ? world->findFogIndex(entity->e.origin, entity->e.radius) : -1;
+	dc.material = materialCache->getMaterial(entity->e.customShader);
+	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
+	dc.vb.transientHandle = tvb;
+	dc.vb.nVertices = nVertices;
+	dc.ib.transientHandle = tib;
+	dc.ib.nIndices = nIndices;
+	drawCallList->push_back(dc);
 }
 
 void Main::setupEntityLighting(Entity *entity)

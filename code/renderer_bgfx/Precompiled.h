@@ -97,6 +97,7 @@ struct ConsoleVariables
 	cvar_t *overBrightBits;
 	cvar_t *picmip;
 	cvar_t *screenshotJpegQuality;
+	cvar_t *softSprites;
 	cvar_t *wireframe;
 
 	/// @name Window
@@ -169,6 +170,7 @@ struct DrawCall
 	IndexBuffer ib;
 	Material *material = nullptr;
 	mat4 modelMatrix = mat4::identity;
+	float softSpriteDepth = 0;
 	uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE | BGFX_STATE_MSAA;
 	VertexBuffer vb;
 	float zOffset = 0.0f;
@@ -542,6 +544,7 @@ struct MaterialTextureBundleIndex
 		NormalMap,
 		Deluxemap,
 		Specularmap,
+		Depth,
 		NumMaterialTextureBundles,
 
 		ColorMap  = 0,
@@ -693,8 +696,7 @@ public:
 	void setFogShaderUniforms() const;
 	void setStageTextureSamplers(size_t stageIndex) const;
 	vec4 calculateStageFogColorMask(size_t stageIndex) const;
-	uint64_t calculateStageState(size_t stageIndex, uint64_t state) const;
-	bgfx::ProgramHandle calculateStageShaderProgramHandle(size_t stageIndex) const;
+	uint64_t getStageState(size_t stageIndex) const;
 
 private:
 	void setStageTextureSampler(size_t stageIndex, int sampler) const;
@@ -884,9 +886,12 @@ struct ShaderProgram
 
 enum class ShaderProgramId
 {
+	Depth,
+	Depth_AlphaTest,
 	Fog,
 	Generic,
 	Generic_AlphaTest,
+	Generic_SoftSprite,
 	TextureColor,
 	Num
 };
@@ -1062,6 +1067,7 @@ struct Uniforms
 		textures[MaterialTextureBundleIndex::NormalMap] = &normalMap;
 		textures[MaterialTextureBundleIndex::Deluxemap] = &deluxemap;
 		textures[MaterialTextureBundleIndex::Specularmap] = &specularmap;
+		textures[MaterialTextureBundleIndex::Depth] = &depthSampler;
 	}
 
 	/// @name Texture samplers
@@ -1071,6 +1077,7 @@ struct Uniforms
 	Uniform_int normalMap = "u_NormalMap";
 	Uniform_int deluxemap = "u_DeluxeMap";
 	Uniform_int specularmap = "u_SpecularMap";
+	Uniform_int depthSampler = "u_DepthMap";
 	Uniform_int *textures[MaterialTextureBundleIndex::NumMaterialTextureBundles];
 	/// @}
 
@@ -1084,7 +1091,7 @@ struct Uniforms
 	Uniform_vec4 viewOrigin = "u_ViewOrigin";
 	Uniform_vec4 localViewOrigin = "u_LocalViewOrigin";
 
-	/// @remarks x is offset, y is scale.
+	/// @remarks x is offset, y is scale, z is near z, w is far z.
 	Uniform_vec4 depthRange = "u_DepthRange";
 
 	/// @remarks Only x used.
@@ -1163,6 +1170,14 @@ struct Uniforms
 	/// @{
 
 	Uniform_vec4 alphaTest = "u_AlphaTest";
+
+	/// @}
+
+	/// @name soft sprites
+	/// @{
+
+	/// @remarks Only x used.
+	Uniform_vec4 softSpriteDepth = "u_SoftSpriteDepth";
 
 	/// @}
 
@@ -1347,7 +1362,6 @@ private:
 	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, vec4 rect, vec2 fov, const uint8_t *areaMask);
 	void renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
 	void renderLightningEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
-	void renderQuad(DrawCallList *drawCallList, vec3 position, vec3 normal, vec3 left, vec3 up, Material *mat, vec4 color, Entity *entity);
 	void renderRailCoreEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
 	void renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3 up, float length, float spanWidth, Material *mat, vec4 color, Entity *entity);
 	void renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity);
@@ -1389,6 +1403,9 @@ private:
 
 	/// @remarks Resets to 0 every frame.
 	uint8_t firstFreeViewId_ = 0;
+
+	bgfx::FrameBufferHandle depthFrameBuffer_;
+	bgfx::TextureHandle depthTexture_;
 };
 
 extern std::unique_ptr<Main> g_main;

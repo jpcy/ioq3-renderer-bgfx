@@ -438,12 +438,12 @@ vec4 Material::calculateStageFogColorMask(size_t stageIndex) const
 	return vec4(0, 0, 0, 0);
 }
 
-uint64_t Material::calculateStageState(size_t stageIndex, uint64_t state) const
+uint64_t Material::getStageState(size_t stageIndex) const
 {
 	auto &stage = stages[stageIndex];
 	assert(stage.active);
 
-	state |= BGFX_STATE_BLEND_FUNC(stage.blendSrc, stage.blendDst);
+	uint64_t state = BGFX_STATE_BLEND_FUNC(stage.blendSrc, stage.blendDst);
 	state |= stage.depthTestBits;
 
 	if (stage.depthWrite)
@@ -462,20 +462,6 @@ uint64_t Material::calculateStageState(size_t stageIndex, uint64_t state) const
 	}
 
 	return state;
-}
-
-bgfx::ProgramHandle Material::calculateStageShaderProgramHandle(size_t stageIndex) const
-{
-	auto &stage = stages[stageIndex];
-	assert(stage.active);
-	ShaderProgramId programId = ShaderProgramId::Generic;
-
-	if (stage.alphaTest != MaterialAlphaTest::None)
-	{
-		programId = ShaderProgramId::Generic_AlphaTest;
-	}
-
-	return g_main->shaderCache->getHandle(programId, index);
 }
 
 void Material::setStageTextureSampler(size_t stageIndex, int sampler) const
