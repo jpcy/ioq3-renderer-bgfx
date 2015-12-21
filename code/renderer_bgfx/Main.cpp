@@ -262,8 +262,8 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 
 	// Bind shader and texture
 	auto shaderProgramHandle = shaderCache->getHandle(ShaderProgramId::TextureColor);
-	textureCache->getScratchTextures()[client]->setSampler(MaterialTextureBundleIndex::ColorMap);
-	uniforms->color.set(vec4::white);
+	bgfx::setTexture(0, matStageUniforms_->diffuseMap.handle, textureCache->getScratchTextures()[client]->getHandle());
+	matStageUniforms_->color.set(vec4::white);
 
 	// Submit
 	bgfx::setState(BGFX_STATE_RGB_WRITE);
@@ -462,12 +462,12 @@ void Main::flushStretchPics()
 		{
 			memcpy(tvb.data, &stretchPicVertices_[0], sizeof(Vertex) * stretchPicVertices_.size());
 			memcpy(tib.data, &stretchPicIndices_[0], sizeof(uint16_t) * stretchPicIndices_.size());
-			stretchPicMaterial_->setTime(floatTime_);
+			stretchPicMaterial_->setTime(floatTime_, matUniforms_.get());
 
 			for (size_t i = 0; i < stretchPicMaterial_->getNumStages(); i++)
 			{
-				stretchPicMaterial_->setStageShaderUniforms(i);
-				stretchPicMaterial_->setStageTextureSamplers(i);
+				stretchPicMaterial_->setStageShaderUniforms(i, matStageUniforms_.get());
+				stretchPicMaterial_->setStageTextureSamplers(i, matStageUniforms_.get());
 				uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE | stretchPicMaterial_->getStageState(i);
 
 				// Depth testing and writing should always be off for 2D drawing.
@@ -689,7 +689,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				continue;
 
 			currentEntity = dc.entity;
-			dc.material->setTime(floatTime_);
+			dc.material->setTime(floatTime_, matUniforms_.get());
 			dc.material->doCpuDeforms(&dc);
 			currentEntity = nullptr;
 		}
@@ -701,16 +701,16 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	// Set portal clipping.
 	if (!isMainCamera)
 	{
-		uniforms->portalClip.set(vec4(1, 0, 0, 0));
-		uniforms->portalPlane.set(portalPlane);
+		uniforms_->portalClip.set(vec4(1, 0, 0, 0));
+		uniforms_->portalPlane.set(portalPlane);
 	}
 	else
 	{
-		uniforms->portalClip.set(vec4(0, 0, 0, 0));
+		uniforms_->portalClip.set(vec4(0, 0, 0, 0));
 	}
 
 	// Setup dynamic lights.
-	uniforms->nDynamicLights.set(vec4(sceneDynamicLights_.size(), 0, 0, 0));
+	uniforms_->nDynamicLights.set(vec4(sceneDynamicLights_.size(), 0, 0, 0));
 	vec4 dlightColors[DynamicLight::max];
 	vec4 dlightPositions[DynamicLight::max];
 
@@ -721,8 +721,8 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		dlightPositions[i] = dl.position;
 	}
 
-	uniforms->dlightColors.set(dlightColors, DynamicLight::max);
-	uniforms->dlightPositions.set(dlightPositions, DynamicLight::max);
+	uniforms_->dlightColors.set(dlightColors, DynamicLight::max);
+	uniforms_->dlightPositions.set(dlightPositions, DynamicLight::max);
 
 	// Render depth.
 	if (isWorldCamera)
@@ -738,10 +738,10 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (mat->sort != MaterialSort::Opaque)
 				continue;
 
-			mat->setTime(floatTime_);
+			mat->setTime(floatTime_, matUniforms_.get());
 			const mat4 modelViewMatrix(viewMatrix * dc.modelMatrix);
-			uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
-			mat->setFogShaderUniforms();
+			uniforms_->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
+			mat->setDeformUniforms(matUniforms_.get());
 
 			// See if any of the stages use alpha testing.
 			MaterialStage *alphaTestStage = nullptr;
@@ -758,28 +758,20 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
 			uint64_t state = BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_DEPTH_WRITE | BGFX_STATE_MSAA;
-
-			if (mat->cullType != MaterialCullType::TwoSided)
-			{
-				bool cullFront = (mat->cullType == MaterialCullType::FrontSided);
-
-				if (g_main->isMirrorCamera)
-					cullFront = !cullFront;
-
-				state |= cullFront ? BGFX_STATE_CULL_CCW : BGFX_STATE_CULL_CW;
-			}
-
+			
+			// Grab just the cull state from the material. It's not per-stage so just use the first one.
+			state |= mat->getStageState(0) & BGFX_STATE_CULL_MASK;
 			bgfx::setState(state);
 
 			if (alphaTestStage)
 			{
-				uniforms->alphaTest.set((float)alphaTestStage->alphaTest);
-				alphaTestStage->bundles[MaterialTextureBundleIndex::DiffuseMap].textures[0]->setSampler(MaterialTextureBundleIndex::DiffuseMap);
+				matStageUniforms_->alphaTest.set((float)alphaTestStage->alphaTest);
+				bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, alphaTestStage->bundles[MaterialTextureBundleIndex::DiffuseMap].textures[0]->getHandle());
 				bgfx::submit(viewId, shaderCache->getHandle(ShaderProgramId::Depth_AlphaTest));
 			}
 			else
 			{
-				uniforms->alphaTest.set(vec4::empty);
+				matStageUniforms_->alphaTest.set(vec4::empty);
 				bgfx::submit(viewId, shaderCache->getHandle(ShaderProgramId::Depth));
 			}
 		}
@@ -797,15 +789,15 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		// Special case for skybox.
 		if (dc.flags >= DrawCallFlags::SkyboxSideFirst && dc.flags <= DrawCallFlags::SkyboxSideLast)
 		{
-			uniforms->alphaTest.set(vec4::empty);
-			uniforms->baseColor.set(vec4::white);
-			uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
-			uniforms->generators.set(vec4::empty);
-			uniforms->lightType.set(vec4::empty);
-			uniforms->vertexColor.set(vec4::black);
+			uniforms_->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
+			matStageUniforms_->alphaTest.set(vec4::empty);
+			matStageUniforms_->baseColor.set(vec4::white);
+			matStageUniforms_->generators.set(vec4::empty);
+			matStageUniforms_->lightType.set(vec4::empty);
+			matStageUniforms_->vertexColor.set(vec4::black);
 			const int sky_texorder[6] = { 0, 2, 1, 3, 4, 5 };
 			const int side = dc.flags - DrawCallFlags::SkyboxSideFirst;
-			mat->sky.outerbox[sky_texorder[side]]->setSampler(MaterialTextureBundleIndex::DiffuseMap);
+			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, mat->sky.outerbox[sky_texorder[side]]->getHandle());
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
 			bgfx::setState(dc.state);
@@ -814,43 +806,52 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		}
 
 		currentEntity = dc.entity;
-		mat->setTime(floatTime_);
-		const vec3 localViewPosition = currentEntity ? currentEntity->localViewPosition : cameraPosition;
+		mat->setTime(floatTime_, matUniforms_.get());
 		const mat4 modelViewMatrix(viewMatrix * dc.modelMatrix);
+
+		if (mat->polygonOffset)
+		{
+			uniforms_->depthRange.set(vec4(dc.zOffset + polygonDepthOffset, dc.zScale, zMin, zMax));
+		}
+		else
+		{
+			uniforms_->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
+		}
+
+		uniforms_->viewOrigin.set(cameraPosition);
+		mat->setDeformUniforms(matUniforms_.get());
+		const vec3 localViewPosition = currentEntity ? currentEntity->localViewPosition : cameraPosition;
+
+		if (g_main->currentEntity)
+		{
+			entityUniforms_->ambientLight.set(vec4(currentEntity->ambientLight / 255.0f, 0));
+			entityUniforms_->directedLight.set(vec4(currentEntity->directedLight / 255.0f, 0));
+			entityUniforms_->lightDirection.set(vec4(currentEntity->lightDir, 0));
+			entityUniforms_->localViewOrigin.set(localViewPosition);
+			entityUniforms_->modelLightDir.set(currentEntity->modelLightDir);
+		}
 
 		for (size_t i = 0; i < mat->getNumStages(); i++)
 		{
-			if (mat->polygonOffset)
-			{
-				uniforms->depthRange.set(vec4(dc.zOffset + polygonDepthOffset, dc.zScale, zMin, zMax));
-			}
-			else
-			{
-				uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
-			}
-
-			uniforms->viewOrigin.set(cameraPosition);
-			uniforms->localViewOrigin.set(localViewPosition);
-
 			if (dc.fogIndex >= 0 && mat->stages[i].adjustColorsForFog != MaterialAdjustColorsForFog::None)
 			{
 				vec4 fogDistance, fogDepth;
 				float eyeT;
 				world->calculateFog(dc.fogIndex, dc.modelMatrix, modelViewMatrix, localViewPosition, nullptr, &fogDistance, &fogDepth, &eyeT);
 
-				uniforms->fogEnabled.set(vec4(1, 0, 0, 0));
-				uniforms->fogDistance.set(fogDistance);
-				uniforms->fogDepth.set(fogDepth);
-				uniforms->fogEyeT.set(eyeT);
-				uniforms->fogColorMask.set(mat->calculateStageFogColorMask(i));
+				uniforms_->fogEnabled.set(vec4(1, 0, 0, 0));
+				uniforms_->fogDistance.set(fogDistance);
+				uniforms_->fogDepth.set(fogDepth);
+				uniforms_->fogEyeT.set(eyeT);
+				matStageUniforms_->fogColorMask.set(mat->calculateStageFogColorMask(i));
 			}
 			else
 			{
-				uniforms->fogEnabled.set(vec4::empty);
+				uniforms_->fogEnabled.set(vec4::empty);
 			}
 
-			mat->setStageShaderUniforms(i);
-			mat->setStageTextureSamplers(i);
+			mat->setStageShaderUniforms(i, matStageUniforms_.get());
+			mat->setStageTextureSamplers(i, matStageUniforms_.get());
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
 			ShaderProgramId shaderProgram;
@@ -859,8 +860,8 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (cvars.softSprites->integer && dc.softSpriteDepth > 0)
 			{
 				shaderProgram = ShaderProgramId::Generic_SoftSprite;
-				bgfx::setTexture(MaterialTextureBundleIndex::Depth, g_main->uniforms->textures[MaterialTextureBundleIndex::Depth]->handle, depthTexture_);
-				uniforms->softSpriteDepth.set(dc.softSpriteDepth);
+				bgfx::setTexture(MaterialTextureBundleIndex::Depth, matStageUniforms_->textures[MaterialTextureBundleIndex::Depth]->handle, depthTexture_);
+				uniforms_->softSpriteDepth.set(dc.softSpriteDepth);
 
 				// Change additive blend from (1, 1) to (src alpha, 1) so the soft sprite shader can control alpha.
 				if ((state & BGFX_STATE_BLEND_MASK) == BGFX_STATE_BLEND_ADD)
@@ -885,44 +886,29 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		// Do fog pass.
 		if (dc.fogIndex >= 0 && mat->fogPass != MaterialFogPass::None && (mat->surfaceFlags & SURF_SKY) == 0)
 		{
-			// Make sure fog shader is valid. Don't want to fall back to generic if it isn't, just don't draw the fog.
-			auto fogShaderHandle = shaderCache->getHandle(ShaderProgramId::Fog, ShaderCache::GetHandleFlags::ReturnInvalid);
+			mat->setDeformUniforms(matUniforms_.get());
+			vec4 fogColor, fogDistance, fogDepth;
+			float eyeT;
+			world->calculateFog(dc.fogIndex, dc.modelMatrix, modelViewMatrix, localViewPosition, &fogColor, &fogDistance, &fogDepth, &eyeT);
+			matStageUniforms_->color.set(fogColor);
+			uniforms_->fogDistance.set(fogDistance);
+			uniforms_->fogDepth.set(fogDepth);
+			uniforms_->fogEyeT.set(eyeT);
+			SetDrawCallGeometry(dc);
+			bgfx::setTransform(dc.modelMatrix.get());
+			uint64_t state = dc.state | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA);
 
-			if (bgfx::isValid(fogShaderHandle))
+			if (mat->fogPass == MaterialFogPass::Equal)
 			{
-				if (mat->polygonOffset)
-				{
-					uniforms->depthRange.set(vec4(dc.zOffset + polygonDepthOffset, dc.zScale, zMin, zMax));
-				}
-				else
-				{
-					uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
-				}
-
-				mat->setFogShaderUniforms();
-				vec4 fogColor, fogDistance, fogDepth;
-				float eyeT;
-				world->calculateFog(dc.fogIndex, dc.modelMatrix, modelViewMatrix, localViewPosition, &fogColor, &fogDistance, &fogDepth, &eyeT);
-				uniforms->color.set(fogColor);
-				uniforms->fogDistance.set(fogDistance);
-				uniforms->fogDepth.set(fogDepth);
-				uniforms->fogEyeT.set(eyeT);
-				SetDrawCallGeometry(dc);
-				bgfx::setTransform(dc.modelMatrix.get());
-				uint64_t state = dc.state | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA);
-
-				if (mat->fogPass == MaterialFogPass::Equal)
-				{
-					state |= BGFX_STATE_DEPTH_TEST_EQUAL;
-				}
-				else
-				{
-					state |= BGFX_STATE_DEPTH_TEST_LEQUAL;
-				}
-
-				bgfx::setState(state);
-				bgfx::submit(viewId, fogShaderHandle);
+				state |= BGFX_STATE_DEPTH_TEST_EQUAL;
 			}
+			else
+			{
+				state |= BGFX_STATE_DEPTH_TEST_LEQUAL;
+			}
+
+			bgfx::setState(state);
+			bgfx::submit(viewId, shaderCache->getHandle(ShaderProgramId::Fog));
 		}
 
 		currentEntity = nullptr;

@@ -31,14 +31,17 @@ extern "C"
 
 namespace renderer {
 
-void Material::setTime(float time)
+void Material::setTime(float time, Uniforms_Material *uniforms)
 {
+	assert(uniforms);
 	time_ = time - timeOffset;
 
 	if (g_main->currentEntity)
 	{
 		time_ -= g_main->currentEntity->e.shaderTime;
 	}
+
+	uniforms->time.set(vec4(time_, 0, 0, 0));
 }
 
 void Material::doCpuDeforms(DrawCall *dc) const
@@ -281,93 +284,126 @@ void Material::doCpuDeforms(DrawCall *dc) const
 	}
 }
 
-void Material::setStageShaderUniforms(size_t stageIndex) const
+void Material::setDeformUniforms(Uniforms_Material *uniforms) const
+{
+	assert(matUniforms);
+
+	if (!hasGpuDeforms())
+	{
+		uniforms->nDeforms.set(vec4::empty);
+		return;
+	}
+
+	vec4 moveDirs[maxDeforms];
+	vec4 gen_Wave_Base_Amplitude[maxDeforms];
+	vec4 frequency_Phase_Spread[maxDeforms];
+	size_t i = 0;
+
+	for (auto &ds : deforms)
+	{
+		if (!isGpuDeform(ds.deformation))
+			continue;
+
+		switch (ds.deformation)
+		{
+		case MaterialDeform::Wave:
+			gen_Wave_Base_Amplitude[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, ds.deformationWave.base, ds.deformationWave.amplitude);
+			frequency_Phase_Spread[i] = vec4(ds.deformationWave.frequency, ds.deformationWave.phase, ds.deformationSpread, 0);
+			break;
+
+		case MaterialDeform::Bulge:
+			gen_Wave_Base_Amplitude[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, 0, ds.bulgeHeight);
+			frequency_Phase_Spread[i] = vec4(ds.bulgeSpeed, ds.bulgeWidth, 0, 0);
+			break;
+
+		case MaterialDeform::Move:
+			gen_Wave_Base_Amplitude[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, ds.deformationWave.base, ds.deformationWave.amplitude);
+			frequency_Phase_Spread[i] = vec4(ds.deformationWave.frequency, ds.deformationWave.phase, 0, 0);
+			moveDirs[i] = ds.moveVector;
+			break;
+
+		default:
+			break;
+		}
+
+		i++;
+	}
+
+	uniforms->nDeforms.set(vec4(i, 0, 0, 0));
+	uniforms->deformMoveDirs.set(moveDirs, i);
+	uniforms->deform_Gen_Wave_Base_Amplitude.set(gen_Wave_Base_Amplitude, i);
+	uniforms->deform_Frequency_Phase_Spread.set(frequency_Phase_Spread, i);
+}
+
+void Material::setStageShaderUniforms(size_t stageIndex, Uniforms_MaterialStage *uniforms) const
 {
 	auto &stage = stages[stageIndex];
 	assert(stage.active);
-	g_main->uniforms->time.set(vec4(time_, 0, 0, 0));
-	g_main->uniforms->lightType.set(vec4((float)stage.light, 0, 0, 0));
+	uniforms->lightType.set(vec4((float)stage.light, 0, 0, 0));
 
 	vec4 generators;
-	generators[Uniforms::Generators::TexCoord] = (float)stage.bundles[0].tcGen;
+	generators[Uniforms_MaterialStage::Generators::TexCoord] = (float)stage.bundles[0].tcGen;
 
 	if (stage.rgbGen == MaterialColorGen::LightingDiffuse)
 	{
-		generators[Uniforms::Generators::Color] = (float)stage.rgbGen;
+		generators[Uniforms_MaterialStage::Generators::Color] = (float)stage.rgbGen;
 	}
 	else
 	{
 		// Not done in shaders.
-		generators[Uniforms::Generators::Color] = (float)MaterialColorGen::Identity;
+		generators[Uniforms_MaterialStage::Generators::Color] = (float)MaterialColorGen::Identity;
 	}
 
 	if (stage.alphaGen == MaterialAlphaGen::LightingSpecular || stage.alphaGen == MaterialAlphaGen::Portal)
 	{
-		generators[Uniforms::Generators::Alpha] = (float)stage.alphaGen;
+		generators[Uniforms_MaterialStage::Generators::Alpha] = (float)stage.alphaGen;
 	}
 	else
 	{
 		// Not done in shaders.
-		generators[Uniforms::Generators::Alpha] = (float)MaterialAlphaGen::Identity;
+		generators[Uniforms_MaterialStage::Generators::Alpha] = (float)MaterialAlphaGen::Identity;
 	}
 
-	g_main->uniforms->generators.set(generators);
-	setDeformUniforms();	
+	uniforms->generators.set(generators);
 
 	// rgbGen and alphaGen
 	vec4 baseColor, vertexColor;
 	calculateColors(stage, &baseColor, &vertexColor);
-	g_main->uniforms->baseColor.set(baseColor);
-	g_main->uniforms->vertexColor.set(vertexColor);
-
-	if (stage.rgbGen == MaterialColorGen::LightingDiffuse)
-	{
-		assert(g_main->currentEntity);
-
-		g_main->uniforms->ambientLight.set(vec4(g_main->currentEntity->ambientLight / 255.0f, 0));
-		g_main->uniforms->directedLight.set(vec4(g_main->currentEntity->directedLight / 255.0f, 0));
-		g_main->uniforms->lightDirection.set(vec4(g_main->currentEntity->lightDir, 0));
-		g_main->uniforms->modelLightDir.set(g_main->currentEntity->modelLightDir);
-		g_main->uniforms->lightRadius.set(vec4(0.0f));
-	}
+	uniforms->baseColor.set(baseColor);
+	uniforms->vertexColor.set(vertexColor);
 
 	if (stage.alphaGen == MaterialAlphaGen::Portal)
 	{
-		g_main->uniforms->portalRange.set(portalRange);
+		uniforms->portalRange.set(portalRange);
 	}
 
 	// tcGen and tcMod
 	vec4 texMatrix, texOffTurb;
 	calculateTexMods(stage, &texMatrix, &texOffTurb);
-	g_main->uniforms->diffuseTextureMatrix.set(texMatrix);
-	g_main->uniforms->diffuseTextureOffsetTurbulent.set(texOffTurb);
+	uniforms->diffuseTextureMatrix.set(texMatrix);
+	uniforms->diffuseTextureOffsetTurbulent.set(texOffTurb);
 
 	if (stage.bundles[0].tcGen == MaterialTexCoordGen::Vector)
 	{
-		g_main->uniforms->tcGenVector0.set(stage.bundles[0].tcGenVectors[0]);
-		g_main->uniforms->tcGenVector1.set(stage.bundles[0].tcGenVectors[1]);
+		uniforms->tcGenVector0.set(stage.bundles[0].tcGenVectors[0]);
+		uniforms->tcGenVector1.set(stage.bundles[0].tcGenVectors[1]);
 	}
 
-	g_main->uniforms->normalScale.set(stage.normalScale);
-	g_main->uniforms->specularScale.set(stage.specularScale);
+	uniforms->normalScale.set(stage.normalScale);
+	uniforms->specularScale.set(stage.specularScale);
 
 	// Alpha test
-	g_main->uniforms->alphaTest.set((float)stage.alphaTest);
+	uniforms->alphaTest.set((float)stage.alphaTest);
 }
 
-void Material::setFogShaderUniforms() const
+void Material::setStageTextureSamplers(size_t stageIndex, Uniforms_MaterialStage *uniforms) const
 {
-	g_main->uniforms->time.set(vec4(time_, 0, 0, 0));
-	setDeformUniforms();
-}
-
-void Material::setStageTextureSamplers(size_t stageIndex) const
-{
+	assert(uniforms);
 	auto &stage = stages[stageIndex];
 	assert(stage.active);
 
-	setStageTextureSampler(stageIndex, MaterialTextureBundleIndex::DiffuseMap);
-	setStageTextureSampler(stageIndex, MaterialTextureBundleIndex::Lightmap);
+	setStageTextureSampler(stageIndex, MaterialTextureBundleIndex::DiffuseMap, uniforms);
+	setStageTextureSampler(stageIndex, MaterialTextureBundleIndex::Lightmap, uniforms);
 
 #if 0
 	if (stage.light != MaterialLight::None)
@@ -467,8 +503,9 @@ uint64_t Material::getStageState(size_t stageIndex) const
 	return state;
 }
 
-void Material::setStageTextureSampler(size_t stageIndex, int sampler) const
+void Material::setStageTextureSampler(size_t stageIndex, int sampler, Uniforms_MaterialStage *uniforms) const
 {
+	assert(uniforms);
 	auto &stage = stages[stageIndex];
 	assert(stage.active);
 	auto &bundle = stage.bundles[sampler];
@@ -484,7 +521,7 @@ void Material::setStageTextureSampler(size_t stageIndex, int sampler) const
 
 	if (bundle.numImageAnimations <= 1)
 	{
-		bundle.textures[0]->setSampler(sampler);
+		bgfx::setTexture(sampler, uniforms->textures[sampler]->handle, bundle.textures[0]->getHandle());
 	}
 	else
 	{
@@ -493,7 +530,7 @@ void Material::setStageTextureSampler(size_t stageIndex, int sampler) const
 		index >>= Main::funcTableSize2;
 		index = std::max(0, index); // May happen with shader time offsets.
 		index %= bundle.numImageAnimations;
-		bundle.textures[index]->setSampler(sampler);
+		bgfx::setTexture(sampler, uniforms->textures[sampler]->handle, bundle.textures[index]->getHandle());
 	}
 }
 
@@ -818,55 +855,6 @@ void Material::calculateColors(const MaterialStage &stage, vec4 *baseColor, vec4
 		(*vertColor)[1] *= scale;
 		(*vertColor)[2] *= scale;
 	}
-}
-
-void Material::setDeformUniforms() const
-{
-	if (!hasGpuDeforms())
-	{
-		g_main->uniforms->nDeforms.set(vec4(0, 0, 0, 0));
-		return;
-	}
-
-	vec4 moveDirs[maxDeforms];
-	vec4 gen_Wave_Base_Amplitude[maxDeforms];
-	vec4 frequency_Phase_Spread[maxDeforms];
-	size_t i = 0;
-
-	for (auto &ds : deforms)
-	{
-		if (!isGpuDeform(ds.deformation))
-			continue;
-
-		switch (ds.deformation)
-		{
-		case MaterialDeform::Wave:
-			gen_Wave_Base_Amplitude[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, ds.deformationWave.base, ds.deformationWave.amplitude);
-			frequency_Phase_Spread[i] = vec4(ds.deformationWave.frequency, ds.deformationWave.phase, ds.deformationSpread, 0);
-			break;
-
-		case MaterialDeform::Bulge:
-			gen_Wave_Base_Amplitude[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, 0, ds.bulgeHeight);
-			frequency_Phase_Spread[i] = vec4(ds.bulgeSpeed, ds.bulgeWidth, 0, 0);
-			break;
-
-		case MaterialDeform::Move:
-			gen_Wave_Base_Amplitude[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, ds.deformationWave.base, ds.deformationWave.amplitude);
-			frequency_Phase_Spread[i] = vec4(ds.deformationWave.frequency, ds.deformationWave.phase, 0, 0);
-			moveDirs[i] = ds.moveVector;
-			break;
-
-		default:
-			break;
-		}
-
-		i++;
-	}
-
-	g_main->uniforms->nDeforms.set(vec4(i, 0, 0, 0));
-	g_main->uniforms->deformMoveDirs.set(moveDirs, i);
-	g_main->uniforms->deform_Gen_Wave_Base_Amplitude.set(gen_Wave_Base_Amplitude, i);
-	g_main->uniforms->deform_Frequency_Phase_Spread.set(frequency_Phase_Spread, i);
 }
 
 } // namespace renderer

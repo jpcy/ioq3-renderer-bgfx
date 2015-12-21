@@ -66,6 +66,8 @@ struct Entity;
 class Material;
 class Skin;
 class Texture;
+struct Uniforms_Material;
+struct Uniforms_MaterialStage;
 struct Vertex;
 
 struct BgfxCallback : bgfx::CallbackI
@@ -198,6 +200,7 @@ struct Entity
 {
 	refEntity_t e;
 
+	/// @remarks Used for environment mapping, alphagen specular and alphagen portal.
 	vec3 localViewPosition;
 
 	/// Normalized direction towards light, in world space.
@@ -690,16 +693,20 @@ private:
 public:
 	/// @name Calculate
 	/// @{
-	void setTime(float time);
+
+	/// @brief Set the time for this material and the associated uniform.
+	/// @remarks Used for animated textures, waveforms etc.
+	void setTime(float time, Uniforms_Material *uniforms);
+
 	void doCpuDeforms(DrawCall *dc) const;
-	void setStageShaderUniforms(size_t stageIndex) const;
-	void setFogShaderUniforms() const;
-	void setStageTextureSamplers(size_t stageIndex) const;
+	void setDeformUniforms(Uniforms_Material *uniforms) const;
+	void setStageShaderUniforms(size_t stageIndex, Uniforms_MaterialStage *uniforms) const;
+	void setStageTextureSamplers(size_t stageIndex, Uniforms_MaterialStage *uniforms) const;
 	vec4 calculateStageFogColorMask(size_t stageIndex) const;
 	uint64_t getStageState(size_t stageIndex) const;
 
 private:
-	void setStageTextureSampler(size_t stageIndex, int sampler) const;
+	void setStageTextureSampler(size_t stageIndex, int sampler, Uniforms_MaterialStage *uniforms) const;
 	float *tableForFunc(MaterialWaveformGenFunc func) const;
 	float evaluateWaveForm(const MaterialWaveForm &wf) const;
 	float evaluateWaveFormClamped(const MaterialWaveForm &wf) const;
@@ -710,16 +717,12 @@ private:
 	void calculateStretchTexMatrix(const MaterialWaveForm &wf, float *matrix) const;
 	void calculateTransformTexMatrix(const MaterialTexModInfo &tmi, float *matrix) const;
 	void calculateRotateTexMatrix(float degsPerSecond, float *matrix) const;
-
 	float calculateWaveColorSingle(const MaterialWaveForm &wf) const;
 	float calculateWaveAlphaSingle(const MaterialWaveForm &wf) const;
 
 	/// rgbGen and alphaGen
 	void calculateColors(const MaterialStage &stage, vec4 *baseColor, vec4 *vertColor) const;
 
-	void setDeformUniforms() const;
-
-	/// @remarks Set when precalculate() is called.
 	float time_;
 
 	/// @}
@@ -900,16 +903,7 @@ class ShaderCache
 {
 public:
 	void initialize();
-
-	struct GetHandleFlags
-	{
-		enum
-		{
-			ReturnInvalid = BIT(0)
-		};
-	};
-
-	bgfx::ProgramHandle getHandle(ShaderProgramId programId, int flags = 0) const;
+	bgfx::ProgramHandle getHandle(ShaderProgramId programId) const;
 
 private:
 	struct Bundle
@@ -992,7 +986,6 @@ class Texture
 public:
 	Texture(const char *name, const Image &image, TextureType type, int flags, bgfx::TextureFormat::Enum format);
 	~Texture();
-	void setSampler(int sampler) const;
 	void resize(int width, int height);
 	void update(const bgfx::Memory *mem, int x, int y, int width, int height);
 	bgfx::TextureHandle getHandle() const { return handle_; }
@@ -1060,7 +1053,85 @@ struct Uniform_vec4
 
 struct Uniforms
 {
-	Uniforms()
+	/// @remarks x is offset, y is scale, z is near z, w is far z.
+	Uniform_vec4 depthRange = "u_DepthRange";
+
+	/// @remarks Only x used.
+	Uniform_vec4 softSpriteDepth = "u_SoftSpriteDepth";
+
+	Uniform_vec4 viewOrigin = "u_ViewOrigin";
+
+	/// @name Portal clipping
+	/// @{
+
+	/// @remarks Only x used.
+	Uniform_vec4 portalClip = "u_PortalClip";
+
+	/// World space portal plane.
+	Uniform_vec4 portalPlane = "u_PortalPlane";
+	/// @}
+
+	/// @name fog
+	/// @{
+
+	/// @remarks Only x used.
+	Uniform_vec4 fogEnabled = "u_FogEnabled";
+
+	Uniform_vec4 fogDistance = "u_FogDistance";
+	Uniform_vec4 fogDepth = "u_FogDepth";
+
+	/// @remarks Only x used.
+	Uniform_vec4 fogEyeT = "u_FogEyeT";
+	/// @}
+
+	/// @name Dynamic lights
+	/// @{
+
+	/// @remarks Only x used.
+	Uniform_vec4 nDynamicLights = "u_NumDynamicLights";
+
+	/// @remarks w is intensity.
+	Uniform_vec4 dlightColors = { "u_DynamicLightColors", DynamicLight::max };
+
+	Uniform_vec4 dlightPositions = { "u_DynamicLightPositions", DynamicLight::max };
+	/// @}
+};
+
+/// @brief Uniforms derived from entity state.
+struct Uniforms_Entity
+{
+	Uniform_vec4 ambientLight = "u_AmbientLight";
+	Uniform_vec4 directedLight = "u_DirectedLight";
+	Uniform_vec4 lightDirection = "u_LightDirection";
+	Uniform_vec4 localViewOrigin = "u_LocalViewOrigin";
+	Uniform_vec4 modelLightDir = "u_ModelLightDir";
+};
+
+/// @brief Uniforms derived from material state.
+struct Uniforms_Material
+{
+	/// @remarks Only x used.
+	Uniform_vec4 time = "u_Time";
+
+	/// @name deform gen
+	/// @{
+
+	/// @remarks Only x used.
+	Uniform_vec4 nDeforms = "u_NumDeforms";
+
+	/// @remarks Only xyz used.
+	Uniform_vec4 deformMoveDirs = { "u_DeformMoveDirs", Material::maxDeforms };
+
+	Uniform_vec4 deform_Gen_Wave_Base_Amplitude = { "u_Deform_Gen_Wave_Base_Amplitude", Material::maxDeforms };
+	Uniform_vec4 deform_Frequency_Phase_Spread = { "u_Deform_Frequency_Phase_Spread", Material::maxDeforms };
+
+	/// @}
+};
+
+/// @brief Uniforms derived from material stage state.
+struct Uniforms_MaterialStage
+{
+	Uniforms_MaterialStage()
 	{
 		textures[MaterialTextureBundleIndex::DiffuseMap] = &diffuseMap;
 		textures[MaterialTextureBundleIndex::Lightmap] = &lightmap;
@@ -1069,6 +1140,11 @@ struct Uniforms
 		textures[MaterialTextureBundleIndex::Specularmap] = &specularmap;
 		textures[MaterialTextureBundleIndex::Depth] = &depthSampler;
 	}
+
+	/// @remarks Only x used.
+	Uniform_vec4 alphaTest = "u_AlphaTest";
+
+	Uniform_vec4 fogColorMask = "u_FogColorMask";
 
 	/// @name Texture samplers
 	/// @{
@@ -1087,18 +1163,6 @@ struct Uniforms
 	Uniform_vec4 normalScale = "u_NormalScale";
 	Uniform_vec4 specularScale = "u_SpecularScale";
 	Uniform_vec4 enableTextures = "u_EnableTextures";
-
-	Uniform_vec4 viewOrigin = "u_ViewOrigin";
-	Uniform_vec4 localViewOrigin = "u_LocalViewOrigin";
-
-	/// @remarks x is offset, y is scale, z is near z, w is far z.
-	Uniform_vec4 depthRange = "u_DepthRange";
-
-	/// @remarks Only x used.
-	Uniform_vec4 portalClip = "u_PortalClip";
-
-	/// World space portal plane.
-	Uniform_vec4 portalPlane = "u_PortalPlane";
 
 	/// @remarks Only x used.
 	Uniform_vec4 lightType = "u_LightType";
@@ -1124,73 +1188,10 @@ struct Uniforms
 
 	/// @name rgbagen
 	/// @{
-	Uniform_vec4 ambientLight = "u_AmbientLight";
-	Uniform_vec4 directedLight = "u_DirectedLight";
-	Uniform_vec4 lightDirection = "u_LightDirection";
-
-	/// @remarks Only x used.
-	Uniform_vec4 lightRadius = "u_LightRadius";
-	
-	Uniform_vec4 modelLightDir = "u_ModelLightDir";
 
 	/// @remarks Only x used.
 	Uniform_vec4 portalRange = "u_PortalRange";
 	/// @}
-
-	/// @name fog
-	/// @{
-
-	/// @remarks Only x used.
-	Uniform_vec4 fogEnabled = "u_FogEnabled";
-
-	Uniform_vec4 fogDistance = "u_FogDistance";
-	Uniform_vec4 fogDepth = "u_FogDepth";
-
-	/// @remarks Only x used.
-	Uniform_vec4 fogEyeT = "u_FogEyeT";
-
-	Uniform_vec4 fogColorMask = "u_FogColorMask";
-	/// @}
-
-	/// @name deform gen
-	/// @{
-
-	/// @remarks Only x used.
-	Uniform_vec4 nDeforms = "u_NumDeforms";
-
-	/// @remarks Only xyz used.
-	Uniform_vec4 deformMoveDirs = { "u_DeformMoveDirs", Material::maxDeforms };
-
-	Uniform_vec4 deform_Gen_Wave_Base_Amplitude = { "u_Deform_Gen_Wave_Base_Amplitude", Material::maxDeforms };
-	Uniform_vec4 deform_Frequency_Phase_Spread = { "u_Deform_Frequency_Phase_Spread", Material::maxDeforms };
-
-	/// @}
-
-	/// @name alpha test
-	/// @{
-
-	Uniform_vec4 alphaTest = "u_AlphaTest";
-
-	/// @}
-
-	/// @name soft sprites
-	/// @{
-
-	/// @remarks Only x used.
-	Uniform_vec4 softSpriteDepth = "u_SoftSpriteDepth";
-
-	/// @}
-
-	/// @remarks Only x used.
-	Uniform_vec4 time = "u_Time";
-
-	/// @remarks Only x used.
-	Uniform_vec4 nDynamicLights = "u_NumDynamicLights";
-
-	/// @remarks w is intensity.
-	Uniform_vec4 dlightColors = { "u_DynamicLightColors", DynamicLight::max };
-
-	Uniform_vec4 dlightPositions = { "u_DynamicLightPositions", DynamicLight::max };
 };
 
 struct Vertex
@@ -1322,7 +1323,6 @@ public:
 	vec3 toneMinAvgMaxLevel = { -8, -2, 0 };
 
 	ConsoleVariables cvars;
-	std::unique_ptr<Uniforms> uniforms;
 	std::unique_ptr<TextureCache> textureCache;
 	std::unique_ptr<ShaderCache> shaderCache;
 	std::unique_ptr<MaterialCache> materialCache;
@@ -1406,6 +1406,11 @@ private:
 
 	bgfx::FrameBufferHandle depthFrameBuffer_;
 	bgfx::TextureHandle depthTexture_;
+
+	std::unique_ptr<Uniforms> uniforms_;
+	std::unique_ptr<Uniforms_Entity> entityUniforms_;
+	std::unique_ptr<Uniforms_Material> matUniforms_;
+	std::unique_ptr<Uniforms_MaterialStage> matStageUniforms_;
 };
 
 extern std::unique_ptr<Main> g_main;

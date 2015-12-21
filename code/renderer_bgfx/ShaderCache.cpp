@@ -61,15 +61,9 @@ void ShaderCache::initialize()
 #endif
 }
 
-bgfx::ProgramHandle ShaderCache::getHandle(ShaderProgramId programId, int flags) const
+bgfx::ProgramHandle ShaderCache::getHandle(ShaderProgramId programId) const
 {
-	bgfx::ProgramHandle handle = bundles_[(int)programId].program.handle;
-
-	if (bgfx::isValid(handle) || (flags & GetHandleFlags::ReturnInvalid))
-		return handle;
-	
-	// Fallback to TextureColor shader program.
-	return bundles_[(int)ShaderProgramId::TextureColor].program.handle;
+	return bundles_[(int)programId].program.handle;
 }
 
 bool ShaderCache::createBundle(ShaderProgramId programId, const bgfx::Memory *vertexMem, const bgfx::Memory *fragmentMem)

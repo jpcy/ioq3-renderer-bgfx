@@ -331,7 +331,10 @@ void Main::initialize()
 	bgfx::reset(glConfig.vidWidth, glConfig.vidHeight, resetFlags);
 	glConfig.maxTextureSize = bgfx::getCaps()->maxTextureSize;
 	Vertex::init();
-	uniforms = std::make_unique<Uniforms>();
+	uniforms_ = std::make_unique<Uniforms>();
+	entityUniforms_ = std::make_unique<Uniforms_Entity>();
+	matUniforms_ = std::make_unique<Uniforms_Material>();
+	matStageUniforms_ = std::make_unique<Uniforms_MaterialStage>();
 	textureCache = std::make_unique<TextureCache>();
 	shaderCache = std::make_unique<ShaderCache>();
 	shaderCache->initialize();

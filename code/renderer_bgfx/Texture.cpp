@@ -41,11 +41,6 @@ Texture::~Texture()
 	bgfx::destroyTexture(handle_);
 }
 
-void Texture::setSampler(int sampler) const
-{
-	bgfx::setTexture(sampler, g_main->uniforms->textures[sampler]->handle, handle_);
-}
-
 void Texture::resize(int width, int height)
 {
 	if (width == width_ && height == height_)
