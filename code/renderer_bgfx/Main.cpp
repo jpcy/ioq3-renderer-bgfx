@@ -260,14 +260,10 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 	bgfx::setVertexBuffer(fsVertexBuffer_.handle, 0, 4);
 	bgfx::setIndexBuffer(fsIndexBuffer_.handle, 0, 6);
 
-	// Bind shader and texture
-	auto shaderProgramHandle = shaderCache->getHandle(ShaderProgramId::TextureColor);
 	bgfx::setTexture(0, matStageUniforms_->diffuseMap.handle, textureCache->getScratchTextures()[client]->getHandle());
 	matStageUniforms_->color.set(vec4::white);
-
-	// Submit
 	bgfx::setState(BGFX_STATE_RGB_WRITE);
-	bgfx::submit(viewId, shaderProgramHandle);
+	bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::TextureColor].handle);
 }
 
 void Main::uploadCinematic(int w, int h, int cols, int rows, const byte *data, int client, bool dirty)
@@ -477,7 +473,7 @@ void Main::flushStretchPics()
 				bgfx::setState(state);
 				bgfx::setVertexBuffer(&tvb);
 				bgfx::setIndexBuffer(&tib);
-				bgfx::submit(viewId, shaderCache->getHandle(ShaderProgramId::Generic));
+				bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Generic].handle);
 			}
 		}
 	}
@@ -767,12 +763,12 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			{
 				matStageUniforms_->alphaTest.set((float)alphaTestStage->alphaTest);
 				bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, alphaTestStage->bundles[MaterialTextureBundleIndex::DiffuseMap].textures[0]->getHandle());
-				bgfx::submit(viewId, shaderCache->getHandle(ShaderProgramId::Depth_AlphaTest));
+				bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Depth_AlphaTest].handle);
 			}
 			else
 			{
 				matStageUniforms_->alphaTest.set(vec4::empty);
-				bgfx::submit(viewId, shaderCache->getHandle(ShaderProgramId::Depth));
+				bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Depth].handle);
 			}
 		}
 	}
@@ -801,7 +797,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
 			bgfx::setState(dc.state);
-			bgfx::submit(viewId, shaderCache->getHandle(ShaderProgramId::Generic));
+			bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Generic].handle);
 			continue;
 		}
 
@@ -854,7 +850,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			mat->setStageTextureSamplers(i, matStageUniforms_.get());
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
-			ShaderProgramId shaderProgram;
+			ShaderProgramId::Enum shaderProgram;
 			uint64_t state = dc.state | mat->getStageState(i);
 
 			if (cvars.softSprites->integer && dc.softSpriteDepth > 0)
@@ -880,7 +876,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			}
 
 			bgfx::setState(state);
-			bgfx::submit(viewId, shaderCache->getHandle(shaderProgram));
+			bgfx::submit(viewId, shaderPrograms_[shaderProgram].handle);
 		}
 
 		// Do fog pass.
@@ -908,7 +904,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			}
 
 			bgfx::setState(state);
-			bgfx::submit(viewId, shaderCache->getHandle(ShaderProgramId::Fog));
+			bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Fog].handle);
 		}
 
 		currentEntity = nullptr;

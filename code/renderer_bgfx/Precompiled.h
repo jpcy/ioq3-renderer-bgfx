@@ -887,37 +887,6 @@ struct ShaderProgram
 	bgfx::ProgramHandle handle;
 };
 
-enum class ShaderProgramId
-{
-	Depth,
-	Depth_AlphaTest,
-	Fog,
-	Generic,
-	Generic_AlphaTest,
-	Generic_SoftSprite,
-	TextureColor,
-	Num
-};
-
-class ShaderCache
-{
-public:
-	void initialize();
-	bgfx::ProgramHandle getHandle(ShaderProgramId programId) const;
-
-private:
-	struct Bundle
-	{
-		Shader vertex;
-		Shader fragment;
-		ShaderProgram program;
-	};
-
-	bool createBundle(ShaderProgramId programId, const bgfx::Memory *vertexMem, const bgfx::Memory *fragmentMem);
-
-	std::array<Bundle, (size_t)ShaderProgramId::Num> bundles_;
-};
-
 class Skin
 {
 public:
@@ -1324,7 +1293,6 @@ public:
 
 	ConsoleVariables cvars;
 	std::unique_ptr<TextureCache> textureCache;
-	std::unique_ptr<ShaderCache> shaderCache;
 	std::unique_ptr<MaterialCache> materialCache;
 	std::unique_ptr<ModelCache> modelCache;
 
@@ -1411,6 +1379,52 @@ private:
 	std::unique_ptr<Uniforms_Entity> entityUniforms_;
 	std::unique_ptr<Uniforms_Material> matUniforms_;
 	std::unique_ptr<Uniforms_MaterialStage> matStageUniforms_;
+
+	struct FragmentShaderId
+	{
+		enum Enum
+		{
+			Depth,
+			Depth_AlphaTest,
+			Fog,
+			Generic,
+			Generic_AlphaTest,
+			Generic_SoftSprite,
+			TextureColor,
+			Num
+		};
+	};
+
+	struct VertexShaderId
+	{
+		enum Enum
+		{
+			Depth,
+			Fog,
+			Generic,
+			TextureColor,
+			Num
+		};
+	};
+
+	struct ShaderProgramId
+	{
+		enum Enum
+		{
+			Depth,
+			Depth_AlphaTest,
+			Fog,
+			Generic,
+			Generic_AlphaTest,
+			Generic_SoftSprite,
+			TextureColor,
+			Num
+		};
+	};
+
+	std::array<Shader, FragmentShaderId::Num> fragmentShaders_;
+	std::array<Shader, VertexShaderId::Num> vertexShaders_;
+	std::array<ShaderProgram, (int)ShaderProgramId::Num> shaderPrograms_;
 };
 
 extern std::unique_ptr<Main> g_main;

@@ -22,6 +22,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Precompiled.h"
 #pragma hdrstop
 
+#include "../../build/Shaders.h"
+
 extern "C"
 {
 	void R_NoiseInit();
@@ -146,13 +148,6 @@ ConsoleVariables::ConsoleVariables()
 	railSegmentLength = ri.Cvar_Get("r_railSegmentLength", "32", CVAR_ARCHIVE);
 }
 
-static void Cmd_ReloadShaders()
-{
-	g_main->shaderCache.release();
-	g_main->shaderCache = std::make_unique<ShaderCache>();
-	g_main->shaderCache->initialize();
-}
-
 static void TakeScreenshot(const char *extension)
 {
 	const bool silent = !strcmp(ri.Cmd_Argv(1), "silent");
@@ -226,7 +221,6 @@ static void Cmd_ScreenshotPNG()
 
 Main::Main()
 {
-	ri.Cmd_AddCommand("r_reloadShaders", Cmd_ReloadShaders);
 	ri.Cmd_AddCommand("screenshot", Cmd_Screenshot);
 	ri.Cmd_AddCommand("screenshotJPEG", Cmd_ScreenshotJPEG);
 	ri.Cmd_AddCommand("screenshotPNG", Cmd_ScreenshotPNG);
@@ -269,7 +263,6 @@ Main::Main()
 Main::~Main()
 {
 	bgfx::destroyFrameBuffer(depthFrameBuffer_);
-	ri.Cmd_RemoveCommand("r_reloadShaders");
 	ri.Cmd_RemoveCommand("screenshot");
 	ri.Cmd_RemoveCommand("screenshotJPEG");
 	ri.Cmd_RemoveCommand("screenshotPNG");
@@ -336,10 +329,87 @@ void Main::initialize()
 	matUniforms_ = std::make_unique<Uniforms_Material>();
 	matStageUniforms_ = std::make_unique<Uniforms_MaterialStage>();
 	textureCache = std::make_unique<TextureCache>();
-	shaderCache = std::make_unique<ShaderCache>();
-	shaderCache->initialize();
 	materialCache = std::make_unique<MaterialCache>();
 	modelCache = std::make_unique<ModelCache>();
+
+	// Map shader ids to shader sources.
+	std::array<const bgfx::Memory *, FragmentShaderId::Num> fragMem;
+	std::array<const bgfx::Memory *, VertexShaderId::Num> vertMem;
+	const bgfx::RendererType::Enum backend = bgfx::getCaps()->rendererType;
+	#define MR(name) bgfx::makeRef(name, sizeof(name))
+	#define SHADER_MEM(backend) \
+	fragMem[FragmentShaderId::Depth] = MR(Depth_fragment_##backend);                           \
+	fragMem[FragmentShaderId::Depth_AlphaTest] = MR(Depth_AlphaTest_fragment_##backend);       \
+	fragMem[FragmentShaderId::Fog] = MR(Fog_fragment_##backend);                               \
+	fragMem[FragmentShaderId::Generic] = MR(Generic_fragment_##backend);                       \
+	fragMem[FragmentShaderId::Generic_AlphaTest] = MR(Generic_AlphaTest_fragment_##backend);   \
+	fragMem[FragmentShaderId::Generic_SoftSprite] = MR(Generic_SoftSprite_fragment_##backend); \
+	fragMem[FragmentShaderId::TextureColor] = MR(TextureColor_fragment_##backend);             \
+	vertMem[VertexShaderId::Depth] = MR(Depth_vertex_##backend);                               \
+	vertMem[VertexShaderId::Fog] = MR(Fog_vertex_##backend);                                   \
+	vertMem[VertexShaderId::Generic] = MR(Generic_vertex_##backend);                           \
+	vertMem[VertexShaderId::TextureColor] = MR(TextureColor_vertex_##backend);
+
+	if (backend == bgfx::RendererType::OpenGL)
+	{
+		SHADER_MEM(gl);
+	}
+#ifdef WIN32
+	else if (backend == bgfx::RendererType::Direct3D9)
+	{
+		SHADER_MEM(d3d9)
+	}
+	else if (backend == bgfx::RendererType::Direct3D11)
+	{
+		SHADER_MEM(d3d11)
+	}
+#endif
+
+	// Map shader programs to their vertex and fragment shaders.
+	std::array<FragmentShaderId::Enum, ShaderProgramId::Num> fragMap;
+	fragMap[ShaderProgramId::Depth]              = FragmentShaderId::Depth;
+	fragMap[ShaderProgramId::Depth_AlphaTest]    = FragmentShaderId::Depth_AlphaTest;
+	fragMap[ShaderProgramId::Fog]                = FragmentShaderId::Fog;
+	fragMap[ShaderProgramId::Generic]            = FragmentShaderId::Generic;
+	fragMap[ShaderProgramId::Generic_AlphaTest]  = FragmentShaderId::Generic_AlphaTest;
+	fragMap[ShaderProgramId::Generic_SoftSprite] = FragmentShaderId::Generic_SoftSprite;
+	fragMap[ShaderProgramId::TextureColor]       = FragmentShaderId::TextureColor;
+	std::array<VertexShaderId::Enum, ShaderProgramId::Num> vertMap;
+	vertMap[ShaderProgramId::Depth]              = VertexShaderId::Depth;
+	vertMap[ShaderProgramId::Depth_AlphaTest]    = VertexShaderId::Depth;
+	vertMap[ShaderProgramId::Fog]                = VertexShaderId::Fog;
+	vertMap[ShaderProgramId::Generic]            = VertexShaderId::Generic;
+	vertMap[ShaderProgramId::Generic_AlphaTest]  = VertexShaderId::Generic;
+	vertMap[ShaderProgramId::Generic_SoftSprite] = VertexShaderId::Generic;
+	vertMap[ShaderProgramId::TextureColor]       = VertexShaderId::TextureColor;
+
+	for (size_t i = 0; i < ShaderProgramId::Num; i++)
+	{
+		auto &fragment = fragmentShaders_[fragMap[i]];
+
+		if (!bgfx::isValid(fragment.handle))
+		{
+			fragment.handle = bgfx::createShader(fragMem[fragMap[i]]);
+
+			if (!bgfx::isValid(fragment.handle))
+				Com_Error(ERR_FATAL, "Error creating fragment shader");
+		}
+
+		auto &vertex = vertexShaders_[vertMap[i]];
+	
+		if (!bgfx::isValid(vertex.handle))
+		{
+			vertex.handle = bgfx::createShader(vertMem[vertMap[i]]);
+
+			if (!bgfx::isValid(vertex.handle))
+				Com_Error(ERR_FATAL, "Error creating vertex shader");
+		}
+
+		shaderPrograms_[i].handle = bgfx::createProgram(vertex.handle, fragment.handle);
+
+		if (!bgfx::isValid(shaderPrograms_[i].handle))
+			Com_Error(ERR_FATAL, "Error creating shader program");
+	}
 
 	// Create fullscreen geometry.
 	auto verticesMem = bgfx::alloc(sizeof(Vertex) * 4);
