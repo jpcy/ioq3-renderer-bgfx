@@ -31,9 +31,8 @@ extern "C"
 
 namespace renderer {
 
-void Material::setTime(float time, Uniforms_Material *uniforms)
+float Material::setTime(float time)
 {
-	assert(uniforms);
 	time_ = time - timeOffset;
 
 	if (g_main->currentEntity)
@@ -41,7 +40,7 @@ void Material::setTime(float time, Uniforms_Material *uniforms)
 		time_ -= g_main->currentEntity->e.shaderTime;
 	}
 
-	uniforms->time.set(vec4(time_, 0, 0, 0));
+	return time_;
 }
 
 void Material::doCpuDeforms(DrawCall *dc) const

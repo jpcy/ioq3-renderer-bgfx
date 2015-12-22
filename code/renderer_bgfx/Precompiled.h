@@ -694,9 +694,10 @@ public:
 	/// @name Calculate
 	/// @{
 
-	/// @brief Set the time for this material and the associated uniform.
+	/// @brief Set the time for this material.
+	/// @return The adjusted time.
 	/// @remarks Used for animated textures, waveforms etc.
-	void setTime(float time, Uniforms_Material *uniforms);
+	float setTime(float time);
 
 	void doCpuDeforms(DrawCall *dc) const;
 	void setDeformUniforms(Uniforms_Material *uniforms) const;

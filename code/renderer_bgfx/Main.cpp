@@ -459,7 +459,7 @@ void Main::flushStretchPics()
 		{
 			memcpy(tvb.data, &stretchPicVertices_[0], sizeof(Vertex) * stretchPicVertices_.size());
 			memcpy(tib.data, &stretchPicIndices_[0], sizeof(uint16_t) * stretchPicIndices_.size());
-			stretchPicMaterial_->setTime(floatTime_, matUniforms_.get());
+			matUniforms_->time.set(vec4(stretchPicMaterial_->setTime(floatTime_), 0, 0, 0));
 
 			for (size_t i = 0; i < stretchPicMaterial_->getNumStages(); i++)
 			{
@@ -689,7 +689,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				continue;
 
 			currentEntity = dc.entity;
-			dc.material->setTime(floatTime_, matUniforms_.get());
+			dc.material->setTime(floatTime_);
 			dc.material->doCpuDeforms(&dc);
 			currentEntity = nullptr;
 		}
@@ -738,7 +738,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (mat->sort != MaterialSort::Opaque)
 				continue;
 
-			mat->setTime(floatTime_, matUniforms_.get());
+			matUniforms_->time.set(vec4(mat->setTime(floatTime_), 0, 0, 0));
 			const mat4 modelViewMatrix(viewMatrix * dc.modelMatrix);
 			uniforms_->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
 			mat->setDeformUniforms(matUniforms_.get());
@@ -806,7 +806,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		}
 
 		currentEntity = dc.entity;
-		mat->setTime(floatTime_, matUniforms_.get());
+		matUniforms_->time.set(vec4(mat->setTime(floatTime_), 0, 0, 0));
 		const mat4 modelViewMatrix(viewMatrix * dc.modelMatrix);
 
 		if (mat->polygonOffset)
