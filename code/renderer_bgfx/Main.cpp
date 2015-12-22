@@ -419,6 +419,7 @@ uint8_t Main::pushView(int flags, vec4 rect, const mat4 &viewMatrix, const mat4 
 	}
 
 	bgfx::setViewClear(firstFreeViewId_, clearFlags);
+	bgfx::setViewFrameBuffer(firstFreeViewId_, BGFX_INVALID_HANDLE);
 	bgfx::setViewSeq(firstFreeViewId_, true);
 
 	if ((flags & ViewFlags::Ortho) != 0)
