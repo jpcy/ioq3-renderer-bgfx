@@ -52,7 +52,6 @@ void Material::doCpuDeforms(DrawCall *dc) const
 		return;
 
 	auto vertices = (Vertex *)dc->vb.transientHandle.data;
-	const size_t nVertices = dc->vb.nVertices;
 	auto indices = (uint16_t *)dc->ib.transientHandle.data;
 	const size_t nIndices = dc->ib.nIndices;
 
@@ -99,7 +98,6 @@ void Material::doCpuDeforms(DrawCall *dc) const
 			for (size_t quadIndex = 0; quadIndex < nIndices / 6; quadIndex++)
 			{
 				const size_t firstIndex = dc->ib.firstIndex + quadIndex * 6;
-				const size_t firstVertex = dc->vb.firstVertex + quadIndex * 4;
 
 				// Get the quad corner vertices and their indexes.
 				auto v = ExtractQuadCorners(vertices, &indices[firstIndex]);
@@ -399,13 +397,14 @@ void Material::setStageShaderUniforms(size_t stageIndex, Uniforms_MaterialStage 
 void Material::setStageTextureSamplers(size_t stageIndex, Uniforms_MaterialStage *uniforms) const
 {
 	assert(uniforms);
-	auto &stage = stages[stageIndex];
-	assert(stage.active);
+	assert(stages[stageIndex].active);
 
 	setStageTextureSampler(stageIndex, MaterialTextureBundleIndex::DiffuseMap, uniforms);
 	setStageTextureSampler(stageIndex, MaterialTextureBundleIndex::Lightmap, uniforms);
 
 #if 0
+	auto &stage = stages[stageIndex];
+
 	if (stage.light != MaterialLight::None)
 	{
 		// bind textures that are sampled and used in the glsl shader, and

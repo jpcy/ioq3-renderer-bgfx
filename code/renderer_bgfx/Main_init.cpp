@@ -691,7 +691,6 @@ static int RE_LerpTag(orientation_t *orientation, qhandle_t handle, int startFra
 	auto m = g_main->modelCache->getModel(handle);
 	auto from = m->getTag(tagName, startFrame);
 	auto to = m->getTag(tagName, endFrame);
-	const float invFrac = 1.0f - frac;
 
 	Transform lerped;
 	lerped.position = vec3::lerp(from.position, to.position, frac);
