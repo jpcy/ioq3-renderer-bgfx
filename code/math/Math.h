@@ -3,7 +3,7 @@
 Copyright (C) 1999-2005 Id Software, Inc.
 Copyright (C) 2015 Jonathan Young
 
-This file is part of Synergy Quake 3 source code.
+This file is part of Quake III Arena source code.
 
 Quake III Arena source code is free software; you can redistribute it
 and/or modify it under the terms of the GNU General Public License as
@@ -524,6 +524,92 @@ private:
 	float calculateDeterminate3x3(float *e3x3) const;
 
 	float e_[16];
+};
+
+class Plane
+{
+public:
+	enum Side
+	{
+		Front,
+		Back,
+		On
+	};
+
+	Plane();
+	Plane(float a, float b, float c, float d);
+	Plane(const vec3 &normal, const float distance);
+
+	float &operator[](size_t index)
+	{
+		assert(index >= 0 && index < 4);
+		return index == 3 ? distance_ : normal_[index];
+	}
+
+	const float &operator[](size_t index) const
+	{
+		assert(index >= 0 && index < 4);
+		return index == 3 ? distance_ : normal_[index];
+	}
+
+	vec3 getNormal() const;
+	float getDistance() const;
+	float calculateDistance(const vec3 &v) const;
+	Side calculateSide(const vec3 &v, const float epsilon = 0.001f) const;
+	Plane inverse() const;
+	void invert();
+
+private:
+	void normalize();
+
+	vec3 normal_;
+	float distance_;
+};
+
+class Frustum
+{
+public:
+	enum
+	{
+		LeftPlane,
+		RightPlane,
+		TopPlane,
+		BottomPlane,
+		NearPlane, // Not used for culling
+		FarPlane // Not used for culling
+	};
+
+	enum class ClipResult
+	{
+		Inside,
+		Outside,
+		Partial
+	};
+
+	Frustum() {}
+	Frustum(const mat4 &mvp);
+		
+	const Plane &operator[](size_t index) const
+	{
+		assert(index >= 0 && index < 6);
+		return planes_[index];
+	}
+
+	Plane &operator[](size_t index)
+	{
+		assert(index >= 0 && index < 6);
+		return planes_[index];
+	}
+
+	ClipResult clipBounds(const Bounds &bounds, const mat4 &modelMatrix = mat4::identity) const;
+	ClipResult clipSphere(const vec3 &position, float radius) const;
+	bool isInside(const vec3 &v) const;
+
+private:
+	ClipResult clipBox(const std::array<vec3, 8> &corners) const;
+
+	Plane planes_[6];
+	static const size_t nPlanesToClipAgainst_ = 4;
 };
 
 struct Transform

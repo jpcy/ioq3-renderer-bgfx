@@ -57,6 +57,7 @@ public:
 	bool load() override;
 	Bounds getBounds() const override;
 	Transform getTag(const char *name, int frame) const override;
+	bool isCulled(Entity *entity, const Frustum &cameraFrustum) const override;
 	void render(DrawCallList *drawCallList, Entity *entity) override;
 
 private:
@@ -350,8 +351,55 @@ Transform Model_md3::getTag(const char *name, int frame) const
 	return Transform();
 }
 
+bool Model_md3::isCulled(Entity *entity, const Frustum &cameraFrustum) const
+{
+	assert(entity);
+
+	// It is possible to have a bad frame while changing models.
+	if (entity->e.frame >= frames_.size() || entity->e.oldframe >= frames_.size())
+		return true;
+
+	const auto &frame = frames_[entity->e.frame];
+	const auto &oldFrame = frames_[entity->e.oldframe];
+	const auto modelMatrix = mat4::transform(entity->e.axis, entity->e.origin);
+
+	// Cull bounding sphere ONLY if this is not an upscaled entity.
+	if (!entity->e.nonNormalizedAxes)
+	{
+		if (entity->e.frame == entity->e.oldframe)
+		{
+			switch (cameraFrustum.clipSphere(modelMatrix.transform(frame.position), frame.radius))
+			{
+			case Frustum::ClipResult::Outside:
+				return true;
+
+			case Frustum::ClipResult::Inside:
+				return false;
+			}
+		}
+		else
+		{
+			Frustum::ClipResult cr1 = cameraFrustum.clipSphere(modelMatrix.transform(frame.position), frame.radius);
+			Frustum::ClipResult cr2 = cameraFrustum.clipSphere(modelMatrix.transform(oldFrame.position), oldFrame.radius);
+
+			if (cr1 == cr2)
+			{
+				if (cr1 == Frustum::ClipResult::Outside)
+					return true;
+				else if (cr1 == Frustum::ClipResult::Inside)
+					return false;
+			}
+		}
+	}
+
+	return cameraFrustum.clipBounds(Bounds::merge(frame.bounds, oldFrame.bounds), modelMatrix) == Frustum::ClipResult::Outside;
+}
+
 void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 {
+	assert(drawCallList);
+	assert(entity);
+
 	// Can't render models with no geometry.
 	if (!bgfx::isValid(indexBuffer_.handle))
 		return;

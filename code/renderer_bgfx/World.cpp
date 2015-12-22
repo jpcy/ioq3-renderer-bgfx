@@ -172,6 +172,11 @@ public:
 		return Transform();
 	}
 
+	bool isCulled(Entity *entity, const Frustum &cameraFrustum) const override
+	{
+		return cameraFrustum.clipBounds(bounds_, mat4::transform(entity->e.axis, entity->e.origin)) == Frustum::ClipResult::Outside;
+	}
+
 	void render(DrawCallList *drawCallList, Entity *entity) override
 	{
 		assert(drawCallList);

@@ -780,6 +780,7 @@ public:
 	virtual bool load() = 0;
 	virtual Bounds getBounds() const = 0;
 	virtual Transform getTag(const char *name, int frame) const = 0;
+	virtual bool isCulled(Entity *entity, const Frustum &cameraFrustum) const = 0;
 	virtual void render(DrawCallList *drawCallList, Entity *entity) = 0;
 	size_t getIndex() const { return index_; }
 	const char *getName() const { return name_; }
@@ -1369,6 +1370,8 @@ private:
 	DrawCallList drawCalls_;
 	VertexBuffer fsVertexBuffer_;
 	IndexBuffer fsIndexBuffer_;
+
+	Frustum cameraFrustum_;
 
 	/// @remarks Resets to 0 every frame.
 	uint8_t firstFreeViewId_ = 0;

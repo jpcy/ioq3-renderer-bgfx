@@ -535,6 +535,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 	const mat4 viewMatrix = toOpenGlMatrix * mat4::view(cameraPosition, cameraRotation);
 	const mat4 projectionMatrix = mat4::perspectiveProjection(fov.x, fov.y, zMin, zMax);
+	const mat4 vpMatrix(projectionMatrix * viewMatrix);
 
 	if (isWorldCamera && isMainCamera)
 	{
@@ -543,7 +544,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			vec3 pvsPosition;
 			Transform portalCamera;
 
-			if (world->calculatePortalCamera(visCacheId, i, cameraPosition, cameraRotation, projectionMatrix * viewMatrix, sceneEntities_, &pvsPosition, &portalCamera, &isMirrorCamera, &portalPlane))
+			if (world->calculatePortalCamera(visCacheId, i, cameraPosition, cameraRotation, vpMatrix, sceneEntities_, &pvsPosition, &portalCamera, &isMirrorCamera, &portalPlane))
 			{
 				renderCamera(portalVisCacheId, pvsPosition, portalCamera.position, portalCamera.rotation, rect, fov, areaMask);
 				isMirrorCamera = false;
@@ -554,6 +555,8 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		cameraPosition = position;
 		cameraRotation = rotation;
 	}
+
+	cameraFrustum_ = Frustum(vpMatrix);
 
 	// Build draw calls. Order doesn't matter.
 	drawCalls_.clear();
@@ -945,6 +948,10 @@ void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 view
 	case RT_MODEL:
 		{
 			auto model = modelCache->getModel(entity->e.hModel);
+
+			if (model->isCulled(entity, cameraFrustum_))
+				break;
+
 			setupEntityLighting(entity);
 			model->render(drawCallList, entity);
 		}
@@ -959,6 +966,9 @@ void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 view
 		break;
 
 	case RT_SPRITE:
+		if (cameraFrustum_.clipSphere(entity->e.origin, entity->e.radius) == Frustum::ClipResult::Outside)
+			break;
+
 		renderSpriteEntity(drawCallList, viewRotation, entity);
 		break;
 
