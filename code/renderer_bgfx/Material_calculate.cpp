@@ -284,7 +284,7 @@ void Material::doCpuDeforms(DrawCall *dc) const
 
 void Material::setDeformUniforms(Uniforms_Material *uniforms) const
 {
-	assert(matUniforms);
+	assert(uniforms);
 
 	if (!hasGpuDeforms())
 	{
