@@ -345,21 +345,21 @@ Patch *R_CreateSurfaceGridMesh(int width, int height,
 	size = (width * height - 1) * sizeof( Vertex ) + sizeof( *grid );
 
 #ifdef PATCH_STITCHING
-	grid = /*ri.Hunk_Alloc*/ (Patch *)ri.Malloc( size );
+	grid = /*ri.Hunk_Alloc*/ (Patch *)malloc(size);
 	Com_Memset(grid, 0, size);
 
-	grid->widthLodError = /*ri.Hunk_Alloc*/ (float *)ri.Malloc( width * 4 );
+	grid->widthLodError = /*ri.Hunk_Alloc*/ (float *)malloc(width * 4 );
 	Com_Memcpy( grid->widthLodError, errorTable[0], width * 4 );
 
-	grid->heightLodError = /*ri.Hunk_Alloc*/ (float *)ri.Malloc( height * 4 );
+	grid->heightLodError = /*ri.Hunk_Alloc*/ (float *)malloc(height * 4 );
 	Com_Memcpy( grid->heightLodError, errorTable[1], height * 4 );
 
 	grid->numIndexes = numIndexes;
-	grid->indexes = (uint16_t *)ri.Malloc(grid->numIndexes * sizeof(uint16_t));
+	grid->indexes = (uint16_t *)malloc(grid->numIndexes * sizeof(uint16_t));
 	Com_Memcpy(grid->indexes, indexes, numIndexes * sizeof(uint16_t));
 
 	grid->numVerts = (width * height);
-	grid->verts = (Vertex *)ri.Malloc(grid->numVerts * sizeof(Vertex));
+	grid->verts = (Vertex *)malloc(grid->numVerts * sizeof(Vertex));
 #else
 	grid = ri.Hunk_Alloc( size );
 	Com_Memset(grid, 0, size);
@@ -408,11 +408,11 @@ Patch_Free
 =================
 */
 void Patch_Free( Patch *grid ) {
-	ri.Free(grid->widthLodError);
-	ri.Free(grid->heightLodError);
-	ri.Free(grid->indexes);
-	ri.Free(grid->verts);
-	ri.Free(grid);
+	free(grid->widthLodError);
+	free(grid->heightLodError);
+	free(grid->indexes);
+	free(grid->verts);
+	free(grid);
 }
 
 /*
