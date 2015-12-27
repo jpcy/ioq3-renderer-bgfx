@@ -262,7 +262,8 @@ Main::Main()
 
 Main::~Main()
 {
-	bgfx::destroyFrameBuffer(depthFrameBuffer_);
+	bgfx::destroyFrameBuffer(mainFb_);
+	bgfx::destroyFrameBuffer(linearDepthFb_);
 	ri.Cmd_RemoveCommand("screenshot");
 	ri.Cmd_RemoveCommand("screenshotJPEG");
 	ri.Cmd_RemoveCommand("screenshotPNG");
@@ -338,16 +339,19 @@ void Main::initialize()
 	const bgfx::RendererType::Enum backend = bgfx::getCaps()->rendererType;
 	#define MR(name) bgfx::makeRef(name, sizeof(name))
 	#define SHADER_MEM(backend) \
-	fragMem[FragmentShaderId::Depth] = MR(Depth_fragment_##backend);                           \
-	fragMem[FragmentShaderId::Depth_AlphaTest] = MR(Depth_AlphaTest_fragment_##backend);       \
-	fragMem[FragmentShaderId::Fog] = MR(Fog_fragment_##backend);                               \
-	fragMem[FragmentShaderId::Generic] = MR(Generic_fragment_##backend);                       \
-	fragMem[FragmentShaderId::Generic_AlphaTest] = MR(Generic_AlphaTest_fragment_##backend);   \
-	fragMem[FragmentShaderId::Generic_SoftSprite] = MR(Generic_SoftSprite_fragment_##backend); \
-	fragMem[FragmentShaderId::TextureColor] = MR(TextureColor_fragment_##backend);             \
-	vertMem[VertexShaderId::Depth] = MR(Depth_vertex_##backend);                               \
-	vertMem[VertexShaderId::Fog] = MR(Fog_vertex_##backend);                                   \
-	vertMem[VertexShaderId::Generic] = MR(Generic_vertex_##backend);                           \
+	fragMem[FragmentShaderId::Depth] = MR(Depth_fragment_##backend);                                   \
+	fragMem[FragmentShaderId::Depth_AlphaTest] = MR(Depth_AlphaTest_fragment_##backend);               \
+	fragMem[FragmentShaderId::Fog] = MR(Fog_fragment_##backend);                                       \
+	fragMem[FragmentShaderId::Fullscreen_Blit] = MR(Fullscreen_Blit_fragment_##backend);               \
+	fragMem[FragmentShaderId::Fullscreen_LinearDepth] = MR(Fullscreen_LinearDepth_fragment_##backend); \
+	fragMem[FragmentShaderId::Generic] = MR(Generic_fragment_##backend);                               \
+	fragMem[FragmentShaderId::Generic_AlphaTest] = MR(Generic_AlphaTest_fragment_##backend);           \
+	fragMem[FragmentShaderId::Generic_SoftSprite] = MR(Generic_SoftSprite_fragment_##backend);         \
+	fragMem[FragmentShaderId::TextureColor] = MR(TextureColor_fragment_##backend);                     \
+	vertMem[VertexShaderId::Depth] = MR(Depth_vertex_##backend);                                       \
+	vertMem[VertexShaderId::Fog] = MR(Fog_vertex_##backend);                                           \
+	vertMem[VertexShaderId::Fullscreen] = MR(Fullscreen_vertex_##backend);                             \
+	vertMem[VertexShaderId::Generic] = MR(Generic_vertex_##backend);                                   \
 	vertMem[VertexShaderId::TextureColor] = MR(TextureColor_vertex_##backend);
 
 	if (backend == bgfx::RendererType::OpenGL)
@@ -367,21 +371,25 @@ void Main::initialize()
 
 	// Map shader programs to their vertex and fragment shaders.
 	std::array<FragmentShaderId::Enum, ShaderProgramId::Num> fragMap;
-	fragMap[ShaderProgramId::Depth]              = FragmentShaderId::Depth;
-	fragMap[ShaderProgramId::Depth_AlphaTest]    = FragmentShaderId::Depth_AlphaTest;
-	fragMap[ShaderProgramId::Fog]                = FragmentShaderId::Fog;
-	fragMap[ShaderProgramId::Generic]            = FragmentShaderId::Generic;
-	fragMap[ShaderProgramId::Generic_AlphaTest]  = FragmentShaderId::Generic_AlphaTest;
-	fragMap[ShaderProgramId::Generic_SoftSprite] = FragmentShaderId::Generic_SoftSprite;
-	fragMap[ShaderProgramId::TextureColor]       = FragmentShaderId::TextureColor;
+	fragMap[ShaderProgramId::Depth]                  = FragmentShaderId::Depth;
+	fragMap[ShaderProgramId::Depth_AlphaTest]        = FragmentShaderId::Depth_AlphaTest;
+	fragMap[ShaderProgramId::Fog]                    = FragmentShaderId::Fog;
+	fragMap[ShaderProgramId::Fullscreen_Blit]        = FragmentShaderId::Fullscreen_Blit;
+	fragMap[ShaderProgramId::Fullscreen_LinearDepth] = FragmentShaderId::Fullscreen_LinearDepth;
+	fragMap[ShaderProgramId::Generic]                = FragmentShaderId::Generic;
+	fragMap[ShaderProgramId::Generic_AlphaTest]      = FragmentShaderId::Generic_AlphaTest;
+	fragMap[ShaderProgramId::Generic_SoftSprite]     = FragmentShaderId::Generic_SoftSprite;
+	fragMap[ShaderProgramId::TextureColor]           = FragmentShaderId::TextureColor;
 	std::array<VertexShaderId::Enum, ShaderProgramId::Num> vertMap;
-	vertMap[ShaderProgramId::Depth]              = VertexShaderId::Depth;
-	vertMap[ShaderProgramId::Depth_AlphaTest]    = VertexShaderId::Depth;
-	vertMap[ShaderProgramId::Fog]                = VertexShaderId::Fog;
-	vertMap[ShaderProgramId::Generic]            = VertexShaderId::Generic;
-	vertMap[ShaderProgramId::Generic_AlphaTest]  = VertexShaderId::Generic;
-	vertMap[ShaderProgramId::Generic_SoftSprite] = VertexShaderId::Generic;
-	vertMap[ShaderProgramId::TextureColor]       = VertexShaderId::TextureColor;
+	vertMap[ShaderProgramId::Depth]                  = VertexShaderId::Depth;
+	vertMap[ShaderProgramId::Depth_AlphaTest]        = VertexShaderId::Depth;
+	vertMap[ShaderProgramId::Fog]                    = VertexShaderId::Fog;
+	vertMap[ShaderProgramId::Fullscreen_Blit]        = VertexShaderId::Fullscreen;
+	vertMap[ShaderProgramId::Fullscreen_LinearDepth] = VertexShaderId::Fullscreen;
+	vertMap[ShaderProgramId::Generic]                = VertexShaderId::Generic;
+	vertMap[ShaderProgramId::Generic_AlphaTest]      = VertexShaderId::Generic;
+	vertMap[ShaderProgramId::Generic_SoftSprite]     = VertexShaderId::Generic;
+	vertMap[ShaderProgramId::TextureColor]           = VertexShaderId::TextureColor;
 
 	for (size_t i = 0; i < ShaderProgramId::Num; i++)
 	{
@@ -426,9 +434,12 @@ void Main::initialize()
 	indices[3] = 2; indices[4] = 3; indices[5] = 0;
 	fsIndexBuffer_.handle = bgfx::createIndexBuffer(indicesMem);
 
-	// Create depth framebuffer.
-	depthTexture_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
-	depthFrameBuffer_ = bgfx::createFrameBuffer(1, &depthTexture_, true);
+	// Create depth prepass framebuffer.
+	mainFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::BGRA8);
+	mainFbDepth_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24);
+	bgfx::TextureHandle depthPrepassTextures[] = { mainFbColor_, mainFbDepth_ };
+	mainFb_ = bgfx::createFrameBuffer(2, depthPrepassTextures, true);
+	linearDepthFb_ = bgfx::createFrameBuffer(glConfig.vidWidth, glConfig.vidHeight, bgfx::TextureFormat::R16F);
 }
 
 static int Font_ReadInt(const uint8_t *data, int *offset)

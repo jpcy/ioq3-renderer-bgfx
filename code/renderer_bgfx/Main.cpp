@@ -347,6 +347,17 @@ void Main::renderScene(const refdef_t *def)
 	sceneRotation = mat3(def->viewaxis);
 	isWorldCamera = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world.get();
 	renderCamera(mainVisCacheId, scenePosition, scenePosition, sceneRotation, vec4(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
+
+	if (isWorldCamera)
+	{
+		bgfx::setVertexBuffer(fsVertexBuffer_.handle, 0, 4);
+		bgfx::setIndexBuffer(fsIndexBuffer_.handle, 0, 6);
+		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, mainFbColor_);
+		bgfx::setState(BGFX_STATE_RGB_WRITE);
+		const uint8_t linearDepthViewId = pushView(ViewFlags::OrthoNormalized);
+		bgfx::submit(linearDepthViewId, shaderPrograms_[ShaderProgramId::Fullscreen_Blit].handle);
+	}
+
 	sceneDynamicLights_.clear();
 	sceneEntities_.clear();
 	scenePolygons_.clear();
@@ -426,6 +437,11 @@ uint8_t Main::pushView(int flags, vec4 rect, const mat4 &viewMatrix, const mat4 
 	{
 		bgfx::setViewRect(firstFreeViewId_, 0, 0, glConfig.vidWidth, glConfig.vidHeight);
 		bgfx::setViewTransform(firstFreeViewId_, NULL, mat4::orthographicProjection(0, glConfig.vidWidth, 0, glConfig.vidHeight, -1, 1).get());
+	}
+	else if ((flags & ViewFlags::OrthoNormalized) != 0)
+	{
+		bgfx::setViewRect(firstFreeViewId_, 0, 0, glConfig.vidWidth, glConfig.vidHeight);
+		bgfx::setViewTransform(firstFreeViewId_, NULL, mat4::orthographicProjection(0, 1, 0, 1, -1, 1).get());
 	}
 	else
 	{
@@ -723,12 +739,12 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 	uniforms_->dlightColors.set(dlightColors, DynamicLight::max);
 	uniforms_->dlightPositions.set(dlightPositions, DynamicLight::max);
-
-	// Render depth.
+	
 	if (isWorldCamera)
 	{
+		// Render depth.
 		const uint8_t viewId = pushView(ViewFlags::ClearDepth, rect, viewMatrix, projectionMatrix);
-		bgfx::setViewFrameBuffer(viewId, depthFrameBuffer_);
+		bgfx::setViewFrameBuffer(viewId, mainFb_);
 
 		for (DrawCall &dc : drawCalls_)
 		{
@@ -775,9 +791,29 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Depth].handle);
 			}
 		}
+
+		// Read depth, write linear depth.
+		uniforms_->depthRange.set(vec4(0, 0, zMin, zMax));
+		bgfx::setVertexBuffer(fsVertexBuffer_.handle, 0, 4);
+		bgfx::setIndexBuffer(fsIndexBuffer_.handle, 0, 6);
+		bgfx::setTexture(MaterialTextureBundleIndex::Depth, matStageUniforms_->depthSampler.handle, mainFbDepth_);
+		bgfx::setState(BGFX_STATE_RGB_WRITE);
+		const uint8_t linearDepthViewId = pushView(ViewFlags::OrthoNormalized);
+		bgfx::setViewFrameBuffer(linearDepthViewId, linearDepthFb_);
+		bgfx::submit(linearDepthViewId, shaderPrograms_[ShaderProgramId::Fullscreen_LinearDepth].handle);
 	}
 
-	const uint8_t viewId = pushView(ViewFlags::ClearDepth, rect, viewMatrix, projectionMatrix);
+	uint8_t mainViewId;
+	
+	if (isWorldCamera)
+	{
+		mainViewId = pushView(0, rect, viewMatrix, projectionMatrix);
+		bgfx::setViewFrameBuffer(mainViewId, mainFb_);
+	}
+	else
+	{
+		mainViewId = pushView(ViewFlags::ClearDepth, rect, viewMatrix, projectionMatrix);
+	}
 
 	for (DrawCall &dc : drawCalls_)
 	{
@@ -801,7 +837,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
 			bgfx::setState(dc.state);
-			bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Generic].handle);
+			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Generic].handle);
 			continue;
 		}
 
@@ -864,7 +900,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (cvars.softSprites->integer && dc.softSpriteDepth > 0)
 			{
 				shaderProgram = ShaderProgramId::Generic_SoftSprite;
-				bgfx::setTexture(MaterialTextureBundleIndex::Depth, matStageUniforms_->textures[MaterialTextureBundleIndex::Depth]->handle, depthTexture_);
+				bgfx::setTexture(MaterialTextureBundleIndex::Depth, matStageUniforms_->textures[MaterialTextureBundleIndex::Depth]->handle, linearDepthFb_);
 				uniforms_->softSpriteDepth.set(dc.softSpriteDepth);
 
 				// Change additive blend from (1, 1) to (src alpha, 1) so the soft sprite shader can control alpha.
@@ -884,7 +920,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			}
 
 			bgfx::setState(state);
-			bgfx::submit(viewId, shaderPrograms_[shaderProgram].handle);
+			bgfx::submit(mainViewId, shaderPrograms_[shaderProgram].handle);
 		}
 
 		// Do fog pass.
@@ -906,7 +942,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			}
 
 			bgfx::setState(state);
-			bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Fog].handle);
+			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Fog].handle);
 		}
 
 		currentEntity = nullptr;

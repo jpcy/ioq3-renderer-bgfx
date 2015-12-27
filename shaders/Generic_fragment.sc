@@ -102,7 +102,7 @@ void main()
 
 #if defined(USE_SOFT_SPRITE)
 	// Normalized linear depths.
-	float sceneDepth = ToLinearDepth(texture2D(u_DepthMap, gl_FragCoord.xy * u_viewTexel.xy).r, u_DepthRange.z, u_DepthRange.w);
+	float sceneDepth = texture2D(u_DepthMap, gl_FragCoord.xy * u_viewTexel.xy).r;
 
 	// GL uses -1 to 1 NDC. D3D uses 0 to 1.
 #if BGFX_SHADER_LANGUAGE_HLSL

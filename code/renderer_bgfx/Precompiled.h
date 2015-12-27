@@ -1324,7 +1324,9 @@ private:
 			ClearDepth = BIT(0),
 
 			/// Ignores rect and matrices; sets up a fullscreen orthographic view.
-			Ortho = BIT(1)
+			Ortho = BIT(1),
+
+			OrthoNormalized = BIT(2)
 		};
 	};
 
@@ -1377,8 +1379,10 @@ private:
 	/// @remarks Resets to 0 every frame.
 	uint8_t firstFreeViewId_ = 0;
 
-	bgfx::FrameBufferHandle depthFrameBuffer_;
-	bgfx::TextureHandle depthTexture_;
+	bgfx::FrameBufferHandle mainFb_;
+	bgfx::TextureHandle mainFbColor_;
+	bgfx::TextureHandle mainFbDepth_;
+	bgfx::FrameBufferHandle linearDepthFb_;
 
 	std::unique_ptr<Uniforms> uniforms_;
 	std::unique_ptr<Uniforms_Entity> entityUniforms_;
@@ -1392,6 +1396,8 @@ private:
 			Depth,
 			Depth_AlphaTest,
 			Fog,
+			Fullscreen_Blit,
+			Fullscreen_LinearDepth,
 			Generic,
 			Generic_AlphaTest,
 			Generic_SoftSprite,
@@ -1406,6 +1412,7 @@ private:
 		{
 			Depth,
 			Fog,
+			Fullscreen,
 			Generic,
 			TextureColor,
 			Num
@@ -1419,6 +1426,8 @@ private:
 			Depth,
 			Depth_AlphaTest,
 			Fog,
+			Fullscreen_Blit,
+			Fullscreen_LinearDepth,
 			Generic,
 			Generic_AlphaTest,
 			Generic_SoftSprite,
