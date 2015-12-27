@@ -1231,7 +1231,10 @@ void Main::setupEntityLighting(Entity *entity)
 	{
 		entity->ambientLight = vec3(identityLight * 150);
 		entity->directedLight = vec3(identityLight * 150);
+		entity->lightDir = sunDirection;
 	}
+
+	vec3 lightDir = entity->lightDir * entity->directedLight.length();
 
 	// Bonus items and view weapons have a fixed minimum add.
 	//if (entity->e.renderfx & RF_MINLIGHT)
@@ -1239,6 +1242,25 @@ void Main::setupEntityLighting(Entity *entity)
 		// Give everything a minimum light add.
 		entity->ambientLight += vec3(identityLight * 32);
 	}
+
+	// Modify the light by dynamic lights.
+	if (!isWorldCamera)
+	{
+		const float DLIGHT_AT_RADIUS = 16; // at the edge of a dlight's influence, this amount of light will be added
+		const float DLIGHT_MINIMUM_RADIUS = 16; // never calculate a range less than this to prevent huge light numbers
+
+		for (const auto &dlight : sceneDynamicLights_)
+		{
+			vec3 dir = dlight.position - lightPosition;
+			float d = dir.normalize();
+			float power = std::min(DLIGHT_AT_RADIUS * (dlight.intensity * dlight.intensity), DLIGHT_MINIMUM_RADIUS);
+			d = power / (d * d);
+			entity->directedLight += dlight.color.xyz() * d;
+			lightDir += dir * d;
+		}
+	}
+
+	entity->lightDir = lightDir.normal();
 
 	// Clamp ambient.
 	for (size_t i = 0; i < 3; i++)
