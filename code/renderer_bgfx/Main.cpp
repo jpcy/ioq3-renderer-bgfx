@@ -857,13 +857,13 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		uniforms_->viewOrigin.set(cameraPosition);
 		mat->setDeformUniforms(matUniforms_.get());
 		const vec3 localViewPosition = currentEntity ? currentEntity->localViewPosition : cameraPosition;
+		uniforms_->localViewOrigin.set(localViewPosition);
 
 		if (g_main->currentEntity)
 		{
 			entityUniforms_->ambientLight.set(vec4(currentEntity->ambientLight / 255.0f, 0));
 			entityUniforms_->directedLight.set(vec4(currentEntity->directedLight / 255.0f, 0));
 			entityUniforms_->lightDirection.set(vec4(currentEntity->lightDir, 0));
-			entityUniforms_->localViewOrigin.set(localViewPosition);
 			entityUniforms_->modelLightDir.set(currentEntity->modelLightDir);
 		}
 

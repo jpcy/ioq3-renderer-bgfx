@@ -1027,6 +1027,9 @@ struct Uniforms
 	/// @remarks x is offset, y is scale, z is near z, w is far z.
 	Uniform_vec4 depthRange = "u_DepthRange";
 
+	/// @remarks Used by entities and the world.
+	Uniform_vec4 localViewOrigin = "u_LocalViewOrigin";
+
 	/// @remarks Only x used.
 	Uniform_vec4 softSpriteDepth = "u_SoftSpriteDepth";
 
@@ -1075,7 +1078,6 @@ struct Uniforms_Entity
 	Uniform_vec4 ambientLight = "u_AmbientLight";
 	Uniform_vec4 directedLight = "u_DirectedLight";
 	Uniform_vec4 lightDirection = "u_LightDirection";
-	Uniform_vec4 localViewOrigin = "u_LocalViewOrigin";
 	Uniform_vec4 modelLightDir = "u_ModelLightDir";
 };
 
