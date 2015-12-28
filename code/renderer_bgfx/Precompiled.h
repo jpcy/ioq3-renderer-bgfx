@@ -589,6 +589,16 @@ struct MaterialStage
 	vec4 specularScale;
 };
 
+struct MaterialStageSetUniformsFlags
+{
+	enum
+	{
+		ColorGen = BIT(0),
+		TexGen   = BIT(1),
+		All      = BIT(2) - 1
+	};
+};
+
 class Material
 {
 public:
@@ -701,7 +711,7 @@ public:
 
 	void doCpuDeforms(DrawCall *dc) const;
 	void setDeformUniforms(Uniforms_Material *uniforms) const;
-	void setStageShaderUniforms(size_t stageIndex, Uniforms_MaterialStage *uniforms) const;
+	void setStageShaderUniforms(size_t stageIndex, Uniforms_MaterialStage *uniforms, int flags = MaterialStageSetUniformsFlags::All) const;
 	void setStageTextureSamplers(size_t stageIndex, Uniforms_MaterialStage *uniforms) const;
 	vec4 calculateStageFogColorMask(size_t stageIndex) const;
 	uint64_t getStageState(size_t stageIndex) const;
@@ -1413,6 +1423,7 @@ private:
 		enum Enum
 		{
 			Depth,
+			Depth_AlphaTest,
 			Fog,
 			Fullscreen,
 			Generic,

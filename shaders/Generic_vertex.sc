@@ -3,7 +3,8 @@ $output v_position, v_projPosition, v_texcoord0, v_texcoord1, v_normal, v_color0
 
 #include <bgfx_shader.sh>
 #include "Common.sh"
-#include "Deform.sh"
+#include "Gen_Deform.sh"
+#include "Gen_Tex.sh"
 #include "SharedDefines.sh"
 
 uniform vec4 u_DepthRange;
@@ -60,21 +61,6 @@ vec2 GenTexCoords(vec3 position, vec3 normal, vec2 texCoord1, vec2 texCoord2)
 	}
 	
 	return tex;
-}
-
-vec2 ModTexCoords(vec2 st, vec3 position, vec4 texMatrix, vec4 offTurb)
-{
-	float amplitude = offTurb.z;
-	float phase = offTurb.w * 2.0 * M_PI;
-	vec2 st2;
-	st2.x = st.x * texMatrix.x + (st.y * texMatrix.z + offTurb.x);
-	st2.y = st.x * texMatrix.y + (st.y * texMatrix.w + offTurb.y);
-
-	vec2 offsetPos = vec2(position.x + position.z, position.y);
-	
-	vec2 texOffset = sin(offsetPos * (2.0 * M_PI / 1024.0) + vec2(phase, phase));
-	
-	return st2 + texOffset * amplitude;	
 }
 
 vec4 CalcColor(vec4 vertColor, vec4 baseColor, vec4 colorAttrib, vec3 position, vec3 normal)

@@ -28,25 +28,22 @@ function compileShader(bgfxPath, input, type, permutation, defines)
 	
 	-- Handle inserting defines.
 	if defines ~= nil then
-		local inputFile = io.open(inputFilename, "r")
-		local inputFileLine = inputFile:read()
-		
-		if inputFileLine == nil then
-			print("File is empty")
-			return
-		end
-		
 		-- Write the defines and the input file data to a temp file.
-		-- The defines are inserted as the second line, since the varyings must be first.
+		local inputFile = io.open(inputFilename, "r")
 		local tempFile = io.open(tempInputFilename, "w")
-		tempFile:write(inputFileLine .. "\n")
-		tempFile:write(defines .. "\n")
+		local definesInserted = false
 		
 		while true do
 			inputFileLine = inputFile:read()
 			
 			if inputFileLine == nil then
 				break
+			end
+			
+			-- The defines are inserted before the first line that doesn't start with $, since the varyings must be first.
+			if not definesInserted and inputFileLine:find("^$") then
+				tempFile:write(defines .. "\n")
+				definesInserted = true
 			end
 			
 			tempFile:write(inputFileLine .. "\n")

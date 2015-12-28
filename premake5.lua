@@ -36,6 +36,7 @@ newaction
 			compileShader(BGFX_PATH, "Depth", "fragment")
 			compileShader(BGFX_PATH, "Depth", "fragment", "AlphaTest", "#define USE_ALPHA_TEST")
 			compileShader(BGFX_PATH, "Depth", "vertex")
+			compileShader(BGFX_PATH, "Depth", "vertex", "AlphaTest", "#define USE_ALPHA_TEST")
 			compileShader(BGFX_PATH, "Fog", "fragment")
 			compileShader(BGFX_PATH, "Fog", "vertex")
 			compileShader(BGFX_PATH, "Fullscreen_Blit", "fragment")

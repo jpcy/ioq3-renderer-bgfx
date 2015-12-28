@@ -3,7 +3,7 @@ $output v_position, v_texcoord0
 
 #include <bgfx_shader.sh>
 #include "Common.sh"
-#include "Deform.sh"
+#include "Gen_Deform.sh"
 
 #define v_scale v_texcoord0.x
 uniform vec4 u_Color;

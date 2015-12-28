@@ -761,12 +761,14 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 			// See if any of the stages use alpha testing.
 			MaterialStage *alphaTestStage = nullptr;
+			size_t alphaTestStageIndex = 0;
 
 			for (size_t i = 0; i < mat->getNumStages(); i++)
 			{
 				if (mat->stages[i].alphaTest != MaterialAlphaTest::None)
 				{
 					alphaTestStage = &mat->stages[i];
+					alphaTestStageIndex = i;
 					break;
 				}
 			}
@@ -781,8 +783,8 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 			if (alphaTestStage)
 			{
-				matStageUniforms_->alphaTest.set((float)alphaTestStage->alphaTest);
-				bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, alphaTestStage->bundles[MaterialTextureBundleIndex::DiffuseMap].textures[0]->getHandle());
+				mat->setStageShaderUniforms(alphaTestStageIndex, matStageUniforms_.get(), MaterialStageSetUniformsFlags::TexGen);
+				mat->setStageTextureSamplers(alphaTestStageIndex, matStageUniforms_.get());
 				bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Depth_AlphaTest].handle);
 			}
 			else

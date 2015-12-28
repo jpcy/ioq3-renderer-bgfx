@@ -332,65 +332,71 @@ void Material::setDeformUniforms(Uniforms_Material *uniforms) const
 	uniforms->deform_Frequency_Phase_Spread.set(frequency_Phase_Spread, i);
 }
 
-void Material::setStageShaderUniforms(size_t stageIndex, Uniforms_MaterialStage *uniforms) const
+void Material::setStageShaderUniforms(size_t stageIndex, Uniforms_MaterialStage *uniforms, int flags) const
 {
 	auto &stage = stages[stageIndex];
 	assert(stage.active);
+	uniforms->alphaTest.set((float)stage.alphaTest);
 	uniforms->lightType.set(vec4((float)stage.light, 0, 0, 0));
-
-	vec4 generators;
-	generators[Uniforms_MaterialStage::Generators::TexCoord] = (float)stage.bundles[0].tcGen;
-
-	if (stage.rgbGen == MaterialColorGen::LightingDiffuse)
-	{
-		generators[Uniforms_MaterialStage::Generators::Color] = (float)stage.rgbGen;
-	}
-	else
-	{
-		// Not done in shaders.
-		generators[Uniforms_MaterialStage::Generators::Color] = (float)MaterialColorGen::Identity;
-	}
-
-	if (stage.alphaGen == MaterialAlphaGen::LightingSpecular || stage.alphaGen == MaterialAlphaGen::Portal)
-	{
-		generators[Uniforms_MaterialStage::Generators::Alpha] = (float)stage.alphaGen;
-	}
-	else
-	{
-		// Not done in shaders.
-		generators[Uniforms_MaterialStage::Generators::Alpha] = (float)MaterialAlphaGen::Identity;
-	}
-
-	uniforms->generators.set(generators);
-
-	// rgbGen and alphaGen
-	vec4 baseColor, vertexColor;
-	calculateColors(stage, &baseColor, &vertexColor);
-	uniforms->baseColor.set(baseColor);
-	uniforms->vertexColor.set(vertexColor);
-
-	if (stage.alphaGen == MaterialAlphaGen::Portal)
-	{
-		uniforms->portalRange.set(portalRange);
-	}
-
-	// tcGen and tcMod
-	vec4 texMatrix, texOffTurb;
-	calculateTexMods(stage, &texMatrix, &texOffTurb);
-	uniforms->diffuseTextureMatrix.set(texMatrix);
-	uniforms->diffuseTextureOffsetTurbulent.set(texOffTurb);
-
-	if (stage.bundles[0].tcGen == MaterialTexCoordGen::Vector)
-	{
-		uniforms->tcGenVector0.set(stage.bundles[0].tcGenVectors[0]);
-		uniforms->tcGenVector1.set(stage.bundles[0].tcGenVectors[1]);
-	}
-
 	uniforms->normalScale.set(stage.normalScale);
 	uniforms->specularScale.set(stage.specularScale);
 
-	// Alpha test
-	uniforms->alphaTest.set((float)stage.alphaTest);
+	if (flags & (MaterialStageSetUniformsFlags::ColorGen | MaterialStageSetUniformsFlags::TexGen))
+	{
+		vec4 generators;
+		generators[Uniforms_MaterialStage::Generators::TexCoord] = (float)stage.bundles[0].tcGen;
+
+		if (stage.rgbGen == MaterialColorGen::LightingDiffuse)
+		{
+			generators[Uniforms_MaterialStage::Generators::Color] = (float)stage.rgbGen;
+		}
+		else
+		{
+			// Not done in shaders.
+			generators[Uniforms_MaterialStage::Generators::Color] = (float)MaterialColorGen::Identity;
+		}
+
+		if (stage.alphaGen == MaterialAlphaGen::LightingSpecular || stage.alphaGen == MaterialAlphaGen::Portal)
+		{
+			generators[Uniforms_MaterialStage::Generators::Alpha] = (float)stage.alphaGen;
+		}
+		else
+		{
+			// Not done in shaders.
+			generators[Uniforms_MaterialStage::Generators::Alpha] = (float)MaterialAlphaGen::Identity;
+		}
+
+		uniforms->generators.set(generators);
+	}
+
+	if (flags & MaterialStageSetUniformsFlags::ColorGen)
+	{
+		// rgbGen and alphaGen
+		vec4 baseColor, vertexColor;
+		calculateColors(stage, &baseColor, &vertexColor);
+		uniforms->baseColor.set(baseColor);
+		uniforms->vertexColor.set(vertexColor);
+
+		if (stage.alphaGen == MaterialAlphaGen::Portal)
+		{
+			uniforms->portalRange.set(portalRange);
+		}
+	}
+
+	if (flags & MaterialStageSetUniformsFlags::TexGen)
+	{
+		// tcGen and tcMod
+		vec4 texMatrix, texOffTurb;
+		calculateTexMods(stage, &texMatrix, &texOffTurb);
+		uniforms->diffuseTextureMatrix.set(texMatrix);
+		uniforms->diffuseTextureOffsetTurbulent.set(texOffTurb);
+
+		if (stage.bundles[0].tcGen == MaterialTexCoordGen::Vector)
+		{
+			uniforms->tcGenVector0.set(stage.bundles[0].tcGenVectors[0]);
+			uniforms->tcGenVector1.set(stage.bundles[0].tcGenVectors[1]);
+		}
+	}
 }
 
 void Material::setStageTextureSamplers(size_t stageIndex, Uniforms_MaterialStage *uniforms) const
