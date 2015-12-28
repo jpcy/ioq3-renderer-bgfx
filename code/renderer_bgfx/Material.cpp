@@ -85,6 +85,11 @@ bool Material::isGpuDeform(MaterialDeform deform) const
 
 void Material::finish()
 {
+	for (size_t i = 0; i < maxStages; i++)
+	{
+		stages[i].material = this;
+	}
+
 	if (isSky)
 		sort = MaterialSort::Environment;
 

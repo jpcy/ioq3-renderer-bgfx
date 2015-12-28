@@ -477,11 +477,14 @@ void Main::flushStretchPics()
 			memcpy(tib.data, &stretchPicIndices_[0], sizeof(uint16_t) * stretchPicIndices_.size());
 			matUniforms_->time.set(vec4(stretchPicMaterial_->setTime(floatTime_), 0, 0, 0));
 
-			for (size_t i = 0; i < stretchPicMaterial_->getNumStages(); i++)
+			for (const MaterialStage &stage : stretchPicMaterial_->stages)
 			{
-				stretchPicMaterial_->setStageShaderUniforms(i, matStageUniforms_.get());
-				stretchPicMaterial_->setStageTextureSamplers(i, matStageUniforms_.get());
-				uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE | stretchPicMaterial_->getStageState(i);
+				if (!stage.active)
+					continue;
+
+				stage.setShaderUniforms(matStageUniforms_.get());
+				stage.setTextureSamplers(matStageUniforms_.get());
+				uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE | stage.getState();
 
 				// Depth testing and writing should always be off for 2D drawing.
 				state &= ~BGFX_STATE_DEPTH_TEST_MASK;
@@ -760,15 +763,13 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			mat->setDeformUniforms(matUniforms_.get());
 
 			// See if any of the stages use alpha testing.
-			MaterialStage *alphaTestStage = nullptr;
-			size_t alphaTestStageIndex = 0;
+			const MaterialStage *alphaTestStage = nullptr;
 
-			for (size_t i = 0; i < mat->getNumStages(); i++)
+			for (const MaterialStage &stage : mat->stages)
 			{
-				if (mat->stages[i].alphaTest != MaterialAlphaTest::None)
+				if (stage.active && stage.alphaTest != MaterialAlphaTest::None)
 				{
-					alphaTestStage = &mat->stages[i];
-					alphaTestStageIndex = i;
+					alphaTestStage = &stage;
 					break;
 				}
 			}
@@ -776,20 +777,19 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
 			uint64_t state = BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_DEPTH_WRITE | BGFX_STATE_MSAA;
-			
-			// Grab just the cull state from the material. It's not per-stage so just use the first one.
-			state |= mat->getStageState(0) & BGFX_STATE_CULL_MASK;
-			bgfx::setState(state);
 
 			if (alphaTestStage)
 			{
-				mat->setStageShaderUniforms(alphaTestStageIndex, matStageUniforms_.get(), MaterialStageSetUniformsFlags::TexGen);
-				mat->setStageTextureSamplers(alphaTestStageIndex, matStageUniforms_.get());
+				alphaTestStage->setShaderUniforms(matStageUniforms_.get(), MaterialStageSetUniformsFlags::TexGen);
+				alphaTestStage->setTextureSamplers(matStageUniforms_.get());
+				state |= alphaTestStage->getState() & BGFX_STATE_CULL_MASK; // Grab the cull state.
+				bgfx::setState(state);
 				bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Depth_AlphaTest].handle);
 			}
 			else
 			{
 				matStageUniforms_->alphaTest.set(vec4::empty);
+				bgfx::setState(state);
 				bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Depth].handle);
 			}
 		}
@@ -880,24 +880,27 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			uniforms_->fogEyeT.set(eyeT);
 		}
 
-		for (size_t i = 0; i < mat->getNumStages(); i++)
+		for (const MaterialStage &stage : mat->stages)
 		{
-			if (dc.fogIndex >= 0 && mat->stages[i].adjustColorsForFog != MaterialAdjustColorsForFog::None)
+			if (!stage.active)
+				continue;
+
+			if (dc.fogIndex >= 0 && stage.adjustColorsForFog != MaterialAdjustColorsForFog::None)
 			{
 				uniforms_->fogEnabled.set(vec4(1, 0, 0, 0));
-				matStageUniforms_->fogColorMask.set(mat->calculateStageFogColorMask(i));
+				matStageUniforms_->fogColorMask.set(stage.getFogColorMask());
 			}
 			else
 			{
 				uniforms_->fogEnabled.set(vec4::empty);
 			}
 
-			mat->setStageShaderUniforms(i, matStageUniforms_.get());
-			mat->setStageTextureSamplers(i, matStageUniforms_.get());
+			stage.setShaderUniforms(matStageUniforms_.get());
+			stage.setTextureSamplers(matStageUniforms_.get());
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
 			ShaderProgramId::Enum shaderProgram;
-			uint64_t state = dc.state | mat->getStageState(i);
+			uint64_t state = dc.state | stage.getState();
 
 			if (cvars.softSprites->integer && dc.softSpriteDepth > 0)
 			{
@@ -912,7 +915,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 					state |= BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE);
 				}
 			}
-			else if (mat->stages[i].alphaTest != MaterialAlphaTest::None)
+			else if (stage.alphaTest != MaterialAlphaTest::None)
 			{
 				shaderProgram = ShaderProgramId::Generic_AlphaTest;
 			}

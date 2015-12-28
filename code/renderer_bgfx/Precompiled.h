@@ -555,9 +555,20 @@ struct MaterialTextureBundleIndex
 	};
 };
 
+struct MaterialStageSetUniformsFlags
+{
+	enum
+	{
+		ColorGen = BIT(0),
+		TexGen   = BIT(1),
+		All      = BIT(2) - 1
+	};
+};
+
 struct MaterialStage
 {
 	bool active = false;
+	Material *material = nullptr;
 
 	MaterialTextureBundle bundles[MaterialTextureBundleIndex::NumMaterialTextureBundles];
 
@@ -587,20 +598,42 @@ struct MaterialStage
 
 	vec4 normalScale;
 	vec4 specularScale;
-};
 
-struct MaterialStageSetUniformsFlags
-{
-	enum
-	{
-		ColorGen = BIT(0),
-		TexGen   = BIT(1),
-		All      = BIT(2) - 1
-	};
+	vec4 getFogColorMask() const;
+	uint64_t getState() const;
+	void setShaderUniforms(Uniforms_MaterialStage *uniforms, int flags = MaterialStageSetUniformsFlags::All) const;
+	void setTextureSamplers(Uniforms_MaterialStage *uniforms) const;
+
+private:
+	void setTextureSampler(int sampler, Uniforms_MaterialStage *uniforms) const;
+
+	/// @name Calculate
+	/// @{
+
+	float *tableForFunc(MaterialWaveformGenFunc func) const;
+	float evaluateWaveForm(const MaterialWaveForm &wf) const;
+	float evaluateWaveFormClamped(const MaterialWaveForm &wf) const;
+	void calculateTexMods(vec4 *outMatrix, vec4 *outOffTurb) const;
+	void calculateTurbulentFactors(const MaterialWaveForm &wf, float *amplitude, float *now) const;
+	void calculateScaleTexMatrix(vec2 scale, float *matrix) const;
+	void calculateScrollTexMatrix(vec2 scrollSpeed, float *matrix) const;
+	void calculateStretchTexMatrix(const MaterialWaveForm &wf, float *matrix) const;
+	void calculateTransformTexMatrix(const MaterialTexModInfo &tmi, float *matrix) const;
+	void calculateRotateTexMatrix(float degsPerSecond, float *matrix) const;
+	float calculateWaveColorSingle(const MaterialWaveForm &wf) const;
+	float calculateWaveAlphaSingle(const MaterialWaveForm &wf) const;
+
+	/// rgbGen and alphaGen
+	void calculateColors(vec4 *baseColor, vec4 *vertColor) const;
+
+	/// @}
 };
 
 class Material
 {
+	friend class MaterialCache;
+	friend struct MaterialStage;
+
 public:
 	Material(const char *name);
 	size_t getNumStages() const { return numUnfoggedPasses; }
@@ -711,34 +744,11 @@ public:
 
 	void doCpuDeforms(DrawCall *dc) const;
 	void setDeformUniforms(Uniforms_Material *uniforms) const;
-	void setStageShaderUniforms(size_t stageIndex, Uniforms_MaterialStage *uniforms, int flags = MaterialStageSetUniformsFlags::All) const;
-	void setStageTextureSamplers(size_t stageIndex, Uniforms_MaterialStage *uniforms) const;
-	vec4 calculateStageFogColorMask(size_t stageIndex) const;
-	uint64_t getStageState(size_t stageIndex) const;
 
 private:
-	void setStageTextureSampler(size_t stageIndex, int sampler, Uniforms_MaterialStage *uniforms) const;
-	float *tableForFunc(MaterialWaveformGenFunc func) const;
-	float evaluateWaveForm(const MaterialWaveForm &wf) const;
-	float evaluateWaveFormClamped(const MaterialWaveForm &wf) const;
-	void calculateTexMods(const MaterialStage &stage, vec4 *outMatrix, vec4 *outOffTurb) const;
-	void calculateTurbulentFactors(const MaterialWaveForm &wf, float *amplitude, float *now) const;
-	void calculateScaleTexMatrix(vec2 scale, float *matrix) const;
-	void calculateScrollTexMatrix(vec2 scrollSpeed, float *matrix) const;
-	void calculateStretchTexMatrix(const MaterialWaveForm &wf, float *matrix) const;
-	void calculateTransformTexMatrix(const MaterialTexModInfo &tmi, float *matrix) const;
-	void calculateRotateTexMatrix(float degsPerSecond, float *matrix) const;
-	float calculateWaveColorSingle(const MaterialWaveForm &wf) const;
-	float calculateWaveAlphaSingle(const MaterialWaveForm &wf) const;
-
-	/// rgbGen and alphaGen
-	void calculateColors(const MaterialStage &stage, vec4 *baseColor, vec4 *vertColor) const;
-
 	float time_;
 
 	/// @}
-
-	friend class MaterialCache;
 };
 
 class MaterialCache
