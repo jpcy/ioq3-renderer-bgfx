@@ -435,8 +435,8 @@ void Main::initialize()
 	fsIndexBuffer_.handle = bgfx::createIndexBuffer(indicesMem);
 
 	// Create depth prepass framebuffer.
-	mainFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::BGRA8);
-	mainFbDepth_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24);
+	mainFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT);
+	mainFbDepth_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
 	bgfx::TextureHandle depthPrepassTextures[] = { mainFbColor_, mainFbDepth_ };
 	mainFb_ = bgfx::createFrameBuffer(2, depthPrepassTextures, true);
 	linearDepthFb_ = bgfx::createFrameBuffer(glConfig.vidWidth, glConfig.vidHeight, bgfx::TextureFormat::R16F);
