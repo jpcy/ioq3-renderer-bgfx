@@ -379,6 +379,11 @@ public:
 		w *= value;
 	}
 
+	bool equals(const vec4 &v, float epsilon = 0.001f) const
+	{
+		return math::FuzzyEquals(x, v.x, epsilon) && math::FuzzyEquals(y, v.y, epsilon) && math::FuzzyEquals(z, v.z, epsilon) && math::FuzzyEquals(w, v.w, epsilon);
+	}
+
 	vec3 xyz() const { return vec3(x, y, z); }
 	vec3 rgb() const { return vec3(x, y, z); }
 

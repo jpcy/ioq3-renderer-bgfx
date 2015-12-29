@@ -244,25 +244,18 @@ void Main::drawStretchPic(float x, float y, float w, float h, float s1, float t1
 
 void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const byte *data, int client, bool dirty)
 {
-	// Make sure rows and cols are powers of 2.
 	if (!math::IsPowerOfTwo(cols) || !math::IsPowerOfTwo(rows))
 	{
 		ri.Error(ERR_DROP, "Draw_StretchRaw: size not a power of 2: %i by %i", cols, rows);
 	}
 
-	// Upload texture
 	uploadCinematic(w, h, cols, rows, data, client, dirty);
-
-	// Setup view
-	const uint8_t viewId = pushView(ViewFlags::None, vec4(x, y, w, h), mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1));
-
-	// Fullscreen quad geometry
 	bgfx::setVertexBuffer(fsVertexBuffer_.handle, 0, 4);
 	bgfx::setIndexBuffer(fsIndexBuffer_.handle, 0, 6);
-
 	bgfx::setTexture(0, matStageUniforms_->diffuseMap.handle, textureCache->getScratchTextures()[client]->getHandle());
 	matStageUniforms_->color.set(vec4::white);
 	bgfx::setState(BGFX_STATE_RGB_WRITE);
+	const uint8_t viewId = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), vec4(x, y, w, h));
 	bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::TextureColor].handle);
 }
 
@@ -348,14 +341,11 @@ void Main::renderScene(const refdef_t *def)
 	isWorldCamera = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world.get();
 	renderCamera(mainVisCacheId, scenePosition, scenePosition, sceneRotation, vec4(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
 
+	// Blit the scene framebuffer color to the default framebuffer.
 	if (isWorldCamera)
 	{
-		bgfx::setVertexBuffer(fsVertexBuffer_.handle, 0, 4);
-		bgfx::setIndexBuffer(fsIndexBuffer_.handle, 0, 6);
-		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, mainFbColor_);
-		bgfx::setState(BGFX_STATE_RGB_WRITE);
-		const uint8_t linearDepthViewId = pushView(ViewFlags::OrthoNormalized);
-		bgfx::submit(linearDepthViewId, shaderPrograms_[ShaderProgramId::Fullscreen_Blit].handle);
+		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
+		renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE);
 	}
 
 	sceneDynamicLights_.clear();
@@ -414,41 +404,22 @@ bool Main::sampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, v
 	return true;
 }
 
-uint8_t Main::pushView(int flags, vec4 rect, const mat4 &viewMatrix, const mat4 &projectionMatrix)
+uint8_t Main::pushView(bgfx::FrameBufferHandle frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, vec4 rect)
 {
-	uint16_t clearFlags = BGFX_CLEAR_NONE;
-
-	if ((flags & ViewFlags::ClearDepth) != 0)
-	{
-		clearFlags |= BGFX_CLEAR_DEPTH;
-	}
-
-	// Need to clear color in wireframe.
-	if (firstFreeViewId_ == (cvars.softSprites->integer ? 1 : 0) && cvars.wireframe->integer != 0)
-	{
-		clearFlags |= BGFX_CLEAR_COLOR;
-	}
-
 	bgfx::setViewClear(firstFreeViewId_, clearFlags);
-	bgfx::setViewFrameBuffer(firstFreeViewId_, BGFX_INVALID_HANDLE);
-	bgfx::setViewSeq(firstFreeViewId_, true);
+	bgfx::setViewFrameBuffer(firstFreeViewId_, frameBuffer);
 
-	if ((flags & ViewFlags::Ortho) != 0)
+	if (rect.equals(vec4::empty))
 	{
-		bgfx::setViewRect(firstFreeViewId_, 0, 0, glConfig.vidWidth, glConfig.vidHeight);
-		bgfx::setViewTransform(firstFreeViewId_, NULL, mat4::orthographicProjection(0, glConfig.vidWidth, 0, glConfig.vidHeight, -1, 1).get());
-	}
-	else if ((flags & ViewFlags::OrthoNormalized) != 0)
-	{
-		bgfx::setViewRect(firstFreeViewId_, 0, 0, glConfig.vidWidth, glConfig.vidHeight);
-		bgfx::setViewTransform(firstFreeViewId_, NULL, mat4::orthographicProjection(0, 1, 0, 1, -1, 1).get());
+		bgfx::setViewRect(firstFreeViewId_, 0, 0, (uint16_t)glConfig.vidWidth, (uint16_t)glConfig.vidHeight);
 	}
 	else
 	{
-		bgfx::setViewRect(firstFreeViewId_, (uint16_t)rect[0], (uint16_t)rect[1], (uint16_t)rect[2], (uint16_t)rect[3]);
-		bgfx::setViewTransform(firstFreeViewId_, viewMatrix.get(), projectionMatrix.get());
+		bgfx::setViewRect(firstFreeViewId_, uint16_t(rect.x), uint16_t(rect.y), uint16_t(rect.z), uint16_t(rect.w));
 	}
 
+	bgfx::setViewSeq(firstFreeViewId_, true);
+	bgfx::setViewTransform(firstFreeViewId_, viewMatrix.get(), projectionMatrix.get());
 	firstFreeViewId_++;
 	return firstFreeViewId_ - 1;
 }
@@ -457,13 +428,6 @@ void Main::flushStretchPics()
 {
 	if (!stretchPicIndices_.empty())
 	{
-		// Set time for 2D materials.
-		time_ = ri.Milliseconds();
-		floatTime_ = time_ * 0.001f;
-
-		// Setup view.
-		const uint8_t viewId = pushView(ViewFlags::Ortho);
-
 		bgfx::TransientVertexBuffer tvb;
 		bgfx::TransientIndexBuffer tib;
 
@@ -475,7 +439,10 @@ void Main::flushStretchPics()
 		{
 			memcpy(tvb.data, &stretchPicVertices_[0], sizeof(Vertex) * stretchPicVertices_.size());
 			memcpy(tib.data, &stretchPicIndices_[0], sizeof(uint16_t) * stretchPicIndices_.size());
+			time_ = ri.Milliseconds();
+			floatTime_ = time_ * 0.001f;
 			matUniforms_->time.set(vec4(stretchPicMaterial_->setTime(floatTime_), 0, 0, 0));
+			const uint8_t viewId = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, glConfig.vidWidth, 0, glConfig.vidHeight, -1, 1));
 
 			for (const MaterialStage &stage : stretchPicMaterial_->stages)
 			{
@@ -746,8 +713,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	if (isWorldCamera)
 	{
 		// Render depth.
-		const uint8_t viewId = pushView(ViewFlags::ClearDepth, rect, viewMatrix, projectionMatrix);
-		bgfx::setViewFrameBuffer(viewId, mainFb_);
+		const uint8_t viewId = pushView(sceneFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect);
 
 		for (DrawCall &dc : drawCalls_)
 		{
@@ -796,25 +762,19 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 		// Read depth, write linear depth.
 		uniforms_->depthRange.set(vec4(0, 0, zMin, zMax));
-		bgfx::setVertexBuffer(fsVertexBuffer_.handle, 0, 4);
-		bgfx::setIndexBuffer(fsIndexBuffer_.handle, 0, 6);
-		bgfx::setTexture(MaterialTextureBundleIndex::Depth, matStageUniforms_->depthSampler.handle, mainFbDepth_);
-		bgfx::setState(BGFX_STATE_RGB_WRITE);
-		const uint8_t linearDepthViewId = pushView(ViewFlags::OrthoNormalized);
-		bgfx::setViewFrameBuffer(linearDepthViewId, linearDepthFb_);
-		bgfx::submit(linearDepthViewId, shaderPrograms_[ShaderProgramId::Fullscreen_LinearDepth].handle);
+		bgfx::setTexture(MaterialTextureBundleIndex::Depth, matStageUniforms_->depthSampler.handle, sceneFbDepth_);
+		renderFullscreenQuad(linearDepthFb_, ShaderProgramId::Fullscreen_LinearDepth, BGFX_STATE_RGB_WRITE);
 	}
 
 	uint8_t mainViewId;
 	
 	if (isWorldCamera)
 	{
-		mainViewId = pushView(0, rect, viewMatrix, projectionMatrix);
-		bgfx::setViewFrameBuffer(mainViewId, mainFb_);
+		mainViewId = pushView(sceneFb_, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, rect);
 	}
 	else
 	{
-		mainViewId = pushView(ViewFlags::ClearDepth, rect, viewMatrix, projectionMatrix);
+		mainViewId = pushView(defaultFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect);
 	}
 
 	for (DrawCall &dc : drawCalls_)
@@ -952,6 +912,15 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 		currentEntity = nullptr;
 	}
+}
+
+void Main::renderFullscreenQuad(bgfx::FrameBufferHandle frameBuffer, ShaderProgramId::Enum program, uint64_t state)
+{
+	bgfx::setVertexBuffer(fsVertexBuffer_.handle, 0, 4);
+	bgfx::setIndexBuffer(fsIndexBuffer_.handle, 0, 6);
+	bgfx::setState(state);
+	const uint8_t viewId = pushView(frameBuffer, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1));
+	bgfx::submit(viewId, shaderPrograms_[program].handle);
 }
 
 void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity)

@@ -219,6 +219,8 @@ static void Cmd_ScreenshotPNG()
 	TakeScreenshot("png");
 }
 
+const bgfx::FrameBufferHandle Main::defaultFb_ = BGFX_INVALID_HANDLE;
+
 Main::Main()
 {
 	ri.Cmd_AddCommand("screenshot", Cmd_Screenshot);
@@ -262,7 +264,7 @@ Main::Main()
 
 Main::~Main()
 {
-	bgfx::destroyFrameBuffer(mainFb_);
+	bgfx::destroyFrameBuffer(sceneFb_);
 	bgfx::destroyFrameBuffer(linearDepthFb_);
 	ri.Cmd_RemoveCommand("screenshot");
 	ri.Cmd_RemoveCommand("screenshotJPEG");
@@ -436,10 +438,10 @@ void Main::initialize()
 	fsIndexBuffer_.handle = bgfx::createIndexBuffer(indicesMem);
 
 	// Create depth prepass framebuffer.
-	mainFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT);
-	mainFbDepth_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
-	bgfx::TextureHandle depthPrepassTextures[] = { mainFbColor_, mainFbDepth_ };
-	mainFb_ = bgfx::createFrameBuffer(2, depthPrepassTextures, true);
+	sceneFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT);
+	sceneFbDepth_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
+	bgfx::TextureHandle depthPrepassTextures[] = { sceneFbColor_, sceneFbDepth_ };
+	sceneFb_ = bgfx::createFrameBuffer(2, depthPrepassTextures, true);
 	linearDepthFb_ = bgfx::createFrameBuffer(glConfig.vidWidth, glConfig.vidHeight, bgfx::TextureFormat::R16F);
 }
 

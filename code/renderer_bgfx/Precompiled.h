@@ -1338,79 +1338,6 @@ public:
 	const uint8_t *externalVisData = nullptr;
 
 private:
-	struct ViewFlags
-	{
-		enum
-		{
-			None = 0,
-			ClearDepth = BIT(0),
-
-			/// Ignores rect and matrices; sets up a fullscreen orthographic view.
-			Ortho = BIT(1),
-
-			OrthoNormalized = BIT(2)
-		};
-	};
-
-	uint8_t pushView(int flags = ViewFlags::None, vec4 rect = vec4::empty, const mat4 &viewMatrix = mat4::identity, const mat4 &projectionMatrix = mat4::identity);
-	void flushStretchPics();
-	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, vec4 rect, vec2 fov, const uint8_t *areaMask);
-	void renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
-	void renderLightningEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
-	void renderRailCoreEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
-	void renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3 up, float length, float spanWidth, Material *mat, vec4 color, Entity *entity);
-	void renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity);
-	void renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Entity *entity);
-	void setupEntityLighting(Entity *entity);
-
-	static const int maxFonts_ = 6;
-	int nFonts_ = 0;
-	fontInfo_t fonts_[maxFonts_];
-
-	int time_ = 0;
-	float floatTime_ = 0;
-
-	/// Incremented everytime endFrame() is called
-	int frameNo_ = 0;
-
-	uint16_t debugTextY = 0;
-	vec4 stretchPicColor_;
-	Material *stretchPicMaterial_ = nullptr;
-	std::vector<Vertex> stretchPicVertices_;
-	std::vector<uint16_t> stretchPicIndices_;
-	uint8_t mainVisCacheId, portalVisCacheId;
-	std::vector<Entity> sceneEntities_;
-
-	struct Polygon
-	{
-		Material *material;
-		int fogIndex;
-		size_t firstVertex, nVertices;
-	};
-
-	std::vector<DynamicLight> sceneDynamicLights_;
-	std::vector<Polygon> scenePolygons_;
-	std::vector<Polygon *> sortedScenePolygons_;
-	std::vector<polyVert_t> scenePolygonVertices_;
-	DrawCallList drawCalls_;
-	VertexBuffer fsVertexBuffer_;
-	IndexBuffer fsIndexBuffer_;
-
-	Frustum cameraFrustum_;
-
-	/// @remarks Resets to 0 every frame.
-	uint8_t firstFreeViewId_ = 0;
-
-	bgfx::FrameBufferHandle mainFb_;
-	bgfx::TextureHandle mainFbColor_;
-	bgfx::TextureHandle mainFbDepth_;
-	bgfx::FrameBufferHandle linearDepthFb_;
-
-	std::unique_ptr<Uniforms> uniforms_;
-	std::unique_ptr<Uniforms_Entity> entityUniforms_;
-	std::unique_ptr<Uniforms_Material> matUniforms_;
-	std::unique_ptr<Uniforms_MaterialStage> matStageUniforms_;
-
 	struct FragmentShaderId
 	{
 		enum Enum
@@ -1458,6 +1385,74 @@ private:
 			Num
 		};
 	};
+
+	uint8_t pushView(bgfx::FrameBufferHandle frameBuffer = defaultFb_, uint16_t clearFlags = BGFX_CLEAR_NONE, const mat4 &viewMatrix = mat4::identity, const mat4 &projectionMatrix = mat4::identity, vec4 rect = vec4::empty);
+	void flushStretchPics();
+	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, vec4 rect, vec2 fov, const uint8_t *areaMask);
+	void renderFullscreenQuad(bgfx::FrameBufferHandle frameBuffer, ShaderProgramId::Enum program, uint64_t state);
+
+	/// @name Entity rendering
+	/// @{
+	void renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
+	void renderLightningEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
+	void renderRailCoreEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
+	void renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3 up, float length, float spanWidth, Material *mat, vec4 color, Entity *entity);
+	void renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity);
+	void renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Entity *entity);
+	void setupEntityLighting(Entity *entity);
+	/// @}
+
+	static const int maxFonts_ = 6;
+	int nFonts_ = 0;
+	fontInfo_t fonts_[maxFonts_];
+
+	int time_ = 0;
+	float floatTime_ = 0;
+
+	/// Incremented everytime endFrame() is called
+	int frameNo_ = 0;
+
+	uint16_t debugTextY = 0;
+	vec4 stretchPicColor_;
+	Material *stretchPicMaterial_ = nullptr;
+	std::vector<Vertex> stretchPicVertices_;
+	std::vector<uint16_t> stretchPicIndices_;
+	uint8_t mainVisCacheId, portalVisCacheId;
+	std::vector<Entity> sceneEntities_;
+
+	struct Polygon
+	{
+		Material *material;
+		int fogIndex;
+		size_t firstVertex, nVertices;
+	};
+
+	std::vector<DynamicLight> sceneDynamicLights_;
+	std::vector<Polygon> scenePolygons_;
+	std::vector<Polygon *> sortedScenePolygons_;
+	std::vector<polyVert_t> scenePolygonVertices_;
+	DrawCallList drawCalls_;
+	VertexBuffer fsVertexBuffer_;
+	IndexBuffer fsIndexBuffer_;
+
+	Frustum cameraFrustum_;
+
+	/// @remarks Resets to 0 every frame.
+	uint8_t firstFreeViewId_ = 0;
+
+	/// @name Framebuffers
+	/// @{
+	static const bgfx::FrameBufferHandle defaultFb_;
+	bgfx::FrameBufferHandle sceneFb_;
+	bgfx::TextureHandle sceneFbColor_;
+	bgfx::TextureHandle sceneFbDepth_;
+	bgfx::FrameBufferHandle linearDepthFb_;
+	/// @}
+
+	std::unique_ptr<Uniforms> uniforms_;
+	std::unique_ptr<Uniforms_Entity> entityUniforms_;
+	std::unique_ptr<Uniforms_Material> matUniforms_;
+	std::unique_ptr<Uniforms_MaterialStage> matStageUniforms_;
 
 	std::array<Shader, FragmentShaderId::Num> fragmentShaders_;
 	std::array<Shader, VertexShaderId::Num> vertexShaders_;
