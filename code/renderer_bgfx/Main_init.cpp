@@ -123,6 +123,7 @@ ConsoleVariables::ConsoleVariables()
 
 	bgfx_stats = ri.Cvar_Get("r_bgfx_stats", "0", CVAR_CHEAT);
 	debugText = ri.Cvar_Get("r_debugText", "0", CVAR_CHEAT);
+	highPerformance = ri.Cvar_Get("r_highPerformance", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	maxAnisotropy = ri.Cvar_Get("r_maxAnisotropy", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	msaa = ri.Cvar_Get("r_msaa", "4", CVAR_ARCHIVE | CVAR_LATCH);
 	overBrightBits = ri.Cvar_Get ("r_overBrightBits", "1", CVAR_ARCHIVE | CVAR_LATCH);
@@ -264,8 +265,12 @@ Main::Main()
 
 Main::~Main()
 {
-	bgfx::destroyFrameBuffer(sceneFb_);
-	bgfx::destroyFrameBuffer(linearDepthFb_);
+	if (!cvars.highPerformance->integer)
+	{
+		bgfx::destroyFrameBuffer(sceneFb_);
+		bgfx::destroyFrameBuffer(linearDepthFb_);
+	}
+
 	ri.Cmd_RemoveCommand("screenshot");
 	ri.Cmd_RemoveCommand("screenshotJPEG");
 	ri.Cmd_RemoveCommand("screenshotPNG");
@@ -437,12 +442,14 @@ void Main::initialize()
 	indices[3] = 2; indices[4] = 3; indices[5] = 0;
 	fsIndexBuffer_.handle = bgfx::createIndexBuffer(indicesMem);
 
-	// Create depth prepass framebuffer.
-	sceneFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT);
-	sceneFbDepth_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
-	bgfx::TextureHandle depthPrepassTextures[] = { sceneFbColor_, sceneFbDepth_ };
-	sceneFb_ = bgfx::createFrameBuffer(2, depthPrepassTextures, true);
-	linearDepthFb_ = bgfx::createFrameBuffer(glConfig.vidWidth, glConfig.vidHeight, bgfx::TextureFormat::R16F);
+	if (!cvars.highPerformance->integer)
+	{
+		sceneFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT);
+		sceneFbDepth_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
+		bgfx::TextureHandle depthPrepassTextures[] = { sceneFbColor_, sceneFbDepth_ };
+		sceneFb_ = bgfx::createFrameBuffer(2, depthPrepassTextures, true);
+		linearDepthFb_ = bgfx::createFrameBuffer(glConfig.vidWidth, glConfig.vidHeight, bgfx::TextureFormat::R16F);
+	}
 }
 
 static int Font_ReadInt(const uint8_t *data, int *offset)

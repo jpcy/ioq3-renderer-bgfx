@@ -94,6 +94,7 @@ struct ConsoleVariables
 	cvar_t *backend;
 	cvar_t *bgfx_stats;
 	cvar_t *debugText;
+	cvar_t *highPerformance;
 	cvar_t *maxAnisotropy;
 	cvar_t *msaa;
 	cvar_t *overBrightBits;

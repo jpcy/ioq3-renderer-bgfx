@@ -27,6 +27,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+#define SOFT_SPRITES_ENABLED (!cvars.highPerformance->integer && cvars.softSprites->integer)
+
 namespace renderer {
 
 std::array<Vertex *, 4> ExtractQuadCorners(Vertex *vertices, const uint16_t *indices)
@@ -343,7 +345,7 @@ void Main::renderScene(const refdef_t *def)
 	renderCamera(mainVisCacheId, scenePosition, scenePosition, sceneRotation, vec4(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
 
 	// Blit the scene framebuffer color to the default framebuffer.
-	if (isWorldCamera)
+	if (!cvars.highPerformance->integer && isWorldCamera)
 	{
 		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
 		renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE);
@@ -716,7 +718,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	uniforms_->dlightColors.set(dlightColors, DynamicLight::max);
 	uniforms_->dlightPositions.set(dlightPositions, DynamicLight::max);
 	
-	if (isWorldCamera)
+	if (!cvars.highPerformance->integer && isWorldCamera)
 	{
 		// Render depth.
 		const uint8_t viewId = pushView(sceneFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect);
@@ -774,7 +776,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 	uint8_t mainViewId;
 	
-	if (isWorldCamera)
+	if (!cvars.highPerformance->integer && isWorldCamera)
 	{
 		mainViewId = pushView(sceneFb_, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, rect);
 	}
@@ -868,7 +870,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			ShaderProgramId::Enum shaderProgram;
 			uint64_t state = dc.state | stage.getState();
 
-			if (cvars.softSprites->integer && dc.softSpriteDepth > 0)
+			if (SOFT_SPRITES_ENABLED && dc.softSpriteDepth > 0)
 			{
 				shaderProgram = ShaderProgramId::Generic_SoftSprite;
 				bgfx::setTexture(MaterialTextureBundleIndex::Depth, matStageUniforms_->textures[MaterialTextureBundleIndex::Depth]->handle, linearDepthFb_);
@@ -1204,15 +1206,10 @@ void Main::renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Ent
 	indices[3] = 3; indices[4] = 1; indices[5] = 2;
 
 	DrawCall dc;
-
-	if (g_main->cvars.softSprites->integer)
-	{
-		dc.softSpriteDepth = entity->e.radius / 2.0f;
-	}
-
 	dc.entity = entity;
 	dc.fogIndex = isWorldCamera ? world->findFogIndex(entity->e.origin, entity->e.radius) : -1;
 	dc.material = materialCache->getMaterial(entity->e.customShader);
+	dc.softSpriteDepth = entity->e.radius / 2.0f;
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
 	dc.vb.nVertices = nVertices;
