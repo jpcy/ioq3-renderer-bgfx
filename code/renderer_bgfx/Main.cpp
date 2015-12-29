@@ -327,6 +327,7 @@ void Main::addPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts
 void Main::renderScene(const refdef_t *def)
 {
 	flushStretchPics();
+	stretchPicViewId_ = UINT8_MAX;
 	time_ = def->time;
 	floatTime_ = def->time * 0.001f;
 	
@@ -366,6 +367,7 @@ void Main::endFrame()
 	}
 
 	flushStretchPics();
+	stretchPicViewId_ = UINT8_MAX;
 	bgfx::frame();
 
 	if (cvars.wireframe->modified || cvars.bgfx_stats->modified || cvars.debugText->modified)
@@ -442,7 +444,11 @@ void Main::flushStretchPics()
 			time_ = ri.Milliseconds();
 			floatTime_ = time_ * 0.001f;
 			matUniforms_->time.set(vec4(stretchPicMaterial_->setTime(floatTime_), 0, 0, 0));
-			const uint8_t viewId = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, glConfig.vidWidth, 0, glConfig.vidHeight, -1, 1));
+
+			if (stretchPicViewId_ == UINT8_MAX)
+			{
+				stretchPicViewId_ = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, glConfig.vidWidth, 0, glConfig.vidHeight, -1, 1));
+			}
 
 			for (const MaterialStage &stage : stretchPicMaterial_->stages)
 			{
@@ -460,7 +466,7 @@ void Main::flushStretchPics()
 				bgfx::setState(state);
 				bgfx::setVertexBuffer(&tvb);
 				bgfx::setIndexBuffer(&tib);
-				bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Generic].handle);
+				bgfx::submit(stretchPicViewId_, shaderPrograms_[ShaderProgramId::Generic].handle);
 			}
 		}
 	}

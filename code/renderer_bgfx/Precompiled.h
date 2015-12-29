@@ -1413,10 +1413,16 @@ private:
 	int frameNo_ = 0;
 
 	uint16_t debugTextY = 0;
+
+	/// @name Stretchpic
+	/// @{
 	vec4 stretchPicColor_;
 	Material *stretchPicMaterial_ = nullptr;
+	uint8_t stretchPicViewId_ = UINT8_MAX;
 	std::vector<Vertex> stretchPicVertices_;
 	std::vector<uint16_t> stretchPicIndices_;
+	/// @}
+
 	uint8_t mainVisCacheId, portalVisCacheId;
 	std::vector<Entity> sceneEntities_;
 
