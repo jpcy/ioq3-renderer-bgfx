@@ -331,6 +331,9 @@ void Main::initialize()
 	}
 
 	bgfx::reset(glConfig.vidWidth, glConfig.vidHeight, resetFlags);
+	const bgfx::RendererType::Enum backend = bgfx::getCaps()->rendererType;
+	halfTexelOffset_ = backend == bgfx::RendererType::Direct3D9 ? 0.5f : 0;
+	isTextureOriginBottomLeft_ = backend == bgfx::RendererType::OpenGL || backend == bgfx::RendererType::OpenGLES;
 	glConfig.maxTextureSize = bgfx::getCaps()->maxTextureSize;
 	Vertex::init();
 	uniforms_ = std::make_unique<Uniforms>();
@@ -344,7 +347,6 @@ void Main::initialize()
 	// Map shader ids to shader sources.
 	std::array<const bgfx::Memory *, FragmentShaderId::Num> fragMem;
 	std::array<const bgfx::Memory *, VertexShaderId::Num> vertMem;
-	const bgfx::RendererType::Enum backend = bgfx::getCaps()->rendererType;
 	#define MR(name) bgfx::makeRef(name, sizeof(name))
 	#define SHADER_MEM(backend) \
 	fragMem[FragmentShaderId::Depth] = MR(Depth_fragment_##backend);                                   \

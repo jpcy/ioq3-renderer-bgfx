@@ -1391,7 +1391,7 @@ private:
 	uint8_t pushView(bgfx::FrameBufferHandle frameBuffer = defaultFb_, uint16_t clearFlags = BGFX_CLEAR_NONE, const mat4 &viewMatrix = mat4::identity, const mat4 &projectionMatrix = mat4::identity, vec4 rect = vec4::empty);
 	void flushStretchPics();
 	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, vec4 rect, vec2 fov, const uint8_t *areaMask);
-	void renderFullscreenQuad(bgfx::FrameBufferHandle frameBuffer, ShaderProgramId::Enum program, uint64_t state);
+	void renderFullscreenQuad(bgfx::FrameBufferHandle frameBuffer, ShaderProgramId::Enum program, uint64_t state, bool originBottomLeft = false, int textureWidth = 0, int textureHeight = 0);
 
 	/// @name Entity rendering
 	/// @{
@@ -1415,6 +1415,9 @@ private:
 	int frameNo_ = 0;
 
 	uint16_t debugTextY = 0;
+
+	float halfTexelOffset_ = 0;
+	bool isTextureOriginBottomLeft_ = false;
 
 	/// @name Stretchpic
 	/// @{

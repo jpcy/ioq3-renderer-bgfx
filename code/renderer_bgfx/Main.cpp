@@ -19,6 +19,10 @@ along with Quake III Arena source code; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
 */
+/*
+ * Copyright 2011-2015 Branimir Karadzic. All rights reserved.
+ * License: http://www.opensource.org/licenses/BSD-2-Clause
+ */
 #include "Precompiled.h"
 #pragma hdrstop
 
@@ -948,10 +952,53 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	}
 }
 
-void Main::renderFullscreenQuad(bgfx::FrameBufferHandle frameBuffer, ShaderProgramId::Enum program, uint64_t state)
+// From bgfx screenSpaceQuad.
+void Main::renderFullscreenQuad(bgfx::FrameBufferHandle frameBuffer, ShaderProgramId::Enum program, uint64_t state, bool originBottomLeft, int textureWidth, int textureHeight)
 {
-	bgfx::setVertexBuffer(fsVertexBuffer_.handle, 0, 4);
-	bgfx::setIndexBuffer(fsIndexBuffer_.handle, 0, 6);
+	if (!bgfx::checkAvailTransientVertexBuffer(3, Vertex::decl))
+	{
+		WarnOnce(WarnOnceId::TransientBuffer);
+		return;
+	}
+
+	textureWidth = textureWidth == 0 ? glConfig.vidWidth : textureWidth;
+	textureHeight = textureHeight == 0 ? glConfig.vidHeight : textureHeight;
+	const float width = 1.0f;
+	const float height = 1.0f;
+	const float zz = 0.0f;
+	const float minx = -width;
+	const float maxx =  width;
+	const float miny = 0.0f;
+	const float maxy = height*2.0f;
+	const float texelHalfW = halfTexelOffset_ / textureWidth;
+	const float texelHalfH = halfTexelOffset_ / textureHeight;
+	const float minu = -1.0f + texelHalfW;
+	const float maxu =  1.0f + texelHalfW;
+	float minv = texelHalfH;
+	float maxv = 2.0f + texelHalfH;
+
+	if (originBottomLeft)
+	{
+		float temp = minv;
+		minv = maxv;
+		maxv = temp;
+		minv -= 1.0f;
+		maxv -= 1.0f;
+	}
+
+	bgfx::TransientVertexBuffer vb;
+	bgfx::allocTransientVertexBuffer(&vb, 3, Vertex::decl);
+	auto vertices = (Vertex *)vb.data;
+	vertices[0].pos = vec3(minx, miny, zz);
+	vertices[0].color = vec4::white;
+	vertices[0].texCoord = vec2(minu, minv);
+	vertices[1].pos = vec3(maxx, miny, zz);
+	vertices[1].color = vec4::white;
+	vertices[1].texCoord = vec2(maxu, minv);
+	vertices[2].pos = vec3(maxx, maxy, zz);
+	vertices[2].color = vec4::white;
+	vertices[2].texCoord = vec2(maxu, maxv);
+	bgfx::setVertexBuffer(&vb);
 	bgfx::setState(state);
 	const uint8_t viewId = pushView(frameBuffer, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1));
 	bgfx::submit(viewId, shaderPrograms_[program].handle);
