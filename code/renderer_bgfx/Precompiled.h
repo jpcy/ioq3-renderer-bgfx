@@ -100,6 +100,7 @@ struct ConsoleVariables
 	cvar_t *overBrightBits;
 	cvar_t *picmip;
 	cvar_t *screenshotJpegQuality;
+	cvar_t *showDepth;
 	cvar_t *softSprites;
 	cvar_t *wireframe;
 

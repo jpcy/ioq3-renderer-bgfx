@@ -27,6 +27,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+#define SHOW_DEPTH_ENABLED (!cvars.highPerformance->integer && cvars.showDepth->integer)
 #define SOFT_SPRITES_ENABLED (!cvars.highPerformance->integer && cvars.softSprites->integer)
 
 namespace renderer {
@@ -350,9 +351,15 @@ void Main::renderScene(const refdef_t *def)
 	isWorldCamera = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world.get();
 	renderCamera(mainVisCacheId, scenePosition, scenePosition, sceneRotation, vec4(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
 
-	// Blit the scene framebuffer color to the default framebuffer.
-	if (!cvars.highPerformance->integer && isWorldCamera)
+	if (SHOW_DEPTH_ENABLED)
 	{
+		// Blit the linear depth framebuffer to the default framebuffer.
+		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, linearDepthFb_);
+		renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE);
+	}
+	else if (!cvars.highPerformance->integer && isWorldCamera)
+	{
+		// Blit the scene framebuffer color to the default framebuffer.
 		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
 		renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE);
 	}
@@ -416,7 +423,18 @@ bool Main::sampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, v
 
 uint8_t Main::pushView(bgfx::FrameBufferHandle frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, vec4 rect)
 {
-	bgfx::setViewClear(firstFreeViewId_, clearFlags);
+	// Useful for debugging, can be disabled for performance later.
+#if 1
+	if (firstFreeViewId_ == 0)
+	{
+		bgfx::setViewClear(firstFreeViewId_, clearFlags | BGFX_CLEAR_COLOR, 0xff00ffff);
+	}
+	else
+#endif
+	{
+		bgfx::setViewClear(firstFreeViewId_, clearFlags);
+	}
+
 	bgfx::setViewFrameBuffer(firstFreeViewId_, frameBuffer);
 
 	if (rect.equals(vec4::empty))
@@ -758,11 +776,13 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			bgfx::setTransform(dc.modelMatrix.get());
 			uint64_t state = BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_DEPTH_WRITE | BGFX_STATE_MSAA;
 
+			// Grab the cull state. Doesn't matter which stage, since it's global to the material.
+			state |= mat->stages[0].getState() & BGFX_STATE_CULL_MASK;
+
 			if (alphaTestStage)
 			{
 				alphaTestStage->setShaderUniforms(matStageUniforms_.get(), MaterialStageSetUniformsFlags::TexGen);
 				alphaTestStage->setTextureSamplers(matStageUniforms_.get());
-				state |= alphaTestStage->getState() & BGFX_STATE_CULL_MASK; // Grab the cull state.
 				bgfx::setState(state);
 				bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Depth_AlphaTest].handle);
 			}

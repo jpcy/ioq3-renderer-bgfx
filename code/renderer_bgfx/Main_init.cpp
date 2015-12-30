@@ -131,6 +131,7 @@ ConsoleVariables::ConsoleVariables()
 	ri.Cvar_CheckRange(picmip, 0, 16, qtrue);
 	softSprites = ri.Cvar_Get("r_softSprites", "0", CVAR_ARCHIVE);
 	screenshotJpegQuality = ri.Cvar_Get("r_screenshotJpegQuality", "90", CVAR_ARCHIVE);
+	showDepth = ri.Cvar_Get("r_showDepth", "0", CVAR_ARCHIVE | CVAR_CHEAT);
 	wireframe = ri.Cvar_Get("r_wireframe", "0", CVAR_CHEAT);
 
 	// Window
