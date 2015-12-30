@@ -447,7 +447,7 @@ void Main::initialize()
 
 	if (!cvars.highPerformance->integer)
 	{
-		sceneFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT);
+		sceneFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT|BGFX_TEXTURE_U_CLAMP|BGFX_TEXTURE_V_CLAMP);
 		sceneFbDepth_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
 		bgfx::TextureHandle depthPrepassTextures[] = { sceneFbColor_, sceneFbDepth_ };
 		sceneFb_ = bgfx::createFrameBuffer(2, depthPrepassTextures, true);
