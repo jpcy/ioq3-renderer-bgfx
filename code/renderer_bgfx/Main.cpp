@@ -117,18 +117,25 @@ static void ImageWriteCallbackConst(void *context, const void *data, int size)
 
 void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _height, uint32_t _pitch, const void* _data, uint32_t _size, bool _yflip)
 {
+	const int nComponents = 4;
+	const char *extension = COM_GetExtension(_filePath);
+	const bool writeAsPng = !Q_stricmp(extension, "png");
+	const size_t outputPitch = writeAsPng ? _pitch : _width * nComponents; // PNG can use any pitch, others can't.
+
 	// Convert from BGRA to RGBA, and flip y if needed.
-	if (screenShotDataBuffer_.size() < _size)
+	const size_t requiredSize = outputPitch * _height;
+
+	if (screenShotDataBuffer_.size() < requiredSize)
 	{
-		screenShotDataBuffer_.resize(_size);
+		screenShotDataBuffer_.resize(requiredSize);
 	}
 
 	for (uint32_t y = 0; y < _height; y++)
 	{
 		for (uint32_t x = 0; x < _width; x++)
 		{
-			auto colorIn = &((const uint8_t *)_data)[x * 4 + (_yflip ? _height - 1 - y : y) * _pitch];
-			uint8_t *colorOut = &screenShotDataBuffer_[x * 4 + y * _pitch];
+			auto colorIn = &((const uint8_t *)_data)[x * nComponents + (_yflip ? _height - 1 - y : y) * _pitch];
+			uint8_t *colorOut = &screenShotDataBuffer_[x * nComponents + y * outputPitch];
 			colorOut[0] = colorIn[2];
 			colorOut[1] = colorIn[1];
 			colorOut[2] = colorIn[0];
@@ -137,14 +144,13 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 	}
 
 	// Write to file buffer.
-	const char *extension = COM_GetExtension(_filePath);
 	ImageWriteBuffer buffer;
 	buffer.data = &screenShotFileBuffer_;
 	buffer.bytesWritten = 0;
 
-	if (!Q_stricmp(extension, "png"))
+	if (writeAsPng)
 	{
-		if (!stbi_write_png_to_func(ImageWriteCallback, &buffer, _width, _height, _pitch / _width, screenShotDataBuffer_.data(), _pitch))
+		if (!stbi_write_png_to_func(ImageWriteCallback, &buffer, _width, _height, nComponents, screenShotDataBuffer_.data(), outputPitch))
 		{
 			ri.Printf(PRINT_ALL, "Screenshot: error writing png file\n");
 			return;
@@ -152,7 +158,7 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 	}
 	else if (!Q_stricmp(extension, "jpg"))
 	{
-		if (!jo_write_jpg_to_func(ImageWriteCallbackConst, &buffer, screenShotDataBuffer_.data(), _width, _height, _pitch / _width, g_main->cvars.screenshotJpegQuality->integer))
+		if (!jo_write_jpg_to_func(ImageWriteCallbackConst, &buffer, screenShotDataBuffer_.data(), _width, _height, nComponents, g_main->cvars.screenshotJpegQuality->integer))
 		{
 			ri.Printf(PRINT_ALL, "Screenshot: error writing jpg file\n");
 			return;
@@ -160,7 +166,7 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 	}
 	else
 	{
-		if (!stbi_write_tga_to_func(ImageWriteCallback, &buffer, _width, _height, _pitch / _width, screenShotDataBuffer_.data()))
+		if (!stbi_write_tga_to_func(ImageWriteCallback, &buffer, _width, _height, nComponents, screenShotDataBuffer_.data()))
 		{
 			ri.Printf(PRINT_ALL, "Screenshot: error writing tga file\n");
 			return;
