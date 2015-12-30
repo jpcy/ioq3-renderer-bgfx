@@ -759,6 +759,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (mat->sort != MaterialSort::Opaque)
 				continue;
 
+			currentEntity = dc.entity;
 			matUniforms_->time.set(vec4(mat->setTime(floatTime_), 0, 0, 0));
 			const mat4 modelViewMatrix(viewMatrix * dc.modelMatrix);
 			uniforms_->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
@@ -796,6 +797,8 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				bgfx::setState(state);
 				bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Depth].handle);
 			}
+
+			currentEntity = nullptr;
 		}
 
 		// Read depth, write linear depth.
