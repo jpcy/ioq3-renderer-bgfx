@@ -908,7 +908,15 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 			if (SOFT_SPRITES_ENABLED && dc.softSpriteDepth > 0)
 			{
-				shaderProgram = ShaderProgramId::Generic_SoftSprite;
+				if (stage.alphaTest != MaterialAlphaTest::None)
+				{
+					shaderProgram = ShaderProgramId::Generic_AlphaTestSoftSprite;
+				}
+				else
+				{
+					shaderProgram = ShaderProgramId::Generic_SoftSprite;
+				}
+
 				bgfx::setTexture(MaterialTextureBundleIndex::Depth, matStageUniforms_->textures[MaterialTextureBundleIndex::Depth]->handle, linearDepthFb_);
 				uniforms_->softSpriteDepth.set(dc.softSpriteDepth);
 

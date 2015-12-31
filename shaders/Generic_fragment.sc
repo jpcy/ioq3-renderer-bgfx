@@ -55,6 +55,23 @@ void main()
 	vec4 diffuse = texture2D(u_DiffuseMap, v_texcoord0);
 	float alpha = diffuse.a * v_color0.a;
 
+#if defined(USE_SOFT_SPRITE)
+	// Normalized linear depths.
+	float sceneDepth = texture2D(u_DepthMap, gl_FragCoord.xy * u_viewTexel.xy).r;
+
+	// GL uses -1 to 1 NDC. D3D uses 0 to 1.
+#if BGFX_SHADER_LANGUAGE_HLSL
+	float fragmentDepth = ToLinearDepth(v_projPosition.z / v_projPosition.w, u_DepthRange.z, u_DepthRange.w);
+#else
+	float fragmentDepth = ToLinearDepth(v_projPosition.z / v_projPosition.w * 0.5 + 0.5, u_DepthRange.z, u_DepthRange.w);
+#endif
+
+	// Depth change in worldspace.
+	float wsDelta = (sceneDepth - fragmentDepth) * (u_DepthRange.w - u_DepthRange.z);
+
+	alpha *= saturate(wsDelta / u_SoftSpriteDepth.x);
+#endif
+
 #if defined(USE_ALPHA_TEST)
 	if (int(u_AlphaTest.x) == ATEST_GT_0)
 	{
@@ -72,6 +89,8 @@ void main()
 			discard;
 	}
 #endif
+
+	gl_FragColor.a = alpha;
 
 	if (int(u_LightType.x) == LIGHT_MAP)
 	{
@@ -99,23 +118,4 @@ void main()
 			gl_FragColor.rgb += diffuse.rgb * v_color0.rgb * (color * attenuation * Lambert(v_normal.xyz, normalize(dir)));
 		}
 	}
-
-#if defined(USE_SOFT_SPRITE)
-	// Normalized linear depths.
-	float sceneDepth = texture2D(u_DepthMap, gl_FragCoord.xy * u_viewTexel.xy).r;
-
-	// GL uses -1 to 1 NDC. D3D uses 0 to 1.
-#if BGFX_SHADER_LANGUAGE_HLSL
-	float fragmentDepth = ToLinearDepth(v_projPosition.z / v_projPosition.w, u_DepthRange.z, u_DepthRange.w);
-#else
-	float fragmentDepth = ToLinearDepth(v_projPosition.z / v_projPosition.w * 0.5 + 0.5, u_DepthRange.z, u_DepthRange.w);
-#endif
-
-	// Depth change in worldspace.
-	float wsDelta = (sceneDepth - fragmentDepth) * (u_DepthRange.w - u_DepthRange.z);
-
-	alpha *= saturate(wsDelta / u_SoftSpriteDepth.x);
-#endif
-
-	gl_FragColor.a = alpha;
 }

@@ -1351,6 +1351,7 @@ private:
 			Fullscreen_LinearDepth,
 			Generic,
 			Generic_AlphaTest,
+			Generic_AlphaTestSoftSprite,
 			Generic_SoftSprite,
 			TextureColor,
 			Num
@@ -1383,6 +1384,7 @@ private:
 			Generic,
 			Generic_AlphaTest,
 			Generic_SoftSprite,
+			Generic_AlphaTestSoftSprite,
 			TextureColor,
 			Num
 		};

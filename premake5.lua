@@ -44,6 +44,7 @@ newaction
 			compileShader(BGFX_PATH, "Fullscreen", "vertex")
 			compileShader(BGFX_PATH, "Generic", "fragment")
 			compileShader(BGFX_PATH, "Generic", "fragment", "AlphaTest", "#define USE_ALPHA_TEST")
+			compileShader(BGFX_PATH, "Generic", "fragment", "AlphaTestSoftSprite", "#define USE_ALPHA_TEST\n#define USE_SOFT_SPRITE")
 			compileShader(BGFX_PATH, "Generic", "fragment", "SoftSprite", "#define USE_SOFT_SPRITE")
 			compileShader(BGFX_PATH, "Generic", "vertex")
 			compileShader(BGFX_PATH, "TextureColor", "fragment")
