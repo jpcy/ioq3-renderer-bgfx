@@ -359,13 +359,13 @@ void Main::renderScene(const refdef_t *def)
 	{
 		// Blit the linear depth framebuffer to the default framebuffer.
 		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, linearDepthFb_);
-		renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE);
+		renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 	}
 	else if (!cvars.highPerformance->integer && isWorldCamera)
 	{
 		// Blit the scene framebuffer color to the default framebuffer.
 		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
-		renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE);
+		renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 	}
 
 	sceneDynamicLights_.clear();
@@ -804,7 +804,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		// Read depth, write linear depth.
 		uniforms_->depthRange.set(vec4(0, 0, zMin, zMax));
 		bgfx::setTexture(MaterialTextureBundleIndex::Depth, matStageUniforms_->depthSampler.handle, sceneFbDepth_);
-		renderFullscreenQuad(linearDepthFb_, ShaderProgramId::Fullscreen_LinearDepth, BGFX_STATE_RGB_WRITE);
+		renderFullscreenQuad(linearDepthFb_, ShaderProgramId::Fullscreen_LinearDepth, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 	}
 
 	uint8_t mainViewId;
