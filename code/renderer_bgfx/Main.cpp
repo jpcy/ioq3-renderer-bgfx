@@ -350,22 +350,32 @@ void Main::renderScene(const refdef_t *def)
 	const int w = std::min(glConfig.vidWidth, x + def->width) - x;
 	const int h = std::min(glConfig.vidHeight, y + def->height) - y;
 
-	scenePosition = vec3(def->vieworg);
-	sceneRotation = mat3(def->viewaxis);
-	isWorldCamera = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world.get();
-	renderCamera(mainVisCacheId, scenePosition, scenePosition, sceneRotation, vec4(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
-
-	if (SHOW_DEPTH_ENABLED)
+	if (def->rdflags & RDF_HYPERSPACE)
 	{
-		// Blit the linear depth framebuffer to the default framebuffer.
-		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, linearDepthFb_);
-		renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+		const uint8_t c = time_ & 255;
+		const uint8_t viewId = pushView(defaultFb_, 0, mat4::identity, mat4::identity, vec4(x, y, w, h));
+		bgfx::setViewClear(viewId, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, (c<<24)|(c<<16)|(c<<8)|0xff);
+		bgfx::touch(viewId);
 	}
-	else if (!cvars.highPerformance->integer && isWorldCamera)
+	else
 	{
-		// Blit the scene framebuffer color to the default framebuffer.
-		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
-		renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+		scenePosition = vec3(def->vieworg);
+		sceneRotation = mat3(def->viewaxis);
+		isWorldCamera = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world.get();
+		renderCamera(mainVisCacheId, scenePosition, scenePosition, sceneRotation, vec4(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
+
+		if (SHOW_DEPTH_ENABLED)
+		{
+			// Blit the linear depth framebuffer to the default framebuffer.
+			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, linearDepthFb_);
+			renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+		}
+		else if (!cvars.highPerformance->integer && isWorldCamera)
+		{
+			// Blit the scene framebuffer color to the default framebuffer.
+			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
+			renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+		}
 	}
 
 	sceneDynamicLights_.clear();
@@ -377,16 +387,9 @@ void Main::renderScene(const refdef_t *def)
 
 void Main::endFrame()
 {
-	// Clear the screen if there's no active views.
-	if (firstFreeViewId_ == 0)
-	{
-		bgfx::setViewClear(0, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH);
-		bgfx::setViewRect(0, 0, 0, glConfig.vidWidth, glConfig.vidHeight);
-		bgfx::touch(0);
-	}
-
 	flushStretchPics();
 	stretchPicViewId_ = UINT8_MAX;
+	assert(firstFreeViewId_ != 0); // Should always be one active view.
 	bgfx::frame();
 
 	if (cvars.wireframe->modified || cvars.bgfx_stats->modified || cvars.debugText->modified)
