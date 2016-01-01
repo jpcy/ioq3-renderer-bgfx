@@ -262,9 +262,26 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 		ri.Error(ERR_DROP, "Draw_StretchRaw: size not a power of 2: %i by %i", cols, rows);
 	}
 
+	bgfx::TransientVertexBuffer tvb;
+	bgfx::TransientIndexBuffer tib;
+
+	if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, 4, &tib, 6))
+	{
+		WarnOnce(WarnOnceId::TransientBuffer);
+		return;
+	}
+
 	uploadCinematic(w, h, cols, rows, data, client, dirty);
-	bgfx::setVertexBuffer(fsVertexBuffer_.handle, 0, 4);
-	bgfx::setIndexBuffer(fsIndexBuffer_.handle, 0, 6);
+	auto vertices = (Vertex *)tvb.data;
+	vertices[0].pos = { 0, 0, 0 }; vertices[0].texCoord = { 0, 0 }; vertices[0].color = vec4::white;
+	vertices[1].pos = { 1, 0, 0 }; vertices[1].texCoord = { 1, 0 }; vertices[1].color = vec4::white;
+	vertices[2].pos = { 1, 1, 0 }; vertices[2].texCoord = { 1, 1 }; vertices[2].color = vec4::white;
+	vertices[3].pos = { 0, 1, 0 }; vertices[3].texCoord = { 0, 1 }; vertices[3].color = vec4::white;
+	auto indices = (uint16_t *)tib.data;
+	indices[0] = 0; indices[1] = 1; indices[2] = 2;
+	indices[3] = 2; indices[4] = 3; indices[5] = 0;
+	bgfx::setVertexBuffer(&tvb);
+	bgfx::setIndexBuffer(&tib);
 	bgfx::setTexture(0, matStageUniforms_->diffuseMap.handle, textureCache->getScratchTextures()[client]->getHandle());
 	matStageUniforms_->color.set(vec4::white);
 	bgfx::setState(BGFX_STATE_RGB_WRITE);

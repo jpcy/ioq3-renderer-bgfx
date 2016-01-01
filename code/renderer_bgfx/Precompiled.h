@@ -1445,8 +1445,6 @@ private:
 	std::vector<Polygon *> sortedScenePolygons_;
 	std::vector<polyVert_t> scenePolygonVertices_;
 	DrawCallList drawCalls_;
-	VertexBuffer fsVertexBuffer_;
-	IndexBuffer fsIndexBuffer_;
 
 	Frustum cameraFrustum_;
 

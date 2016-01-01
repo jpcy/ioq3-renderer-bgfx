@@ -433,21 +433,6 @@ void Main::initialize()
 			Com_Error(ERR_FATAL, "Error creating shader program");
 	}
 
-	// Create fullscreen geometry.
-	auto verticesMem = bgfx::alloc(sizeof(Vertex) * 4);
-	auto vertices = (Vertex *)verticesMem->data;
-	vertices[0].pos = { 0, 0, 0 }; vertices[0].texCoord = { 0, 0 }; vertices[0].color = vec4::white;
-	vertices[1].pos = { 1, 0, 0 }; vertices[1].texCoord = { 1, 0 }; vertices[1].color = vec4::white;
-	vertices[2].pos = { 1, 1, 0 }; vertices[2].texCoord = { 1, 1 }; vertices[2].color = vec4::white;
-	vertices[3].pos = { 0, 1, 0 }; vertices[3].texCoord = { 0, 1 }; vertices[3].color = vec4::white;
-	fsVertexBuffer_.handle = bgfx::createVertexBuffer(verticesMem, Vertex::decl);
-
-	auto indicesMem = bgfx::alloc(sizeof(uint16_t) * 6);
-	auto indices = (uint16_t *)indicesMem->data;
-	indices[0] = 0; indices[1] = 1; indices[2] = 2;
-	indices[3] = 2; indices[4] = 3; indices[5] = 0;
-	fsIndexBuffer_.handle = bgfx::createIndexBuffer(indicesMem);
-
 	if (!cvars.highPerformance->integer)
 	{
 		sceneFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT|BGFX_TEXTURE_U_CLAMP|BGFX_TEXTURE_V_CLAMP);
