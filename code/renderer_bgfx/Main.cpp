@@ -752,17 +752,23 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	}
 
 	// Setup dynamic lights.
-	uniforms_->nDynamicLights.set(vec4(sceneDynamicLights_.size(), 0, 0, 0));
 	vec4 dlightColors[DynamicLight::max];
 	vec4 dlightPositions[DynamicLight::max];
+	size_t dli = 0;
 
 	for (size_t i = 0; i < sceneDynamicLights_.size(); i++)
 	{
 		const auto &dl = sceneDynamicLights_[i];
-		dlightColors[i] = vec4(dl.color.r, dl.color.g, dl.color.b, dl.intensity);
-		dlightPositions[i] = dl.position;
+
+		if (cameraFrustum_.clipSphere(dl.position, dl.intensity) == Frustum::ClipResult::Outside)
+			break;
+
+		dlightColors[dli] = vec4(dl.color.r, dl.color.g, dl.color.b, dl.intensity);
+		dlightPositions[dli] = dl.position;
+		dli++;
 	}
 
+	uniforms_->nDynamicLights.set(vec4(dli, 0, 0, 0));
 	uniforms_->dlightColors.set(dlightColors, DynamicLight::max);
 	uniforms_->dlightPositions.set(dlightPositions, DynamicLight::max);
 	
