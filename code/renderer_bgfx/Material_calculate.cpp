@@ -637,20 +637,16 @@ void Material::doCpuDeforms(DrawCall *dc) const
 
 				if (ds.deformation == MaterialDeform::Autosprite)
 				{
-					vec3_t left, up;
-					VectorScale(leftDir, radius, left);
-					VectorScale(upDir, radius, up);
+					vec3 left(leftDir * radius);
+					vec3 up(upDir * radius);
 
 					if (g_main->isMirrorCamera)
-					{
-						VectorSubtract(vec3_origin, left, left);
-					}
+						left = -left;
 
-					// compensate for scale in the axes if necessary
+					// Compensate for scale in the axes if necessary.
 					if (g_main->currentEntity && g_main->currentEntity->e.nonNormalizedAxes)
 					{
-						float axisLength;
-						axisLength = VectorLength(g_main->currentEntity->e.axis[0]);
+						float axisLength = vec3(g_main->currentEntity->e.axis[0]).length();
 
 						if (!axisLength)
 						{
@@ -661,8 +657,8 @@ void Material::doCpuDeforms(DrawCall *dc) const
 							axisLength = 1.0f / axisLength;
 						}
 
-						VectorScale(left, axisLength, left);
-						VectorScale(up, axisLength, up);
+						left *= axisLength;
+						up *= axisLength;
 					}
 
 					// Rebuild quad facing the main camera.
@@ -689,22 +685,7 @@ void Material::doCpuDeforms(DrawCall *dc) const
 				}
 				else if (ds.deformation == MaterialDeform::Autosprite2)
 				{
-					const int edgeVerts[6][2] =
-					{
-						{ 0, 1 },
-						{ 0, 2 },
-						{ 0, 3 },
-						{ 1, 2 },
-						{ 1, 3 },
-						{ 2, 3 }
-					};
-
-					float	lengths[2];
-					int		nums[2];
-					vec3_t	mid[2];
-					vec3_t	major, minor;
-					float *v1, *v2;
-
+					const int edgeVerts[6][2] = { { 0, 1 }, { 0, 2 }, { 0, 3 }, { 1, 2 }, { 1, 3 }, { 2, 3 } };
 					uint16_t smallestIndex = indices[firstIndex];
 
 					for (size_t i = 0; i < vi.size(); i++)
@@ -712,74 +693,69 @@ void Material::doCpuDeforms(DrawCall *dc) const
 						smallestIndex = std::min(smallestIndex, vi[i]);
 					}
 
-					// find the midpoint
-					// identify the two shortest edges
-					nums[0] = nums[1] = 0;
+					// Identify the two shortest edges.
+					int nums[2] = {};
+					float lengths[2];
 					lengths[0] = lengths[1] = 999999;
 
-					for (int j = 0 ; j < 6 ; j++) {
-						float	l;
-						vec3_t	temp;
+					for (int i = 0; i < 6; i++)
+					{
+						const vec3 temp = vec3(v[edgeVerts[i][0]]->pos) - vec3(v[edgeVerts[i][1]]->pos);
+						const float l = vec3::dotProduct(temp, temp);
 
-						v1 = &v[edgeVerts[j][0]]->pos.x;
-						v2 = &v[edgeVerts[j][1]]->pos.x;
-
-						VectorSubtract(v1, v2, temp);
-			
-						l = DotProduct(temp, temp);
-						if (l < lengths[0]) {
+						if (l < lengths[0])
+						{
 							nums[1] = nums[0];
 							lengths[1] = lengths[0];
-							nums[0] = j;
+							nums[0] = i;
 							lengths[0] = l;
-						} else if (l < lengths[1]) {
-							nums[1] = j;
+						}
+						else if (l < lengths[1])
+						{
+							nums[1] = i;
 							lengths[1] = l;
 						}
 					}
 
-					for (int j = 0 ; j < 2 ; j++) {
-						v1 = &v[edgeVerts[nums[j]][0]]->pos.x;
-						v2 = &v[edgeVerts[nums[j]][1]]->pos.x;
+					// Find the midpoints.
+					vec3 midpoints[2];
 
-						mid[j][0] = 0.5f * (v1[0] + v2[0]);
-						mid[j][1] = 0.5f * (v1[1] + v2[1]);
-						mid[j][2] = 0.5f * (v1[2] + v2[2]);
+					for (int i = 0; i < 2 ; i++)
+					{
+						midpoints[i] = (v[edgeVerts[nums[i]][0]]->pos + v[edgeVerts[nums[i]][1]]->pos) * 0.5f;
 					}
 
-					// find the vector of the major axis
-					VectorSubtract(mid[1], mid[0], major);
+					// Find the vector of the major axis.
+					const vec3 major(midpoints[1] - midpoints[0]);
 
-					// cross this with the view direction to get minor axis
-					CrossProduct(major, &forward.x, minor);
-					VectorNormalize(minor);
+					// Cross this with the view direction to get minor axis.
+					const vec3 minor(vec3::crossProduct(major, forward).normal());
 		
-					// re-project the points
-					for (int j = 0 ; j < 2 ; j++) {
-						float	l;
+					// Re-project the points.
+					for (int i = 0; i < 2; i++)
+					{
+						// We need to see which direction this edge is used to determine direction of projection.
+						int j;
 
-						v1 = &v[edgeVerts[nums[j]][0]]->pos.x;
-						v2 = &v[edgeVerts[nums[j]][1]]->pos.x;
-
-						l = 0.5 * sqrt(lengths[j]);
-			
-						// we need to see which direction this edge
-						// is used to determine direction of projection
-						int k;
-
-						for (k = 0 ; k < 5 ; k++) {
-							if (indices[firstIndex + k ] == smallestIndex + edgeVerts[nums[j]][0]
-								&& indices[firstIndex + k + 1 ] == smallestIndex + edgeVerts[nums[j]][1]) {
+						for (j = 0 ; j < 5 ; j++)
+						{
+							if (indices[firstIndex + j] == smallestIndex + edgeVerts[nums[i]][0] && indices[firstIndex + j + 1] == smallestIndex + edgeVerts[nums[i]][1])
 								break;
-							}
 						}
 
-						if (k == 5) {
-							VectorMA(mid[j], l, minor, v1);
-							VectorMA(mid[j], -l, minor, v2);
-						} else {
-							VectorMA(mid[j], -l, minor, v1);
-							VectorMA(mid[j], l, minor, v2);
+						const float l = 0.5f * sqrt(lengths[i]);
+						vec3 *v1 = &v[edgeVerts[nums[i]][0]]->pos;
+						vec3 *v2 = &v[edgeVerts[nums[i]][1]]->pos;
+
+						if (j == 5)
+						{
+							*v1 = midpoints[i] + minor * l;
+							*v2 = midpoints[i] + minor * -l;
+						}
+						else
+						{
+							*v1 = midpoints[i] + minor * -l;
+							*v2 = midpoints[i] + minor * l;
 						}
 					}
 				}
