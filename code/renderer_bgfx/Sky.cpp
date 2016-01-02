@@ -303,7 +303,7 @@ static void MakeSkyVec(float zMax, float s, float t, int axis, float outSt[2], v
 }
 
 /// Either tessellate, or do a dry run to calculate the total number of vertices and indices to use.
-static bool TessellateSkyBoxSide(int i, Vertex *vertices, uint16_t *indices, uint32_t *nVertices, uint32_t *nIndices, float zMax)
+static bool TessellateSkyBoxSide(int i, Vertex *vertices, uint16_t *indices, uint32_t *nVertices, uint32_t *nIndices, vec3 cameraPosition, float zMax)
 {
 	assert((vertices && indices) || (nVertices && nIndices));
 	
@@ -364,7 +364,7 @@ static bool TessellateSkyBoxSide(int i, Vertex *vertices, uint16_t *indices, uin
 		{
 			if (vertices)
 			{
-				vertices[currentVertex].pos = vec3(s_skyPoints[t][s]) + g_main->cameraPosition;
+				vertices[currentVertex].pos = vec3(s_skyPoints[t][s]) + cameraPosition;
 				vertices[currentVertex].texCoord[0] = s_skyTexCoords[t][s][0];
 				vertices[currentVertex].texCoord[1] = s_skyTexCoords[t][s][1];
 			}
@@ -404,7 +404,7 @@ static bool TessellateSkyBoxSide(int i, Vertex *vertices, uint16_t *indices, uin
 }
 
 /// Either tessellate, or do a dry run to calculate the total number of vertices and indices to use.
-static void TessellateCloudBox(Vertex *vertices, uint16_t *indices, uint32_t *nVertices, uint32_t *nIndices, float zMax)
+static void TessellateCloudBox(Vertex *vertices, uint16_t *indices, uint32_t *nVertices, uint32_t *nIndices, vec3 cameraPosition, float zMax)
 {
 	assert((vertices && indices) || (nVertices && nIndices));
 	sky_min = 1.0 / 256.0f;		// FIXME: not correct?
@@ -501,7 +501,7 @@ static void TessellateCloudBox(Vertex *vertices, uint16_t *indices, uint32_t *nV
 			{
 				if (vertices)
 				{
-					vertices[currentVertex].pos = vec3(s_skyPoints[t][s]) + g_main->cameraPosition;
+					vertices[currentVertex].pos = vec3(s_skyPoints[t][s]) + cameraPosition;
 					vertices[currentVertex].texCoord[0] = s_skyTexCoords[t][s][0];
 					vertices[currentVertex].texCoord[1] = s_skyTexCoords[t][s][1];
 				}
@@ -588,7 +588,7 @@ void Sky_InitializeTexCoords(float heightCloud)
 	}
 }
 
-void Sky_Render(DrawCallList *drawCallList, vec3 viewPosition, uint8_t visCacheId, float zMax)
+void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, uint8_t visCacheId, float zMax)
 {
 	assert(drawCallList);
 
@@ -623,7 +623,7 @@ void Sky_Render(DrawCallList *drawCallList, vec3 viewPosition, uint8_t visCacheI
 
 		for (size_t j = 0 ; j < 3 ; j++) 
 		{
-			VectorSubtract(vertices[i + j].pos, viewPosition, p[j]);
+			VectorSubtract(vertices[i + j].pos, cameraPosition, p[j]);
 		}
 
 		ClipSkyPolygon(3, p[0], 0);
@@ -639,7 +639,7 @@ void Sky_Render(DrawCallList *drawCallList, vec3 viewPosition, uint8_t visCacheI
 			sky_max = 1;
 			Com_Memset( s_skyTexCoords, 0, sizeof( s_skyTexCoords ) );
 
-			if (!TessellateSkyBoxSide(i, nullptr, nullptr, &nVertices, &nIndices, zMax))
+			if (!TessellateSkyBoxSide(i, nullptr, nullptr, &nVertices, &nIndices, cameraPosition, zMax))
 				continue;
 
 			DrawCall dc;
@@ -653,7 +653,7 @@ void Sky_Render(DrawCallList *drawCallList, vec3 viewPosition, uint8_t visCacheI
 			sky_min = 0;
 			sky_max = 1;
 			Com_Memset( s_skyTexCoords, 0, sizeof( s_skyTexCoords ) );
-			TessellateSkyBoxSide(i, (Vertex *)dc.vb.transientHandle.data, (uint16_t *)dc.ib.transientHandle.data, nullptr, nullptr, zMax);
+			TessellateSkyBoxSide(i, (Vertex *)dc.vb.transientHandle.data, (uint16_t *)dc.ib.transientHandle.data, nullptr, nullptr, cameraPosition, zMax);
 			dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 			dc.vb.nVertices = nVertices;
 			dc.ib.nIndices = nIndices;
@@ -671,7 +671,7 @@ void Sky_Render(DrawCallList *drawCallList, vec3 viewPosition, uint8_t visCacheI
 	if (shouldDrawCloudBox)
 	{
 		uint32_t nVertices, nIndices;
-		TessellateCloudBox(nullptr, nullptr, &nVertices, &nIndices, zMax);
+		TessellateCloudBox(nullptr, nullptr, &nVertices, &nIndices, cameraPosition, zMax);
 		DrawCall dc;
 
 		if (!bgfx::allocTransientBuffers(&dc.vb.transientHandle, Vertex::decl, nVertices, &dc.ib.transientHandle, nIndices)) 
@@ -680,7 +680,7 @@ void Sky_Render(DrawCallList *drawCallList, vec3 viewPosition, uint8_t visCacheI
 			return;
 		}
 
-		TessellateCloudBox((Vertex *)dc.vb.transientHandle.data, (uint16_t *)dc.ib.transientHandle.data, nullptr, nullptr, zMax);
+		TessellateCloudBox((Vertex *)dc.vb.transientHandle.data, (uint16_t *)dc.ib.transientHandle.data, nullptr, nullptr, cameraPosition, zMax);
 		dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 		dc.vb.nVertices = nVertices;
 		dc.ib.nIndices = nIndices;

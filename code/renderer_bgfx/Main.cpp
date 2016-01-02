@@ -316,8 +316,8 @@ void Main::loadWorld(const char *name)
 
 	world = World::createBSP(name);
 	world->load();
-	mainVisCacheId = world->createVisCache();
-	portalVisCacheId = world->createVisCache();
+	mainVisCacheId_ = world->createVisCache();
+	portalVisCacheId_ = world->createVisCache();
 }
 
 void Main::addDynamicLightToScene(DynamicLight light)
@@ -376,10 +376,10 @@ void Main::renderScene(const refdef_t *def)
 	}
 	else
 	{
-		scenePosition = vec3(def->vieworg);
-		sceneRotation = mat3(def->viewaxis);
-		isWorldCamera = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world.get();
-		renderCamera(mainVisCacheId, scenePosition, scenePosition, sceneRotation, vec4(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
+		const vec3 scenePosition(def->vieworg);
+		sceneRotation_ = mat3(def->viewaxis);
+		isWorldCamera_ = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world.get();
+		renderCamera(mainVisCacheId_, scenePosition, scenePosition, sceneRotation_, vec4(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
 
 		if (SHOW_DEPTH_ENABLED)
 		{
@@ -387,7 +387,7 @@ void Main::renderScene(const refdef_t *def)
 			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, linearDepthFb_);
 			renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 		}
-		else if (!cvars.highPerformance->integer && isWorldCamera)
+		else if (!cvars.highPerformance->integer && isWorldCamera_)
 		{
 			// Blit the scene framebuffer color to the default framebuffer.
 			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
@@ -563,40 +563,35 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	const float zMin = 4;
 	float zMax = 2048;
 	const float polygonDepthOffset = -0.001f;
-	const bool isMainCamera = visCacheId == mainVisCacheId;
-	cameraPosition = position;
-	cameraRotation = rotation;
+	const bool isMainCamera = visCacheId == mainVisCacheId_;
 
-	if (isWorldCamera)
+	if (isWorldCamera_)
 	{
 		assert(world.get());
 		world->updateVisCache(visCacheId, pvsPosition, areaMask);
 
 		// Use dynamic z max.
-		zMax = world->getBounds(visCacheId).calculateFarthestCornerDistance(cameraPosition);
+		zMax = world->getBounds(visCacheId).calculateFarthestCornerDistance(position);
 	}
 
-	const mat4 viewMatrix = toOpenGlMatrix * mat4::view(cameraPosition, cameraRotation);
+	const mat4 viewMatrix = toOpenGlMatrix_ * mat4::view(position, rotation);
 	const mat4 projectionMatrix = mat4::perspectiveProjection(fov.x, fov.y, zMin, zMax);
 	const mat4 vpMatrix(projectionMatrix * viewMatrix);
 
-	if (isWorldCamera && isMainCamera)
+	if (isWorldCamera_ && isMainCamera)
 	{
 		for (size_t i = 0; i < world->getNumPortalSurfaces(visCacheId); i++)
 		{
 			vec3 pvsPosition;
 			Transform portalCamera;
 
-			if (world->calculatePortalCamera(visCacheId, i, cameraPosition, cameraRotation, vpMatrix, sceneEntities_, &pvsPosition, &portalCamera, &isMirrorCamera, &portalPlane))
+			if (world->calculatePortalCamera(visCacheId, i, position, rotation, vpMatrix, sceneEntities_, &pvsPosition, &portalCamera, &isMirrorCamera_, &portalPlane_))
 			{
-				renderCamera(portalVisCacheId, pvsPosition, portalCamera.position, portalCamera.rotation, rect, fov, areaMask);
-				isMirrorCamera = false;
+				renderCamera(portalVisCacheId_, pvsPosition, portalCamera.position, portalCamera.rotation, rect, fov, areaMask);
+				isMirrorCamera_ = false;
 				break;
 			}
 		}
-
-		cameraPosition = position;
-		cameraRotation = rotation;
 	}
 
 	cameraFrustum_ = Frustum(vpMatrix);
@@ -604,9 +599,9 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	// Build draw calls. Order doesn't matter.
 	drawCalls_.clear();
 
-	if (isWorldCamera)
+	if (isWorldCamera_)
 	{
-		Sky_Render(&drawCalls_, cameraPosition, visCacheId, zMax);
+		Sky_Render(&drawCalls_, position, visCacheId, zMax);
 		world->render(&drawCalls_, visCacheId);
 	}
 
@@ -618,7 +613,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		if (!isMainCamera && (entity.e.renderfx & RF_FIRST_PERSON) != 0)
 			continue;
 
-		renderEntity(&drawCalls_, cameraPosition, cameraRotation, &entity);
+		renderEntity(&drawCalls_, position, rotation, &entity);
 	}
 
 	if (!scenePolygons_.empty())
@@ -730,10 +725,10 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (dc.vb.type != DrawCall::BufferType::Transient || dc.ib.type != DrawCall::BufferType::Transient)
 				continue;
 
-			currentEntity = dc.entity;
+			currentEntity_ = dc.entity;
 			dc.material->setTime(floatTime_);
-			dc.material->doCpuDeforms(&dc);
-			currentEntity = nullptr;
+			dc.material->doCpuDeforms(&dc, sceneRotation_);
+			currentEntity_ = nullptr;
 		}
 	}
 
@@ -744,7 +739,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	if (!isMainCamera)
 	{
 		uniforms_->portalClip.set(vec4(1, 0, 0, 0));
-		uniforms_->portalPlane.set(portalPlane);
+		uniforms_->portalPlane.set(portalPlane_);
 	}
 	else
 	{
@@ -772,7 +767,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	uniforms_->dlightColors.set(dlightColors, DynamicLight::max);
 	uniforms_->dlightPositions.set(dlightPositions, DynamicLight::max);
 	
-	if (!cvars.highPerformance->integer && isWorldCamera)
+	if (!cvars.highPerformance->integer && isWorldCamera_)
 	{
 		// Render depth.
 		const uint8_t viewId = pushView(sceneFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect);
@@ -785,7 +780,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (mat->sort != MaterialSort::Opaque)
 				continue;
 
-			currentEntity = dc.entity;
+			currentEntity_ = dc.entity;
 			matUniforms_->time.set(vec4(mat->setTime(floatTime_), 0, 0, 0));
 			const mat4 modelViewMatrix(viewMatrix * dc.modelMatrix);
 			uniforms_->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
@@ -824,7 +819,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Depth].handle);
 			}
 
-			currentEntity = nullptr;
+			currentEntity_ = nullptr;
 		}
 
 		// Read depth, write linear depth.
@@ -835,7 +830,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 	uint8_t mainViewId;
 	
-	if (!cvars.highPerformance->integer && isWorldCamera)
+	if (!cvars.highPerformance->integer && isWorldCamera_)
 	{
 		mainViewId = pushView(sceneFb_, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, rect);
 	}
@@ -870,7 +865,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			continue;
 		}
 
-		currentEntity = dc.entity;
+		currentEntity_ = dc.entity;
 		matUniforms_->time.set(vec4(mat->setTime(floatTime_), 0, 0, 0));
 		const mat4 modelViewMatrix(viewMatrix * dc.modelMatrix);
 
@@ -883,17 +878,17 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			uniforms_->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
 		}
 
-		uniforms_->viewOrigin.set(cameraPosition);
+		uniforms_->viewOrigin.set(position);
 		mat->setDeformUniforms(matUniforms_.get());
-		const vec3 localViewPosition = currentEntity ? currentEntity->localViewPosition : cameraPosition;
+		const vec3 localViewPosition = currentEntity_ ? currentEntity_->localViewPosition : position;
 		uniforms_->localViewOrigin.set(localViewPosition);
 
-		if (g_main->currentEntity)
+		if (g_main->currentEntity_)
 		{
-			entityUniforms_->ambientLight.set(vec4(currentEntity->ambientLight / 255.0f, 0));
-			entityUniforms_->directedLight.set(vec4(currentEntity->directedLight / 255.0f, 0));
-			entityUniforms_->lightDirection.set(vec4(currentEntity->lightDir, 0));
-			entityUniforms_->modelLightDir.set(currentEntity->modelLightDir);
+			entityUniforms_->ambientLight.set(vec4(currentEntity_->ambientLight / 255.0f, 0));
+			entityUniforms_->directedLight.set(vec4(currentEntity_->directedLight / 255.0f, 0));
+			entityUniforms_->lightDirection.set(vec4(currentEntity_->lightDir, 0));
+			entityUniforms_->modelLightDir.set(currentEntity_->modelLightDir);
 		}
 
 		vec4 fogColor, fogDistance, fogDepth;
@@ -901,7 +896,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 		if (dc.fogIndex >= 0)
 		{
-			world->calculateFog(dc.fogIndex, dc.modelMatrix, modelViewMatrix, localViewPosition, &fogColor, &fogDistance, &fogDepth, &eyeT);
+			world->calculateFog(dc.fogIndex, dc.modelMatrix, modelViewMatrix, position, localViewPosition, rotation, &fogColor, &fogDistance, &fogDepth, &eyeT);
 			uniforms_->fogDistance.set(fogDistance);
 			uniforms_->fogDepth.set(fogDepth);
 			uniforms_->fogEyeT.set(eyeT);
@@ -985,7 +980,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Fog].handle);
 		}
 
-		currentEntity = nullptr;
+		currentEntity_ = nullptr;
 	}
 }
 
@@ -1174,7 +1169,7 @@ void Main::renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3
 
 	DrawCall dc;
 	dc.entity = entity;
-	dc.fogIndex = isWorldCamera ? world->findFogIndex(entity->e.origin, entity->e.radius) : -1;
+	dc.fogIndex = isWorldCamera_ ? world->findFogIndex(entity->e.origin, entity->e.radius) : -1;
 	dc.material = mat;
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
@@ -1248,7 +1243,7 @@ void Main::renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity)
 
 	DrawCall dc;
 	dc.entity = entity;
-	dc.fogIndex = isWorldCamera ? world->findFogIndex(entity->e.origin, entity->e.radius) : -1;
+	dc.fogIndex = isWorldCamera_ ? world->findFogIndex(entity->e.origin, entity->e.radius) : -1;
 	dc.material = materialCache->getMaterial(entity->e.customShader);
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
@@ -1279,7 +1274,7 @@ void Main::renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Ent
 		up = viewRotation[2] * (c * entity->e.radius) + viewRotation[1] * (s * entity->e.radius);
 	}
 
-	if (isMirrorCamera)
+	if (isMirrorCamera_)
 		left = -left;
 
 	const uint32_t nVertices = 4, nIndices = 6;
@@ -1317,7 +1312,7 @@ void Main::renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Ent
 
 	DrawCall dc;
 	dc.entity = entity;
-	dc.fogIndex = isWorldCamera ? world->findFogIndex(entity->e.origin, entity->e.radius) : -1;
+	dc.fogIndex = isWorldCamera_ ? world->findFogIndex(entity->e.origin, entity->e.radius) : -1;
 	dc.material = materialCache->getMaterial(entity->e.customShader);
 	dc.softSpriteDepth = entity->e.radius / 2.0f;
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
@@ -1346,7 +1341,7 @@ void Main::setupEntityLighting(Entity *entity)
 	}
 
 	// If not a world model, only use dynamic lights (menu system, etc.)
-	if (isWorldCamera && world->hasLightGrid())
+	if (isWorldCamera_ && world->hasLightGrid())
 	{
 		world->sampleLightGrid(lightPosition, &entity->ambientLight, &entity->directedLight, &entity->lightDir);
 	}
@@ -1367,7 +1362,7 @@ void Main::setupEntityLighting(Entity *entity)
 	}
 
 	// Modify the light by dynamic lights.
-	if (!isWorldCamera)
+	if (!isWorldCamera_)
 	{
 		const float DLIGHT_AT_RADIUS = 16; // at the edge of a dlight's influence, this amount of light will be added
 		const float DLIGHT_MINIMUM_RADIUS = 16; // never calculate a range less than this to prevent huge light numbers

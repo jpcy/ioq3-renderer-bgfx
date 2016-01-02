@@ -744,7 +744,7 @@ public:
 	/// @remarks Used for animated textures, waveforms etc.
 	float setTime(float time);
 
-	void doCpuDeforms(DrawCall *dc) const;
+	void doCpuDeforms(DrawCall *dc, const mat3 &sceneRotation) const;
 	void setDeformUniforms(Uniforms_Material *uniforms) const;
 
 private:
@@ -944,7 +944,7 @@ private:
 /// @remarks Called when a sky material is parsed.
 void Sky_InitializeTexCoords(float heightCloud);
 
-void Sky_Render(DrawCallList *drawCallList, vec3 viewPosition, uint8_t visCacheId, float zMax);
+void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, uint8_t visCacheId, float zMax);
 
 enum class TextureType
 {
@@ -1248,7 +1248,7 @@ public:
 	virtual void sampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir) const = 0;
 	virtual int findFogIndex(vec3 position, float radius) const = 0;
 	virtual int findFogIndex(const Bounds &bounds) const = 0;
-	virtual void calculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMatrix, vec3 localViewPosition, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT) const = 0;
+	virtual void calculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMatrix, vec3 cameraPosition, vec3 localViewPosition, const mat3 &cameraRotation, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT) const = 0;
 	virtual int markFragments(int numPoints, const vec3_t *points, const vec3_t projection, int maxPoints, vec3_t pointBuffer, int maxFragments, markFragment_t *fragmentBuffer) = 0;
 	virtual Bounds getBounds(uint8_t visCacheId) const = 0;
 	virtual Material *getSkyMaterial(uint8_t visCacheId) const = 0;
@@ -1272,9 +1272,13 @@ public:
 	~Main();
 	void initialize();
 	void registerFont(const char *fontName, int pointSize, fontInfo_t *font);
-	int getTime() const { return time_; }
+	
+	const Entity *getCurrentEntity() const { return currentEntity_; }
 	float getFloatTime() const { return floatTime_; }
 	int getFrameNo() const { return frameNo_; }
+	int getTime() const { return time_; }
+	bool isMirrorCamera() const { return isMirrorCamera_; }
+
 	void setColor(const vec4 &c) { stretchPicColor_ = c; }
 	void debugPrint(const char *format, ...);
 	void drawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex);
@@ -1298,23 +1302,6 @@ public:
 	int identityLightByte; // identityLight * 255
 	int overbrightBits; // r_overBrightBits->integer, but set to 0 if no hw gamma
 
-	const Entity *currentEntity = nullptr;
-
-	vec3 scenePosition;
-	mat3 sceneRotation;
-
-	/// Is the current camera in the world (not RDF_NOWORLDMODEL).
-	bool isWorldCamera;
-
-	/// Equivalent to scenePosition, unless rendering a portal/mirror view.
-	vec3 cameraPosition;
-
-	/// Equivalent to sceneRotation, unless rendering a portal/mirror view.
-	mat3 cameraRotation;
-
-	bool isMirrorCamera = false;
-	vec4 portalPlane;
-
 	vec2 autoExposureMinMax = { -2, 2 };
 	vec3 toneMinAvgMaxLevel = { -8, -2, 0 };
 
@@ -1332,9 +1319,6 @@ public:
 	float triangleTable[funcTableSize];
 	float sawToothTable[funcTableSize];
 	float inverseSawToothTable[funcTableSize];
-
-	/// Convert from our coordinate system (looking down X) to OpenGL's coordinate system (looking down -Z)
-	static const mat4 toOpenGlMatrix;
 
 	std::unique_ptr<World> world;
 	const uint8_t *externalVisData = nullptr;
@@ -1406,10 +1390,27 @@ private:
 	void setupEntityLighting(Entity *entity);
 	/// @}
 
+	/// @name Camera
+	/// @{
+	Frustum cameraFrustum_;
+	DrawCallList drawCalls_;
+	bool isMirrorCamera_ = false;
+
+	/// Is the current camera in the world (not RDF_NOWORLDMODEL).
+	bool isWorldCamera_;
+
+	vec4 portalPlane_;
+	/// @}
+
+	/// @name Fonts
+	/// @{
 	static const int maxFonts_ = 6;
 	int nFonts_ = 0;
 	fontInfo_t fonts_[maxFonts_];
+	/// @}
 
+	/// @name Frame
+	/// @{
 	int time_ = 0;
 	float floatTime_ = 0;
 
@@ -1418,19 +1419,22 @@ private:
 
 	uint16_t debugTextY = 0;
 
-	float halfTexelOffset_ = 0;
-	bool isTextureOriginBottomLeft_ = false;
+	/// @remarks Resets to 0 every frame.
+	uint8_t firstFreeViewId_ = 0;
 
-	/// @name Stretchpic
-	/// @{
-	vec4 stretchPicColor_;
-	Material *stretchPicMaterial_ = nullptr;
-	uint8_t stretchPicViewId_ = UINT8_MAX;
-	std::vector<Vertex> stretchPicVertices_;
-	std::vector<uint16_t> stretchPicIndices_;
 	/// @}
 
-	uint8_t mainVisCacheId, portalVisCacheId;
+	/// @name Framebuffers
+	/// @{
+	static const bgfx::FrameBufferHandle defaultFb_;
+	bgfx::FrameBufferHandle sceneFb_;
+	bgfx::TextureHandle sceneFbColor_;
+	bgfx::TextureHandle sceneFbDepth_;
+	bgfx::FrameBufferHandle linearDepthFb_;
+	/// @}
+
+	/// @name Scene
+	/// @{
 	std::vector<Entity> sceneEntities_;
 
 	struct Polygon
@@ -1444,30 +1448,40 @@ private:
 	std::vector<Polygon> scenePolygons_;
 	std::vector<Polygon *> sortedScenePolygons_;
 	std::vector<polyVert_t> scenePolygonVertices_;
-	DrawCallList drawCalls_;
-
-	Frustum cameraFrustum_;
-
-	/// @remarks Resets to 0 every frame.
-	uint8_t firstFreeViewId_ = 0;
-
-	/// @name Framebuffers
-	/// @{
-	static const bgfx::FrameBufferHandle defaultFb_;
-	bgfx::FrameBufferHandle sceneFb_;
-	bgfx::TextureHandle sceneFbColor_;
-	bgfx::TextureHandle sceneFbDepth_;
-	bgfx::FrameBufferHandle linearDepthFb_;
+	mat3 sceneRotation_;
 	/// @}
 
+	/// @name Shaders
+	/// @{
+	std::array<Shader, FragmentShaderId::Num> fragmentShaders_;
+	std::array<Shader, VertexShaderId::Num> vertexShaders_;
+	std::array<ShaderProgram, (int)ShaderProgramId::Num> shaderPrograms_;
+	/// @}
+
+	/// @name Stretchpic
+	/// @{
+	vec4 stretchPicColor_;
+	Material *stretchPicMaterial_ = nullptr;
+	uint8_t stretchPicViewId_ = UINT8_MAX;
+	std::vector<Vertex> stretchPicVertices_;
+	std::vector<uint16_t> stretchPicIndices_;
+	/// @}
+
+	/// @name Uniforms
+	/// @{
 	std::unique_ptr<Uniforms> uniforms_;
 	std::unique_ptr<Uniforms_Entity> entityUniforms_;
 	std::unique_ptr<Uniforms_Material> matUniforms_;
 	std::unique_ptr<Uniforms_MaterialStage> matStageUniforms_;
+	/// @}
 
-	std::array<Shader, FragmentShaderId::Num> fragmentShaders_;
-	std::array<Shader, VertexShaderId::Num> vertexShaders_;
-	std::array<ShaderProgram, (int)ShaderProgramId::Num> shaderPrograms_;
+	const Entity *currentEntity_ = nullptr;
+	float halfTexelOffset_ = 0;
+	bool isTextureOriginBottomLeft_ = false;
+	uint8_t mainVisCacheId_, portalVisCacheId_;
+
+	/// Convert from our coordinate system (looking down X) to OpenGL's coordinate system (looking down -Z)
+	static const mat4 toOpenGlMatrix_;
 };
 
 extern std::unique_ptr<Main> g_main;

@@ -65,7 +65,7 @@ uint64_t MaterialStage::getState() const
 	{
 		bool cullFront = (material->cullType == MaterialCullType::FrontSided);
 
-		if (g_main->isMirrorCamera)
+		if (g_main->isMirrorCamera())
 			cullFront = !cullFront;
 
 		state |= cullFront ? BGFX_STATE_CULL_CCW : BGFX_STATE_CULL_CW;
@@ -255,7 +255,7 @@ void MaterialStage::calculateTexMods(vec4 *outMatrix, vec4 *outOffTurb) const
 			break;
 
 		case MaterialTexMod::EntityTranslate:
-			calculateScrollTexMatrix(g_main->currentEntity->e.shaderTexCoord, matrix);
+			calculateScrollTexMatrix(g_main->getCurrentEntity()->e.shaderTexCoord, matrix);
 			break;
 
 		case MaterialTexMod::Scroll:
@@ -437,21 +437,21 @@ void MaterialStage::calculateColors(vec4 *baseColor, vec4 *vertColor) const
 			(*baseColor).r = (*baseColor).g = (*baseColor).b = calculateWaveColorSingle(rgbWave);
 			break;
 		case MaterialColorGen::Entity:
-			if (g_main->currentEntity)
+			if (g_main->getCurrentEntity())
 			{
-				(*baseColor).r = g_main->currentEntity->e.shaderRGBA[0] / 255.0f;
-				(*baseColor).g = g_main->currentEntity->e.shaderRGBA[1] / 255.0f;
-				(*baseColor).b = g_main->currentEntity->e.shaderRGBA[2] / 255.0f;
-				(*baseColor).a = g_main->currentEntity->e.shaderRGBA[3] / 255.0f;
+				(*baseColor).r = g_main->getCurrentEntity()->e.shaderRGBA[0] / 255.0f;
+				(*baseColor).g = g_main->getCurrentEntity()->e.shaderRGBA[1] / 255.0f;
+				(*baseColor).b = g_main->getCurrentEntity()->e.shaderRGBA[2] / 255.0f;
+				(*baseColor).a = g_main->getCurrentEntity()->e.shaderRGBA[3] / 255.0f;
 			}
 			break;
 		case MaterialColorGen::OneMinusEntity:
-			if (g_main->currentEntity)
+			if (g_main->getCurrentEntity())
 			{
-				(*baseColor).r = 1.0f - g_main->currentEntity->e.shaderRGBA[0] / 255.0f;
-				(*baseColor).g = 1.0f - g_main->currentEntity->e.shaderRGBA[1] / 255.0f;
-				(*baseColor).b = 1.0f - g_main->currentEntity->e.shaderRGBA[2] / 255.0f;
-				(*baseColor).a = 1.0f - g_main->currentEntity->e.shaderRGBA[3] / 255.0f;
+				(*baseColor).r = 1.0f - g_main->getCurrentEntity()->e.shaderRGBA[0] / 255.0f;
+				(*baseColor).g = 1.0f - g_main->getCurrentEntity()->e.shaderRGBA[1] / 255.0f;
+				(*baseColor).b = 1.0f - g_main->getCurrentEntity()->e.shaderRGBA[2] / 255.0f;
+				(*baseColor).a = 1.0f - g_main->getCurrentEntity()->e.shaderRGBA[3] / 255.0f;
 			}
 			break;
 		case MaterialColorGen::Identity:
@@ -474,16 +474,16 @@ void MaterialStage::calculateColors(vec4 *baseColor, vec4 *vertColor) const
 			(*vertColor).a = 0.0f;
 			break;
 		case MaterialAlphaGen::Entity:
-			if (g_main->currentEntity)
+			if (g_main->getCurrentEntity())
 			{
-				(*baseColor).a = g_main->currentEntity->e.shaderRGBA[3] / 255.0f;
+				(*baseColor).a = g_main->getCurrentEntity()->e.shaderRGBA[3] / 255.0f;
 			}
 			(*vertColor).a = 0.0f;
 			break;
 		case MaterialAlphaGen::OneMinusEntity:
-			if (g_main->currentEntity)
+			if (g_main->getCurrentEntity())
 			{
-				(*baseColor).a = 1.0f - g_main->currentEntity->e.shaderRGBA[3] / 255.0f;
+				(*baseColor).a = 1.0f - g_main->getCurrentEntity()->e.shaderRGBA[3] / 255.0f;
 			}
 			(*vertColor).a = 0.0f;
 			break;
@@ -555,15 +555,15 @@ float Material::setTime(float time)
 {
 	time_ = time - timeOffset;
 
-	if (g_main->currentEntity)
+	if (g_main->getCurrentEntity())
 	{
-		time_ -= g_main->currentEntity->e.shaderTime;
+		time_ -= g_main->getCurrentEntity()->e.shaderTime;
 	}
 
 	return time_;
 }
 
-void Material::doCpuDeforms(DrawCall *dc) const
+void Material::doCpuDeforms(DrawCall *dc, const mat3 &sceneRotation) const
 {
 	assert(dc);
 
@@ -594,23 +594,23 @@ void Material::doCpuDeforms(DrawCall *dc) const
 
 			vec3 forward, leftDir, upDir;
 
-			if (g_main->currentEntity)
+			if (g_main->getCurrentEntity())
 			{
-				forward.x = vec3::dotProduct(g_main->sceneRotation[0], g_main->currentEntity->e.axis[0]);
-				forward.y = vec3::dotProduct(g_main->sceneRotation[0], g_main->currentEntity->e.axis[1]);
-				forward.z = vec3::dotProduct(g_main->sceneRotation[0], g_main->currentEntity->e.axis[2]);
-				leftDir.x = vec3::dotProduct(g_main->sceneRotation[1], g_main->currentEntity->e.axis[0]);
-				leftDir.y = vec3::dotProduct(g_main->sceneRotation[1], g_main->currentEntity->e.axis[1]);
-				leftDir.z = vec3::dotProduct(g_main->sceneRotation[1], g_main->currentEntity->e.axis[2]);
-				upDir.x = vec3::dotProduct(g_main->sceneRotation[2], g_main->currentEntity->e.axis[0]);
-				upDir.y = vec3::dotProduct(g_main->sceneRotation[2], g_main->currentEntity->e.axis[1]);
-				upDir.z = vec3::dotProduct(g_main->sceneRotation[2], g_main->currentEntity->e.axis[2]);
+				forward.x = vec3::dotProduct(sceneRotation[0], g_main->getCurrentEntity()->e.axis[0]);
+				forward.y = vec3::dotProduct(sceneRotation[0], g_main->getCurrentEntity()->e.axis[1]);
+				forward.z = vec3::dotProduct(sceneRotation[0], g_main->getCurrentEntity()->e.axis[2]);
+				leftDir.x = vec3::dotProduct(sceneRotation[1], g_main->getCurrentEntity()->e.axis[0]);
+				leftDir.y = vec3::dotProduct(sceneRotation[1], g_main->getCurrentEntity()->e.axis[1]);
+				leftDir.z = vec3::dotProduct(sceneRotation[1], g_main->getCurrentEntity()->e.axis[2]);
+				upDir.x = vec3::dotProduct(sceneRotation[2], g_main->getCurrentEntity()->e.axis[0]);
+				upDir.y = vec3::dotProduct(sceneRotation[2], g_main->getCurrentEntity()->e.axis[1]);
+				upDir.z = vec3::dotProduct(sceneRotation[2], g_main->getCurrentEntity()->e.axis[2]);
 			}
 			else
 			{
-				forward = g_main->sceneRotation[0];
-				leftDir = g_main->sceneRotation[1];
-				upDir = g_main->sceneRotation[2];
+				forward = sceneRotation[0];
+				leftDir = sceneRotation[1];
+				upDir = sceneRotation[2];
 			}
 
 			// Iterate through triangulated quads.
@@ -640,13 +640,13 @@ void Material::doCpuDeforms(DrawCall *dc) const
 					vec3 left(leftDir * radius);
 					vec3 up(upDir * radius);
 
-					if (g_main->isMirrorCamera)
+					if (g_main->isMirrorCamera())
 						left = -left;
 
 					// Compensate for scale in the axes if necessary.
-					if (g_main->currentEntity && g_main->currentEntity->e.nonNormalizedAxes)
+					if (g_main->getCurrentEntity() && g_main->getCurrentEntity()->e.nonNormalizedAxes)
 					{
-						float axisLength = vec3(g_main->currentEntity->e.axis[0]).length();
+						float axisLength = vec3(g_main->getCurrentEntity()->e.axis[0]).length();
 
 						if (!axisLength)
 						{
@@ -668,7 +668,7 @@ void Material::doCpuDeforms(DrawCall *dc) const
 					v[3]->pos = midpoint + left - up;
 
 					// Constant normal all the way around.
-					v[0]->normal = v[1]->normal = v[2]->normal = v[3]->normal = -g_main->sceneRotation[0];
+					v[0]->normal = v[1]->normal = v[2]->normal = v[3]->normal = -sceneRotation[0];
 
 					// Standard square texture coordinates.
 					v[0]->texCoord = v[0]->texCoord2 = vec2(0, 0);

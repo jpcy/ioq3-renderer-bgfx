@@ -77,7 +77,7 @@ static const size_t nBackends = ARRAY_LEN(backends);
 
 BgfxCallback bgfxCallback;
 
-const mat4 Main::toOpenGlMatrix
+const mat4 Main::toOpenGlMatrix_
 (
 	0, 0, -1, 0,
 	-1, 0, 0, 0,

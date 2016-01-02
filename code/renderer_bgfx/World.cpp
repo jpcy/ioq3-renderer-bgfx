@@ -654,7 +654,7 @@ public:
 		return -1;
 	}
 
-	void calculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMatrix, vec3 localViewPosition, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT) const override
+	void calculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMatrix, vec3 cameraPosition, vec3 localViewPosition, const mat3 &cameraRotation, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT) const override
 	{
 		assert(fogIndex != -1);
 		assert(fogDistance);
@@ -673,11 +673,11 @@ public:
 		// Grab the entity position and rotation from the model matrix instead of passing them in as more parameters.
 		const vec3 position(modelMatrix[12], modelMatrix[13], modelMatrix[14]);
 		const mat3 rotation(modelMatrix);
-		vec3 local = position - g_main->cameraPosition;
+		vec3 local = position - cameraPosition;
 		(*fogDistance)[0] = -modelViewMatrix[2];
 		(*fogDistance)[1] = -modelViewMatrix[6];
 		(*fogDistance)[2] = -modelViewMatrix[10];
-		(*fogDistance)[3] = vec3::dotProduct(local, g_main->cameraRotation[0]);
+		(*fogDistance)[3] = vec3::dotProduct(local, cameraRotation[0]);
 
 		// scale the fog vectors based on the fog's thickness
 		(*fogDistance) *= fog.tcScale;
@@ -934,7 +934,7 @@ public:
 		for (size_t i = 0; i < portalSurface->indices.size(); i += 3)
 		{
 			const Vertex &vertex = vertices_[portalSurface->bufferIndex][portalSurface->indices[i]];
-			const vec3 normal = vertex.pos - g_main->cameraPosition;
+			const vec3 normal = vertex.pos - mainCameraPosition;
 			const float length = normal.lengthSquared(); // lose the sqrt
 
 			if (length < shortest)
