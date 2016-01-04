@@ -134,6 +134,12 @@ ConsoleVariables::ConsoleVariables()
 	showDepth = ri.Cvar_Get("r_showDepth", "0", CVAR_ARCHIVE | CVAR_CHEAT);
 	wireframe = ri.Cvar_Get("r_wireframe", "0", CVAR_CHEAT);
 
+	// Gamma
+	brightness = ri.Cvar_Get("r_brightness", "1", CVAR_ARCHIVE);
+	contrast = ri.Cvar_Get("r_contrast", "1", CVAR_ARCHIVE);
+	gamma = ri.Cvar_Get("r_gamma", "1", CVAR_ARCHIVE);
+	saturation = ri.Cvar_Get("r_saturation", "1", CVAR_ARCHIVE);
+
 	// Window
 	allowResize = ri.Cvar_Get("r_allowResize", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	centerWindow = ri.Cvar_Get("r_centerWindow", "0", CVAR_ARCHIVE | CVAR_LATCH);
@@ -270,6 +276,7 @@ Main::~Main()
 	{
 		bgfx::destroyFrameBuffer(sceneFb_);
 		bgfx::destroyFrameBuffer(linearDepthFb_);
+		bgfx::destroyFrameBuffer(mainFb_);
 	}
 
 	ri.Cmd_RemoveCommand("screenshot");
@@ -334,6 +341,7 @@ void Main::initialize()
 	const bgfx::RendererType::Enum backend = bgfx::getCaps()->rendererType;
 	halfTexelOffset_ = backend == bgfx::RendererType::Direct3D9 ? 0.5f : 0;
 	isTextureOriginBottomLeft_ = backend == bgfx::RendererType::OpenGL || backend == bgfx::RendererType::OpenGLES;
+	glConfig.deviceSupportsGamma = cvars.highPerformance->integer ? qfalse : qtrue;
 	glConfig.maxTextureSize = bgfx::getCaps()->maxTextureSize;
 	Vertex::init();
 	uniforms_ = std::make_unique<Uniforms>();
@@ -353,6 +361,7 @@ void Main::initialize()
 	fragMem[FragmentShaderId::Depth_AlphaTest] = MR(Depth_AlphaTest_fragment_##backend);                         \
 	fragMem[FragmentShaderId::Fog] = MR(Fog_fragment_##backend);                                                 \
 	fragMem[FragmentShaderId::Fullscreen_Blit] = MR(Fullscreen_Blit_fragment_##backend);                         \
+	fragMem[FragmentShaderId::Fullscreen_ColorCorrection] = MR(Fullscreen_ColorCorrection_fragment_##backend);   \
 	fragMem[FragmentShaderId::Fullscreen_LinearDepth] = MR(Fullscreen_LinearDepth_fragment_##backend);           \
 	fragMem[FragmentShaderId::Generic] = MR(Generic_fragment_##backend);                                         \
 	fragMem[FragmentShaderId::Generic_AlphaTest] = MR(Generic_AlphaTest_fragment_##backend);                     \
@@ -387,6 +396,7 @@ void Main::initialize()
 	fragMap[ShaderProgramId::Depth_AlphaTest]             = FragmentShaderId::Depth_AlphaTest;
 	fragMap[ShaderProgramId::Fog]                         = FragmentShaderId::Fog;
 	fragMap[ShaderProgramId::Fullscreen_Blit]             = FragmentShaderId::Fullscreen_Blit;
+	fragMap[ShaderProgramId::Fullscreen_ColorCorrection]  = FragmentShaderId::Fullscreen_ColorCorrection;
 	fragMap[ShaderProgramId::Fullscreen_LinearDepth]      = FragmentShaderId::Fullscreen_LinearDepth;
 	fragMap[ShaderProgramId::Generic]                     = FragmentShaderId::Generic;
 	fragMap[ShaderProgramId::Generic_AlphaTest]           = FragmentShaderId::Generic_AlphaTest;
@@ -398,6 +408,7 @@ void Main::initialize()
 	vertMap[ShaderProgramId::Depth_AlphaTest]             = VertexShaderId::Depth_AlphaTest;
 	vertMap[ShaderProgramId::Fog]                         = VertexShaderId::Fog;
 	vertMap[ShaderProgramId::Fullscreen_Blit]             = VertexShaderId::Fullscreen;
+	vertMap[ShaderProgramId::Fullscreen_ColorCorrection]  = VertexShaderId::Fullscreen;
 	vertMap[ShaderProgramId::Fullscreen_LinearDepth]      = VertexShaderId::Fullscreen;
 	vertMap[ShaderProgramId::Generic]                     = VertexShaderId::Generic;
 	vertMap[ShaderProgramId::Generic_AlphaTest]           = VertexShaderId::Generic;
@@ -435,11 +446,20 @@ void Main::initialize()
 
 	if (!cvars.highPerformance->integer)
 	{
+		// Scene
 		sceneFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT|BGFX_TEXTURE_U_CLAMP|BGFX_TEXTURE_V_CLAMP);
 		sceneFbDepth_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
-		bgfx::TextureHandle depthPrepassTextures[] = { sceneFbColor_, sceneFbDepth_ };
-		sceneFb_ = bgfx::createFrameBuffer(2, depthPrepassTextures, true);
+		bgfx::TextureHandle sceneTextures[] = { sceneFbColor_, sceneFbDepth_ };
+		sceneFb_ = bgfx::createFrameBuffer(2, sceneTextures, true);
+
+		// Linear depth
 		linearDepthFb_ = bgfx::createFrameBuffer(glConfig.vidWidth, glConfig.vidHeight, bgfx::TextureFormat::R16F);
+
+		// Main
+		mainFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT|BGFX_TEXTURE_U_CLAMP|BGFX_TEXTURE_V_CLAMP);
+		bgfx::TextureHandle mainFbDepth = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
+		bgfx::TextureHandle mainTextures[] = { mainFbColor_, mainFbDepth };
+		mainFb_ = bgfx::createFrameBuffer(2, mainTextures, true);
 	}
 }
 

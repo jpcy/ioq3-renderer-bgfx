@@ -285,7 +285,7 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 	bgfx::setTexture(0, matStageUniforms_->diffuseMap.handle, textureCache->getScratchTextures()[client]->getHandle());
 	matStageUniforms_->color.set(vec4::white);
 	bgfx::setState(BGFX_STATE_RGB_WRITE);
-	const uint8_t viewId = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), vec4(x, y, w, h));
+	const uint8_t viewId = pushView(cvars.highPerformance->integer ? defaultFb_ : mainFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), vec4(x, y, w, h));
 	bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::TextureColor].handle);
 }
 
@@ -367,10 +367,12 @@ void Main::renderScene(const refdef_t *def)
 	const int w = std::min(glConfig.vidWidth, x + def->width) - x;
 	const int h = std::min(glConfig.vidHeight, y + def->height) - y;
 
+	const bgfx::FrameBufferHandle fb = cvars.highPerformance->integer ? defaultFb_ : mainFb_;
+
 	if (def->rdflags & RDF_HYPERSPACE)
 	{
 		const uint8_t c = time_ & 255;
-		const uint8_t viewId = pushView(defaultFb_, 0, mat4::identity, mat4::identity, vec4(x, y, w, h));
+		const uint8_t viewId = pushView(fb, 0, mat4::identity, mat4::identity, vec4(x, y, w, h));
 		bgfx::setViewClear(viewId, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, (c<<24)|(c<<16)|(c<<8)|0xff);
 		bgfx::touch(viewId);
 	}
@@ -383,15 +385,15 @@ void Main::renderScene(const refdef_t *def)
 
 		if (SHOW_DEPTH_ENABLED)
 		{
-			// Blit the linear depth framebuffer to the default framebuffer.
+			// Blit the linear depth framebuffer.
 			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, linearDepthFb_);
-			renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+			renderFullscreenQuad(fb, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 		}
 		else if (!cvars.highPerformance->integer && isWorldCamera_)
 		{
-			// Blit the scene framebuffer color to the default framebuffer.
+			// Blit the scene framebuffer color.
 			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
-			renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+			renderFullscreenQuad(fb, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 		}
 	}
 
@@ -405,7 +407,22 @@ void Main::renderScene(const refdef_t *def)
 void Main::endFrame()
 {
 	flushStretchPics();
-	stretchPicViewId_ = UINT8_MAX;
+
+	// Copy the main framebuffer to the default framebuffer, with color correction.
+	if (!cvars.highPerformance->integer)
+	{
+		// Clamp to sane values.
+		uniforms_->brightnessContrastGammaSaturation.set(vec4
+		(
+			Clamped(cvars.brightness->value - 1.0f, -0.8f, 0.8f),
+			Clamped(cvars.contrast->value, 0.5f, 3.0f),
+			1.0f / Clamped(cvars.gamma->value, 0.5f, 3.0f),
+			Clamped(cvars.saturation->value, 0.0f, 3.0f)
+		));
+		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, mainFbColor_);
+		renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_ColorCorrection, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+	}
+	
 	assert(firstFreeViewId_ != 0); // Should always be one active view.
 	bgfx::frame();
 
@@ -434,6 +451,7 @@ void Main::endFrame()
 
 	firstFreeViewId_ = 0;
 	frameNo_++;
+	stretchPicViewId_ = UINT8_MAX;
 }
 
 bool Main::sampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir)
@@ -497,7 +515,7 @@ void Main::flushStretchPics()
 
 			if (stretchPicViewId_ == UINT8_MAX)
 			{
-				stretchPicViewId_ = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, glConfig.vidWidth, 0, glConfig.vidHeight, -1, 1));
+				stretchPicViewId_ = pushView(cvars.highPerformance->integer ? defaultFb_ : mainFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, glConfig.vidWidth, 0, glConfig.vidHeight, -1, 1));
 			}
 
 			for (const MaterialStage &stage : stretchPicMaterial_->stages)
@@ -834,9 +852,13 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	{
 		mainViewId = pushView(sceneFb_, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, rect);
 	}
+	else if (!cvars.highPerformance->integer)
+	{
+		mainViewId = pushView(mainFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect);
+	}
 	else
 	{
-		mainViewId = pushView(defaultFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect);
+		mainViewId = pushView(defaultFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect);		
 	}
 
 	for (DrawCall &dc : drawCalls_)

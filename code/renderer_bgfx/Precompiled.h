@@ -104,6 +104,14 @@ struct ConsoleVariables
 	cvar_t *softSprites;
 	cvar_t *wireframe;
 
+	/// @name Color correction
+	/// @{
+	cvar_t *brightness;
+	cvar_t *contrast;
+	cvar_t *gamma;
+	cvar_t *saturation;
+	/// @}
+
 	/// @name Window
 	/// @{
 	cvar_t *allowResize;
@@ -1067,7 +1075,19 @@ struct Uniforms
 	Uniform_vec4 portalPlane = "u_PortalPlane";
 	/// @}
 
-	/// @name fog
+	/// @name Dynamic lights
+	/// @{
+
+	/// @remarks Only x used.
+	Uniform_vec4 nDynamicLights = "u_NumDynamicLights";
+
+	/// @remarks w is intensity.
+	Uniform_vec4 dlightColors = { "u_DynamicLightColors", DynamicLight::max };
+
+	Uniform_vec4 dlightPositions = { "u_DynamicLightPositions", DynamicLight::max };
+	/// @}
+
+	/// @name Fog
 	/// @{
 
 	/// @brief Enable fog in the generic shader.
@@ -1081,16 +1101,9 @@ struct Uniforms
 	Uniform_vec4 fogEyeT = "u_FogEyeT";
 	/// @}
 
-	/// @name Dynamic lights
+	/// @name Color correction
 	/// @{
-
-	/// @remarks Only x used.
-	Uniform_vec4 nDynamicLights = "u_NumDynamicLights";
-
-	/// @remarks w is intensity.
-	Uniform_vec4 dlightColors = { "u_DynamicLightColors", DynamicLight::max };
-
-	Uniform_vec4 dlightPositions = { "u_DynamicLightPositions", DynamicLight::max };
+	Uniform_vec4 brightnessContrastGammaSaturation = "u_BrightnessContrastGammaSaturation";
 	/// @}
 };
 
@@ -1332,6 +1345,7 @@ private:
 			Depth_AlphaTest,
 			Fog,
 			Fullscreen_Blit,
+			Fullscreen_ColorCorrection,
 			Fullscreen_LinearDepth,
 			Generic,
 			Generic_AlphaTest,
@@ -1364,6 +1378,7 @@ private:
 			Depth_AlphaTest,
 			Fog,
 			Fullscreen_Blit,
+			Fullscreen_ColorCorrection,
 			Fullscreen_LinearDepth,
 			Generic,
 			Generic_AlphaTest,
@@ -1431,6 +1446,8 @@ private:
 	bgfx::TextureHandle sceneFbColor_;
 	bgfx::TextureHandle sceneFbDepth_;
 	bgfx::FrameBufferHandle linearDepthFb_;
+	bgfx::FrameBufferHandle mainFb_;
+	bgfx::TextureHandle mainFbColor_;
 	/// @}
 
 	/// @name Scene
