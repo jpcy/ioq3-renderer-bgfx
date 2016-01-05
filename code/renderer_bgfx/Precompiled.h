@@ -1306,6 +1306,12 @@ public:
 	void endFrame();
 	bool sampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
 
+	/// @brief Called by the material cache when a material is created.
+	void onMaterialCreate(Material *material);
+
+	/// @brief Called by the model cache when a model is created.
+	void onModelCreate(Model *model);
+
 	bool sunShadows = false;
 	vec3 sunLight = { 0, 0, 0 };
 	vec3 sunDirection = { 0.45f, 0.3f, 0.9f };
@@ -1406,6 +1412,8 @@ private:
 	void setupEntityLighting(Entity *entity);
 	/// @}
 
+	float calculateExplosionLight(float entityShaderTime, float durationMilliseconds) const;
+
 	/// @name Camera
 	/// @{
 	Frustum cameraFrustum_;
@@ -1449,6 +1457,14 @@ private:
 	bgfx::FrameBufferHandle linearDepthFb_;
 	bgfx::FrameBufferHandle mainFb_;
 	bgfx::TextureHandle mainFbColor_;
+	/// @}
+
+	/// @name Game-specific hacks
+	/// @{
+	Material *bfgExplosionMaterial_ = nullptr;
+	Model *bfgMissibleModel_ = nullptr;
+	Material *plasmaBallMaterial_ = nullptr;
+	Material *plasmaExplosionMaterial_ = nullptr;
 	/// @}
 
 	/// @name Scene

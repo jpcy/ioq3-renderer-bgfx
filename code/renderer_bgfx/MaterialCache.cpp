@@ -222,6 +222,7 @@ Material *MaterialCache::createMaterial(const Material &base)
 	m->next = hashTable_[hash];
 	hashTable_[hash] = m.get();
 	materials_.push_back(std::move(m));
+	g_main->onMaterialCreate(hashTable_[hash]);
 	return hashTable_[hash];
 }
 

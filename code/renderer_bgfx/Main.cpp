@@ -470,6 +470,30 @@ bool Main::sampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, v
 	return true;
 }
 
+void Main::onMaterialCreate(Material *material)
+{
+	if (!Q_stricmp(material->name, "bfgExplosion"))
+	{
+		bfgExplosionMaterial_ = material;
+	}
+	else if (!Q_stricmp(material->name, "sprites/plasma1"))
+	{
+		plasmaBallMaterial_ = material;
+	}
+	else if (!Q_stricmp(material->name, "plasmaExplosion"))
+	{
+		plasmaExplosionMaterial_ = material;
+	}
+}
+
+void Main::onModelCreate(Model *model)
+{
+	if (!Q_stricmp(model->getName(), "models/weaphits/bfg.md3"))
+	{
+		bfgMissibleModel_ = model;
+	}
+}
+
 uint8_t Main::pushView(bgfx::FrameBufferHandle frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, vec4 rect)
 {
 	// Useful for debugging, can be disabled for performance later.
@@ -1128,6 +1152,43 @@ void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 view
 	default:
 		break;
 	}
+
+	// Hack in extra dlights for Quake 3 content.
+	const vec4 bfgColor(0.08f, 1.0f, 0.4f, 1.0f);
+	const vec4 plasmaColor(0.6f, 0.6f, 1.0f, 1.0f);
+	DynamicLight dl;
+	dl.intensity = 0;
+	dl.position = entity->e.origin;
+
+	// BFG projectile.
+	if (entity->e.reType == RT_MODEL && bfgMissibleModel_ && entity->e.hModel == bfgMissibleModel_->getIndex())
+	{
+		dl.color = bfgColor;
+		dl.intensity = 200; // Same radius as rocket.
+	}
+	// BFG explosion.
+	else if (entity->e.reType == RT_SPRITE && bfgExplosionMaterial_ && entity->e.customShader == bfgExplosionMaterial_->index)
+	{
+		dl.color = bfgColor;
+		dl.intensity = 300 * calculateExplosionLight(entity->e.shaderTime, 1000); // Same radius and duration as rocket explosion.
+	}
+	// Plasma ball.
+	else if (entity->e.reType == RT_SPRITE && plasmaBallMaterial_ && entity->e.customShader == plasmaBallMaterial_->index)
+	{
+		dl.color = plasmaColor;
+		dl.intensity = 100;
+	}
+	// Plasma explosion.
+	else if (entity->e.reType == RT_MODEL && plasmaExplosionMaterial_ && entity->e.customShader == plasmaExplosionMaterial_->index)
+	{
+		dl.color = plasmaColor;
+		dl.intensity = 200 * calculateExplosionLight(entity->e.shaderTime, 600); // CG_MissileHitWall: 600ms duration.
+	}
+
+	if (dl.intensity > 0)
+	{
+		addDynamicLightToScene(dl);
+	}
 }
 
 void Main::renderLightningEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity)
@@ -1425,6 +1486,17 @@ void Main::setupEntityLighting(Entity *entity)
 	entity->modelLightDir[0] = vec3::dotProduct(entity->lightDir, entity->e.axis[0]);
 	entity->modelLightDir[1] = vec3::dotProduct(entity->lightDir, entity->e.axis[1]);
 	entity->modelLightDir[2] = vec3::dotProduct(entity->lightDir, entity->e.axis[2]);
+}
+
+float Main::calculateExplosionLight(float entityShaderTime, float durationMilliseconds) const
+{
+	// From CG_AddExplosion
+	float light = (floatTime_ - entityShaderTime) / (durationMilliseconds / 1000.0f);
+
+	if (light < 0.5f)
+		return 1.0f;
+
+	return 1.0f - (light - 0.5f) * 2.0f;
 }
 
 } // namespace renderer
