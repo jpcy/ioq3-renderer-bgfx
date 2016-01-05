@@ -41,3 +41,4 @@
 #define TCGEN_TEXTURE            4
 #define TCGEN_VECTOR             5
 
+#define USE_HALF_LAMBERT

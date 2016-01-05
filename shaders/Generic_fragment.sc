@@ -39,7 +39,11 @@ uniform vec4 u_DynamicLightPositions[MAX_DLIGHTS];
 
 float Lambert(vec3 surfaceNormal, vec3 lightDir)
 {
+#if defined(USE_HALF_LAMBERT)
+	return pow(dot(surfaceNormal, lightDir) * 0.5 + 0.5, 2);
+#else
 	return saturate(dot(surfaceNormal, lightDir));
+#endif
 }
 
 void main()
