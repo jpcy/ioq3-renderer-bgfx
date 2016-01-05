@@ -278,6 +278,8 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 		return;
 	}
 
+	flushStretchPics();
+	stretchPicViewId_ = UINT8_MAX;
 	uploadCinematic(w, h, cols, rows, data, client, dirty);
 	auto vertices = (Vertex *)tvb.data;
 	vertices[0].pos = { 0, 0, 0 }; vertices[0].texCoord = { 0, 0 }; vertices[0].color = vec4::white;
