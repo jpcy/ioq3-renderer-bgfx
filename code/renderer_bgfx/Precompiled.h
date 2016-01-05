@@ -183,6 +183,7 @@ struct DrawCall
 	Material *material = nullptr;
 	mat4 modelMatrix = mat4::identity;
 	float softSpriteDepth = 0;
+	uint8_t sort = 0;
 	uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE | BGFX_STATE_MSAA;
 	VertexBuffer vb;
 	float zOffset = 0.0f;
@@ -1264,8 +1265,8 @@ public:
 	virtual void calculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMatrix, vec3 cameraPosition, vec3 localViewPosition, const mat3 &cameraRotation, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT) const = 0;
 	virtual int markFragments(int numPoints, const vec3_t *points, const vec3_t projection, int maxPoints, vec3_t pointBuffer, int maxFragments, markFragment_t *fragmentBuffer) = 0;
 	virtual Bounds getBounds(uint8_t visCacheId) const = 0;
-	virtual Material *getSkyMaterial(uint8_t visCacheId) const = 0;
-	virtual const std::vector<Vertex> &getSkyVertices(uint8_t visCacheId) const = 0;
+	virtual size_t getNumSkies(uint8_t visCacheId) const = 0;
+	virtual void getSky(uint8_t visCacheId, size_t index, Material **material, const std::vector<Vertex> **vertices) const = 0;
 	virtual size_t getNumPortalSurfaces(uint8_t visCacheId) const = 0;
 	virtual bool calculatePortalCamera(uint8_t visCacheId, size_t portalSurfaceIndex, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, vec4 *portalPlane) const = 0;
 	virtual void load() = 0;

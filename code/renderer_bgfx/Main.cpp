@@ -208,8 +208,15 @@ bool DrawCall::operator<(const DrawCall &other) const
 	}
 	else if (material->sort == other.material->sort)
 	{
-		if (material->index < other.material->index)
+		if (sort < other.sort)
+		{
 			return true;
+		}
+		else if (sort == other.sort)
+		{
+			if (material->index < other.material->index)
+				return true;
+		}
 	}
 
 	return false;

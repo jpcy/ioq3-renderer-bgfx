@@ -595,53 +595,87 @@ void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, uint8_t visCach
 	if (!g_main->world.get())
 		return;
 
-	auto mat = g_main->world->getSkyMaterial(visCacheId);
-
-	if (mat == nullptr)
-		return;
-
-	const bool shouldDrawSkyBox = mat->sky.outerbox[0] && mat->sky.outerbox[0] != g_main->textureCache->getDefaultTexture();
-	const bool shouldDrawCloudBox = mat->sky.cloudHeight > 0 && mat->stages[0].active;
-
-	if (!shouldDrawSkyBox && !shouldDrawCloudBox)
-		return;
-
-	auto &vertices = g_main->world->getSkyVertices(visCacheId);
-	assert(!vertices.empty());
-
-	// Clear sky box.
-	for (size_t i = 0; i < 6; i++)
+	for (size_t skyIndex = 0; skyIndex < g_main->world->getNumSkies(visCacheId); skyIndex++)
 	{
-		sky_mins[0][i] = sky_mins[1][i] = 9999;
-		sky_maxs[0][i] = sky_maxs[1][i] = -9999;
-	}
+		Material *mat;
+		const std::vector<Vertex> *vertices;
+		g_main->world->getSky(visCacheId, skyIndex, &mat, &vertices);
 
-	// Clip sky polygons.
-	for (size_t i = 0; i < vertices.size(); i += 3)
-	{
-		vec3_t p[5]; // need one extra point for clipping
+		if (mat == nullptr)
+			continue;
 
-		for (size_t j = 0 ; j < 3 ; j++) 
+		const bool shouldDrawSkyBox = mat->sky.outerbox[0] && mat->sky.outerbox[0] != g_main->textureCache->getDefaultTexture();
+		const bool shouldDrawCloudBox = mat->sky.cloudHeight > 0 && mat->stages[0].active;
+
+		if (!shouldDrawSkyBox && !shouldDrawCloudBox)
+			continue;
+
+		assert(!vertices->empty());
+
+		// Clear sky box.
+		for (size_t i = 0; i < 6; i++)
 		{
-			VectorSubtract(vertices[i + j].pos, cameraPosition, p[j]);
+			sky_mins[0][i] = sky_mins[1][i] = 9999;
+			sky_maxs[0][i] = sky_maxs[1][i] = -9999;
 		}
 
-		ClipSkyPolygon(3, p[0], 0);
-	}
+		// Clip sky polygons.
+		for (size_t i = 0; i < vertices->size(); i += 3)
+		{
+			vec3_t p[5]; // need one extra point for clipping
 
-	// Draw the skybox.
-	if (shouldDrawSkyBox)
-	{
-		for (int i = 0; i < 6; i++)
+			for (size_t j = 0 ; j < 3 ; j++) 
+			{
+				VectorSubtract((*vertices)[i + j].pos, cameraPosition, p[j]);
+			}
+
+			ClipSkyPolygon(3, p[0], 0);
+		}
+
+		// Draw the skybox.
+		if (shouldDrawSkyBox)
+		{
+			for (int i = 0; i < 6; i++)
+			{
+				uint32_t nVertices, nIndices;
+				sky_min = 0;
+				sky_max = 1;
+				Com_Memset( s_skyTexCoords, 0, sizeof( s_skyTexCoords ) );
+
+				if (!TessellateSkyBoxSide(i, nullptr, nullptr, &nVertices, &nIndices, cameraPosition, zMax))
+					continue;
+
+				DrawCall dc;
+
+				if (!bgfx::allocTransientBuffers(&dc.vb.transientHandle, Vertex::decl, nVertices, &dc.ib.transientHandle, nIndices)) 
+				{
+					WarnOnce(WarnOnceId::TransientBuffer);
+					return;
+				}
+
+				sky_min = 0;
+				sky_max = 1;
+				Com_Memset( s_skyTexCoords, 0, sizeof( s_skyTexCoords ) );
+				TessellateSkyBoxSide(i, (Vertex *)dc.vb.transientHandle.data, (uint16_t *)dc.ib.transientHandle.data, nullptr, nullptr, cameraPosition, zMax);
+				dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
+				dc.vb.nVertices = nVertices;
+				dc.ib.nIndices = nIndices;
+				dc.flags = DrawCallFlags::SkyboxSideFirst + i;
+				dc.material = mat;
+				dc.state |= BGFX_STATE_DEPTH_TEST_LEQUAL;
+
+				// Write depth as 1.
+				dc.zOffset = 1.0f;
+				dc.zScale = 0.0f;
+				drawCallList->push_back(dc);
+			}
+		}
+
+		// Draw the clouds.
+		if (shouldDrawCloudBox)
 		{
 			uint32_t nVertices, nIndices;
-			sky_min = 0;
-			sky_max = 1;
-			Com_Memset( s_skyTexCoords, 0, sizeof( s_skyTexCoords ) );
-
-			if (!TessellateSkyBoxSide(i, nullptr, nullptr, &nVertices, &nIndices, cameraPosition, zMax))
-				continue;
-
+			TessellateCloudBox(nullptr, nullptr, &nVertices, &nIndices, cameraPosition, zMax);
 			DrawCall dc;
 
 			if (!bgfx::allocTransientBuffers(&dc.vb.transientHandle, Vertex::decl, nVertices, &dc.ib.transientHandle, nIndices)) 
@@ -650,46 +684,18 @@ void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, uint8_t visCach
 				return;
 			}
 
-			sky_min = 0;
-			sky_max = 1;
-			Com_Memset( s_skyTexCoords, 0, sizeof( s_skyTexCoords ) );
-			TessellateSkyBoxSide(i, (Vertex *)dc.vb.transientHandle.data, (uint16_t *)dc.ib.transientHandle.data, nullptr, nullptr, cameraPosition, zMax);
+			TessellateCloudBox((Vertex *)dc.vb.transientHandle.data, (uint16_t *)dc.ib.transientHandle.data, nullptr, nullptr, cameraPosition, zMax);
 			dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 			dc.vb.nVertices = nVertices;
 			dc.ib.nIndices = nIndices;
-			dc.flags = DrawCallFlags::SkyboxSideFirst + i;
 			dc.material = mat;
+			dc.sort = 1; // Render after the skybox.
 
 			// Write depth as 1.
 			dc.zOffset = 1.0f;
 			dc.zScale = 0.0f;
 			drawCallList->push_back(dc);
 		}
-	}
-
-	// Draw the clouds.
-	if (shouldDrawCloudBox)
-	{
-		uint32_t nVertices, nIndices;
-		TessellateCloudBox(nullptr, nullptr, &nVertices, &nIndices, cameraPosition, zMax);
-		DrawCall dc;
-
-		if (!bgfx::allocTransientBuffers(&dc.vb.transientHandle, Vertex::decl, nVertices, &dc.ib.transientHandle, nIndices)) 
-		{
-			WarnOnce(WarnOnceId::TransientBuffer);
-			return;
-		}
-
-		TessellateCloudBox((Vertex *)dc.vb.transientHandle.data, (uint16_t *)dc.ib.transientHandle.data, nullptr, nullptr, cameraPosition, zMax);
-		dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
-		dc.vb.nVertices = nVertices;
-		dc.ib.nIndices = nIndices;
-		dc.material = mat;
-
-		// Write depth as 1.
-		dc.zOffset = 1.0f;
-		dc.zScale = 0.0f;
-		drawCallList->push_back(dc);
 	}
 }
 

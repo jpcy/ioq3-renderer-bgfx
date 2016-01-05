@@ -112,8 +112,10 @@ struct BatchedSurface
 
 struct VisCache
 {
-	Material *skyMaterial = nullptr;
-	std::vector<Vertex> skyVertices;
+	static const size_t maxSkies = 4;
+	size_t nSkies = 0;
+	Material *skyMaterials[maxSkies];
+	std::vector<Vertex> skyVertices[maxSkies];
 
 	Node *lastCameraLeaf = nullptr;
 	uint8_t lastAreaMask[MAX_MAP_AREA_BYTES];
@@ -877,14 +879,22 @@ public:
 		return visCaches_[visCacheId]->bounds;
 	}
 
-	Material *getSkyMaterial(uint8_t visCacheId) const override
+	size_t getNumSkies(uint8_t visCacheId) const
 	{
-		return visCaches_[visCacheId]->skyMaterial;
+		return visCaches_[visCacheId]->nSkies;
 	}
 
-	const std::vector<Vertex> &getSkyVertices(uint8_t visCacheId) const override
+	void getSky(uint8_t visCacheId, size_t index, Material **material, const std::vector<Vertex> **vertices) const
 	{
-		return visCaches_[visCacheId]->skyVertices;
+		if (material)
+		{
+			*material = visCaches_[visCacheId]->skyMaterials[index];
+		}
+
+		if (vertices)
+		{
+			*vertices = &visCaches_[visCacheId]->skyVertices[index];
+		}
 	}
 
 	size_t getNumPortalSurfaces(uint8_t visCacheId) const override
@@ -1103,8 +1113,13 @@ public:
 		{
 			// Clear data that will be recalculated.
 			visCache->surfaces.clear();
-			visCache->skyMaterial = nullptr;
-			visCache->skyVertices.clear();
+			visCache->nSkies = 0;
+
+			for (size_t i = 0; i < VisCache::maxSkies; i++)
+			{
+				visCache->skyMaterials[i] = nullptr;
+			}
+
 			visCache->portalSurfaces.clear();
 			visCache->bounds.setupForAddingPoints();
 
@@ -1146,13 +1161,35 @@ public:
 
 					// Add the surface.
 					surface.duplicateId = duplicateSurfaceId_;
-						
+					
 					if (surface.material->isSky)
 					{
 						// Special case for sky surfaces.
-						assert(visCache->skyMaterial == nullptr || visCache->skyMaterial == surface.material); // Check for multiple sky materials.
-						visCache->skyMaterial = surface.material;
-						appendSkySurfaceGeometry(visCacheId, surface);
+						size_t k;
+
+						for (k = 0; k < VisCache::maxSkies; k++)
+						{
+							if (visCache->skyMaterials[k] == nullptr)
+							{
+								visCache->skyVertices[k].clear();
+								visCache->skyMaterials[k] = surface.material;
+								visCache->nSkies++;
+								break;
+							}
+								
+							if (visCache->skyMaterials[k] == surface.material)
+								break;
+						}
+						
+						if (k == VisCache::maxSkies)
+						{
+							ri.Printf(PRINT_WARNING, "Too many skies\n");
+						}
+						else
+						{
+							appendSkySurfaceGeometry(visCacheId, k, surface);
+						}
+
 						continue;
 					}
 					else
@@ -2041,15 +2078,15 @@ private:
 		}
 	}
 
-	void appendSkySurfaceGeometry(uint8_t visCacheId, const Surface &surface)
+	void appendSkySurfaceGeometry(uint8_t visCacheId, size_t skyIndex, const Surface &surface)
 	{
 		auto &visCache = visCaches_[visCacheId];
-		const size_t startVertex = visCache->skyVertices.size();
-		visCache->skyVertices.resize(visCache->skyVertices.size() + surface.indices.size());
+		const size_t startVertex = visCache->skyVertices[skyIndex].size();
+		visCache->skyVertices[skyIndex].resize(visCache->skyVertices[skyIndex].size() + surface.indices.size());
 
 		for (size_t i = 0; i < surface.indices.size(); i++)
 		{
-			visCache->skyVertices[startVertex + i] = vertices_[surface.bufferIndex][surface.indices[i]];
+			visCache->skyVertices[skyIndex][startVertex + i] = vertices_[surface.bufferIndex][surface.indices[i]];
 		}
 	}
 
