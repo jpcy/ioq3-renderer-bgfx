@@ -103,7 +103,14 @@ function compileShader(bgfxPath, input, type, permutation, defines)
 		end
 		
 		if os.execute(command) ~= 0 then
-			error()
+			local message = "\n" .. input .. " " .. type
+			
+			if permutation ~= nil then
+				message = message .. " " .. permutation
+			end
+			
+			message = message .. " " .. renderer .. "\n" .. command
+			error(message)
 		end
 		
 		-- Append the temp output file to the real output file.

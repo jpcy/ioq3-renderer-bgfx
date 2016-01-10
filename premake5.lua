@@ -52,12 +52,13 @@ newaction
 			compileShader(BGFX_PATH, "TextureColor", "vertex")
 		end
 
-		pcall(compileAllShaders)
+		local ok, message = pcall(compileAllShaders)
+		if ok then
+			print("Done.")
+		else
+			print(message)
+		end
     end,
-	
-	onEnd = function()
-        print("Done.")
-    end
 }
 
 solution "renderer_bgfx"
