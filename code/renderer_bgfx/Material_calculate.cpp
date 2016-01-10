@@ -790,7 +790,7 @@ void Material::setDeformUniforms(Uniforms_Material *uniforms) const
 	vec4 moveDirs[maxDeforms];
 	vec4 gen_Wave_Base_Amplitude[maxDeforms];
 	vec4 frequency_Phase_Spread[maxDeforms];
-	size_t i = 0;
+	uint16_t i = 0;
 
 	for (auto &ds : deforms)
 	{

@@ -1274,7 +1274,7 @@ public:
 									for (size_t m = 0; m < quadVertices.size(); m++)
 									{
 										if (quadVertices[m] == &srcVertices[srcIndices[l]])
-											quadIndices[l] = m;
+											quadIndices[l] = uint16_t(m);
 									}
 								}
 
@@ -1286,7 +1286,7 @@ public:
 
 								for (size_t l = 0; l < quadIndices.size(); l++)
 								{
-									visCache->cpuDeformIndices[firstDestIndex + quadIndex * 6 + l] = firstDestVertex + quadIndex * 4 + quadIndices[l];
+									visCache->cpuDeformIndices[firstDestIndex + quadIndex * 6 + l] = uint16_t(firstDestVertex + quadIndex * 4 + quadIndices[l]);
 								}
 
 								bs.nIndices += 6;
