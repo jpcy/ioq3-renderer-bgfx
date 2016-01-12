@@ -201,10 +201,10 @@ struct DynamicIndexBuffer
 
 struct DynamicLight
 {
-	static const size_t max = MAX_DLIGHTS;
+	/// @remarks Alpha is radius/intensity.
 	vec4 color;
-	float intensity;
-	vec3 position;
+
+	vec4 position;
 };
 
 struct Entity
@@ -559,6 +559,7 @@ struct MaterialTextureBundleIndex
 		Deluxemap,
 		Specularmap,
 		Depth,
+		DynamicLights,
 		NumMaterialTextureBundles,
 
 		ColorMap  = 0,
@@ -1079,13 +1080,9 @@ struct Uniforms
 	/// @name Dynamic lights
 	/// @{
 
-	/// @remarks Only x used.
-	Uniform_vec4 nDynamicLights = "u_NumDynamicLights";
+	/// @remarks x is the number of dynamic lights, y is the texture width.
+	Uniform_vec4 dynamicLights_Num_TextureWidth = "u_DynamicLights_Num_TextureWidth";
 
-	/// @remarks w is intensity.
-	Uniform_vec4 dlightColors = { "u_DynamicLightColors", DynamicLight::max };
-
-	Uniform_vec4 dlightPositions = { "u_DynamicLightPositions", DynamicLight::max };
 	/// @}
 
 	/// @name Fog
@@ -1149,6 +1146,7 @@ struct Uniforms_MaterialStage
 		textures[MaterialTextureBundleIndex::Deluxemap] = &deluxemap;
 		textures[MaterialTextureBundleIndex::Specularmap] = &specularmap;
 		textures[MaterialTextureBundleIndex::Depth] = &depthSampler;
+		textures[MaterialTextureBundleIndex::DynamicLights] = &dynamicLightsSampler;
 	}
 
 	/// @remarks Only x used.
@@ -1164,6 +1162,7 @@ struct Uniforms_MaterialStage
 	Uniform_int deluxemap = "u_DeluxeMap";
 	Uniform_int specularmap = "u_SpecularMap";
 	Uniform_int depthSampler = "u_DepthMap";
+	Uniform_int dynamicLightsSampler = "u_DynamicLightsSampler";
 	Uniform_int *textures[MaterialTextureBundleIndex::NumMaterialTextureBundles];
 	/// @}
 
@@ -1424,6 +1423,14 @@ private:
 	bool isWorldCamera_;
 
 	vec4 portalPlane_;
+	/// @}
+
+	/// @name Dynamic lights
+	/// @{
+	static const size_t maxDynamicLights_ = MAX_DLIGHTS;
+	static const size_t maxDynamicLightTextures_ = 2;
+	bgfx::TextureHandle dynamicLightsTextures_[maxDynamicLightTextures_];
+	int dynamicLightTextureSize_;
 	/// @}
 
 	/// @name Fonts

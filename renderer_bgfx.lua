@@ -7,6 +7,7 @@ function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sd
 	defines
 	{
 		"__STDC_FORMAT_MACROS", -- bgfx
+		"BGFX_CONFIG_RENDERER_OPENGL=30",
 		"USE_RENDERER_DLOPEN"
 	}
 
@@ -97,6 +98,7 @@ function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sd
 		pchsource(path.join(rendererPath, "code/renderer_bgfx/Precompiled.cpp"))
 		
 	configuration "windows"
+		defines { "BGFX_CONFIG_RENDERER_DIRECT3D11=1", "BGFX_CONFIG_RENDERER_DIRECT3D12=1" }
 		includedirs(sdlIncludeDir)
 		links { "d3dcompiler", "gdi32", "OpenGL32", "psapi" }
 		

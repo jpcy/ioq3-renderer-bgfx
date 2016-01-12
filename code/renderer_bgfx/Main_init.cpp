@@ -65,11 +65,9 @@ struct Backend
 static const Backend backends[] =
 {
 	{ bgfx::RendererType::Null, "Null", "null" },
-	{ bgfx::RendererType::Direct3D9, "Direct3D 9.0", "d3d9" },
 	{ bgfx::RendererType::Direct3D11, "Direct3D 11.0", "d3d11" },
 	{ bgfx::RendererType::Direct3D12, "Direct3D 12.0", "d3d12" },
-	{ bgfx::RendererType::OpenGLES, "OpenGL ES 2.0+", "gles" },
-	{ bgfx::RendererType::OpenGL, "OpenGL 2.1+", "gl" },
+	{ bgfx::RendererType::OpenGL, "OpenGL 3.0", "gl" },
 	{ bgfx::RendererType::Vulkan, "Vulkan", "vulkan" }
 };
 
@@ -301,7 +299,11 @@ void Main::initialize()
 		}
 
 		Window_Initialize(backend == bgfx::RendererType::OpenGL);
-		bgfx::init(backend, 0, 0, &bgfxCallback);
+		
+		if (!bgfx::init(backend, 0, 0, &bgfxCallback))
+		{
+			ri.Error(ERR_DROP, "bgfx init failed");
+		}
 
 		for (size_t i = 0; i < nBackends; i++)
 		{
@@ -380,10 +382,6 @@ void Main::initialize()
 		SHADER_MEM(gl);
 	}
 #ifdef WIN32
-	else if (backend == bgfx::RendererType::Direct3D9)
-	{
-		SHADER_MEM(d3d9)
-	}
 	else if (backend == bgfx::RendererType::Direct3D11)
 	{
 		SHADER_MEM(d3d11)
@@ -425,7 +423,7 @@ void Main::initialize()
 			fragment.handle = bgfx::createShader(fragMem[fragMap[i]]);
 
 			if (!bgfx::isValid(fragment.handle))
-				Com_Error(ERR_FATAL, "Error creating fragment shader");
+				ri.Error(ERR_DROP, "Error creating fragment shader");
 		}
 
 		auto &vertex = vertexShaders_[vertMap[i]];
@@ -435,13 +433,13 @@ void Main::initialize()
 			vertex.handle = bgfx::createShader(vertMem[vertMap[i]]);
 
 			if (!bgfx::isValid(vertex.handle))
-				Com_Error(ERR_FATAL, "Error creating vertex shader");
+				ri.Error(ERR_DROP, "Error creating vertex shader");
 		}
 
 		shaderPrograms_[i].handle = bgfx::createProgram(vertex.handle, fragment.handle);
 
 		if (!bgfx::isValid(shaderPrograms_[i].handle))
-			Com_Error(ERR_FATAL, "Error creating shader program");
+			ri.Error(ERR_DROP, "Error creating shader program");
 	}
 
 	if (!cvars.highPerformance->integer)
@@ -460,6 +458,21 @@ void Main::initialize()
 		bgfx::TextureHandle mainFbDepth = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
 		bgfx::TextureHandle mainTextures[] = { mainFbColor_, mainFbDepth };
 		mainFb_ = bgfx::createFrameBuffer(2, mainTextures, true);
+	}
+
+	// Dynamic lights.
+	// Calculate the smallest square POT texture size to fit the dynamic lights data.
+	const int sr = (int)ceil(sqrtf(maxDynamicLights_ * sizeof(DynamicLight) / 4.0f));
+	dynamicLightTextureSize_ = 1;
+
+	while (dynamicLightTextureSize_ < sr)
+		dynamicLightTextureSize_ *= 2;
+
+	dynamicLightTextureSize_ = pow(dynamicLightTextureSize_, 2);
+
+	for (size_t i = 0; i < maxDynamicLightTextures_; i++)
+	{
+		dynamicLightsTextures_[i] = bgfx::createTexture2D(dynamicLightTextureSize_, dynamicLightTextureSize_, 1, bgfx::TextureFormat::RGBA32F);
 	}
 }
 
@@ -655,9 +668,8 @@ static int RE_LightForPoint(vec3_t point, vec3_t ambientLight, vec3_t directedLi
 static void RE_AddLightToScene(const vec3_t org, float intensity, float r, float g, float b)
 {
 	DynamicLight light;
-	light.position = org;
-	light.color = vec4(r, g, b, 1);
-	light.intensity = intensity;
+	light.position = vec4(org, 0);
+	light.color = vec4(r, g, b, intensity);
 	g_main->addDynamicLightToScene(light);
 }
 

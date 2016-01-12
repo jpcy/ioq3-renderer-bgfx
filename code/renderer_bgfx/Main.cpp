@@ -798,25 +798,24 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	}
 
 	// Setup dynamic lights.
-	vec4 dlightColors[DynamicLight::max];
-	vec4 dlightPositions[DynamicLight::max];
-	size_t dli = 0;
-
-	for (size_t i = 0; i < sceneDynamicLights_.size(); i++)
+	if (!cvars.highPerformance->integer && isWorldCamera_)
 	{
-		const auto &dl = sceneDynamicLights_[i];
+		uniforms_->dynamicLights_Num_TextureWidth.set(vec4(sceneDynamicLights_.size(), dynamicLightTextureSize_, 0, 0));
 
-		if (cameraFrustum_.clipSphere(dl.position, dl.intensity) == Frustum::ClipResult::Outside)
-			break;
-
-		dlightColors[dli] = vec4(dl.color.r, dl.color.g, dl.color.b, dl.intensity);
-		dlightPositions[dli] = dl.position;
-		dli++;
+		if (sceneDynamicLights_.size() > 0)
+		{
+			const uint32_t size = sceneDynamicLights_.size() * sizeof(DynamicLight);
+			const uint32_t nTexels = size / 4;
+			const uint16_t width = std::min(nTexels, uint32_t(dynamicLightTextureSize_));
+			const uint16_t height = std::ceil(nTexels / (float)dynamicLightTextureSize_);
+			const bgfx::Memory *mem = bgfx::copy(sceneDynamicLights_.data(), size);
+			bgfx::updateTexture2D(dynamicLightsTextures_[visCacheId], 0, 0, 0, width, height, mem);
+		}
 	}
-
-	uniforms_->nDynamicLights.set(vec4(dli, 0, 0, 0));
-	uniforms_->dlightColors.set(dlightColors, DynamicLight::max);
-	uniforms_->dlightPositions.set(dlightPositions, DynamicLight::max);
+	else
+	{
+		uniforms_->dynamicLights_Num_TextureWidth.set(vec4(0, 0, 0, 0));
+	}
 	
 	if (!cvars.highPerformance->integer && isWorldCamera_)
 	{
@@ -1009,6 +1008,11 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				shaderProgram = ShaderProgramId::Generic;
 			}
 
+			if (!cvars.highPerformance->integer && isWorldCamera_)
+			{
+				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, dynamicLightsTextures_[visCacheId]);
+			}
+
 			bgfx::setState(state);
 			bgfx::submit(mainViewId, shaderPrograms_[shaderProgram].handle);
 		}
@@ -1156,38 +1160,34 @@ void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 view
 	}
 
 	// Hack in extra dlights for Quake 3 content.
-	const vec4 bfgColor(0.08f, 1.0f, 0.4f, 1.0f);
-	const vec4 plasmaColor(0.6f, 0.6f, 1.0f, 1.0f);
+	const vec3 bfgColor(0.08f, 1.0f, 0.4f);
+	const vec3 plasmaColor(0.6f, 0.6f, 1.0f);
 	DynamicLight dl;
-	dl.intensity = 0;
+	dl.color = vec4::empty;
 	dl.position = entity->e.origin;
 
 	// BFG projectile.
 	if (entity->e.reType == RT_MODEL && bfgMissibleModel_ && entity->e.hModel == bfgMissibleModel_->getIndex())
 	{
-		dl.color = bfgColor;
-		dl.intensity = 200; // Same radius as rocket.
+		dl.color = vec4(bfgColor, 200); // Same radius as rocket.
 	}
 	// BFG explosion.
 	else if (entity->e.reType == RT_SPRITE && bfgExplosionMaterial_ && entity->e.customShader == bfgExplosionMaterial_->index)
 	{
-		dl.color = bfgColor;
-		dl.intensity = 300 * calculateExplosionLight(entity->e.shaderTime, 1000); // Same radius and duration as rocket explosion.
+		dl.color = vec4(bfgColor, 300 * calculateExplosionLight(entity->e.shaderTime, 1000)); // Same radius and duration as rocket explosion.
 	}
 	// Plasma ball.
 	else if (entity->e.reType == RT_SPRITE && plasmaBallMaterial_ && entity->e.customShader == plasmaBallMaterial_->index)
 	{
-		dl.color = plasmaColor;
-		dl.intensity = 100;
+		dl.color = vec4(plasmaColor, 100);
 	}
 	// Plasma explosion.
 	else if (entity->e.reType == RT_MODEL && plasmaExplosionMaterial_ && entity->e.customShader == plasmaExplosionMaterial_->index)
 	{
-		dl.color = plasmaColor;
-		dl.intensity = 200 * calculateExplosionLight(entity->e.shaderTime, 600); // CG_MissileHitWall: 600ms duration.
+		dl.color = vec4(plasmaColor, 200 * calculateExplosionLight(entity->e.shaderTime, 600)); // CG_MissileHitWall: 600ms duration.
 	}
 
-	if (dl.intensity > 0)
+	if (dl.color.a > 0)
 	{
 		addDynamicLightToScene(dl);
 	}
@@ -1461,9 +1461,9 @@ void Main::setupEntityLighting(Entity *entity)
 
 		for (const auto &dlight : sceneDynamicLights_)
 		{
-			vec3 dir = dlight.position - lightPosition;
+			vec3 dir = dlight.position.xyz() - lightPosition;
 			float d = dir.normalize();
-			float power = std::min(DLIGHT_AT_RADIUS * (dlight.intensity * dlight.intensity), DLIGHT_MINIMUM_RADIUS);
+			float power = std::min(DLIGHT_AT_RADIUS * (dlight.color.a * dlight.color.a), DLIGHT_MINIMUM_RADIUS);
 			d = power / (d * d);
 			entity->directedLight += dlight.color.xyz() * d;
 			lightDir += dir * d;

@@ -5,7 +5,7 @@ local tempOutputFilename = globalOutputPath .. "tempoutput"
 local outputFilename = globalOutputPath .. "Shaders.h"
 
 if os.is("windows") then
-	renderers = { "gl", "d3d9", "d3d11" }
+	renderers = { "gl", "d3d11" }
 else
 	renderers = { "gl" }
 end
@@ -62,9 +62,7 @@ function compileShader(bgfxPath, input, type, permutation, defines)
 		
 		if os.is("windows") then
 			command = "shaderc.exe"
-		elseif os.is("linux") and not os.is64bit() then
-			command = "`./shaderc32"
-		elseif os.is("linux") and os.is64bit() then
+		elseif os.is("linux") then
 			command = "`./shaderc64"
 		end
 		
@@ -79,7 +77,7 @@ function compileShader(bgfxPath, input, type, permutation, defines)
 		command = command .. " -i \"shaders;" .. path.join(bgfxPath, "src") .. "\" -f \"" .. inputFilename .. "\" -o \"" .. tempOutputFilename .. "\" --varyingdef shaders/varying.def.sc --bin2c \"" .. variableName .. "\" --type " .. type
 	
 		if renderer == "gl" then
-			command = command .. " --platform linux"
+			command = command .. " --platform linux -p 130"
 		elseif renderer == "d3d9" or renderer == "d3d11" then
 			command = command .. " --platform windows"
 		

@@ -17,6 +17,8 @@ uniform vec4 u_DepthRange;
 uniform vec4 u_SoftSpriteDepth; // only x used
 #endif
 
+SAMPLER2D(u_DynamicLightsSampler, 6);
+
 uniform vec4 u_PortalClip;
 uniform vec4 u_PortalPlane;
 
@@ -33,9 +35,7 @@ uniform vec4 u_SpecularScale;
 
 uniform vec4 u_LightType; // only x used
 
-uniform vec4 u_NumDynamicLights; // only x used
-uniform vec4 u_DynamicLightColors[MAX_DLIGHTS];
-uniform vec4 u_DynamicLightPositions[MAX_DLIGHTS];
+uniform vec4 u_DynamicLights_Num_TextureWidth; // x is the number of dynamic lights, y is the texture width
 
 float Lambert(vec3 surfaceNormal, vec3 lightDir)
 {
@@ -43,6 +43,18 @@ float Lambert(vec3 surfaceNormal, vec3 lightDir)
 	return pow(dot(surfaceNormal, lightDir) * 0.5 + 0.5, 2);
 #else
 	return saturate(dot(surfaceNormal, lightDir));
+#endif
+}
+
+vec4 FetchDynamicLightData(int offset)
+{
+	int u = offset % int(u_DynamicLights_Num_TextureWidth.y);
+	int v = offset / int(u_DynamicLights_Num_TextureWidth.y);
+
+#if BGFX_SHADER_LANGUAGE_HLSL
+	return u_DynamicLightsSampler.m_texture.Load(ivec3(u, v, 0));
+#else
+	return texelFetch(u_DynamicLightsSampler, ivec2(u, v), 0);
 #endif
 }
 
@@ -113,13 +125,13 @@ void main()
 
 	if (int(u_LightType.x) != LIGHT_NONE)
 	{
-		for (int i = 0; i < int(u_NumDynamicLights.x); i++)
+		for (int i = 0; i < int(u_DynamicLights_Num_TextureWidth.x); i++)
 		{
-			vec3 dir = u_DynamicLightPositions[i].xyz - v_position;
-			vec3 color = u_DynamicLightColors[i].xyz;
-			float intensity = u_DynamicLightColors[i].w;
-			float attenuation = saturate(1.0 - length(dir) / intensity);
-			gl_FragColor.rgb += diffuse.rgb * v_color0.rgb * (color * attenuation * Lambert(v_normal.xyz, normalize(dir)));
+			vec4 color = FetchDynamicLightData(i * 2);
+			vec4 position = FetchDynamicLightData(i * 2 + 1);
+			vec3 dir = position.xyz - v_position;
+			float attenuation = saturate(1.0 - length(dir) / color.w);
+			gl_FragColor.rgb += diffuse.rgb * v_color0.rgb * (color.rgb * attenuation * Lambert(v_normal.xyz, normalize(dir)));
 		}
 	}
 }
