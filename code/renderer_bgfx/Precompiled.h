@@ -201,10 +201,20 @@ struct DynamicIndexBuffer
 
 struct DynamicLight
 {
-	/// @remarks Alpha is radius/intensity.
-	vec4 color;
+	enum
+	{
+		Capsule = DLIGHT_CAPSULE,
+		Point   = DLIGHT_POINT
+	};
 
-	vec4 position;
+	/// @remarks Only xyz used.
+	vec4 capsuleEnd;
+
+	/// @remarks rgb is color, alpha is radius/intensity.
+	vec4 color_radius;
+
+	/// @remarks w is type.
+	vec4 position_type;
 };
 
 struct Entity

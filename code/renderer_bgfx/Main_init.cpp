@@ -668,8 +668,8 @@ static int RE_LightForPoint(vec3_t point, vec3_t ambientLight, vec3_t directedLi
 static void RE_AddLightToScene(const vec3_t org, float intensity, float r, float g, float b)
 {
 	DynamicLight light;
-	light.position = vec4(org, 0);
-	light.color = vec4(r, g, b, intensity);
+	light.position_type = vec4(org, DynamicLight::Point);
+	light.color_radius = vec4(r, g, b, intensity);
 	g_main->addDynamicLightToScene(light);
 }
 

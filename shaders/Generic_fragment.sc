@@ -58,6 +58,18 @@ vec4 FetchDynamicLightData(int offset)
 #endif
 }
 
+// From http://stackoverflow.com/a/9557244
+vec3 ClosestPointOnLineSegment(vec3 A, vec3 B, vec3 P)
+{
+	vec3 AP = P - A;       //Vector from A to P   
+    vec3 AB = B - A;       //Vector from A to B  
+
+    float magnitudeAB = length(AB) * length(AB);     //Magnitude of AB vector (it's length squared)     
+    float ABAPproduct = dot(AP, AB);    //The DOT product of a_to_p and a_to_b     
+    float distance = ABAPproduct / magnitudeAB; //The normalized "distance" from a to your closest point  
+	return A + AB * saturate(distance);
+}
+
 void main()
 {
 	if (u_PortalClip.x == 1.0)
@@ -127,11 +139,23 @@ void main()
 	{
 		for (int i = 0; i < int(u_DynamicLights_Num_TextureWidth.x); i++)
 		{
-			vec4 color = FetchDynamicLightData(i * 2);
-			vec4 position = FetchDynamicLightData(i * 2 + 1);
-			vec3 dir = position.xyz - v_position;
-			float attenuation = saturate(1.0 - length(dir) / color.w);
-			gl_FragColor.rgb += diffuse.rgb * v_color0.rgb * (color.rgb * attenuation * Lambert(v_normal.xyz, normalize(dir)));
+			vec4 light_color_radius = FetchDynamicLightData(i * 3 + 1);
+			vec4 light_position_type = FetchDynamicLightData(i * 3 + 2);
+			vec3 dir;
+
+			if (int(light_position_type.w) == DLIGHT_POINT)
+			{
+				dir = light_position_type.xyz - v_position;
+			}
+			else // DLIGHT_CAPSULE
+			{
+				vec3 capsuleEnd = FetchDynamicLightData(i * 3 + 0).xyz;
+				vec3 pointOnLine = ClosestPointOnLineSegment(light_position_type.xyz, capsuleEnd, v_position);
+				dir = pointOnLine - v_position;
+			}
+
+			float attenuation = saturate(1.0 - length(dir) / light_color_radius.w);
+			gl_FragColor.rgb += diffuse.rgb * v_color0.rgb * (light_color_radius.rgb * attenuation * Lambert(v_normal.xyz, normalize(dir)));
 		}
 	}
 }

@@ -22,6 +22,9 @@
 #define DGEN_WAVE_SAWTOOTH         4
 #define DGEN_WAVE_INVERSE_SAWTOOTH 5
 
+#define DLIGHT_CAPSULE 0
+#define DLIGHT_POINT   1
+
 #define LIGHT_NONE   0
 #define LIGHT_MAP    1
 #define LIGHT_VERTEX 3
