@@ -85,27 +85,8 @@ void MaterialStage::setShaderUniforms(Uniforms_MaterialStage *uniforms, int flag
 	{
 		vec4 generators;
 		generators[Uniforms_MaterialStage::Generators::TexCoord] = (float)bundles[0].tcGen;
-
-		if (rgbGen == MaterialColorGen::LightingDiffuse)
-		{
-			generators[Uniforms_MaterialStage::Generators::Color] = (float)rgbGen;
-		}
-		else
-		{
-			// Not done in shaders.
-			generators[Uniforms_MaterialStage::Generators::Color] = (float)MaterialColorGen::Identity;
-		}
-
-		if (alphaGen == MaterialAlphaGen::LightingSpecular || alphaGen == MaterialAlphaGen::Portal)
-		{
-			generators[Uniforms_MaterialStage::Generators::Alpha] = (float)alphaGen;
-		}
-		else
-		{
-			// Not done in shaders.
-			generators[Uniforms_MaterialStage::Generators::Alpha] = (float)MaterialAlphaGen::Identity;
-		}
-
+		generators[Uniforms_MaterialStage::Generators::Color] = (float)rgbGen;
+		generators[Uniforms_MaterialStage::Generators::Alpha] = (float)alphaGen;
 		uniforms->generators.set(generators);
 	}
 

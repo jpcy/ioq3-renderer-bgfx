@@ -9,6 +9,8 @@
 
 #define CGEN_IDENTITY         1
 #define CGEN_LIGHTING_DIFFUSE 2
+#define CGEN_EXACT_VERTEX     6
+#define CGEN_VERTEX           7
 
 #define DGEN_NONE  0
 #define DGEN_WAVE  1

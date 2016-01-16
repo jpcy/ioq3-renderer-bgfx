@@ -26,6 +26,9 @@ uniform vec4 u_PortalPlane;
 uniform vec4 u_AlphaTest; // only x used
 #endif
 
+uniform vec4 u_Generators;
+#define u_ColorGen int(u_Generators[GEN_COLOR])
+
 // light vector
 uniform vec4 u_LightDirection;
 uniform vec4 u_DirectedLight;
@@ -135,7 +138,7 @@ void main()
 		gl_FragColor.rgb = diffuse.rgb * v_color0.rgb;
 	}
 
-	if (int(u_LightType.x) != LIGHT_NONE)
+	if (int(u_LightType.x) != LIGHT_NONE || u_ColorGen == CGEN_EXACT_VERTEX || u_ColorGen == CGEN_VERTEX)
 	{
 		for (int i = 0; i < int(u_DynamicLights_Num_TextureWidth.x); i++)
 		{

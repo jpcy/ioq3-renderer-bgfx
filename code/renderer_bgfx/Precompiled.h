@@ -310,8 +310,8 @@ enum class MaterialColorGen
 	IdentityLighting,	// Main::identityLight
 	Entity,			// grabbed from entity's modulate field
 	OneMinusEntity,	// grabbed from 1 - entity.modulate
-	ExactVertex,		// tess.vertexColors
-	Vertex,			// tess.vertexColors * Main::identityLight
+	ExactVertex     = CGEN_EXACT_VERTEX, // tess.vertexColors
+	Vertex          = CGEN_VERTEX, // tess.vertexColors * Main::identityLight
 	ExactVertexLit,	// like ExactVertex but takes a light direction from the lightgrid
 	VertexLit,		// like Vertex but takes a light direction from the lightgrid
 	OneMinusVertex,
