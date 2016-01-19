@@ -122,20 +122,19 @@ void main()
 #endif
 
 	gl_FragColor.a = alpha;
+	vec3 diffuseLight = vec3_splat(0.0);
 
 	if (int(u_LightType.x) == LIGHT_MAP)
 	{
-		gl_FragColor.rgb = diffuse.rgb * texture2D(u_LightMap, v_texcoord1).rgb * v_color0.rgb;
+		diffuseLight = texture2D(u_LightMap, v_texcoord1).rgb;
 	}
 	else if (int(u_LightType.x) == LIGHT_VECTOR)
 	{
-		vec3 lightColor = u_DirectedLight.xyz * v_color0.rgb;
-		vec3 ambientColor = u_AmbientLight.xyz * v_color0.rgb;
-		gl_FragColor.rgb = diffuse.rgb * (ambientColor + lightColor * Lambert(v_normal.xyz, u_LightDirection.xyz));
+		diffuseLight = u_AmbientLight.xyz + u_DirectedLight.xyz * Lambert(v_normal.xyz, u_LightDirection.xyz);
 	}
 	else // LIGHT_VERTEX or LIGHT_NONE
 	{
-		gl_FragColor.rgb = diffuse.rgb * v_color0.rgb;
+		diffuseLight = vec3_splat(1.0);
 	}
 
 	if (int(u_LightType.x) != LIGHT_NONE || u_ColorGen == CGEN_EXACT_VERTEX || u_ColorGen == CGEN_VERTEX)
@@ -158,7 +157,9 @@ void main()
 			}
 
 			float attenuation = saturate(1.0 - length(dir) / light_color_radius.w);
-			gl_FragColor.rgb += diffuse.rgb * v_color0.rgb * (light_color_radius.rgb * attenuation * Lambert(v_normal.xyz, normalize(dir)));
+			diffuseLight += light_color_radius.rgb * attenuation * Lambert(v_normal.xyz, normalize(dir));
 		}
 	}
+
+	gl_FragColor.rgb = diffuse.rgb * v_color0.rgb * diffuseLight;
 }
