@@ -53,6 +53,8 @@ using namespace math;
 
 #include "../../shaders/SharedDefines.sh"
 
+#undef major
+#undef minor
 #undef None
 
 #define BIT(x) (1<<(x))
