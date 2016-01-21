@@ -77,7 +77,7 @@ function compileShader(bgfxPath, input, type, permutation, defines)
 		command = command .. " -i \"shaders;" .. path.join(bgfxPath, "src") .. "\" -f \"" .. inputFilename .. "\" -o \"" .. tempOutputFilename .. "\" --varyingdef shaders/varying.def.sc --bin2c \"" .. variableName .. "\" --type " .. type
 	
 		if renderer == "gl" then
-			command = command .. " --platform linux -p 130"
+			command = command .. " --platform linux -p 140"
 		elseif renderer == "d3d9" or renderer == "d3d11" then
 			command = command .. " --platform windows"
 		

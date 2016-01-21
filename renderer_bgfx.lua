@@ -7,7 +7,7 @@ function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sd
 	defines
 	{
 		"__STDC_FORMAT_MACROS", -- bgfx
-		"BGFX_CONFIG_RENDERER_OPENGL=30",
+		"BGFX_CONFIG_RENDERER_OPENGL=31",
 		"USE_RENDERER_DLOPEN"
 	}
 

@@ -62,7 +62,9 @@ void BgfxCallback::fatal(bgfx::Fatal::Enum _code, const char* _str)
 	}
 	else
 	{
-		ri.Error(ERR_FATAL, "0x%08x: %s", _code, _str);
+		BX_TRACE("0x%08x: %s", _code, _str);
+		BX_UNUSED(_code, _str);
+		abort();
 	}
 }
 
