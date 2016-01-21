@@ -167,12 +167,6 @@ static SetModeResult SetMode(bool gl, int mode, bool fullscreen, bool noborder)
 	// Center window
 	int x = SDL_WINDOWPOS_UNDEFINED, y = SDL_WINDOWPOS_UNDEFINED;
 
-	if (g_main->cvars.centerWindow->integer && !fullscreen )
-	{
-		x = (desktopMode.w / 2) - (glConfig.vidWidth / 2);
-		y = (desktopMode.h / 2) - (glConfig.vidHeight / 2);
-	}
-
 	if (SDL_window != NULL)
 	{
 		SDL_GetWindowPosition(SDL_window, &x, &y);
@@ -194,6 +188,10 @@ static SetModeResult SetMode(bool gl, int mode, bool fullscreen, bool noborder)
 		glConfig.isFullscreen = qfalse;
 	}
 
+	if (g_main->cvars.centerWindow->integer && !glConfig.isFullscreen)
+	{
+		x = y = SDL_WINDOWPOS_CENTERED;
+	}
 	
 	if ((SDL_window = SDL_CreateWindow(CLIENT_WINDOW_TITLE, x, y, glConfig.vidWidth, glConfig.vidHeight, flags)) == 0)
 	{
