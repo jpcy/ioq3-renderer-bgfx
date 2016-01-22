@@ -277,6 +277,11 @@ Main::~Main()
 		bgfx::destroyFrameBuffer(mainFb_);
 	}
 
+	for (size_t i = 0; i < maxDynamicLightTextures_; i++)
+	{
+		bgfx::destroyTexture(dynamicLightsTextures_[i]);
+	}
+
 	ri.Cmd_RemoveCommand("screenshot");
 	ri.Cmd_RemoveCommand("screenshotJPEG");
 	ri.Cmd_RemoveCommand("screenshotPNG");
