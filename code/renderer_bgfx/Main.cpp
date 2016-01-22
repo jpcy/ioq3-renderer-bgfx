@@ -807,8 +807,8 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		if (sceneDynamicLights_.size() > 0)
 		{
 			const uint32_t size = sceneDynamicLights_.size() * sizeof(DynamicLight);
-			const uint32_t nTexels = size / 4;
-			const uint16_t width = std::min(nTexels, uint32_t(dynamicLightTextureSize_));
+			const uint16_t nTexels = uint16_t(size / 4);
+			const uint16_t width = std::min(nTexels, uint16_t(dynamicLightTextureSize_));
 			const uint16_t height = std::ceil(nTexels / (float)dynamicLightTextureSize_);
 			const bgfx::Memory *mem = bgfx::copy(sceneDynamicLights_.data(), size);
 			bgfx::updateTexture2D(dynamicLightsTextures_[visCacheId], 0, 0, 0, width, height, mem);
