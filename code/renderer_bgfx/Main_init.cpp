@@ -579,8 +579,8 @@ static void RE_Shutdown(qboolean destroyWindow)
 
 	if (destroyWindow)
 	{
-		Window_Shutdown();
 		bgfx::shutdown();
+		Window_Shutdown();
 	}
 }
 
