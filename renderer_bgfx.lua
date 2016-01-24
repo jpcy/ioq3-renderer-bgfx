@@ -83,6 +83,7 @@ function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sd
 
 		links
 		{
+			"dl",
 			"GL",
 			"pthread",
 			"SDL2",
