@@ -345,9 +345,16 @@ void Main::initialize()
 	}
 
 	bgfx::reset(glConfig.vidWidth, glConfig.vidHeight, resetFlags);
-	const bgfx::RendererType::Enum backend = bgfx::getCaps()->rendererType;
-	halfTexelOffset_ = backend == bgfx::RendererType::Direct3D9 ? 0.5f : 0;
-	isTextureOriginBottomLeft_ = backend == bgfx::RendererType::OpenGL || backend == bgfx::RendererType::OpenGLES;
+	const bgfx::Caps *caps = bgfx::getCaps();
+
+	if (bgfx::getCaps()->maxFBAttachments < 2 && !cvars.highPerformance->integer)
+	{
+		ri.Printf(PRINT_WARNING, "MRT not supported. Falling back to fast renderer path.\n");
+		ri.Cvar_Set(cvars.highPerformance->name, "1");
+	}
+
+	halfTexelOffset_ = caps->rendererType == bgfx::RendererType::Direct3D9 ? 0.5f : 0;
+	isTextureOriginBottomLeft_ = caps->rendererType == bgfx::RendererType::OpenGL || caps->rendererType == bgfx::RendererType::OpenGLES;
 	glConfig.deviceSupportsGamma = cvars.highPerformance->integer ? qfalse : qtrue;
 	glConfig.maxTextureSize = bgfx::getCaps()->maxTextureSize;
 	Vertex::init();
@@ -382,12 +389,12 @@ void Main::initialize()
 	vertMem[VertexShaderId::Generic] = MR(Generic_vertex_##backend);                                             \
 	vertMem[VertexShaderId::TextureColor] = MR(TextureColor_vertex_##backend);
 
-	if (backend == bgfx::RendererType::OpenGL)
+	if (caps->rendererType == bgfx::RendererType::OpenGL)
 	{
 		SHADER_MEM(gl);
 	}
 #ifdef WIN32
-	else if (backend == bgfx::RendererType::Direct3D11)
+	else if (caps->rendererType == bgfx::RendererType::Direct3D11)
 	{
 		SHADER_MEM(d3d11)
 	}
