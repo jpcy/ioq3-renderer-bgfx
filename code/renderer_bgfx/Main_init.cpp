@@ -55,23 +55,20 @@ void QDECL Com_Error(int level, const char *error, ...)
 
 namespace renderer {
 
-struct Backend
+struct BackendMap
 {
 	bgfx::RendererType::Enum type;
-	const char *name;
 	const char *id; // Used by r_backend cvar.
 };
 
-static const Backend backends[] =
-{
-	{ bgfx::RendererType::Null, "Null", "null" },
-	{ bgfx::RendererType::Direct3D11, "Direct3D 11.0", "d3d11" },
-	{ bgfx::RendererType::Direct3D12, "Direct3D 12.0", "d3d12" },
-	{ bgfx::RendererType::OpenGL, "OpenGL 3.0", "gl" },
-	{ bgfx::RendererType::Vulkan, "Vulkan", "vulkan" }
-};
-
-static const size_t nBackends = ARRAY_LEN(backends);
+static const std::array<const BackendMap, 5> backendMaps =
+{{
+	{ bgfx::RendererType::Null, "null" },
+	{ bgfx::RendererType::Direct3D11, "d3d11" },
+	{ bgfx::RendererType::Direct3D12, "d3d12" },
+	{ bgfx::RendererType::OpenGL, "gl" },
+	{ bgfx::RendererType::Vulkan, "vulkan" }
+}};
 
 BgfxCallback bgfxCallback;
 
@@ -106,13 +103,26 @@ ConsoleVariables::ConsoleVariables()
 	backend = ri.Cvar_Get("r_backend", "", CVAR_ARCHIVE | CVAR_LATCH);
 
 	{
+		// Have the r_backend cvar print a list of supported backends when invoked without any arguments.
+		bgfx::RendererType::Enum supportedBackends[bgfx::RendererType::Count];
+		const uint8_t nSupportedBackends = bgfx::getSupportedRenderers(supportedBackends);
+
 		#define FORMAT "%-10s%s\n"
 		std::string description;
 		description += va(FORMAT, "", "Autodetect");
 
-		for (size_t i = 0; i < nBackends; i++)
+		for (const BackendMap &map : backendMaps)
 		{
-			description += va(FORMAT, backends[i].id, backends[i].name);
+			uint8_t j;
+
+			for (j = 0; j < nSupportedBackends; j++)
+			{
+				if (map.type == supportedBackends[j])
+					break;
+			}
+
+			if (j != nSupportedBackends)
+				description += va(FORMAT, map.id, bgfx::getRendererName(map.type));
 		}
 
 		ri.Cvar_SetDescription(backend, description.c_str());
@@ -292,32 +302,41 @@ void Main::initialize()
 	// Create a window if we don't have one.
 	if (glConfig.vidWidth == 0)
 	{
-		auto backend = bgfx::RendererType::Count;
+		// Get the selected backend, and make sure it's actually supported.
+		bgfx::RendererType::Enum supportedBackends[bgfx::RendererType::Count];
+		const uint8_t nSupportedBackends = bgfx::getSupportedRenderers(supportedBackends);
+		bgfx::RendererType::Enum selectedBackend = bgfx::RendererType::Count;
 
-		for (size_t i = 0; i < nBackends; i++)
+		for (const BackendMap &map : backendMaps)
 		{
-			if (!Q_stricmp(cvars.backend->string, backends[i].id))
+			uint8_t j;
+
+			for (j = 0; j < nSupportedBackends; j++)
 			{
-				backend = backends[i].type;
+				if (map.type == supportedBackends[j])
+					break;
+			}
+
+			if (j == nSupportedBackends)
+				continue; // Not supported.
+
+			if (!Q_stricmp(cvars.backend->string, map.id))
+			{
+				selectedBackend = map.type;
 				break;
 			}
 		}
 
-		Window_Initialize(backend == bgfx::RendererType::OpenGL);
+		Window_Initialize(selectedBackend == bgfx::RendererType::OpenGL);
 		
-		if (!bgfx::init(backend, 0, 0, &bgfxCallback))
+		if (!bgfx::init(selectedBackend, 0, 0, &bgfxCallback))
 		{
 			ri.Error(ERR_DROP, "bgfx init failed");
 		}
 
-		for (size_t i = 0; i < nBackends; i++)
-		{
-			if (backends[i].type == bgfx::getCaps()->rendererType)
-			{
-				ri.Printf(PRINT_ALL, "Renderer backend: %s\n", backends[i].name);
-				break;
-			}
-		}
+		// Print the chosen backend name. It may not be the one that was selected.
+		const bool forced = selectedBackend != bgfx::RendererType::Count && selectedBackend != bgfx::getCaps()->rendererType;
+		ri.Printf(PRINT_ALL, "Renderer backend%s: %s\n", forced ? " forced to" : "", bgfx::getRendererName(bgfx::getCaps()->rendererType));
 	}
 
 	uint32_t resetFlags = 0;
