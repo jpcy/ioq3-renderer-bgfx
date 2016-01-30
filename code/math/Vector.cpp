@@ -375,7 +375,7 @@ void vec3::normalizeFast()
 vec3 vec3::projectOnPlane(const vec3 &normal) const
 {
 	float inv_denom = vec3::dotProduct(*this, *this);
-	assert(abs(inv_denom) != 0.0f); // Zero vectors fail here.
+	assert(fabs(inv_denom) != 0.0f); // Zero vectors fail here.
 	inv_denom = 1.0f / inv_denom;
 
 	float d = vec3::dotProduct(*this, normal) * inv_denom;
