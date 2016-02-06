@@ -593,6 +593,7 @@ void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
 static void RE_Shutdown(qboolean destroyWindow)
 {
 	ri.Printf(PRINT_ALL, "RE_Shutdown(%i)\n", destroyWindow);
+	world::Unload();
 	delete g_main.release();
 
 	if (destroyWindow)
@@ -742,8 +743,8 @@ static void RE_EndFrame(int *frontEndMsec, int *backEndMsec)
 
 static int RE_MarkFragments(int numPoints, const vec3_t *points, const vec3_t projection, int maxPoints, vec3_t pointBuffer, int maxFragments, markFragment_t *fragmentBuffer)
 {
-	if (g_main->world)
-		return g_main->world->markFragments(numPoints, points, projection, maxPoints, pointBuffer, maxFragments, fragmentBuffer);
+	if (world::IsLoaded())
+		return world::MarkFragments(numPoints, points, projection, maxPoints, pointBuffer, maxFragments, fragmentBuffer);
 
 	return 0;
 }
@@ -787,9 +788,9 @@ static void RE_RemapShader(const char *oldShader, const char *newShader, const c
 
 static qboolean RE_GetEntityToken(char *buffer, int size)
 {
-	if (g_main->world)
+	if (world::IsLoaded())
 	{
-		return g_main->world->getEntityToken(buffer, size) ? qtrue : qfalse;
+		return world::GetEntityToken(buffer, size) ? qtrue : qfalse;
 	}
 
 	return qfalse;

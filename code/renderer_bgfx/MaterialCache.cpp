@@ -329,7 +329,7 @@ Material *MaterialCache::findMaterial(const char *name, int lightmapIndex, bool 
 	else
 	{
 		// two pass lightmap
-		m.stages[0].bundles[0].textures[0] = g_main->world->getLightmap(m.lightmapIndex);
+		m.stages[0].bundles[0].textures[0] = world::GetLightmap(m.lightmapIndex);
 		m.stages[0].bundles[0].isLightmap = true;
 		m.stages[0].active = true;
 		m.stages[0].rgbGen = MaterialColorGen::Identity;	// lightmaps are scaled on creation for identitylight

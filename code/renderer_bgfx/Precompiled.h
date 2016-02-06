@@ -1274,32 +1274,28 @@ void WarnOnce(WarnOnceId::Enum id);
 void Window_Initialize(bool gl);
 void Window_Shutdown();
 
-class World
+namespace world
 {
-public:
-	virtual ~World() = 0;
-	virtual const Texture *getLightmap(size_t index) const = 0;
-	virtual bool getEntityToken(char *buffer, int size) = 0;
-	virtual bool hasLightGrid() const = 0;
-	virtual void sampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir) const = 0;
-	virtual int findFogIndex(vec3 position, float radius) const = 0;
-	virtual int findFogIndex(const Bounds &bounds) const = 0;
-	virtual void calculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMatrix, vec3 cameraPosition, vec3 localViewPosition, const mat3 &cameraRotation, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT) const = 0;
-	virtual int markFragments(int numPoints, const vec3_t *points, const vec3_t projection, int maxPoints, vec3_t pointBuffer, int maxFragments, markFragment_t *fragmentBuffer) = 0;
-	virtual Bounds getBounds(uint8_t visCacheId) const = 0;
-	virtual size_t getNumSkies(uint8_t visCacheId) const = 0;
-	virtual void getSky(uint8_t visCacheId, size_t index, Material **material, const std::vector<Vertex> **vertices) const = 0;
-	virtual size_t getNumPortalSurfaces(uint8_t visCacheId) const = 0;
-	virtual bool calculatePortalCamera(uint8_t visCacheId, size_t portalSurfaceIndex, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, vec4 *portalPlane) const = 0;
-	virtual void load() = 0;
-	virtual uint8_t createVisCache() = 0;
-	virtual void updateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *areaMask) = 0;
-	virtual void render(DrawCallList *drawCallList, uint8_t visCacheId) = 0;
-
-	static std::unique_ptr<World> createBSP(const char *name);
+	void Load(const char *name);
+	void Unload();
+	bool IsLoaded();
+	const Texture *GetLightmap(size_t index);
+	bool GetEntityToken(char *buffer, int size);
+	bool HasLightGrid();
+	void SampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
+	int FindFogIndex(vec3 position, float radius);
+	int FindFogIndex(const Bounds &bounds);
+	void CalculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMatrix, vec3 cameraPosition, vec3 localViewPosition, const mat3 &cameraRotation, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT);
+	int MarkFragments(int numPoints, const vec3_t *points, const vec3_t projection, int maxPoints, vec3_t pointBuffer, int maxFragments, markFragment_t *fragmentBuffer);
+	Bounds GetBounds(uint8_t visCacheId);
+	size_t GetNumSkies(uint8_t visCacheId);
+	void GetSky(uint8_t visCacheId, size_t index, Material **material, const std::vector<Vertex> **vertices);
+	size_t GetNumPortalSurfaces(uint8_t visCacheId);
+	bool CalculatePortalCamera(uint8_t visCacheId, size_t portalSurfaceIndex, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, vec4 *portalPlane);
+	uint8_t CreateVisCache();
+	void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *areaMask);
+	void Render(DrawCallList *drawCallList, uint8_t visCacheId);
 };
-
-inline World::~World() {}
 
 class Main
 {
@@ -1362,7 +1358,6 @@ public:
 	float sawToothTable[funcTableSize];
 	float inverseSawToothTable[funcTableSize];
 
-	std::unique_ptr<World> world;
 	const uint8_t *externalVisData = nullptr;
 
 private:

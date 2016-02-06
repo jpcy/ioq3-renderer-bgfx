@@ -440,16 +440,16 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 
 	int fogIndex = -1;
 
-	if (g_main->world)
+	if (world::IsLoaded())
 	{
 		if (isAnimated)
 		{
 			const auto &frame = frames_[entity->e.oldframe];
-			fogIndex = g_main->world->findFogIndex(vec3(entity->e.origin) + frame.position, frame.radius);
+			fogIndex = world::FindFogIndex(vec3(entity->e.origin) + frame.position, frame.radius);
 		}
 		else
 		{
-			fogIndex = g_main->world->findFogIndex(entity->e.origin, frames_[0].radius);
+			fogIndex = world::FindFogIndex(entity->e.origin, frames_[0].radius);
 		}
 	}
 

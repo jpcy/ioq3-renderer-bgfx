@@ -592,14 +592,14 @@ void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, uint8_t visCach
 {
 	assert(drawCallList);
 
-	if (!g_main->world.get())
+	if (!world::IsLoaded())
 		return;
 
-	for (size_t skyIndex = 0; skyIndex < g_main->world->getNumSkies(visCacheId); skyIndex++)
+	for (size_t skyIndex = 0; skyIndex < world::GetNumSkies(visCacheId); skyIndex++)
 	{
 		Material *mat;
 		const std::vector<Vertex> *vertices;
-		g_main->world->getSky(visCacheId, skyIndex, &mat, &vertices);
+		world::GetSky(visCacheId, skyIndex, &mat, &vertices);
 
 		if (mat == nullptr)
 			continue;

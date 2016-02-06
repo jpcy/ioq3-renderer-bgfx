@@ -317,15 +317,14 @@ void Main::uploadCinematic(int w, int h, int cols, int rows, const byte *data, i
 
 void Main::loadWorld(const char *name)
 {
-	if (world.get())
+	if (world::IsLoaded())
 	{
 		ri.Error(ERR_DROP, "ERROR: attempted to redundantly load world map");
 	}
 
-	world = World::createBSP(name);
-	world->load();
-	mainVisCacheId_ = world->createVisCache();
-	portalVisCacheId_ = world->createVisCache();
+	world::Load(name);
+	mainVisCacheId_ = world::CreateVisCache();
+	portalVisCacheId_ = world::CreateVisCache();
 }
 
 void Main::addDynamicLightToScene(DynamicLight light)
@@ -357,7 +356,7 @@ void Main::addPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts
 			bounds.addPoint(scenePolygonVertices_[p.firstVertex + i].xyz);
 		}
 
-		p.fogIndex = world->findFogIndex(bounds);
+		p.fogIndex = world::FindFogIndex(bounds);
 		scenePolygons_.push_back(p);
 	}
 }
@@ -386,7 +385,7 @@ void Main::renderScene(const refdef_t *def)
 	{
 		const vec3 scenePosition(def->vieworg);
 		sceneRotation_ = mat3(def->viewaxis);
-		isWorldCamera_ = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world.get();
+		isWorldCamera_ = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world::IsLoaded();
 		renderCamera(mainVisCacheId_, scenePosition, scenePosition, sceneRotation_, vec4(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
 
 		if (SETTINGS_SHOW_DEPTH)
@@ -455,10 +454,10 @@ void Main::endFrame()
 
 bool Main::sampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir)
 {
-	if (!world->hasLightGrid())
+	if (!world::HasLightGrid())
 		return false;
 
-	world->sampleLightGrid(position, ambientLight, directedLight, lightDir);
+	world::SampleLightGrid(position, ambientLight, directedLight, lightDir);
 	return true;
 }
 
@@ -608,11 +607,10 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 	if (isWorldCamera_)
 	{
-		assert(world.get());
-		world->updateVisCache(visCacheId, pvsPosition, areaMask);
+		world::UpdateVisCache(visCacheId, pvsPosition, areaMask);
 
 		// Use dynamic z max.
-		zMax = world->getBounds(visCacheId).calculateFarthestCornerDistance(position);
+		zMax = world::GetBounds(visCacheId).calculateFarthestCornerDistance(position);
 	}
 
 	const mat4 viewMatrix = toOpenGlMatrix_ * mat4::view(position, rotation);
@@ -621,12 +619,12 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 	if (isWorldCamera_ && isMainCamera)
 	{
-		for (size_t i = 0; i < world->getNumPortalSurfaces(visCacheId); i++)
+		for (size_t i = 0; i < world::GetNumPortalSurfaces(visCacheId); i++)
 		{
 			vec3 pvsPosition;
 			Transform portalCamera;
 
-			if (world->calculatePortalCamera(visCacheId, i, position, rotation, vpMatrix, sceneEntities_, &pvsPosition, &portalCamera, &isMirrorCamera_, &portalPlane_))
+			if (world::CalculatePortalCamera(visCacheId, i, position, rotation, vpMatrix, sceneEntities_, &pvsPosition, &portalCamera, &isMirrorCamera_, &portalPlane_))
 			{
 				renderCamera(portalVisCacheId_, pvsPosition, portalCamera.position, portalCamera.rotation, rect, fov, areaMask);
 				isMirrorCamera_ = false;
@@ -643,7 +641,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	if (isWorldCamera_)
 	{
 		Sky_Render(&drawCalls_, position, visCacheId, zMax);
-		world->render(&drawCalls_, visCacheId);
+		world::Render(&drawCalls_, visCacheId);
 	}
 
 	for (auto &entity : sceneEntities_)
@@ -936,7 +934,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 		if (dc.fogIndex >= 0)
 		{
-			world->calculateFog(dc.fogIndex, dc.modelMatrix, modelViewMatrix, position, localViewPosition, rotation, &fogColor, &fogDistance, &fogDepth, &eyeT);
+			world::CalculateFog(dc.fogIndex, dc.modelMatrix, modelViewMatrix, position, localViewPosition, rotation, &fogColor, &fogDistance, &fogDepth, &eyeT);
 			uniforms_->fogDistance.set(fogDistance);
 			uniforms_->fogDepth.set(fogDepth);
 			uniforms_->fogEyeT.set(eyeT);
@@ -1266,7 +1264,7 @@ void Main::renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3
 
 	DrawCall dc;
 	dc.entity = entity;
-	dc.fogIndex = isWorldCamera_ ? world->findFogIndex(entity->e.origin, entity->e.radius) : -1;
+	dc.fogIndex = isWorldCamera_ ? world::FindFogIndex(entity->e.origin, entity->e.radius) : -1;
 	dc.material = mat;
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
@@ -1340,7 +1338,7 @@ void Main::renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity)
 
 	DrawCall dc;
 	dc.entity = entity;
-	dc.fogIndex = isWorldCamera_ ? world->findFogIndex(entity->e.origin, entity->e.radius) : -1;
+	dc.fogIndex = isWorldCamera_ ? world::FindFogIndex(entity->e.origin, entity->e.radius) : -1;
 	dc.material = materialCache->getMaterial(entity->e.customShader);
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
@@ -1409,7 +1407,7 @@ void Main::renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Ent
 
 	DrawCall dc;
 	dc.entity = entity;
-	dc.fogIndex = isWorldCamera_ ? world->findFogIndex(entity->e.origin, entity->e.radius) : -1;
+	dc.fogIndex = isWorldCamera_ ? world::FindFogIndex(entity->e.origin, entity->e.radius) : -1;
 	dc.material = materialCache->getMaterial(entity->e.customShader);
 	dc.softSpriteDepth = entity->e.radius / 2.0f;
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
@@ -1438,9 +1436,9 @@ void Main::setupEntityLighting(Entity *entity)
 	}
 
 	// If not a world model, only use dynamic lights (menu system, etc.)
-	if (isWorldCamera_ && world->hasLightGrid())
+	if (isWorldCamera_ && world::HasLightGrid())
 	{
-		world->sampleLightGrid(lightPosition, &entity->ambientLight, &entity->directedLight, &entity->lightDir);
+		world::SampleLightGrid(lightPosition, &entity->ambientLight, &entity->directedLight, &entity->lightDir);
 	}
 	else
 	{

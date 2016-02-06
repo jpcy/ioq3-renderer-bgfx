@@ -490,26 +490,15 @@ static void R_ChopPolyBehindPlane( int numInPoints, vec3_t inPoints[MAX_VERTS_ON
 	}
 }
 
-class BspWorld : public World
+class World
 {
 public:
-	BspWorld(const char *name)
-	{
-		Q_strncpyz(name_, name, sizeof(name_));
-		Q_strncpyz(baseName_, COM_SkipPath(name_), sizeof(baseName_));
-		COM_StripExtension(baseName_, baseName_, sizeof(baseName_));
-	}
-
-	~BspWorld() override
-	{
-	}
-
-	const Texture *getLightmap(size_t index) const override
+	const Texture *getLightmap(size_t index) const
 	{
 		return index < lightmapAtlases_.size() ? lightmapAtlases_[index] : nullptr;
 	}
 
-	bool getEntityToken(char *buffer, int size) override
+	bool getEntityToken(char *buffer, int size)
 	{
 		const char *s = COM_Parse(&entityParsePoint_);
 		Q_strncpyz(buffer, s, size);
@@ -523,12 +512,12 @@ public:
 		return true;
 	}
 
-	bool hasLightGrid() const override
+	bool hasLightGrid() const
 	{
 		return !lightGridData_.empty();
 	}
 
-	void sampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir) const override
+	void sampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir) const
 	{
 		assert(ambientLight);
 		assert(directedLight);
@@ -656,7 +645,7 @@ public:
 		return -1;
 	}
 
-	void calculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMatrix, vec3 cameraPosition, vec3 localViewPosition, const mat3 &cameraRotation, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT) const override
+	void calculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMatrix, vec3 cameraPosition, vec3 localViewPosition, const mat3 &cameraRotation, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT) const
 	{
 		assert(fogIndex != -1);
 		assert(fogDistance);
@@ -874,7 +863,7 @@ public:
 		return returnedFragments;
 	}
 
-	Bounds getBounds(uint8_t visCacheId) const override
+	Bounds getBounds(uint8_t visCacheId) const
 	{
 		return visCaches_[visCacheId]->bounds;
 	}
@@ -897,12 +886,12 @@ public:
 		}
 	}
 
-	size_t getNumPortalSurfaces(uint8_t visCacheId) const override
+	size_t getNumPortalSurfaces(uint8_t visCacheId) const
 	{
 		return visCaches_[visCacheId]->portalSurfaces.size();
 	}
 
-	bool calculatePortalCamera(uint8_t visCacheId, size_t portalSurfaceIndex, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, vec4 *portalPlane) const override
+	bool calculatePortalCamera(uint8_t visCacheId, size_t portalSurfaceIndex, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, vec4 *portalPlane) const
 	{
 		assert(pvsPosition);
 		assert(portalCamera);
@@ -1079,8 +1068,12 @@ public:
 		return true;
 	}
 
-	void load() override
+	void load(const char *name)
 	{
+		Q_strncpyz(name_, name, sizeof(name_));
+		Q_strncpyz(baseName_, COM_SkipPath(name_), sizeof(baseName_));
+		COM_StripExtension(baseName_, baseName_, sizeof(baseName_));
+
 		ReadOnlyFile file(name_);
 
 		if (!file.isValid())
@@ -1093,13 +1086,13 @@ public:
 		loadFromBspFile();
 	}
 
-	uint8_t createVisCache() override
+	uint8_t createVisCache()
 	{
 		visCaches_.push_back(std::make_unique<VisCache>());
 		return uint8_t(visCaches_.size() - 1);
 	}
 
-	void updateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *areaMask) override
+	void updateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *areaMask)
 	{
 		assert(areaMask);
 		auto &visCache = visCaches_[visCacheId];
@@ -2224,9 +2217,121 @@ private:
 	}
 };
 
-std::unique_ptr<World> World::createBSP(const char *name)
+static std::unique_ptr<World> s_world;
+
+namespace world {
+
+void Load(const char *name)
 {
-	return std::make_unique<BspWorld>(name);
+	s_world = std::make_unique<World>();
+	s_world->load(name);
 }
 
+void Unload()
+{
+	delete s_world.release();
+}
+
+bool IsLoaded()
+{
+	return s_world.get() != nullptr;
+}
+
+const Texture *GetLightmap(size_t index)
+{
+	assert(IsLoaded());
+	return s_world->getLightmap(index);
+}
+
+bool GetEntityToken(char *buffer, int size)
+{
+	assert(IsLoaded());
+	return s_world->getEntityToken(buffer, size);
+}
+
+bool HasLightGrid()
+{
+	assert(IsLoaded());
+	return s_world->hasLightGrid();
+}
+
+void SampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir)
+{
+	assert(IsLoaded());
+	s_world->sampleLightGrid(position, ambientLight, directedLight, lightDir);
+}
+
+int FindFogIndex(vec3 position, float radius)
+{
+	assert(IsLoaded());
+	return s_world->findFogIndex(position, radius);
+}
+
+int FindFogIndex(const Bounds &bounds)
+{
+	assert(IsLoaded());
+	return s_world->findFogIndex(bounds);
+}
+
+void CalculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMatrix, vec3 cameraPosition, vec3 localViewPosition, const mat3 &cameraRotation, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT)
+{
+	assert(IsLoaded());
+	s_world->calculateFog(fogIndex, modelMatrix, modelViewMatrix, cameraPosition, localViewPosition, cameraRotation, fogColor, fogDistance, fogDepth, eyeT);
+}
+
+int MarkFragments(int numPoints, const vec3_t *points, const vec3_t projection, int maxPoints, vec3_t pointBuffer, int maxFragments, markFragment_t *fragmentBuffer)
+{
+	assert(IsLoaded());
+	return s_world->markFragments(numPoints, points, projection, maxPoints, pointBuffer, maxFragments, fragmentBuffer);
+}
+
+Bounds GetBounds(uint8_t visCacheId)
+{
+	assert(IsLoaded());
+	return s_world->getBounds(visCacheId);
+}
+
+size_t GetNumSkies(uint8_t visCacheId)
+{
+	assert(IsLoaded());
+	return s_world->getNumSkies(visCacheId);
+}
+
+void GetSky(uint8_t visCacheId, size_t index, Material **material, const std::vector<Vertex> **vertices)
+{
+	assert(IsLoaded());
+	s_world->getSky(visCacheId, index, material, vertices);
+}
+
+size_t GetNumPortalSurfaces(uint8_t visCacheId)
+{
+	assert(IsLoaded());
+	return s_world->getNumPortalSurfaces(visCacheId);
+}
+
+bool CalculatePortalCamera(uint8_t visCacheId, size_t portalSurfaceIndex, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, vec4 *portalPlane)
+{
+	assert(IsLoaded());
+	return s_world->calculatePortalCamera(visCacheId, portalSurfaceIndex, mainCameraPosition, mainCameraRotation, mvp, entities, pvsPosition, portalCamera, isMirror, portalPlane);
+}
+
+uint8_t CreateVisCache()
+{
+	assert(IsLoaded());
+	return s_world->createVisCache();
+}
+
+void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *areaMask)
+{
+	assert(IsLoaded());
+	s_world->updateVisCache(visCacheId, cameraPosition, areaMask);
+}
+
+void Render(DrawCallList *drawCallList, uint8_t visCacheId)
+{
+	assert(IsLoaded());
+	s_world->render(drawCallList, visCacheId);
+}
+
+} // namespace world
 } // namespace renderer

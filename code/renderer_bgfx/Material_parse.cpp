@@ -461,9 +461,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				stage->bundles[0].isLightmap = true;
 				stage->bundles[0].textures[0] = g_main->textureCache->getWhiteTexture();
 
-				if (g_main->world.get())
+				if (world::IsLoaded())
 				{
-					auto lightmap = g_main->world->getLightmap(lightmapIndex);
+					auto lightmap = world::GetLightmap(lightmapIndex);
 					stage->bundles[0].textures[0] = lightmap ? lightmap : g_main->textureCache->getWhiteTexture();
 				}
 			}
