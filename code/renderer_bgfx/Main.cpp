@@ -31,9 +31,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-#define SHOW_DEPTH_ENABLED (!cvars.highPerformance->integer && cvars.showDepth->integer)
-#define SOFT_SPRITES_ENABLED (!cvars.highPerformance->integer && cvars.softSprites->integer)
-
 namespace renderer {
 
 std::array<Vertex *, 4> ExtractQuadCorners(Vertex *vertices, const uint16_t *indices)
@@ -296,7 +293,7 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 	bgfx::setTexture(0, matStageUniforms_->diffuseMap.handle, textureCache->getScratchTextures()[client]->getHandle());
 	matStageUniforms_->color.set(vec4::white);
 	bgfx::setState(BGFX_STATE_RGB_WRITE);
-	const uint8_t viewId = pushView(cvars.highPerformance->integer ? defaultFb_ : mainFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), vec4(x, y, w, h));
+	const uint8_t viewId = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), vec4(x, y, w, h));
 	bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::TextureColor].handle);
 }
 
@@ -378,12 +375,10 @@ void Main::renderScene(const refdef_t *def)
 	const int w = std::min(glConfig.vidWidth, x + def->width) - x;
 	const int h = std::min(glConfig.vidHeight, y + def->height) - y;
 
-	const bgfx::FrameBufferHandle fb = cvars.highPerformance->integer ? defaultFb_ : mainFb_;
-
 	if (def->rdflags & RDF_HYPERSPACE)
 	{
 		const uint8_t c = time_ & 255;
-		const uint8_t viewId = pushView(fb, 0, mat4::identity, mat4::identity, vec4(x, y, w, h));
+		const uint8_t viewId = pushView(defaultFb_, 0, mat4::identity, mat4::identity, vec4(x, y, w, h));
 		bgfx::setViewClear(viewId, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, (c<<24)|(c<<16)|(c<<8)|0xff);
 		bgfx::touch(viewId);
 	}
@@ -394,17 +389,26 @@ void Main::renderScene(const refdef_t *def)
 		isWorldCamera_ = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world.get();
 		renderCamera(mainVisCacheId_, scenePosition, scenePosition, sceneRotation_, vec4(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
 
-		if (SHOW_DEPTH_ENABLED)
+		if (SETTINGS_SHOW_DEPTH)
 		{
 			// Blit the linear depth framebuffer.
-			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, linearDepthFb_);
-			renderFullscreenQuad(fb, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, linearDepthFb_.handle);
+			renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 		}
-		else if (!cvars.highPerformance->integer && isWorldCamera_)
+		else if (!SETTINGS_FAST_PATH && isWorldCamera_)
 		{
-			// Blit the scene framebuffer color.
+			// Clamp to sane values.
+			uniforms_->brightnessContrastGammaSaturation.set(vec4
+			(
+				Clamped(cvars.brightness->value - 1.0f, -0.8f, 0.8f),
+				Clamped(cvars.contrast->value, 0.5f, 3.0f),
+				1.0f / Clamped(cvars.gamma->value, 0.5f, 3.0f),
+				Clamped(cvars.saturation->value, 0.0f, 3.0f)
+			));
+
+			// Tonemap the scene framebuffer color.
 			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
-			renderFullscreenQuad(fb, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+			renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_ToneMap, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 		}
 	}
 
@@ -418,22 +422,6 @@ void Main::renderScene(const refdef_t *def)
 void Main::endFrame()
 {
 	flushStretchPics();
-
-	// Copy the main framebuffer to the default framebuffer, with color correction.
-	if (!cvars.highPerformance->integer)
-	{
-		// Clamp to sane values.
-		uniforms_->brightnessContrastGammaSaturation.set(vec4
-		(
-			Clamped(cvars.brightness->value - 1.0f, -0.8f, 0.8f),
-			Clamped(cvars.contrast->value, 0.5f, 3.0f),
-			1.0f / Clamped(cvars.gamma->value, 0.5f, 3.0f),
-			Clamped(cvars.saturation->value, 0.0f, 3.0f)
-		));
-		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, mainFbColor_);
-		renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_ColorCorrection, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
-	}
-	
 	assert(firstFreeViewId_ != 0); // Should always be one active view.
 	bgfx::frame();
 
@@ -498,7 +486,7 @@ void Main::onModelCreate(Model *model)
 	}
 }
 
-uint8_t Main::pushView(bgfx::FrameBufferHandle frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, vec4 rect)
+uint8_t Main::pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, vec4 rect)
 {
 	// Useful for debugging, can be disabled for performance later.
 #if 1
@@ -512,7 +500,7 @@ uint8_t Main::pushView(bgfx::FrameBufferHandle frameBuffer, uint16_t clearFlags,
 		bgfx::setViewClear(firstFreeViewId_, clearFlags);
 	}
 
-	bgfx::setViewFrameBuffer(firstFreeViewId_, frameBuffer);
+	bgfx::setViewFrameBuffer(firstFreeViewId_, frameBuffer.handle);
 
 	if (rect.equals(vec4::empty))
 	{
@@ -550,7 +538,7 @@ void Main::flushStretchPics()
 
 			if (stretchPicViewId_ == UINT8_MAX)
 			{
-				stretchPicViewId_ = pushView(cvars.highPerformance->integer ? defaultFb_ : mainFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, glConfig.vidWidth, 0, glConfig.vidHeight, -1, 1));
+				stretchPicViewId_ = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, glConfig.vidWidth, 0, glConfig.vidHeight, -1, 1));
 			}
 
 			for (const MaterialStage &stage : stretchPicMaterial_->stages)
@@ -800,7 +788,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	}
 
 	// Setup dynamic lights.
-	if (!cvars.highPerformance->integer && isWorldCamera_)
+	if (!SETTINGS_FAST_PATH && isWorldCamera_)
 	{
 		uniforms_->dynamicLights_Num_TextureWidth.set(vec4(sceneDynamicLights_.size(), dynamicLightTextureSize_, 0, 0));
 
@@ -819,7 +807,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		uniforms_->dynamicLights_Num_TextureWidth.set(vec4(0, 0, 0, 0));
 	}
 	
-	if (!cvars.highPerformance->integer && isWorldCamera_)
+	if (!SETTINGS_FAST_PATH && isWorldCamera_)
 	{
 		// Render depth.
 		const uint8_t viewId = pushView(sceneFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect);
@@ -882,13 +870,9 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 	uint8_t mainViewId;
 	
-	if (!cvars.highPerformance->integer && isWorldCamera_)
+	if (!SETTINGS_FAST_PATH && isWorldCamera_)
 	{
 		mainViewId = pushView(sceneFb_, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, rect);
-	}
-	else if (!cvars.highPerformance->integer)
-	{
-		mainViewId = pushView(mainFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect);
 	}
 	else
 	{
@@ -980,7 +964,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			ShaderProgramId::Enum shaderProgram;
 			uint64_t state = dc.state | stage.getState();
 
-			if (SOFT_SPRITES_ENABLED && dc.softSpriteDepth > 0)
+			if (SETTINGS_SOFT_SPRITES && dc.softSpriteDepth > 0)
 			{
 				if (stage.alphaTest != MaterialAlphaTest::None)
 				{
@@ -991,7 +975,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 					shaderProgram = ShaderProgramId::Generic_SoftSprite;
 				}
 
-				bgfx::setTexture(MaterialTextureBundleIndex::Depth, matStageUniforms_->textures[MaterialTextureBundleIndex::Depth]->handle, linearDepthFb_);
+				bgfx::setTexture(MaterialTextureBundleIndex::Depth, matStageUniforms_->textures[MaterialTextureBundleIndex::Depth]->handle, linearDepthFb_.handle);
 				uniforms_->softSpriteDepth.set(dc.softSpriteDepth);
 
 				// Change additive blend from (1, 1) to (src alpha, 1) so the soft sprite shader can control alpha.
@@ -1010,7 +994,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				shaderProgram = ShaderProgramId::Generic;
 			}
 
-			if (!cvars.highPerformance->integer && isWorldCamera_)
+			if (!SETTINGS_FAST_PATH && isWorldCamera_)
 			{
 				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, dynamicLightsTextures_[visCacheId]);
 			}
@@ -1046,7 +1030,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 }
 
 // From bgfx screenSpaceQuad.
-void Main::renderFullscreenQuad(bgfx::FrameBufferHandle frameBuffer, ShaderProgramId::Enum program, uint64_t state, bool originBottomLeft, int textureWidth, int textureHeight)
+void Main::renderFullscreenQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, bool originBottomLeft, int textureWidth, int textureHeight)
 {
 	if (!bgfx::checkAvailTransientVertexBuffer(3, Vertex::decl))
 	{

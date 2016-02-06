@@ -235,7 +235,7 @@ static void Cmd_ScreenshotPNG()
 	TakeScreenshot("png");
 }
 
-const bgfx::FrameBufferHandle Main::defaultFb_ = BGFX_INVALID_HANDLE;
+const FrameBuffer Main::defaultFb_;
 
 Main::Main()
 {
@@ -280,13 +280,6 @@ Main::Main()
 
 Main::~Main()
 {
-	if (!cvars.highPerformance->integer)
-	{
-		bgfx::destroyFrameBuffer(sceneFb_);
-		bgfx::destroyFrameBuffer(linearDepthFb_);
-		bgfx::destroyFrameBuffer(mainFb_);
-	}
-
 	for (size_t i = 0; i < maxDynamicLightTextures_; i++)
 	{
 		bgfx::destroyTexture(dynamicLightsTextures_[i]);
@@ -366,7 +359,7 @@ void Main::initialize()
 	bgfx::reset(glConfig.vidWidth, glConfig.vidHeight, resetFlags);
 	const bgfx::Caps *caps = bgfx::getCaps();
 
-	if (bgfx::getCaps()->maxFBAttachments < 2 && !cvars.highPerformance->integer)
+	if (bgfx::getCaps()->maxFBAttachments < 2 && !SETTINGS_FAST_PATH)
 	{
 		ri.Printf(PRINT_WARNING, "MRT not supported. Falling back to fast renderer path.\n");
 		ri.Cvar_Set(cvars.highPerformance->name, "1");
@@ -374,7 +367,7 @@ void Main::initialize()
 
 	halfTexelOffset_ = caps->rendererType == bgfx::RendererType::Direct3D9 ? 0.5f : 0;
 	isTextureOriginBottomLeft_ = caps->rendererType == bgfx::RendererType::OpenGL || caps->rendererType == bgfx::RendererType::OpenGLES;
-	glConfig.deviceSupportsGamma = cvars.highPerformance->integer ? qfalse : qtrue;
+	glConfig.deviceSupportsGamma = SETTINGS_FAST_PATH ? qfalse : qtrue;
 	glConfig.maxTextureSize = bgfx::getCaps()->maxTextureSize;
 	Vertex::init();
 	uniforms_ = std::make_unique<Uniforms>();
@@ -394,8 +387,8 @@ void Main::initialize()
 	fragMem[FragmentShaderId::Depth_AlphaTest] = MR(Depth_AlphaTest_fragment_##backend);                         \
 	fragMem[FragmentShaderId::Fog] = MR(Fog_fragment_##backend);                                                 \
 	fragMem[FragmentShaderId::Fullscreen_Blit] = MR(Fullscreen_Blit_fragment_##backend);                         \
-	fragMem[FragmentShaderId::Fullscreen_ColorCorrection] = MR(Fullscreen_ColorCorrection_fragment_##backend);   \
 	fragMem[FragmentShaderId::Fullscreen_LinearDepth] = MR(Fullscreen_LinearDepth_fragment_##backend);           \
+	fragMem[FragmentShaderId::Fullscreen_ToneMap] = MR(Fullscreen_ToneMap_fragment_##backend);                   \
 	fragMem[FragmentShaderId::Generic] = MR(Generic_fragment_##backend);                                         \
 	fragMem[FragmentShaderId::Generic_AlphaTest] = MR(Generic_AlphaTest_fragment_##backend);                     \
 	fragMem[FragmentShaderId::Generic_AlphaTestSoftSprite] = MR(Generic_AlphaTestSoftSprite_fragment_##backend); \
@@ -425,8 +418,8 @@ void Main::initialize()
 	fragMap[ShaderProgramId::Depth_AlphaTest]             = FragmentShaderId::Depth_AlphaTest;
 	fragMap[ShaderProgramId::Fog]                         = FragmentShaderId::Fog;
 	fragMap[ShaderProgramId::Fullscreen_Blit]             = FragmentShaderId::Fullscreen_Blit;
-	fragMap[ShaderProgramId::Fullscreen_ColorCorrection]  = FragmentShaderId::Fullscreen_ColorCorrection;
 	fragMap[ShaderProgramId::Fullscreen_LinearDepth]      = FragmentShaderId::Fullscreen_LinearDepth;
+	fragMap[ShaderProgramId::Fullscreen_ToneMap]          = FragmentShaderId::Fullscreen_ToneMap;
 	fragMap[ShaderProgramId::Generic]                     = FragmentShaderId::Generic;
 	fragMap[ShaderProgramId::Generic_AlphaTest]           = FragmentShaderId::Generic_AlphaTest;
 	fragMap[ShaderProgramId::Generic_AlphaTestSoftSprite] = FragmentShaderId::Generic_AlphaTestSoftSprite;
@@ -437,8 +430,8 @@ void Main::initialize()
 	vertMap[ShaderProgramId::Depth_AlphaTest]             = VertexShaderId::Depth_AlphaTest;
 	vertMap[ShaderProgramId::Fog]                         = VertexShaderId::Fog;
 	vertMap[ShaderProgramId::Fullscreen_Blit]             = VertexShaderId::Fullscreen;
-	vertMap[ShaderProgramId::Fullscreen_ColorCorrection]  = VertexShaderId::Fullscreen;
 	vertMap[ShaderProgramId::Fullscreen_LinearDepth]      = VertexShaderId::Fullscreen;
+	vertMap[ShaderProgramId::Fullscreen_ToneMap]          = VertexShaderId::Fullscreen;
 	vertMap[ShaderProgramId::Generic]                     = VertexShaderId::Generic;
 	vertMap[ShaderProgramId::Generic_AlphaTest]           = VertexShaderId::Generic;
 	vertMap[ShaderProgramId::Generic_AlphaTestSoftSprite] = VertexShaderId::Generic;
@@ -473,22 +466,16 @@ void Main::initialize()
 			ri.Error(ERR_DROP, "Error creating shader program");
 	}
 
-	if (!cvars.highPerformance->integer)
+	if (!SETTINGS_FAST_PATH)
 	{
 		// Scene
-		sceneFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT|BGFX_TEXTURE_U_CLAMP|BGFX_TEXTURE_V_CLAMP);
+		sceneFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::RGBA16F, BGFX_TEXTURE_RT|BGFX_TEXTURE_U_CLAMP|BGFX_TEXTURE_V_CLAMP);
 		sceneFbDepth_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
 		bgfx::TextureHandle sceneTextures[] = { sceneFbColor_, sceneFbDepth_ };
-		sceneFb_ = bgfx::createFrameBuffer(2, sceneTextures, true);
+		sceneFb_.handle = bgfx::createFrameBuffer(2, sceneTextures, true);
 
 		// Linear depth
-		linearDepthFb_ = bgfx::createFrameBuffer(glConfig.vidWidth, glConfig.vidHeight, bgfx::TextureFormat::R16F);
-
-		// Main
-		mainFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT|BGFX_TEXTURE_U_CLAMP|BGFX_TEXTURE_V_CLAMP);
-		bgfx::TextureHandle mainFbDepth = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
-		bgfx::TextureHandle mainTextures[] = { mainFbColor_, mainFbDepth };
-		mainFb_ = bgfx::createFrameBuffer(2, mainTextures, true);
+		linearDepthFb_.handle = bgfx::createFrameBuffer(glConfig.vidWidth, glConfig.vidHeight, bgfx::TextureFormat::R16F);
 	}
 
 	// Dynamic lights.

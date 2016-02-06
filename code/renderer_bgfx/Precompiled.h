@@ -59,6 +59,10 @@ using namespace math;
 
 #define BIT(x) (1<<(x))
 
+#define SETTINGS_FAST_PATH (g_main->cvars.highPerformance->integer)
+#define SETTINGS_SHOW_DEPTH (!SETTINGS_FAST_PATH && g_main->cvars.showDepth->integer)
+#define SETTINGS_SOFT_SPRITES (!SETTINGS_FAST_PATH && g_main->cvars.softSprites->integer)
+
 namespace renderer {
 
 extern refimport_t ri;
@@ -106,7 +110,7 @@ struct ConsoleVariables
 	cvar_t *softSprites;
 	cvar_t *wireframe;
 
-	/// @name Color correction
+	/// @name HDR
 	/// @{
 	cvar_t *brightness;
 	cvar_t *contrast;
@@ -243,6 +247,13 @@ struct Entity
 
 /// @brief Given a triangulated quad, extract the unique corner vertices.
 std::array<Vertex *, 4> ExtractQuadCorners(Vertex *vertices, const uint16_t *indices);
+
+struct FrameBuffer
+{
+	FrameBuffer() { handle.idx = bgfx::invalidHandle; }
+	~FrameBuffer() { if (bgfx::isValid(handle)) bgfx::destroyFrameBuffer(handle); }
+	bgfx::FrameBufferHandle handle;
+};
 
 struct Image
 {
@@ -1111,7 +1122,7 @@ struct Uniforms
 	Uniform_vec4 fogEyeT = "u_FogEyeT";
 	/// @}
 
-	/// @name Color correction
+	/// @name HDR
 	/// @{
 	Uniform_vec4 brightnessContrastGammaSaturation = "u_BrightnessContrastGammaSaturation";
 	/// @}
@@ -1363,8 +1374,8 @@ private:
 			Depth_AlphaTest,
 			Fog,
 			Fullscreen_Blit,
-			Fullscreen_ColorCorrection,
 			Fullscreen_LinearDepth,
+			Fullscreen_ToneMap,
 			Generic,
 			Generic_AlphaTest,
 			Generic_AlphaTestSoftSprite,
@@ -1396,8 +1407,8 @@ private:
 			Depth_AlphaTest,
 			Fog,
 			Fullscreen_Blit,
-			Fullscreen_ColorCorrection,
 			Fullscreen_LinearDepth,
+			Fullscreen_ToneMap,
 			Generic,
 			Generic_AlphaTest,
 			Generic_SoftSprite,
@@ -1407,10 +1418,10 @@ private:
 		};
 	};
 
-	uint8_t pushView(bgfx::FrameBufferHandle frameBuffer = defaultFb_, uint16_t clearFlags = BGFX_CLEAR_NONE, const mat4 &viewMatrix = mat4::identity, const mat4 &projectionMatrix = mat4::identity, vec4 rect = vec4::empty);
+	uint8_t pushView(const FrameBuffer &frameBuffer = defaultFb_, uint16_t clearFlags = BGFX_CLEAR_NONE, const mat4 &viewMatrix = mat4::identity, const mat4 &projectionMatrix = mat4::identity, vec4 rect = vec4::empty);
 	void flushStretchPics();
 	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, vec4 rect, vec2 fov, const uint8_t *areaMask);
-	void renderFullscreenQuad(bgfx::FrameBufferHandle frameBuffer, ShaderProgramId::Enum program, uint64_t state, bool originBottomLeft = false, int textureWidth = 0, int textureHeight = 0);
+	void renderFullscreenQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, bool originBottomLeft = false, int textureWidth = 0, int textureHeight = 0);
 
 	/// @name Entity rendering
 	/// @{
@@ -1469,13 +1480,11 @@ private:
 
 	/// @name Framebuffers
 	/// @{
-	static const bgfx::FrameBufferHandle defaultFb_;
-	bgfx::FrameBufferHandle sceneFb_;
+	static const FrameBuffer defaultFb_;
+	FrameBuffer sceneFb_;
 	bgfx::TextureHandle sceneFbColor_;
 	bgfx::TextureHandle sceneFbDepth_;
-	bgfx::FrameBufferHandle linearDepthFb_;
-	bgfx::FrameBufferHandle mainFb_;
-	bgfx::TextureHandle mainFbColor_;
+	FrameBuffer linearDepthFb_;
 	/// @}
 
 	/// @name Game-specific hacks
