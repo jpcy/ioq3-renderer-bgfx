@@ -36,3 +36,23 @@ float ToLinearDepth(float z, float near, float far)
 	linearDepth = (-linearDepth - near) / (far - near);
 	return linearDepth;
 }
+
+vec3 ToGamma(vec3 v)
+{
+	return pow(v, vec3_splat(1.0/2.2));
+}
+
+vec4 ToGamma(vec4 v)
+{
+	return vec4(ToGamma(v.xyz), v.w);
+}
+
+vec3 ToLinear(vec3 v)
+{
+	return pow(v, vec3_splat(2.2));
+}
+
+vec4 ToLinear(vec4 v)
+{
+	return vec4(ToLinear(v.xyz), v.w);
+}

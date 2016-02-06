@@ -52,7 +52,7 @@ void main()
 	color = mix(intensity, color, saturation);
 
 	// gamma
-	color = vec3(pow(color.r, gamma), pow(color.g, gamma), pow(color.b, gamma));
+	color = pow(color, vec3_splat(gamma));
 
 	gl_FragColor = vec4(color, 1.0);
 }
