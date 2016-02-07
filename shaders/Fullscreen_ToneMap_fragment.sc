@@ -1,6 +1,7 @@
 $input v_texcoord0
 
 #include <bgfx_shader.sh>
+#include "Common.sh"
 
 SAMPLER2D(u_DiffuseMap, 0);
 
@@ -9,22 +10,6 @@ uniform vec4 u_BrightnessContrastGammaSaturation;
 #define contrast u_BrightnessContrastGammaSaturation.y
 #define gamma u_BrightnessContrastGammaSaturation.z
 #define saturation u_BrightnessContrastGammaSaturation.w
-
-vec3 Reinhard(vec3 x)
-{
-	return x / (x + 1.0);
-}
-
-vec3 Uncharted2Tonemap(vec3 x)
-{
-	float A = 0.15;
-	float B = 0.50;
-	float C = 0.10;
-	float D = 0.20;
-	float E = 0.02;
-	float F = 0.30;
-	return ((x*(A*x+C*B)+D*E)/(x*(A*x+B)+D*F))-E/F;
-}
 
 // https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
 vec3 ACESFilm(vec3 x)
@@ -42,7 +27,8 @@ void main()
 	vec3 color = texture2D(u_DiffuseMap, v_texcoord0).rgb;
 
 	// tone map
-	color = saturate(color);
+	color = ToGamma(ACESFilm(ToLinear(color)));
+	float gammaBoost = 0.2;
 
 	// contrast and brightness
 	color = (color - 0.5) * contrast + 0.5 + brightness;
@@ -52,7 +38,7 @@ void main()
 	color = mix(intensity, color, saturation);
 
 	// gamma
-	color = pow(color, vec3_splat(gamma));
+	color = pow(color, vec3_splat(1.0 / (gamma + gammaBoost)));
 
 	gl_FragColor = vec4(color, 1.0);
 }

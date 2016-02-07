@@ -401,7 +401,7 @@ void Main::renderScene(const refdef_t *def)
 			(
 				Clamped(cvars.brightness->value - 1.0f, -0.8f, 0.8f),
 				Clamped(cvars.contrast->value, 0.5f, 3.0f),
-				1.0f / Clamped(cvars.gamma->value, 0.5f, 3.0f),
+				Clamped(cvars.gamma->value, 0.5f, 3.0f),
 				Clamped(cvars.saturation->value, 0.0f, 3.0f)
 			));
 
