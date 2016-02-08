@@ -2,6 +2,7 @@ function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sd
 	project "renderer_bgfx"
 	kind "SharedLib"
 	language "C++"
+	rtti "Off"
 	targetprefix ""
 	
 	defines
