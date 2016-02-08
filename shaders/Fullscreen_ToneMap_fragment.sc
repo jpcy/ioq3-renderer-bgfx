@@ -28,7 +28,6 @@ void main()
 
 	// tone map
 	color = ToGamma(ACESFilm(ToLinear(color)));
-	float gammaBoost = 0.2;
 
 	// contrast and brightness
 	color = (color - 0.5) * contrast + 0.5 + brightness;
@@ -38,7 +37,7 @@ void main()
 	color = mix(intensity, color, saturation);
 
 	// gamma
-	color = pow(color, vec3_splat(1.0 / (gamma + gammaBoost)));
+	color = pow(color, vec3_splat(1.0 / gamma));
 
 	gl_FragColor = vec4(color, 1.0);
 }

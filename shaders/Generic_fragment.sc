@@ -128,7 +128,7 @@ void main()
 
 	if (int(u_LightType.x) == LIGHT_MAP)
 	{
-		diffuseLight = ToLinear(texture2D(u_LightMap, v_texcoord1).rgb * u_OverbrightFactor.x);
+		diffuseLight = texture2D(u_LightMap, v_texcoord1).rgb * u_OverbrightFactor.x;
 	}
 	else if (int(u_LightType.x) == LIGHT_VECTOR)
 	{
