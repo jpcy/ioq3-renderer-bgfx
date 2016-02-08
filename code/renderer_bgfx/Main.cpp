@@ -394,7 +394,7 @@ void Main::renderScene(const refdef_t *def)
 			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, linearDepthFb_.handle);
 			renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_Blit, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 		}
-		else if (!SETTINGS_FAST_PATH && isWorldCamera_)
+		else if (isWorldCamera_)
 		{
 			// Clamp to sane values.
 			uniforms_->brightnessContrastGammaSaturation.set(vec4
@@ -786,7 +786,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	}
 
 	// Setup dynamic lights.
-	if (!SETTINGS_FAST_PATH && isWorldCamera_)
+	if (isWorldCamera_)
 	{
 		uniforms_->dynamicLights_Num_TextureWidth.set(vec4(sceneDynamicLights_.size(), dynamicLightTextureSize_, 0, 0));
 
@@ -805,7 +805,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		uniforms_->dynamicLights_Num_TextureWidth.set(vec4(0, 0, 0, 0));
 	}
 	
-	if (!SETTINGS_FAST_PATH && isWorldCamera_)
+	if (isWorldCamera_)
 	{
 		// Render depth.
 		const uint8_t viewId = pushView(sceneFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect);
@@ -868,7 +868,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 	uint8_t mainViewId;
 	
-	if (!SETTINGS_FAST_PATH && isWorldCamera_)
+	if (isWorldCamera_)
 	{
 		mainViewId = pushView(sceneFb_, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, rect);
 	}
@@ -940,11 +940,14 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			uniforms_->fogEyeT.set(eyeT);
 		}
 
+		bool activeStage = false;
+
 		for (const MaterialStage &stage : mat->stages)
 		{
 			if (!stage.active)
 				continue;
 
+			activeStage = true;
 			if (dc.fogIndex >= 0 && stage.adjustColorsForFog != MaterialAdjustColorsForFog::None)
 			{
 				uniforms_->fogEnabled.set(vec4(1, 0, 0, 0));
@@ -992,7 +995,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				shaderProgram = ShaderProgramId::Generic;
 			}
 
-			if (!SETTINGS_FAST_PATH && isWorldCamera_)
+			if (isWorldCamera_)
 			{
 				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, dynamicLightsTextures_[visCacheId]);
 			}
@@ -1000,6 +1003,8 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			bgfx::setState(state);
 			bgfx::submit(mainViewId, shaderPrograms_[shaderProgram].handle);
 		}
+
+		assert(activeStage);
 
 		// Do fog pass.
 		if (dc.fogIndex >= 0 && mat->fogPass != MaterialFogPass::None)

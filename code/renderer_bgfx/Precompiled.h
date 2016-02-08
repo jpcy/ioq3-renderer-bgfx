@@ -59,9 +59,8 @@ using namespace math;
 
 #define BIT(x) (1<<(x))
 
-#define SETTINGS_FAST_PATH (g_main->cvars.highPerformance->integer)
-#define SETTINGS_SHOW_DEPTH (!SETTINGS_FAST_PATH && g_main->cvars.showDepth->integer)
-#define SETTINGS_SOFT_SPRITES (!SETTINGS_FAST_PATH && g_main->cvars.softSprites->integer)
+#define SETTINGS_SHOW_DEPTH (g_main->cvars.softSprites->integer && g_main->cvars.showDepth->integer)
+#define SETTINGS_SOFT_SPRITES (g_main->cvars.softSprites->integer)
 
 namespace renderer {
 
@@ -100,7 +99,6 @@ struct ConsoleVariables
 	cvar_t *backend;
 	cvar_t *bgfx_stats;
 	cvar_t *debugText;
-	cvar_t *highPerformance;
 	cvar_t *maxAnisotropy;
 	cvar_t *msaa;
 	cvar_t *overBrightBits;

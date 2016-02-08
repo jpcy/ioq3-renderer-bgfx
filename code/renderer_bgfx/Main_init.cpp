@@ -131,7 +131,6 @@ ConsoleVariables::ConsoleVariables()
 
 	bgfx_stats = ri.Cvar_Get("r_bgfx_stats", "0", CVAR_CHEAT);
 	debugText = ri.Cvar_Get("r_debugText", "0", CVAR_CHEAT);
-	highPerformance = ri.Cvar_Get("r_highPerformance", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	maxAnisotropy = ri.Cvar_Get("r_maxAnisotropy", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	msaa = ri.Cvar_Get("r_msaa", "4", CVAR_ARCHIVE | CVAR_LATCH);
 	overBrightBits = ri.Cvar_Get ("r_overBrightBits", "1", CVAR_ARCHIVE | CVAR_LATCH);
@@ -359,15 +358,14 @@ void Main::initialize()
 	bgfx::reset(glConfig.vidWidth, glConfig.vidHeight, resetFlags);
 	const bgfx::Caps *caps = bgfx::getCaps();
 
-	if (bgfx::getCaps()->maxFBAttachments < 2 && !SETTINGS_FAST_PATH)
+	if (bgfx::getCaps()->maxFBAttachments < 2)
 	{
-		ri.Printf(PRINT_WARNING, "MRT not supported. Falling back to fast renderer path.\n");
-		ri.Cvar_Set(cvars.highPerformance->name, "1");
+		ri.Error(ERR_DROP, "MRT not supported.\n");
 	}
 
 	halfTexelOffset_ = caps->rendererType == bgfx::RendererType::Direct3D9 ? 0.5f : 0;
 	isTextureOriginBottomLeft_ = caps->rendererType == bgfx::RendererType::OpenGL || caps->rendererType == bgfx::RendererType::OpenGLES;
-	glConfig.deviceSupportsGamma = SETTINGS_FAST_PATH ? qfalse : qtrue;
+	glConfig.deviceSupportsGamma = qtrue;
 	glConfig.maxTextureSize = bgfx::getCaps()->maxTextureSize;
 	Vertex::init();
 	uniforms_ = std::make_unique<Uniforms>();
@@ -466,17 +464,14 @@ void Main::initialize()
 			ri.Error(ERR_DROP, "Error creating shader program");
 	}
 
-	if (!SETTINGS_FAST_PATH)
-	{
-		// Scene
-		sceneFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::RGBA16F, BGFX_TEXTURE_RT|BGFX_TEXTURE_U_CLAMP|BGFX_TEXTURE_V_CLAMP);
-		sceneFbDepth_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
-		bgfx::TextureHandle sceneTextures[] = { sceneFbColor_, sceneFbDepth_ };
-		sceneFb_.handle = bgfx::createFrameBuffer(2, sceneTextures, true);
+	// Scene frame buffer.
+	sceneFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::RGBA16F, BGFX_TEXTURE_RT|BGFX_TEXTURE_U_CLAMP|BGFX_TEXTURE_V_CLAMP);
+	sceneFbDepth_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
+	bgfx::TextureHandle sceneTextures[] = { sceneFbColor_, sceneFbDepth_ };
+	sceneFb_.handle = bgfx::createFrameBuffer(2, sceneTextures, true);
 
-		// Linear depth
-		linearDepthFb_.handle = bgfx::createFrameBuffer(glConfig.vidWidth, glConfig.vidHeight, bgfx::TextureFormat::R16F);
-	}
+	// Linear depth frame buffer.
+	linearDepthFb_.handle = bgfx::createFrameBuffer(glConfig.vidWidth, glConfig.vidHeight, bgfx::TextureFormat::R16F);
 
 	// Dynamic lights.
 	// Calculate the smallest square POT texture size to fit the dynamic lights data.
