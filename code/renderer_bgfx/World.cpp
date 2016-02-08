@@ -581,12 +581,12 @@ public:
 
 			totalFactor += factor;
 
-			(*ambientLight)[0] += factor * data[0];
-			(*ambientLight)[1] += factor * data[1];
-			(*ambientLight)[2] += factor * data[2];
-			(*directedLight)[0] += factor * data[3];
-			(*directedLight)[1] += factor * data[4];
-			(*directedLight)[2] += factor * data[5];
+			(*ambientLight)[0] += factor * data[0] * g_main->overbrightFactor;
+			(*ambientLight)[1] += factor * data[1] * g_main->overbrightFactor;
+			(*ambientLight)[2] += factor * data[2] * g_main->overbrightFactor;
+			(*directedLight)[0] += factor * data[3] * g_main->overbrightFactor;
+			(*directedLight)[1] += factor * data[4] * g_main->overbrightFactor;
+			(*directedLight)[2] += factor * data[5] * g_main->overbrightFactor;
 
 			int lat = data[7];
 			int lng = data[6];
@@ -1496,31 +1496,6 @@ private:
 		return false;
 	}
 
-	static void overbrightenColor(const uint8_t *in, uint8_t *out)
-	{
-		assert(in);
-		assert(out);
-
-		// Shift the data based on overbright range.
-		int r = in[0] << g_main->overbrightBits;
-		int g = in[1] << g_main->overbrightBits;
-		int b = in[2] << g_main->overbrightBits;
-
-		// Normalize by color instead of saturating to white.
-		if (( r | g | b ) > 255)
-		{
-			int max = r > g ? r : g;
-			max = max > b ? max : b;
-			r = r * 255 / max;
-			g = g * 255 / max;
-			b = b * 255 / max;
-		}
-
-		out[0] = r;
-		out[1] = g;
-		out[2] = b;
-	}
-
 	void loadFromBspFile()
 	{
 		// Header
@@ -1750,7 +1725,7 @@ private:
 								const int lightmapX = (nAtlasedLightmaps % nLightmapsPerAtlas_) % nLightmapsPerDimension;
 								const int lightmapY = (nAtlasedLightmaps % nLightmapsPerAtlas_) / nLightmapsPerDimension;
 								const size_t destOffset = ((lightmapX * lightmapSize_ + x) + (lightmapY * lightmapSize_ + y) * lightmapAtlasSize_) * image.nComponents;
-								overbrightenColor(&srcData[srcOffset], &image.memory->data[destOffset]);
+								memcpy(&image.memory->data[destOffset], &srcData[srcOffset], 3);
 								image.memory->data[destOffset + 3] = 0xff;
 							}
 						}
@@ -1808,13 +1783,6 @@ private:
 			{
 				lightGridData_.resize(lump.filelen);
 				Com_Memcpy(lightGridData_.data(), &fileData_[lump.fileofs], lump.filelen);
-
-				// Deal with overbright bits.
-				for (size_t i = 0; i < numGridPoints; i++)
-				{
-					overbrightenColor(&lightGridData_[i * 8], &lightGridData_[i * 8]);
-					overbrightenColor(&lightGridData_[i * 8 + 3], &lightGridData_[i * 8 + 3]);
-				}
 			}
 		}
 
@@ -1843,9 +1811,13 @@ private:
 			v.texCoord = vec2(LittleFloat(fv.st[0]), LittleFloat(fv.st[1]));
 			v.texCoord2 = vec2(LittleFloat(fv.lightmap[0]), LittleFloat(fv.lightmap[1]));
 
-			uint8_t color[3];
-			overbrightenColor(fv.color, color);
-			v.color = vec4(color[0] / 255.0f, color[1] / 255.0f, color[2] / 255.0f, fv.color[3] / 255.0f);
+			v.color = vec4
+			(
+				fv.color[0] * g_main->overbrightFactor / 255.0f,
+				fv.color[1] * g_main->overbrightFactor / 255.0f,
+				fv.color[2] * g_main->overbrightFactor / 255.0f,
+				fv.color[3] / 255.0f
+			);
 		}
 
 		// Indices

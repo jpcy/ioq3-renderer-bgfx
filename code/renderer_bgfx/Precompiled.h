@@ -234,11 +234,7 @@ struct Entity
 	/// Normalized direction towards light, in model space.
 	vec3 modelLightDir;
 
-	/// Color normalized to 0-255.
 	vec3 ambientLight;
-
-	/// 32-bit RGBA packed.
-	int ambientLightInt;
 
 	vec3 directedLight;
 };
@@ -1123,6 +1119,10 @@ struct Uniforms
 	/// @name HDR
 	/// @{
 	Uniform_vec4 brightnessContrastGammaSaturation = "u_BrightnessContrastGammaSaturation";
+
+	/// @remarks Only x used.
+	Uniform_vec4 overbrightFactor = "u_OverbrightFactor";
+
 	/// @}
 };
 
@@ -1334,9 +1334,14 @@ public:
 	float mapLightScale = 1;
 	float sunShadowScale = 0.5f;
 
-	float identityLight; // 1.0 / ( 1 << overbrightBits )
-	int identityLightByte; // identityLight * 255
-	int overbrightBits; // r_overBrightBits->integer, but set to 0 if no hw gamma
+	/// @brief 1.0 / overbrightFactor
+	float identityLight;
+
+	/// @brief Clamped r_overBrightBits cvar.
+	int overbrightBits;
+
+	/// @brief 1 << overbrightBits
+	int overbrightFactor;
 
 	vec2 autoExposureMinMax = { -2, 2 };
 	vec3 toneMinAvgMaxLevel = { -8, -2, 0 };

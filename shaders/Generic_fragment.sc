@@ -40,6 +40,8 @@ uniform vec4 u_LightType; // only x used
 
 uniform vec4 u_DynamicLights_Num_TextureWidth; // x is the number of dynamic lights, y is the texture width
 
+uniform vec4 u_OverbrightFactor; // only x used
+
 float Lambert(vec3 surfaceNormal, vec3 lightDir)
 {
 #if defined(USE_HALF_LAMBERT)
@@ -126,7 +128,7 @@ void main()
 
 	if (int(u_LightType.x) == LIGHT_MAP)
 	{
-		diffuseLight = ToLinear(texture2D(u_LightMap, v_texcoord1).rgb);
+		diffuseLight = ToLinear(texture2D(u_LightMap, v_texcoord1).rgb * u_OverbrightFactor.x);
 	}
 	else if (int(u_LightType.x) == LIGHT_VECTOR)
 	{

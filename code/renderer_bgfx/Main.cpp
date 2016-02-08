@@ -811,6 +811,9 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	{
 		uniforms_->dynamicLights_Num_TextureWidth.set(vec4(0, 0, 0, 0));
 	}
+
+	// Set misc. uniforms.
+	uniforms_->overbrightFactor.set(vec4(overbrightFactor, 0, 0, 0));
 	
 	if (isWorldCamera_)
 	{
@@ -1486,18 +1489,6 @@ void Main::setupEntityLighting(Entity *entity)
 
 	entity->lightDir = lightDir.normal();
 
-	// Clamp ambient.
-	for (size_t i = 0; i < 3; i++)
-	{
-		entity->ambientLight[i] = std::min(entity->ambientLight[i], (float)identityLightByte);
-	}
-
-	// Save out the byte packet version.
-	((uint8_t *)&entity->ambientLightInt)[0] = ri.ftol(entity->ambientLight[0]);
-	((uint8_t *)&entity->ambientLightInt)[1] = ri.ftol(entity->ambientLight[1]);
-	((uint8_t *)&entity->ambientLightInt)[2] = ri.ftol(entity->ambientLight[2]);
-	((uint8_t *)&entity->ambientLightInt)[3] = 0xff;
-	
 	// Transform the direction to local space.
 	entity->modelLightDir[0] = vec3::dotProduct(entity->lightDir, entity->e.axis[0]);
 	entity->modelLightDir[1] = vec3::dotProduct(entity->lightDir, entity->e.axis[1]);

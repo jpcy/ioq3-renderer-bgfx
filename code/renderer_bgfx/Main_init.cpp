@@ -247,8 +247,8 @@ Main::Main()
 
 	// Setup the overbright lighting. Allow 2 overbright bits.
 	overbrightBits = math::Clamped(cvars.overBrightBits->integer, 0, 2);
-	identityLight = 1.0f / (1 << overbrightBits);
-	identityLightByte = 255 * identityLight;
+	overbrightFactor = 1 << overbrightBits;
+	identityLight = 1.0f / overbrightFactor;
 
 	// init function tables
 	for (size_t i = 0; i < funcTableSize; i++)
