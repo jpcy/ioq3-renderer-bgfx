@@ -815,7 +815,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			// Material remapping.
 			auto mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
 
-			if (mat->sort != MaterialSort::Opaque)
+			if (mat->sort != MaterialSort::Opaque || mat->numUnfoggedPasses == 0)
 				continue;
 
 			currentEntity_ = dc.entity;
@@ -903,6 +903,11 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			continue;
 		}
 
+		const bool doFogPass = dc.fogIndex >= 0 && mat->fogPass != MaterialFogPass::None;
+
+		if (mat->numUnfoggedPasses == 0 && !doFogPass)
+			continue;
+
 		currentEntity_ = dc.entity;
 		matUniforms_->time.set(vec4(mat->setTime(floatTime_), 0, 0, 0));
 		const mat4 modelViewMatrix(viewMatrix * dc.modelMatrix);
@@ -940,14 +945,11 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			uniforms_->fogEyeT.set(eyeT);
 		}
 
-		bool activeStage = false;
-
 		for (const MaterialStage &stage : mat->stages)
 		{
 			if (!stage.active)
 				continue;
 
-			activeStage = true;
 			if (dc.fogIndex >= 0 && stage.adjustColorsForFog != MaterialAdjustColorsForFog::None)
 			{
 				uniforms_->fogEnabled.set(vec4(1, 0, 0, 0));
@@ -1004,12 +1006,9 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			bgfx::submit(mainViewId, shaderPrograms_[shaderProgram].handle);
 		}
 
-		assert(activeStage);
-
 		// Do fog pass.
-		if (dc.fogIndex >= 0 && mat->fogPass != MaterialFogPass::None)
+		if (doFogPass)
 		{
-			mat->setDeformUniforms(matUniforms_.get());
 			matStageUniforms_->color.set(fogColor);
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
