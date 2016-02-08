@@ -100,6 +100,8 @@ void WarnOnce(WarnOnceId::Enum id)
 
 ConsoleVariables::ConsoleVariables()
 {
+	aa = ri.Cvar_Get("r_aa", "", CVAR_ARCHIVE | CVAR_LATCH);
+	ri.Cvar_SetDescription(aa, "<empty>   None\nfxaa      Fast Approximate Anti-Aliasing (FXAA v2)\n");
 	backend = ri.Cvar_Get("r_backend", "", CVAR_ARCHIVE | CVAR_LATCH);
 
 	{
@@ -109,7 +111,7 @@ ConsoleVariables::ConsoleVariables()
 
 		#define FORMAT "%-10s%s\n"
 		std::string description;
-		description += va(FORMAT, "", "Autodetect");
+		description += va(FORMAT, "<empty>", "Autodetect");
 
 		for (const BackendMap &map : backendMaps)
 		{
@@ -132,7 +134,6 @@ ConsoleVariables::ConsoleVariables()
 	bgfx_stats = ri.Cvar_Get("r_bgfx_stats", "0", CVAR_CHEAT);
 	debugText = ri.Cvar_Get("r_debugText", "0", CVAR_CHEAT);
 	maxAnisotropy = ri.Cvar_Get("r_maxAnisotropy", "0", CVAR_ARCHIVE | CVAR_LATCH);
-	msaa = ri.Cvar_Get("r_msaa", "4", CVAR_ARCHIVE | CVAR_LATCH);
 	overBrightBits = ri.Cvar_Get ("r_overBrightBits", "1", CVAR_ARCHIVE | CVAR_LATCH);
 	picmip = ri.Cvar_Get("r_picmip", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	ri.Cvar_CheckRange(picmip, 0, 16, qtrue);
@@ -338,23 +339,6 @@ void Main::initialize()
 		resetFlags |= BGFX_RESET_MAXANISOTROPY;
 	}
 
-	if (cvars.msaa->integer == 2)
-	{
-		resetFlags |= BGFX_RESET_MSAA_X2;
-	}
-	else if (cvars.msaa->integer == 4)
-	{
-		resetFlags |= BGFX_RESET_MSAA_X4;
-	}
-	else if (cvars.msaa->integer == 8)
-	{
-		resetFlags |= BGFX_RESET_MSAA_X8;
-	}
-	else if (cvars.msaa->integer == 16)
-	{
-		resetFlags |= BGFX_RESET_MSAA_X16;
-	}
-
 	bgfx::reset(glConfig.vidWidth, glConfig.vidHeight, resetFlags);
 	const bgfx::Caps *caps = bgfx::getCaps();
 
@@ -385,6 +369,7 @@ void Main::initialize()
 	fragMem[FragmentShaderId::Depth_AlphaTest] = MR(Depth_AlphaTest_fragment_##backend);                         \
 	fragMem[FragmentShaderId::Fog] = MR(Fog_fragment_##backend);                                                 \
 	fragMem[FragmentShaderId::Fullscreen_Blit] = MR(Fullscreen_Blit_fragment_##backend);                         \
+	fragMem[FragmentShaderId::Fullscreen_FXAA] = MR(Fullscreen_FXAA_fragment_##backend);                         \
 	fragMem[FragmentShaderId::Fullscreen_LinearDepth] = MR(Fullscreen_LinearDepth_fragment_##backend);           \
 	fragMem[FragmentShaderId::Fullscreen_ToneMap] = MR(Fullscreen_ToneMap_fragment_##backend);                   \
 	fragMem[FragmentShaderId::Generic] = MR(Generic_fragment_##backend);                                         \
@@ -416,6 +401,7 @@ void Main::initialize()
 	fragMap[ShaderProgramId::Depth_AlphaTest]             = FragmentShaderId::Depth_AlphaTest;
 	fragMap[ShaderProgramId::Fog]                         = FragmentShaderId::Fog;
 	fragMap[ShaderProgramId::Fullscreen_Blit]             = FragmentShaderId::Fullscreen_Blit;
+	fragMap[ShaderProgramId::Fullscreen_FXAA]             = FragmentShaderId::Fullscreen_FXAA;
 	fragMap[ShaderProgramId::Fullscreen_LinearDepth]      = FragmentShaderId::Fullscreen_LinearDepth;
 	fragMap[ShaderProgramId::Fullscreen_ToneMap]          = FragmentShaderId::Fullscreen_ToneMap;
 	fragMap[ShaderProgramId::Generic]                     = FragmentShaderId::Generic;
@@ -428,6 +414,7 @@ void Main::initialize()
 	vertMap[ShaderProgramId::Depth_AlphaTest]             = VertexShaderId::Depth_AlphaTest;
 	vertMap[ShaderProgramId::Fog]                         = VertexShaderId::Fog;
 	vertMap[ShaderProgramId::Fullscreen_Blit]             = VertexShaderId::Fullscreen;
+	vertMap[ShaderProgramId::Fullscreen_FXAA]             = VertexShaderId::Fullscreen;
 	vertMap[ShaderProgramId::Fullscreen_LinearDepth]      = VertexShaderId::Fullscreen;
 	vertMap[ShaderProgramId::Fullscreen_ToneMap]          = VertexShaderId::Fullscreen;
 	vertMap[ShaderProgramId::Generic]                     = VertexShaderId::Generic;
@@ -464,14 +451,24 @@ void Main::initialize()
 			ri.Error(ERR_DROP, "Error creating shader program");
 	}
 
-	// Scene frame buffer.
-	sceneFbColor_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::RGBA16F, BGFX_TEXTURE_RT|BGFX_TEXTURE_U_CLAMP|BGFX_TEXTURE_V_CLAMP);
-	sceneFbDepth_ = bgfx::createTexture2D(glConfig.vidWidth, glConfig.vidHeight, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
-	bgfx::TextureHandle sceneTextures[] = { sceneFbColor_, sceneFbDepth_ };
-	sceneFb_.handle = bgfx::createFrameBuffer(2, sceneTextures, true);
+	// Parse anti-aliasing cvar.
+	aa_ = Q_stricmp(cvars.aa->string, "fxaa") == 0 ? AntiAliasing::FXAA : AntiAliasing::None;
+
+	// FXAA frame buffer.
+	if (aa_ == AntiAliasing::FXAA)
+	{
+		fxaaColor_ = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP);
+		fxaaFb_.handle = bgfx::createFrameBuffer(1, &fxaaColor_, true);
+	}
 
 	// Linear depth frame buffer.
-	linearDepthFb_.handle = bgfx::createFrameBuffer(glConfig.vidWidth, glConfig.vidHeight, bgfx::TextureFormat::R16F);
+	linearDepthFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::R16F);
+
+	// Scene frame buffer.
+	sceneFbColor_ = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::RGBA16F, BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP);
+	sceneFbDepth_ = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
+	bgfx::TextureHandle sceneTextures[] = { sceneFbColor_, sceneFbDepth_ };
+	sceneFb_.handle = bgfx::createFrameBuffer(2, sceneTextures, true);
 
 	// Dynamic lights.
 	// Calculate the smallest square POT texture size to fit the dynamic lights data.

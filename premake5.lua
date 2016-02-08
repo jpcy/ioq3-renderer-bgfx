@@ -40,6 +40,7 @@ newaction
 			compileShader(BGFX_PATH, "Fog", "fragment")
 			compileShader(BGFX_PATH, "Fog", "vertex")
 			compileShader(BGFX_PATH, "Fullscreen_Blit", "fragment")
+			compileShader(BGFX_PATH, "Fullscreen_FXAA", "fragment")
 			compileShader(BGFX_PATH, "Fullscreen_LinearDepth", "fragment")
 			compileShader(BGFX_PATH, "Fullscreen_ToneMap", "fragment")
 			compileShader(BGFX_PATH, "Fullscreen", "vertex")

@@ -96,11 +96,11 @@ struct ConsoleVariables
 {
 	ConsoleVariables();
 
+	cvar_t *aa;
 	cvar_t *backend;
 	cvar_t *bgfx_stats;
 	cvar_t *debugText;
 	cvar_t *maxAnisotropy;
-	cvar_t *msaa;
 	cvar_t *overBrightBits;
 	cvar_t *picmip;
 	cvar_t *screenshotJpegQuality;
@@ -188,7 +188,7 @@ struct DrawCall
 	mat4 modelMatrix = mat4::identity;
 	float softSpriteDepth = 0;
 	uint8_t sort = 0;
-	uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE | BGFX_STATE_MSAA;
+	uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE;
 	VertexBuffer vb;
 	float zOffset = 0.0f;
 	float zScale = 1.0f;
@@ -1367,6 +1367,7 @@ private:
 			Depth_AlphaTest,
 			Fog,
 			Fullscreen_Blit,
+			Fullscreen_FXAA,
 			Fullscreen_LinearDepth,
 			Fullscreen_ToneMap,
 			Generic,
@@ -1400,6 +1401,7 @@ private:
 			Depth_AlphaTest,
 			Fog,
 			Fullscreen_Blit,
+			Fullscreen_FXAA,
 			Fullscreen_LinearDepth,
 			Fullscreen_ToneMap,
 			Generic,
@@ -1474,10 +1476,12 @@ private:
 	/// @name Framebuffers
 	/// @{
 	static const FrameBuffer defaultFb_;
+	FrameBuffer fxaaFb_;
+	bgfx::TextureHandle fxaaColor_;
+	FrameBuffer linearDepthFb_;
 	FrameBuffer sceneFb_;
 	bgfx::TextureHandle sceneFbColor_;
 	bgfx::TextureHandle sceneFbDepth_;
-	FrameBuffer linearDepthFb_;
 	/// @}
 
 	/// @name Game-specific hacks
@@ -1530,6 +1534,13 @@ private:
 	std::unique_ptr<Uniforms_MaterialStage> matStageUniforms_;
 	/// @}
 
+	enum class AntiAliasing
+	{
+		None,
+		FXAA
+	};
+
+	AntiAliasing aa_;
 	const Entity *currentEntity_ = nullptr;
 	float halfTexelOffset_ = 0;
 	bool isTextureOriginBottomLeft_ = false;

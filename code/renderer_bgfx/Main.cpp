@@ -407,7 +407,14 @@ void Main::renderScene(const refdef_t *def)
 
 			// Tonemap the scene framebuffer color.
 			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
-			renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_ToneMap, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+			renderFullscreenQuad(aa_ == AntiAliasing::FXAA ? fxaaFb_ : defaultFb_, ShaderProgramId::Fullscreen_ToneMap, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+
+			// FXAA.
+			if (aa_ == AntiAliasing::FXAA)
+			{
+				bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, fxaaColor_);
+				renderFullscreenQuad(defaultFb_, ShaderProgramId::Fullscreen_FXAA, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+			}
 		}
 	}
 
@@ -838,7 +845,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
-			uint64_t state = BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_DEPTH_WRITE | BGFX_STATE_MSAA;
+			uint64_t state = BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_DEPTH_WRITE;
 
 			// Grab the cull state. Doesn't matter which stage, since it's global to the material.
 			state |= mat->stages[0].getState() & BGFX_STATE_CULL_MASK;
