@@ -1001,7 +1001,6 @@ public:
 
 		// Portal surface is visible.
 		// Calculate portal camera transform.
-		g_main->debugPrint("Portal surface '%s' is visible", portalSurface->material->name);
 		Transform surfaceTransform, cameraTransform;
 		surfaceTransform.rotation[0] = plane.normal;
 		surfaceTransform.rotation[1] = surfaceTransform.rotation[0].perpendicular();
@@ -1042,12 +1041,12 @@ public:
 					if (portalEntity->e.frame)
 					{
 						// Continuous rotate
-						d = g_main->getFloatTime() * portalEntity->e.frame;
+						d = main::GetFloatTime() * portalEntity->e.frame;
 					}
 					else
 					{
 						// Bobbing rotate, with skinNum being the rotation offset.
-						d = portalEntity->e.skinNum + sin(g_main->getFloatTime()) * 4;
+						d = portalEntity->e.skinNum + sin(main::GetFloatTime()) * 4;
 					}
 				}
 				else if (portalEntity->e.skinNum)

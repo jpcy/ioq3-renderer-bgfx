@@ -34,6 +34,7 @@ extern "C"
 #include <SDL.h>
 #include <SDL_syswm.h>
 #endif
+#undef main
 
 #include "../qcommon/q_shared.h"
 #include "../qcommon/qfiles.h"
@@ -69,7 +70,9 @@ extern glconfig_t glConfig;
 
 struct Entity;
 class Material;
+class Model;
 class Skin;
+struct SunLight;
 class Texture;
 struct Uniforms_Material;
 struct Uniforms_MaterialStage;
@@ -277,6 +280,20 @@ struct IndexBuffer
 	~IndexBuffer() { if (bgfx::isValid(handle)) bgfx::destroyIndexBuffer(handle); }
 	bgfx::IndexBufferHandle handle;
 };
+
+namespace main
+{
+	const Entity *GetCurrentEntity();
+	float GetFloatTime();
+	bool IsMirrorCamera();
+	void SetSunLight(const SunLight &sunLight);
+
+	/// @brief Called by the material cache when a material is created.
+	void OnMaterialCreate(Material *material);
+
+	/// @brief Called by the model cache when a model is created.
+	void OnModelCreate(Model *model);
+}
 
 enum class MaterialAdjustColorsForFog
 {
@@ -1299,241 +1316,7 @@ namespace world
 	uint8_t CreateVisCache();
 	void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *areaMask);
 	void Render(DrawCallList *drawCallList, uint8_t visCacheId);
-};
-
-class Main
-{
-public:
-	Main();
-	~Main();
-	void initialize();
-	void registerFont(const char *fontName, int pointSize, fontInfo_t *font);
-	
-	const Entity *getCurrentEntity() const { return currentEntity_; }
-	float getFloatTime() const { return floatTime_; }
-	int getFrameNo() const { return frameNo_; }
-	int getTime() const { return time_; }
-	bool isMirrorCamera() const { return isMirrorCamera_; }
-
-	void setColor(const vec4 &c) { stretchPicColor_ = c; }
-	void setSunLight(const SunLight &sunLight) { sunLight_ = sunLight; }
-	void debugPrint(const char *format, ...);
-	void drawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex);
-	void drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const byte *data, int client, bool dirty);
-	void uploadCinematic(int w, int h, int cols, int rows, const byte *data, int client, bool dirty);
-	void loadWorld(const char *name);
-	void addDynamicLightToScene(DynamicLight light);
-	void addEntityToScene(const refEntity_t *entity);
-	void addPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int nPolys);
-	void renderScene(const refdef_t *def);
-	void endFrame();
-	bool sampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
-
-	/// @brief Called by the material cache when a material is created.
-	void onMaterialCreate(Material *material);
-
-	/// @brief Called by the model cache when a model is created.
-	void onModelCreate(Model *model);
-
-private:
-	struct FragmentShaderId
-	{
-		enum Enum
-		{
-			Depth,
-			Depth_AlphaTest,
-			Fog,
-			Fullscreen_Blit,
-			Fullscreen_FXAA,
-			Fullscreen_LinearDepth,
-			Fullscreen_ToneMap,
-			Generic,
-			Generic_AlphaTest,
-			Generic_AlphaTestSoftSprite,
-			Generic_SoftSprite,
-			TextureColor,
-			Num
-		};
-	};
-
-	struct VertexShaderId
-	{
-		enum Enum
-		{
-			Depth,
-			Depth_AlphaTest,
-			Fog,
-			Fullscreen,
-			Generic,
-			TextureColor,
-			Num
-		};
-	};
-
-	struct ShaderProgramId
-	{
-		enum Enum
-		{
-			Depth,
-			Depth_AlphaTest,
-			Fog,
-			Fullscreen_Blit,
-			Fullscreen_FXAA,
-			Fullscreen_LinearDepth,
-			Fullscreen_ToneMap,
-			Generic,
-			Generic_AlphaTest,
-			Generic_SoftSprite,
-			Generic_AlphaTestSoftSprite,
-			TextureColor,
-			Num
-		};
-	};
-
-	uint8_t pushView(const FrameBuffer &frameBuffer = defaultFb_, uint16_t clearFlags = BGFX_CLEAR_NONE, const mat4 &viewMatrix = mat4::identity, const mat4 &projectionMatrix = mat4::identity, vec4 rect = vec4::empty);
-	void flushStretchPics();
-	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, vec4 rect, vec2 fov, const uint8_t *areaMask);
-	void renderFullscreenQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, bool originBottomLeft = false, int textureWidth = 0, int textureHeight = 0);
-
-	/// @name Entity rendering
-	/// @{
-	void renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
-	void renderLightningEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
-	void renderRailCoreEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
-	void renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3 up, float length, float spanWidth, Material *mat, vec4 color, Entity *entity);
-	void renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity);
-	void renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Entity *entity);
-	void setupEntityLighting(Entity *entity);
-	/// @}
-
-	float calculateExplosionLight(float entityShaderTime, float durationMilliseconds) const;
-
-	/// @name Camera
-	/// @{
-	Frustum cameraFrustum_;
-	DrawCallList drawCalls_;
-	bool isMirrorCamera_ = false;
-
-	/// Is the current camera in the world (not RDF_NOWORLDMODEL).
-	bool isWorldCamera_;
-
-	vec4 portalPlane_;
-	/// @}
-
-	/// @name Dynamic lights
-	/// @{
-	static const size_t maxDynamicLights_ = MAX_DLIGHTS;
-	static const size_t maxDynamicLightTextures_ = 2;
-	bgfx::TextureHandle dynamicLightsTextures_[maxDynamicLightTextures_];
-	int dynamicLightTextureSize_;
-	/// @}
-
-	/// @name Fonts
-	/// @{
-	static const int maxFonts_ = 6;
-	int nFonts_ = 0;
-	fontInfo_t fonts_[maxFonts_];
-	/// @}
-
-	/// @name Frame
-	/// @{
-	int time_ = 0;
-	float floatTime_ = 0;
-
-	/// Incremented everytime endFrame() is called
-	int frameNo_ = 0;
-
-	uint16_t debugTextY = 0;
-
-	/// @remarks Resets to 0 every frame.
-	uint8_t firstFreeViewId_ = 0;
-
-	/// @}
-
-	/// @name Framebuffers
-	/// @{
-	static const FrameBuffer defaultFb_;
-	FrameBuffer fxaaFb_;
-	bgfx::TextureHandle fxaaColor_;
-	FrameBuffer linearDepthFb_;
-	FrameBuffer sceneFb_;
-	bgfx::TextureHandle sceneFbColor_;
-	bgfx::TextureHandle sceneFbDepth_;
-	/// @}
-
-	/// @name Game-specific hacks
-	/// @{
-	Material *bfgExplosionMaterial_ = nullptr;
-	Model *bfgMissibleModel_ = nullptr;
-	Material *plasmaBallMaterial_ = nullptr;
-	Material *plasmaExplosionMaterial_ = nullptr;
-	/// @}
-
-	/// @name Resource caches
-	/// @{
-	std::unique_ptr<MaterialCache> materialCache_;
-	std::unique_ptr<ModelCache> modelCache_;
-	std::unique_ptr<TextureCache> textureCache_;
-	/// @}
-
-	/// @name Scene
-	/// @{
-	std::vector<Entity> sceneEntities_;
-
-	struct Polygon
-	{
-		Material *material;
-		int fogIndex;
-		size_t firstVertex, nVertices;
-	};
-
-	std::vector<DynamicLight> sceneDynamicLights_;
-	std::vector<Polygon> scenePolygons_;
-	std::vector<Polygon *> sortedScenePolygons_;
-	std::vector<polyVert_t> scenePolygonVertices_;
-	mat3 sceneRotation_;
-	/// @}
-
-	/// @name Shaders
-	/// @{
-	std::array<Shader, FragmentShaderId::Num> fragmentShaders_;
-	std::array<Shader, VertexShaderId::Num> vertexShaders_;
-	std::array<ShaderProgram, (int)ShaderProgramId::Num> shaderPrograms_;
-	/// @}
-
-	/// @name Stretchpic
-	/// @{
-	vec4 stretchPicColor_;
-	Material *stretchPicMaterial_ = nullptr;
-	uint8_t stretchPicViewId_ = UINT8_MAX;
-	std::vector<Vertex> stretchPicVertices_;
-	std::vector<uint16_t> stretchPicIndices_;
-	/// @}
-
-	/// @name Uniforms
-	/// @{
-	std::unique_ptr<Uniforms> uniforms_;
-	std::unique_ptr<Uniforms_Entity> entityUniforms_;
-	std::unique_ptr<Uniforms_Material> matUniforms_;
-	std::unique_ptr<Uniforms_MaterialStage> matStageUniforms_;
-	/// @}
-
-	enum class AntiAliasing
-	{
-		None,
-		FXAA
-	};
-
-	AntiAliasing aa_;
-	const Entity *currentEntity_ = nullptr;
-	float halfTexelOffset_ = 0;
-	bool isTextureOriginBottomLeft_ = false;
-	uint8_t mainVisCacheId_, portalVisCacheId_;
-	SunLight sunLight_;
-
-	/// Convert from our coordinate system (looking down X) to OpenGL's coordinate system (looking down -Z)
-	static const mat4 toOpenGlMatrix_;
-};
+}
 
 static const size_t g_funcTableSize = 1024;
 static const size_t g_funcTableSize2 = 10;
@@ -1543,7 +1326,6 @@ static const float g_identityLight = 1.0f / g_overbrightFactor;
 
 extern ConsoleVariables g_cvars;
 extern const uint8_t *g_externalVisData;
-extern std::unique_ptr<Main> g_main;
 extern MaterialCache *g_materialCache;
 extern ModelCache *g_modelCache;
 extern TextureCache *g_textureCache;

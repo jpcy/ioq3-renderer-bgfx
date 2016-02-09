@@ -72,7 +72,7 @@ Model *ModelCache::addModel(std::unique_ptr<Model> model)
 	model->next_ = hashTable_[hash];
 	hashTable_[hash] = model.get();
 	models_.push_back(std::move(model));
-	g_main->onModelCreate(hashTable_[hash]);
+	main::OnModelCreate(hashTable_[hash]);
 	return hashTable_[hash];
 }
 

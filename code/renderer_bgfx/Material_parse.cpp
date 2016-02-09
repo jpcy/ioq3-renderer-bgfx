@@ -189,7 +189,7 @@ bool Material::parse(char **text)
 				sun.shadowScale = atof(token);
 			}
 
-			g_main->setSunLight(sun);
+			main::SetSunLight(sun);
 			SkipRestOfLine(text);
 		}
 		// tonemap parms

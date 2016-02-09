@@ -31,6 +31,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+#include "Main.h"
+
 namespace renderer {
 
 std::array<Vertex *, 4> ExtractQuadCorners(Vertex *vertices, const uint16_t *indices)
@@ -933,7 +935,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		const vec3 localViewPosition = currentEntity_ ? currentEntity_->localViewPosition : position;
 		uniforms_->localViewOrigin.set(localViewPosition);
 
-		if (g_main->currentEntity_)
+		if (currentEntity_)
 		{
 			entityUniforms_->ambientLight.set(vec4(currentEntity_->ambientLight / 255.0f, 0));
 			entityUniforms_->directedLight.set(vec4(currentEntity_->directedLight / 255.0f, 0));

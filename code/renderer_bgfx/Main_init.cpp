@@ -23,6 +23,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #pragma hdrstop
 
 #include "../../build/Shaders.h"
+#include "Main.h"
 
 extern "C"
 {
@@ -85,9 +86,10 @@ glconfig_t glConfig = {};
 
 bgfx::VertexDecl Vertex::decl;
 
+static std::unique_ptr<Main> s_main;
+
 ConsoleVariables g_cvars;
 const uint8_t *g_externalVisData = nullptr;
-std::unique_ptr<Main> g_main;
 MaterialCache *g_materialCache = nullptr;
 ModelCache *g_modelCache = nullptr;
 TextureCache *g_textureCache = nullptr;
@@ -592,11 +594,45 @@ void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
 	ri.FS_FreeFile((void **)data);
 }
 
+namespace main {
+
+const Entity *GetCurrentEntity()
+{
+	return s_main->getCurrentEntity();
+}
+
+float GetFloatTime()
+{
+	return s_main->getFloatTime();
+}
+
+bool IsMirrorCamera()
+{
+	return s_main->isMirrorCamera();
+}
+
+void SetSunLight(const SunLight &sunLight)
+{
+	s_main->setSunLight(sunLight);
+}
+
+void OnMaterialCreate(Material *material)
+{
+	s_main->onMaterialCreate(material);
+}
+
+void OnModelCreate(Model *model)
+{
+	s_main->onModelCreate(model);
+}
+
+} // namespace main
+
 static void RE_Shutdown(qboolean destroyWindow)
 {
 	ri.Printf(PRINT_ALL, "RE_Shutdown(%i)\n", destroyWindow);
 	world::Unload();
-	g_main.reset(nullptr);
+	s_main.reset(nullptr);
 
 	if (destroyWindow)
 	{
@@ -608,8 +644,8 @@ static void RE_Shutdown(qboolean destroyWindow)
 static void RE_BeginRegistration(glconfig_t *config)
 {
 	ri.Printf(PRINT_ALL, "----- Renderer Init -----\n");
-	g_main = std::make_unique<Main>();
-	g_main->initialize();
+	s_main = std::make_unique<Main>();
+	s_main->initialize();
 	*config = glConfig;
 }
 
@@ -655,7 +691,7 @@ static qhandle_t RE_RegisterShaderNoMip(const char *name)
 
 static void RE_LoadWorld(const char *name)
 {
-	g_main->loadWorld(name);
+	s_main->loadWorld(name);
 }
 
 static void RE_SetWorldVisData(const byte *vis)
@@ -673,17 +709,17 @@ static void RE_ClearScene()
 
 static void RE_AddRefEntityToScene(const refEntity_t *re)
 {
-	g_main->addEntityToScene(re);
+	s_main->addEntityToScene(re);
 }
 
 static void RE_AddPolyToScene(qhandle_t hShader, int numVerts, const polyVert_t *verts, int num)
 {
-	g_main->addPolyToScene(hShader, numVerts, verts, num);
+	s_main->addPolyToScene(hShader, numVerts, verts, num);
 }
 
 static int RE_LightForPoint(vec3_t point, vec3_t ambientLight, vec3_t directedLight, vec3_t lightDir)
 {
-	return g_main->sampleLight(point, (vec3 *)ambientLight, (vec3 *)directedLight, (vec3 *)lightDir) ? qtrue : qfalse;
+	return s_main->sampleLight(point, (vec3 *)ambientLight, (vec3 *)directedLight, (vec3 *)lightDir) ? qtrue : qfalse;
 }
 
 static void RE_AddLightToScene(const vec3_t org, float intensity, float r, float g, float b)
@@ -691,7 +727,7 @@ static void RE_AddLightToScene(const vec3_t org, float intensity, float r, float
 	DynamicLight light;
 	light.position_type = vec4(org, DynamicLight::Point);
 	light.color_radius = vec4(r, g, b, intensity);
-	g_main->addDynamicLightToScene(light);
+	s_main->addDynamicLightToScene(light);
 }
 
 static void RE_AddAdditiveLightToScene(const vec3_t org, float intensity, float r, float g, float b)
@@ -700,7 +736,7 @@ static void RE_AddAdditiveLightToScene(const vec3_t org, float intensity, float 
 
 static void RE_RenderScene(const refdef_t *fd)
 {
-	g_main->renderScene(fd);
+	s_main->renderScene(fd);
 }
 
 static void RE_SetColor(const float *rgba)
@@ -716,22 +752,22 @@ static void RE_SetColor(const float *rgba)
 		c = vec4(rgba);
 	}
 
-	g_main->setColor(c);
+	s_main->setColor(c);
 }
 
 static void RE_DrawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, qhandle_t hShader)
 {
-	g_main->drawStretchPic(x, y, w, h, s1, t1, s2, t2, hShader);
+	s_main->drawStretchPic(x, y, w, h, s1, t1, s2, t2, hShader);
 }
 
 static void RE_DrawStretchRaw(int x, int y, int w, int h, int cols, int rows, const byte *data, int client, qboolean dirty)
 {
-	g_main->drawStretchRaw(x, y, w, h, cols, rows, data, client, dirty == qtrue);
+	s_main->drawStretchRaw(x, y, w, h, cols, rows, data, client, dirty == qtrue);
 }
 
 static void RE_UploadCinematic(int w, int h, int cols, int rows, const byte *data, int client, qboolean dirty)
 {
-	g_main->uploadCinematic(w, h, cols, rows, data, client, dirty == qtrue);
+	s_main->uploadCinematic(w, h, cols, rows, data, client, dirty == qtrue);
 }
 
 static void RE_BeginFrame(stereoFrame_t stereoFrame)
@@ -740,7 +776,7 @@ static void RE_BeginFrame(stereoFrame_t stereoFrame)
 
 static void RE_EndFrame(int *frontEndMsec, int *backEndMsec)
 {
-	g_main->endFrame();
+	s_main->endFrame();
 }
 
 static int RE_MarkFragments(int numPoints, const vec3_t *points, const vec3_t projection, int maxPoints, vec3_t pointBuffer, int maxFragments, markFragment_t *fragmentBuffer)
@@ -780,7 +816,7 @@ static void RE_ModelBounds(qhandle_t handle, vec3_t mins, vec3_t maxs)
 
 static void RE_RegisterFont(const char *fontName, int pointSize, fontInfo_t *font)
 {
-	g_main->registerFont(fontName, pointSize, font);
+	s_main->registerFont(fontName, pointSize, font);
 }
 
 static void RE_RemapShader(const char *oldShader, const char *newShader, const char *offsetTime)
