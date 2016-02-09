@@ -1107,7 +1107,7 @@ struct Uniforms
 	Uniform_vec4 localViewOrigin = "u_LocalViewOrigin";
 
 	/// @remarks Only x used.
-	Uniform_vec4 softSpriteDepth = "u_SoftSpriteDepth";
+	Uniform_vec4 softSprite_Depth_UseAlpha = "u_SoftSprite_Depth_UseAlpha";
 
 	Uniform_vec4 viewOrigin = "u_ViewOrigin";
 

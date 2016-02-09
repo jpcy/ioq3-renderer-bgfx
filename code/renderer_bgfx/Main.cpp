@@ -988,14 +988,18 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				}
 
 				bgfx::setTexture(MaterialTextureBundleIndex::Depth, matStageUniforms_->textures[MaterialTextureBundleIndex::Depth]->handle, linearDepthFb_.handle);
-				uniforms_->softSpriteDepth.set(dc.softSpriteDepth);
-
+				
 				// Change additive blend from (1, 1) to (src alpha, 1) so the soft sprite shader can control alpha.
+				float useAlpha = 1;
+
 				if ((state & BGFX_STATE_BLEND_MASK) == BGFX_STATE_BLEND_ADD)
 				{
+					useAlpha = 0; // Ignore existing alpha values in the shader. This preserves the behavior of a (1, 1) additive blend.
 					state &= ~BGFX_STATE_BLEND_MASK;
 					state |= BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE);
 				}
+
+				uniforms_->softSprite_Depth_UseAlpha.set(vec4(dc.softSpriteDepth, useAlpha, 0, 0));
 			}
 			else if (stage.alphaTest != MaterialAlphaTest::None)
 			{

@@ -14,7 +14,7 @@ SAMPLER2D(u_SpecularMap, 4);
 SAMPLER2D(u_DepthMap, 5);
 
 uniform vec4 u_DepthRange;
-uniform vec4 u_SoftSpriteDepth; // only x used
+uniform vec4 u_SoftSprite_Depth_UseAlpha; // only x and y used
 #endif
 
 SAMPLER2D(u_DynamicLightsSampler, 6);
@@ -99,8 +99,17 @@ void main()
 
 	// Depth change in worldspace.
 	float wsDelta = (sceneDepth - fragmentDepth) * (u_DepthRange.w - u_DepthRange.z);
+	float scale = saturate(wsDelta / u_SoftSprite_Depth_UseAlpha.x);
 
-	alpha *= saturate(wsDelta / u_SoftSpriteDepth.x);
+	// Ignore existing alpha if the blend is additive, otherwise scale it.
+	if (int(u_SoftSprite_Depth_UseAlpha.y) == 1)
+	{
+		alpha *= scale;
+	}
+	else
+	{
+		alpha = scale;		
+	}
 #endif
 
 #if defined(USE_ALPHA_TEST)
