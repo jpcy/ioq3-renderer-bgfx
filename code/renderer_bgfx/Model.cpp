@@ -206,7 +206,7 @@ bool Model_md3::load()
 
 		for (size_t j = 0; j < fs.numShaders; j++)
 		{
-			s.materials[j] = g_main->materialCache->findMaterial(fileShaders[j].name, MaterialLightmapId::None);
+			s.materials[j] = g_materialCache->findMaterial(fileShaders[j].name, MaterialLightmapId::None);
 		}
 
 		// Move to the next surface.
@@ -459,11 +459,11 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 
 		if (entity->e.customShader > 0)
 		{
-			mat = g_main->materialCache->getMaterial(entity->e.customShader);
+			mat = g_materialCache->getMaterial(entity->e.customShader);
 		}
 		else if (entity->e.customSkin > 0)
 		{
-			auto customMat = g_main->materialCache->getSkin(entity->e.customSkin)->findMaterial(surface.name);
+			auto customMat = g_materialCache->getSkin(entity->e.customSkin)->findMaterial(surface.name);
 
 			if (customMat)
 				mat = customMat;
@@ -539,11 +539,11 @@ Vertex Model_md3::loadVertex(size_t index, md3St_t *fileTexCoords, md3XyzNormal_
 	auto normal = LittleShort(fileXyzNormals[index].normal);
 	unsigned lat = (normal >> 8) & 0xff;
 	unsigned lng = (normal & 0xff);
-	lat *= (Main::funcTableSize / 256);
-	lng *= (Main::funcTableSize / 256);
-	v.normal.x = g_main->sinTable[(lat + (Main::funcTableSize / 4)) & Main::funcTableMask] * g_main->sinTable[lng];
-	v.normal.y = g_main->sinTable[lat] * g_main->sinTable[lng];
-	v.normal.z = g_main->sinTable[(lng + (Main::funcTableSize / 4)) & Main::funcTableMask];
+	lat *= (g_funcTableSize / 256);
+	lng *= (g_funcTableSize / 256);
+	v.normal.x = g_sinTable[(lat + (g_funcTableSize / 4)) & g_funcTableMask] * g_sinTable[lng];
+	v.normal.y = g_sinTable[lat] * g_sinTable[lng];
+	v.normal.z = g_sinTable[(lng + (g_funcTableSize / 4)) & g_funcTableMask];
 
 	// UV
 	v.texCoord.u = LittleFloat(fileTexCoords[index].st[0]);

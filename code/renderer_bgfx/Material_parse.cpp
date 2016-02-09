@@ -152,24 +152,23 @@ bool Material::parse(char **text)
 		// sun parms
 		else if (!Q_stricmp(token, "q3map_sun") || !Q_stricmp(token, "q3map_sunExt") || !Q_stricmp(token, "q3gl2_sun"))
 		{
-			bool isGL2Sun = false;
+			SunLight sun;
 
 			if (!Q_stricmp(token, "q3gl2_sun"))
 			{
-				isGL2Sun = true;
-				g_main->sunShadows = qtrue;
+				sun.shadows = true;
 			}
 
 			token = COM_ParseExt(text, qfalse);
-			g_main->sunLight[0] = atof(token);
+			sun.light[0] = atof(token);
 			token = COM_ParseExt(text, qfalse);
-			g_main->sunLight[1] = atof(token);
+			sun.light[1] = atof(token);
 			token = COM_ParseExt(text, qfalse);
-			g_main->sunLight[2] = atof(token);
+			sun.light[2] = atof(token);
 			
 			token = COM_ParseExt(text, qfalse);
-			g_main->sunLight.normalize();
-			g_main->sunLight *= atof(token);
+			sun.light.normalize();
+			sun.light *= atof(token);
 
 			token = COM_ParseExt(text, qfalse);
 			const float a = atof(token) / (180 * M_PI);
@@ -177,35 +176,39 @@ bool Material::parse(char **text)
 			token = COM_ParseExt(text, qfalse);
 			float b = atof(token) / (180 * M_PI);
 
-			g_main->sunDirection[0] = cos(a) * cos(b);
-			g_main->sunDirection[1] = sin(a) * cos(b);
-			g_main->sunDirection[2] = sin(b);
+			sun.direction[0] = cos(a) * cos(b);
+			sun.direction[1] = sin(a) * cos(b);
+			sun.direction[2] = sin(b);
 
-			if (isGL2Sun)
+			if (sun.shadows)
 			{
 				token = COM_ParseExt(text, qfalse);
-				g_main->mapLightScale = atof(token);
+				sun.lightScale = atof(token);
 
 				token = COM_ParseExt(text, qfalse);
-				g_main->sunShadowScale = atof(token);
+				sun.shadowScale = atof(token);
 			}
 
+			g_main->setSunLight(sun);
 			SkipRestOfLine(text);
 		}
 		// tonemap parms
 		else if (!Q_stricmp(token, "q3gl2_tonemap"))
 		{
-			token = COM_ParseExt(text, qfalse);
-			g_main->toneMinAvgMaxLevel[0] = atof(token);
-			token = COM_ParseExt(text, qfalse);
-			g_main->toneMinAvgMaxLevel[1] = atof(token);
-			token = COM_ParseExt(text, qfalse);
-			g_main->toneMinAvgMaxLevel[2] = atof(token);
+			vec2 autoExposureMinMax = { -2, 2 };
+			vec3 toneMinAvgMaxLevel = { -8, -2, 0 };
 
 			token = COM_ParseExt(text, qfalse);
-			g_main->autoExposureMinMax[0] = atof(token);
+			toneMinAvgMaxLevel[0] = atof(token);
 			token = COM_ParseExt(text, qfalse);
-			g_main->autoExposureMinMax[1] = atof(token);
+			toneMinAvgMaxLevel[1] = atof(token);
+			token = COM_ParseExt(text, qfalse);
+			toneMinAvgMaxLevel[2] = atof(token);
+
+			token = COM_ParseExt(text, qfalse);
+			autoExposureMinMax[0] = atof(token);
+			token = COM_ParseExt(text, qfalse);
+			autoExposureMinMax[1] = atof(token);
 
 			SkipRestOfLine(text);
 		}
@@ -454,17 +457,17 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (!Q_stricmp(token, "$whiteimage"))
 			{
-				stage->bundles[0].textures[0] = g_main->textureCache->getWhiteTexture();
+				stage->bundles[0].textures[0] = g_textureCache->getWhiteTexture();
 			}
 			else if (!Q_stricmp(token, "$lightmap"))
 			{
 				stage->bundles[0].isLightmap = true;
-				stage->bundles[0].textures[0] = g_main->textureCache->getWhiteTexture();
+				stage->bundles[0].textures[0] = g_textureCache->getWhiteTexture();
 
 				if (world::IsLoaded())
 				{
 					auto lightmap = world::GetLightmap(lightmapIndex);
-					stage->bundles[0].textures[0] = lightmap ? lightmap : g_main->textureCache->getWhiteTexture();
+					stage->bundles[0].textures[0] = lightmap ? lightmap : g_textureCache->getWhiteTexture();
 				}
 			}
 			else if (!Q_stricmp(token, "$deluxemap"))
@@ -476,11 +479,11 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				}*/
 
 				stage->bundles[0].isLightmap = true;
-				stage->bundles[0].textures[0] = g_main->textureCache->getWhiteTexture();
+				stage->bundles[0].textures[0] = g_textureCache->getWhiteTexture();
 
 				/*if (lightmapIndex < 0)
 				{
-					stage->bundles[0].textures[0] = g_main->textureCache->getWhiteTexture();
+					stage->bundles[0].textures[0] = g_textureCache->getWhiteTexture();
 				}
 				else
 				{
@@ -512,7 +515,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 						flags |= TextureFlags::GenNormalMap;
 				}*/
 
-				stage->bundles[0].textures[0] = g_main->textureCache->findTexture(token, type, flags);
+				stage->bundles[0].textures[0] = g_textureCache->findTexture(token, type, flags);
 
 				if (!stage->bundles[0].textures[0])
 				{
@@ -554,7 +557,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 					flags |= TextureFlags::GenNormalMap;
 			}*/
 
-			stage->bundles[0].textures[0] = g_main->textureCache->findTexture(token, type, flags);
+			stage->bundles[0].textures[0] = g_textureCache->findTexture(token, type, flags);
 
 			if (!stage->bundles[0].textures[0])
 			{
@@ -595,7 +598,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 					if (!noPicMip)
 						flags |= TextureFlags::Picmip;
 
-					stage->bundles[0].textures[num] = g_main->textureCache->findTexture(token, TextureType::ColorAlpha, flags);
+					stage->bundles[0].textures[num] = g_textureCache->findTexture(token, TextureType::ColorAlpha, flags);
 
 					if (!stage->bundles[0].textures[num])
 					{
@@ -622,7 +625,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			if (stage->bundles[0].videoMapHandle != -1)
 			{
 				stage->bundles[0].isVideoMap = true;
-				stage->bundles[0].textures[0] = g_main->textureCache->getScratchTextures()[stage->bundles[0].videoMapHandle];
+				stage->bundles[0].textures[0] = g_textureCache->getScratchTextures()[stage->bundles[0].videoMapHandle];
 			}
 		}
 		// alphafunc <func>
@@ -1563,11 +1566,11 @@ void Material::parseSkyParms(char **text)
 		{
 			char pathname[MAX_QPATH];
 			Com_sprintf(pathname, sizeof(pathname), "%s_%s.tga", token, suf[i]);
-			sky.outerbox[i] = g_main->textureCache->findTexture(pathname, TextureType::ColorAlpha, imgFlags | TextureFlags::ClampToEdge);
+			sky.outerbox[i] = g_textureCache->findTexture(pathname, TextureType::ColorAlpha, imgFlags | TextureFlags::ClampToEdge);
 
 			if (!sky.outerbox[i])
 			{
-				sky.outerbox[i] = g_main->textureCache->getDefaultTexture();
+				sky.outerbox[i] = g_textureCache->getDefaultTexture();
 			}
 		}
 	}
@@ -1605,11 +1608,11 @@ void Material::parseSkyParms(char **text)
 		{
 			char pathname[MAX_QPATH];
 			Com_sprintf(pathname, sizeof(pathname), "%s_%s.tga", token, suf[i]);
-			sky.innerbox[i] = g_main->textureCache->findTexture(pathname, TextureType::ColorAlpha, imgFlags);
+			sky.innerbox[i] = g_textureCache->findTexture(pathname, TextureType::ColorAlpha, imgFlags);
 
 			if (!sky.innerbox[i])
 			{
-				sky.innerbox[i] = g_main->textureCache->getDefaultTexture();
+				sky.innerbox[i] = g_textureCache->getDefaultTexture();
 			}
 		}
 	}

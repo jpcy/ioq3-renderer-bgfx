@@ -85,7 +85,18 @@ glconfig_t glConfig = {};
 
 bgfx::VertexDecl Vertex::decl;
 
+ConsoleVariables g_cvars;
+const uint8_t *g_externalVisData = nullptr;
 std::unique_ptr<Main> g_main;
+MaterialCache *g_materialCache = nullptr;
+ModelCache *g_modelCache = nullptr;
+TextureCache *g_textureCache = nullptr;
+
+float g_sinTable[g_funcTableSize];
+float g_squareTable[g_funcTableSize];
+float g_triangleTable[g_funcTableSize];
+float g_sawToothTable[g_funcTableSize];
+float g_inverseSawToothTable[g_funcTableSize];
 
 void WarnOnce(WarnOnceId::Enum id)
 {
@@ -98,7 +109,7 @@ void WarnOnce(WarnOnceId::Enum id)
 	}
 }
 
-ConsoleVariables::ConsoleVariables()
+void ConsoleVariables::initialize()
 {
 	aa = ri.Cvar_Get("r_aa", "", CVAR_ARCHIVE | CVAR_LATCH);
 	ri.Cvar_SetDescription(aa, "<empty>   None\nfxaa      Fast Approximate Anti-Aliasing (FXAA v2)\n");
@@ -134,7 +145,6 @@ ConsoleVariables::ConsoleVariables()
 	bgfx_stats = ri.Cvar_Get("r_bgfx_stats", "0", CVAR_CHEAT);
 	debugText = ri.Cvar_Get("r_debugText", "0", CVAR_CHEAT);
 	maxAnisotropy = ri.Cvar_Get("r_maxAnisotropy", "0", CVAR_ARCHIVE | CVAR_LATCH);
-	overBrightBits = ri.Cvar_Get ("r_overBrightBits", "1", CVAR_ARCHIVE | CVAR_LATCH);
 	picmip = ri.Cvar_Get("r_picmip", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	ri.Cvar_CheckRange(picmip, 0, 16, qtrue);
 	softSprites = ri.Cvar_Get("r_softSprites", "1", CVAR_ARCHIVE);
@@ -239,39 +249,33 @@ const FrameBuffer Main::defaultFb_;
 
 Main::Main()
 {
+	g_cvars.initialize();
 	ri.Cmd_AddCommand("screenshot", Cmd_Screenshot);
 	ri.Cmd_AddCommand("screenshotJPEG", Cmd_ScreenshotJPEG);
 	ri.Cmd_AddCommand("screenshotPNG", Cmd_ScreenshotPNG);
 
-	sunDirection.normalize();
-
-	// Setup the overbright lighting. Allow 2 overbright bits.
-	overbrightBits = math::Clamped(cvars.overBrightBits->integer, 0, 2);
-	overbrightFactor = 1 << overbrightBits;
-	identityLight = 1.0f / overbrightFactor;
-
 	// init function tables
-	for (size_t i = 0; i < funcTableSize; i++)
+	for (size_t i = 0; i < g_funcTableSize; i++)
 	{
-		sinTable[i] = sin(DEG2RAD(i * 360.0f / float(funcTableSize - 1)));
-		squareTable[i] = (i < funcTableSize / 2) ? 1.0f : -1.0f;
-		sawToothTable[i] = (float)i / funcTableSize;
-		inverseSawToothTable[i] = 1.0f - sawToothTable[i];
+		g_sinTable[i] = sin(DEG2RAD(i * 360.0f / float(g_funcTableSize - 1)));
+		g_squareTable[i] = (i < g_funcTableSize / 2) ? 1.0f : -1.0f;
+		g_sawToothTable[i] = (float)i / g_funcTableSize;
+		g_inverseSawToothTable[i] = 1.0f - g_sawToothTable[i];
 
-		if (i < funcTableSize / 2)
+		if (i < g_funcTableSize / 2)
 		{
-			if (i < funcTableSize / 4)
+			if (i < g_funcTableSize / 4)
 			{
-				triangleTable[i] = (float) i / (funcTableSize / 4);
+				g_triangleTable[i] = (float) i / (g_funcTableSize / 4);
 			}
 			else
 			{
-				triangleTable[i] = 1.0f - triangleTable[i - funcTableSize / 4];
+				g_triangleTable[i] = 1.0f - g_triangleTable[i - g_funcTableSize / 4];
 			}
 		}
 		else
 		{
-			triangleTable[i] = -triangleTable[i - funcTableSize / 2];
+			g_triangleTable[i] = -g_triangleTable[i - g_funcTableSize / 2];
 		}
 	}
 
@@ -288,6 +292,9 @@ Main::~Main()
 	ri.Cmd_RemoveCommand("screenshot");
 	ri.Cmd_RemoveCommand("screenshotJPEG");
 	ri.Cmd_RemoveCommand("screenshotPNG");
+	g_materialCache = nullptr;
+	g_modelCache = nullptr;
+	g_textureCache = nullptr;
 }
 
 void Main::initialize()
@@ -313,7 +320,7 @@ void Main::initialize()
 			if (j == nSupportedBackends)
 				continue; // Not supported.
 
-			if (!Q_stricmp(cvars.backend->string, map.id))
+			if (!Q_stricmp(g_cvars.backend->string, map.id))
 			{
 				selectedBackend = map.type;
 				break;
@@ -334,7 +341,7 @@ void Main::initialize()
 
 	uint32_t resetFlags = 0;
 
-	if (cvars.maxAnisotropy->integer)
+	if (g_cvars.maxAnisotropy->integer)
 	{
 		resetFlags |= BGFX_RESET_MAXANISOTROPY;
 	}
@@ -356,9 +363,12 @@ void Main::initialize()
 	entityUniforms_ = std::make_unique<Uniforms_Entity>();
 	matUniforms_ = std::make_unique<Uniforms_Material>();
 	matStageUniforms_ = std::make_unique<Uniforms_MaterialStage>();
-	textureCache = std::make_unique<TextureCache>();
-	materialCache = std::make_unique<MaterialCache>();
-	modelCache = std::make_unique<ModelCache>();
+	textureCache_ = std::make_unique<TextureCache>();
+	g_textureCache = textureCache_.get();
+	materialCache_ = std::make_unique<MaterialCache>();
+	g_materialCache = materialCache_.get();
+	modelCache_ = std::make_unique<ModelCache>();
+	g_modelCache = modelCache_.get();
 
 	// Map shader ids to shader sources.
 	std::array<const bgfx::Memory *, FragmentShaderId::Num> fragMem;
@@ -452,7 +462,7 @@ void Main::initialize()
 	}
 
 	// Parse anti-aliasing cvar.
-	aa_ = Q_stricmp(cvars.aa->string, "fxaa") == 0 ? AntiAliasing::FXAA : AntiAliasing::None;
+	aa_ = Q_stricmp(g_cvars.aa->string, "fxaa") == 0 ? AntiAliasing::FXAA : AntiAliasing::None;
 
 	// FXAA frame buffer.
 	if (aa_ == AntiAliasing::FXAA)
@@ -574,7 +584,7 @@ void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
 
 	for (int i = GLYPH_START; i <= GLYPH_END; i++)
 	{
-		auto m = g_main->materialCache->findMaterial(font->glyphs[i].shaderName, MaterialLightmapId::StretchPic, false);
+		auto m = materialCache_->findMaterial(font->glyphs[i].shaderName, MaterialLightmapId::StretchPic, false);
 		font->glyphs[i].glyph = m->defaultShader ? 0 : m->index;
 	}
 
@@ -586,7 +596,7 @@ static void RE_Shutdown(qboolean destroyWindow)
 {
 	ri.Printf(PRINT_ALL, "RE_Shutdown(%i)\n", destroyWindow);
 	world::Unload();
-	delete g_main.release();
+	g_main.reset(nullptr);
 
 	if (destroyWindow)
 	{
@@ -605,7 +615,7 @@ static void RE_BeginRegistration(glconfig_t *config)
 
 static qhandle_t RE_RegisterModel(const char *name)
 {
-	auto m = g_main->modelCache->findModel(name);
+	auto m = g_modelCache->findModel(name);
 
 	if (!m)
 		return 0;
@@ -615,7 +625,7 @@ static qhandle_t RE_RegisterModel(const char *name)
 
 static qhandle_t RE_RegisterSkin(const char *name)
 {
-	auto s = g_main->materialCache->findSkin(name);
+	auto s = g_materialCache->findSkin(name);
 
 	if (!s)
 		return 0;
@@ -625,7 +635,7 @@ static qhandle_t RE_RegisterSkin(const char *name)
 
 static qhandle_t RE_RegisterShader(const char *name)
 {
-	auto m = g_main->materialCache->findMaterial(name);
+	auto m = g_materialCache->findMaterial(name);
 
 	if (m->defaultShader)
 		return 0;
@@ -635,7 +645,7 @@ static qhandle_t RE_RegisterShader(const char *name)
 
 static qhandle_t RE_RegisterShaderNoMip(const char *name)
 {
-	auto m = g_main->materialCache->findMaterial(name, MaterialLightmapId::StretchPic, false);
+	auto m = g_materialCache->findMaterial(name, MaterialLightmapId::StretchPic, false);
 
 	if (m->defaultShader)
 		return 0;
@@ -650,7 +660,7 @@ static void RE_LoadWorld(const char *name)
 
 static void RE_SetWorldVisData(const byte *vis)
 {
-	g_main->externalVisData = vis;
+	g_externalVisData = vis;
 }
 
 static void RE_EndRegistration()
@@ -743,7 +753,7 @@ static int RE_MarkFragments(int numPoints, const vec3_t *points, const vec3_t pr
 
 static int RE_LerpTag(orientation_t *orientation, qhandle_t handle, int startFrame, int endFrame, float frac, const char *tagName)
 {
-	auto m = g_main->modelCache->getModel(handle);
+	auto m = g_modelCache->getModel(handle);
 	auto from = m->getTag(tagName, startFrame);
 	auto to = m->getTag(tagName, endFrame);
 
@@ -762,7 +772,7 @@ static int RE_LerpTag(orientation_t *orientation, qhandle_t handle, int startFra
 
 static void RE_ModelBounds(qhandle_t handle, vec3_t mins, vec3_t maxs)
 {
-	auto m = g_main->modelCache->getModel(handle);
+	auto m = g_modelCache->getModel(handle);
 	auto bounds = m->getBounds();
 	VectorCopy(bounds[0], mins);
 	VectorCopy(bounds[1], maxs);
@@ -775,7 +785,7 @@ static void RE_RegisterFont(const char *fontName, int pointSize, fontInfo_t *fon
 
 static void RE_RemapShader(const char *oldShader, const char *newShader, const char *offsetTime)
 {
-	g_main->materialCache->remapMaterial(oldShader, newShader, offsetTime);
+	g_materialCache->remapMaterial(oldShader, newShader, offsetTime);
 }
 
 static qboolean RE_GetEntityToken(char *buffer, int size)

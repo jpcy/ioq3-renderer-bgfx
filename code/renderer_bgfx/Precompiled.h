@@ -59,8 +59,8 @@ using namespace math;
 
 #define BIT(x) (1<<(x))
 
-#define SETTINGS_SHOW_DEPTH (g_main->cvars.softSprites->integer && g_main->cvars.showDepth->integer)
-#define SETTINGS_SOFT_SPRITES (g_main->cvars.softSprites->integer)
+#define SETTINGS_SHOW_DEPTH (g_cvars.softSprites->integer && g_cvars.showDepth->integer)
+#define SETTINGS_SOFT_SPRITES (g_cvars.softSprites->integer)
 
 namespace renderer {
 
@@ -94,14 +94,13 @@ private:
 
 struct ConsoleVariables
 {
-	ConsoleVariables();
+	void initialize();
 
 	cvar_t *aa;
 	cvar_t *backend;
 	cvar_t *bgfx_stats;
 	cvar_t *debugText;
 	cvar_t *maxAnisotropy;
-	cvar_t *overBrightBits;
 	cvar_t *picmip;
 	cvar_t *screenshotJpegQuality;
 	cvar_t *showDepth;
@@ -973,6 +972,17 @@ void Sky_InitializeTexCoords(float heightCloud);
 
 void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, uint8_t visCacheId, float zMax);
 
+struct SunLight
+{
+	SunLight() { direction.normalize(); }
+
+	bool shadows = false;
+	vec3 light = { 0, 0, 0 };
+	vec3 direction = { 0.45f, 0.3f, 0.9f };
+	float lightScale = 1;
+	float shadowScale = 0.5f;
+};
+
 enum class TextureType
 {
 	/// For color, lightmap, diffuse, and specular.
@@ -1119,10 +1129,6 @@ struct Uniforms
 	/// @name HDR
 	/// @{
 	Uniform_vec4 brightnessContrastGammaSaturation = "u_BrightnessContrastGammaSaturation";
-
-	/// @remarks Only x used.
-	Uniform_vec4 overbrightFactor = "u_OverbrightFactor";
-
 	/// @}
 };
 
@@ -1310,6 +1316,7 @@ public:
 	bool isMirrorCamera() const { return isMirrorCamera_; }
 
 	void setColor(const vec4 &c) { stretchPicColor_ = c; }
+	void setSunLight(const SunLight &sunLight) { sunLight_ = sunLight; }
 	void debugPrint(const char *format, ...);
 	void drawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex);
 	void drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const byte *data, int client, bool dirty);
@@ -1327,41 +1334,6 @@ public:
 
 	/// @brief Called by the model cache when a model is created.
 	void onModelCreate(Model *model);
-
-	bool sunShadows = false;
-	vec3 sunLight = { 0, 0, 0 };
-	vec3 sunDirection = { 0.45f, 0.3f, 0.9f };
-	float mapLightScale = 1;
-	float sunShadowScale = 0.5f;
-
-	/// @brief 1.0 / overbrightFactor
-	float identityLight;
-
-	/// @brief Clamped r_overBrightBits cvar.
-	int overbrightBits;
-
-	/// @brief 1 << overbrightBits
-	int overbrightFactor;
-
-	vec2 autoExposureMinMax = { -2, 2 };
-	vec3 toneMinAvgMaxLevel = { -8, -2, 0 };
-
-	ConsoleVariables cvars;
-	std::unique_ptr<TextureCache> textureCache;
-	std::unique_ptr<MaterialCache> materialCache;
-	std::unique_ptr<ModelCache> modelCache;
-
-	static const size_t funcTableSize = 1024;
-	static const size_t funcTableSize2 = 10;
-	static const size_t funcTableMask = funcTableSize - 1;
-
-	float sinTable[funcTableSize];
-	float squareTable[funcTableSize];
-	float triangleTable[funcTableSize];
-	float sawToothTable[funcTableSize];
-	float inverseSawToothTable[funcTableSize];
-
-	const uint8_t *externalVisData = nullptr;
 
 private:
 	struct FragmentShaderId
@@ -1497,6 +1469,13 @@ private:
 	Material *plasmaExplosionMaterial_ = nullptr;
 	/// @}
 
+	/// @name Resource caches
+	/// @{
+	std::unique_ptr<MaterialCache> materialCache_;
+	std::unique_ptr<ModelCache> modelCache_;
+	std::unique_ptr<TextureCache> textureCache_;
+	/// @}
+
 	/// @name Scene
 	/// @{
 	std::vector<Entity> sceneEntities_;
@@ -1550,11 +1529,29 @@ private:
 	float halfTexelOffset_ = 0;
 	bool isTextureOriginBottomLeft_ = false;
 	uint8_t mainVisCacheId_, portalVisCacheId_;
+	SunLight sunLight_;
 
 	/// Convert from our coordinate system (looking down X) to OpenGL's coordinate system (looking down -Z)
 	static const mat4 toOpenGlMatrix_;
 };
 
+static const size_t g_funcTableSize = 1024;
+static const size_t g_funcTableSize2 = 10;
+static const size_t g_funcTableMask = g_funcTableSize - 1;
+static const int g_overbrightFactor = OVERBRIGHT_FACTOR;
+static const float g_identityLight = 1.0f / g_overbrightFactor;
+
+extern ConsoleVariables g_cvars;
+extern const uint8_t *g_externalVisData;
 extern std::unique_ptr<Main> g_main;
+extern MaterialCache *g_materialCache;
+extern ModelCache *g_modelCache;
+extern TextureCache *g_textureCache;
+
+extern float g_sinTable[g_funcTableSize];
+extern float g_squareTable[g_funcTableSize];
+extern float g_triangleTable[g_funcTableSize];
+extern float g_sawToothTable[g_funcTableSize];
+extern float g_inverseSawToothTable[g_funcTableSize];
 
 } // namespace renderer

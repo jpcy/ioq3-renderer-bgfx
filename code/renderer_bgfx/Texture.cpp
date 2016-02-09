@@ -66,7 +66,7 @@ uint32_t Texture::calculateBgfxFlags() const
 		bgfxFlags |= BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP;
 	}
 
-	if (g_main->cvars.maxAnisotropy->integer)
+	if (g_cvars.maxAnisotropy->integer)
 	{
 		bgfxFlags |= BGFX_TEXTURE_MIN_ANISOTROPIC | BGFX_TEXTURE_MAG_ANISOTROPIC;
 	}
@@ -170,7 +170,7 @@ void TextureCache::createBuiltinTextures()
 	// With overbright bits active, we need an image which is some fraction of full color, for default lightmaps, etc.
 	image.width = image.height = defaultSize;
 	image.allocMemory();
-	const uint8_t identityLightByte = 255 * g_main->identityLight;
+	const uint8_t identityLightByte = 255 * g_identityLight;
 
 	for (int x = 0; x < defaultSize * defaultSize; x++)
 	{

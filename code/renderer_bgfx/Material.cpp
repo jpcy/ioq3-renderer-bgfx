@@ -476,7 +476,7 @@ int Material::collapseStagesToGLSL()
 			{
 				pStage->light = MaterialLight::Map;
 				pStage->bundles[MaterialTextureBundleIndex::Lightmap] = pStage->bundles[MaterialTextureBundleIndex::DiffuseMap];
-				pStage->bundles[MaterialTextureBundleIndex::DiffuseMap].textures[0] = g_main->textureCache->getWhiteTexture();
+				pStage->bundles[MaterialTextureBundleIndex::DiffuseMap].textures[0] = g_textureCache->getWhiteTexture();
 				pStage->bundles[MaterialTextureBundleIndex::DiffuseMap].isLightmap = false;
 				pStage->bundles[MaterialTextureBundleIndex::DiffuseMap].tcGen = MaterialTexCoordGen::Texture;
 			}

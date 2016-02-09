@@ -162,7 +162,7 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 	}
 	else if (!Q_stricmp(extension, "jpg"))
 	{
-		if (!jo_write_jpg_to_func(ImageWriteCallbackConst, &buffer, screenShotDataBuffer_.data(), _width, _height, nComponents, g_main->cvars.screenshotJpegQuality->integer))
+		if (!jo_write_jpg_to_func(ImageWriteCallbackConst, &buffer, screenShotDataBuffer_.data(), _width, _height, nComponents, g_cvars.screenshotJpegQuality->integer))
 		{
 			ri.Printf(PRINT_ALL, "Screenshot: error writing jpg file\n");
 			return;
@@ -234,7 +234,7 @@ void Main::debugPrint(const char *format, ...)
 
 void Main::drawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex)
 {
-	auto mat = materialCache->getMaterial(materialIndex);
+	auto mat = materialCache_->getMaterial(materialIndex);
 
 	if (stretchPicMaterial_ != mat)
 	{
@@ -290,7 +290,7 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 	indices[3] = 2; indices[4] = 3; indices[5] = 0;
 	bgfx::setVertexBuffer(&tvb);
 	bgfx::setIndexBuffer(&tib);
-	bgfx::setTexture(0, matStageUniforms_->diffuseMap.handle, textureCache->getScratchTextures()[client]->getHandle());
+	bgfx::setTexture(0, matStageUniforms_->diffuseMap.handle, textureCache_->getScratchTextures()[client]->getHandle());
 	matStageUniforms_->color.set(vec4::white);
 	bgfx::setState(BGFX_STATE_RGB_WRITE);
 	const uint8_t viewId = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), vec4(x, y, w, h));
@@ -299,7 +299,7 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 
 void Main::uploadCinematic(int w, int h, int cols, int rows, const byte *data, int client, bool dirty)
 {
-	auto scratch = textureCache->getScratchTextures()[client];
+	auto scratch = textureCache_->getScratchTextures()[client];
 	
 	if (cols != scratch->getWidth() || rows != scratch->getHeight())
 	{
@@ -345,7 +345,7 @@ void Main::addPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts
 	for (size_t i = 0; i < nPolys; i++)
 	{
 		Polygon p;
-		p.material = materialCache->getMaterial(hShader); 
+		p.material = materialCache_->getMaterial(hShader); 
 		p.firstVertex = firstVertex + i * nVerts;
 		p.nVertices = nVerts;
 		Bounds bounds;
@@ -399,10 +399,10 @@ void Main::renderScene(const refdef_t *def)
 			// Clamp to sane values.
 			uniforms_->brightnessContrastGammaSaturation.set(vec4
 			(
-				Clamped(cvars.brightness->value - 1.0f, -0.8f, 0.8f),
-				Clamped(cvars.contrast->value, 0.5f, 3.0f),
-				Clamped(cvars.gamma->value, 0.5f, 3.0f),
-				Clamped(cvars.saturation->value, 0.0f, 3.0f)
+				Clamped(g_cvars.brightness->value - 1.0f, -0.8f, 0.8f),
+				Clamped(g_cvars.contrast->value, 0.5f, 3.0f),
+				Clamped(g_cvars.gamma->value, 0.5f, 3.0f),
+				Clamped(g_cvars.saturation->value, 0.0f, 3.0f)
 			));
 
 			// Tonemap the scene framebuffer color.
@@ -431,24 +431,24 @@ void Main::endFrame()
 	assert(firstFreeViewId_ != 0); // Should always be one active view.
 	bgfx::frame();
 
-	if (cvars.wireframe->modified || cvars.bgfx_stats->modified || cvars.debugText->modified)
+	if (g_cvars.wireframe->modified || g_cvars.bgfx_stats->modified || g_cvars.debugText->modified)
 	{
 		uint32_t debug = 0;
 
-		if (cvars.wireframe->integer != 0)
+		if (g_cvars.wireframe->integer != 0)
 			debug |= BGFX_DEBUG_WIREFRAME;
 
-		if (cvars.bgfx_stats->integer != 0)
+		if (g_cvars.bgfx_stats->integer != 0)
 			debug |= BGFX_DEBUG_STATS;
 
-		if (cvars.debugText->integer != 0)
+		if (g_cvars.debugText->integer != 0)
 			debug |= BGFX_DEBUG_TEXT;
 
 		bgfx::setDebug(debug);
-		cvars.wireframe->modified = cvars.bgfx_stats->modified = cvars.debugText->modified = qfalse;
+		g_cvars.wireframe->modified = g_cvars.bgfx_stats->modified = g_cvars.debugText->modified = qfalse;
 	}
 
-	if (cvars.debugText->integer)
+	if (g_cvars.debugText->integer)
 	{
 		bgfx::dbgTextClear();
 		debugTextY = 0;
@@ -812,9 +812,6 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		uniforms_->dynamicLights_Num_TextureWidth.set(vec4(0, 0, 0, 0));
 	}
 
-	// Set misc. uniforms.
-	uniforms_->overbrightFactor.set(vec4(overbrightFactor, 0, 0, 0));
-	
 	if (isWorldCamera_)
 	{
 		// Render depth.
@@ -1128,7 +1125,7 @@ void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 view
 
 	case RT_MODEL:
 		{
-			auto model = modelCache->getModel(entity->e.hModel);
+			auto model = modelCache_->getModel(entity->e.hModel);
 
 			if (model->isCulled(entity, cameraFrustum_))
 				break;
@@ -1181,7 +1178,7 @@ void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 view
 		const float amplitude = 0.1f;
 		const float phase = 0;
 		const float freq = 10.1f;
-		const float radius = base + sinTable[ri.ftol((phase + floatTime_ * freq) * Main::funcTableSize) & Main::funcTableMask] * amplitude;
+		const float radius = base + g_sinTable[ri.ftol((phase + floatTime_ * freq) * g_funcTableSize) & g_funcTableMask] * amplitude;
 		dl.capsuleEnd = vec3(entity->e.oldorigin);
 		dl.color_radius = vec4(0.6f, 0.6f, 1, 150 * radius);
 		dl.position_type.w = DynamicLight::Capsule;
@@ -1224,7 +1221,7 @@ void Main::renderLightningEntity(DrawCallList *drawCallList, vec3 viewPosition, 
 
 	for (int i = 0; i < 4; i++)
 	{
-		renderRailCore(drawCallList, start, end, right, length, cvars.railCoreWidth->integer, materialCache->getMaterial(entity->e.customShader), vec4::fromBytes(entity->e.shaderRGBA), entity);
+		renderRailCore(drawCallList, start, end, right, length, g_cvars.railCoreWidth->integer, materialCache_->getMaterial(entity->e.customShader), vec4::fromBytes(entity->e.shaderRGBA), entity);
 		right = right.rotatedAroundDirection(dir, 45);
 	}
 }
@@ -1241,7 +1238,7 @@ void Main::renderRailCoreEntity(DrawCallList *drawCallList, vec3 viewPosition, m
 	const vec3 v2 = (end - viewPosition).normal();
 	const vec3 right = vec3::crossProduct(v1, v2).normal();
 
-	renderRailCore(drawCallList, start, end, right, length, cvars.railCoreWidth->integer, materialCache->getMaterial(entity->e.customShader), vec4::fromBytes(entity->e.shaderRGBA), entity);
+	renderRailCore(drawCallList, start, end, right, length, g_cvars.railCoreWidth->integer, materialCache_->getMaterial(entity->e.customShader), vec4::fromBytes(entity->e.shaderRGBA), entity);
 }
 
 void Main::renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3 up, float length, float spanWidth, Material *mat, vec4 color, Entity *entity)
@@ -1296,8 +1293,8 @@ void Main::renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity)
 	const float length = dir.normalize();
 	vec3 right, up;
 	dir.toNormalVectors(&right, &up);
-	dir *= cvars.railSegmentLength->value;
-	int nSegments = std::max(1.0f, length / cvars.railSegmentLength->value);
+	dir *= g_cvars.railSegmentLength->value;
+	int nSegments = std::max(1.0f, length / g_cvars.railSegmentLength->value);
 
 	if (nSegments > 1)
 		nSegments--;
@@ -1306,7 +1303,7 @@ void Main::renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity)
 		return;
 
 	const float scale = 0.25f;
-	const int spanWidth = cvars.railWidth->integer;
+	const int spanWidth = g_cvars.railWidth->integer;
 	vec3 positions[4];
 
 	for (int i = 0; i < 4; i++)
@@ -1353,7 +1350,7 @@ void Main::renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity)
 	DrawCall dc;
 	dc.entity = entity;
 	dc.fogIndex = isWorldCamera_ ? world::FindFogIndex(entity->e.origin, entity->e.radius) : -1;
-	dc.material = materialCache->getMaterial(entity->e.customShader);
+	dc.material = materialCache_->getMaterial(entity->e.customShader);
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
 	dc.vb.nVertices = nVertices;
@@ -1422,7 +1419,7 @@ void Main::renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Ent
 	DrawCall dc;
 	dc.entity = entity;
 	dc.fogIndex = isWorldCamera_ ? world::FindFogIndex(entity->e.origin, entity->e.radius) : -1;
-	dc.material = materialCache->getMaterial(entity->e.customShader);
+	dc.material = materialCache_->getMaterial(entity->e.customShader);
 	dc.softSpriteDepth = entity->e.radius / 2.0f;
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
@@ -1456,9 +1453,9 @@ void Main::setupEntityLighting(Entity *entity)
 	}
 	else
 	{
-		entity->ambientLight = vec3(identityLight * 150);
-		entity->directedLight = vec3(identityLight * 150);
-		entity->lightDir = sunDirection;
+		entity->ambientLight = vec3(g_identityLight * 150);
+		entity->directedLight = vec3(g_identityLight * 150);
+		entity->lightDir = sunLight_.direction;
 	}
 
 	vec3 lightDir = entity->lightDir * entity->directedLight.length();
@@ -1467,7 +1464,7 @@ void Main::setupEntityLighting(Entity *entity)
 	//if (entity->e.renderfx & RF_MINLIGHT)
 	{
 		// Give everything a minimum light add.
-		entity->ambientLight += vec3(identityLight * 32);
+		entity->ambientLight += vec3(g_identityLight * 32);
 	}
 
 	// Modify the light by dynamic lights.

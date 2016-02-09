@@ -132,7 +132,7 @@ Skin::Skin(const char *name, qhandle_t handle)
 	{
 		nSurfaces_ = 1;
 		surfaces_[0].name[0] = 0;
-		surfaces_[0].material = g_main->materialCache->findMaterial(name, MaterialLightmapId::None, true);
+		surfaces_[0].material = g_materialCache->findMaterial(name, MaterialLightmapId::None, true);
 		return;
 	}
 
@@ -173,7 +173,7 @@ Skin::Skin(const char *name, qhandle_t handle)
 			break;
 		}
 
-		surface.material = g_main->materialCache->findMaterial(token, MaterialLightmapId::None, true);
+		surface.material = g_materialCache->findMaterial(token, MaterialLightmapId::None, true);
 		nSurfaces_++;
 	}
 }
@@ -278,7 +278,7 @@ Material *MaterialCache::findMaterial(const char *name, int lightmapIndex, bool 
 		flags |= TextureFlags::ClampToEdge;
 	}
 
-	auto texture = g_main->textureCache->findTexture(name, TextureType::ColorAlpha, flags);
+	auto texture = g_textureCache->findTexture(name, TextureType::ColorAlpha, flags);
 
 	if (!texture)
 	{
@@ -316,7 +316,7 @@ Material *MaterialCache::findMaterial(const char *name, int lightmapIndex, bool 
 	else if (m.lightmapIndex == MaterialLightmapId::White)
 	{
 		// fullbright level
-		m.stages[0].bundles[0].textures[0] = g_main->textureCache->getWhiteTexture();
+		m.stages[0].bundles[0].textures[0] = g_textureCache->getWhiteTexture();
 		m.stages[0].active = true;
 		m.stages[0].rgbGen = MaterialColorGen::IdentityLighting;
 
@@ -455,7 +455,7 @@ size_t MaterialCache::generateHash(const char *fname, size_t size)
 void MaterialCache::createInternalShaders()
 {
 	Material m("<default>");
-	m.stages[0].bundles[0].textures[0] = g_main->textureCache->getDefaultTexture();
+	m.stages[0].bundles[0].textures[0] = g_textureCache->getDefaultTexture();
 	m.stages[0].active = true;
 	defaultMaterial_ = createMaterial(m);
 }

@@ -73,9 +73,9 @@ static bool GetModeInfo(int *width, int *height, float *windowAspect, int mode)
 
 	if (mode == -1)
 	{
-		*width = g_main->cvars.customwidth->integer;
-		*height = g_main->cvars.customheight->integer;
-		pixelAspect = g_main->cvars.customPixelAspect->value;
+		*width = g_cvars.customwidth->integer;
+		*height = g_cvars.customheight->integer;
+		pixelAspect = g_cvars.customPixelAspect->value;
 	}
 	else
 	{
@@ -97,7 +97,7 @@ static SetModeResult SetMode(bool gl, int mode, bool fullscreen, bool noborder)
 	if (gl)
 		flags |= SDL_WINDOW_OPENGL;
 
-	if (g_main->cvars.allowResize->integer != 0)
+	if (g_cvars.allowResize->integer != 0)
 		flags |= SDL_WINDOW_RESIZABLE;
 
 	SDL_Surface *icon = NULL;
@@ -188,7 +188,7 @@ static SetModeResult SetMode(bool gl, int mode, bool fullscreen, bool noborder)
 		glConfig.isFullscreen = qfalse;
 	}
 
-	if (g_main->cvars.centerWindow->integer && !glConfig.isFullscreen)
+	if (g_cvars.centerWindow->integer && !glConfig.isFullscreen)
 	{
 		x = y = SDL_WINDOWPOS_CENTERED;
 	}
@@ -248,7 +248,7 @@ static bool StartDriverAndSetMode(bool gl, int mode, bool fullscreen, bool nobor
 	{
 		ri.Printf( PRINT_ALL, "Fullscreen not allowed with in_nograb 1\n");
 		ri.Cvar_Set( "r_fullscreen", "0" );
-		g_main->cvars.fullscreen->modified = qfalse;
+		g_cvars.fullscreen->modified = qfalse;
 		fullscreen = false;
 	}
 	
@@ -278,20 +278,20 @@ void Window_Initialize(bool gl)
 	}
 
 	// Create the window and set up the context
-	if (StartDriverAndSetMode(gl, g_main->cvars.mode->integer, g_main->cvars.fullscreen->integer != 0, g_main->cvars.noborder->integer != 0))
+	if (StartDriverAndSetMode(gl, g_cvars.mode->integer, g_cvars.fullscreen->integer != 0, g_cvars.noborder->integer != 0))
 		goto success;
 
-	if (g_main->cvars.noborder->integer != 0)
+	if (g_cvars.noborder->integer != 0)
 	{
 		// Try again with a window border
-		if (StartDriverAndSetMode(gl, g_main->cvars.mode->integer, g_main->cvars.fullscreen->integer != 0, false))
+		if (StartDriverAndSetMode(gl, g_cvars.mode->integer, g_cvars.fullscreen->integer != 0, false))
 			goto success;
 	}
 
 	// Finally, try the default screen resolution
-	if (g_main->cvars.mode->integer != R_MODE_FALLBACK)
+	if (g_cvars.mode->integer != R_MODE_FALLBACK)
 	{
-		ri.Printf(PRINT_ALL, "Setting r_mode %d failed, falling back on r_mode %d\n", g_main->cvars.mode->integer, R_MODE_FALLBACK);
+		ri.Printf(PRINT_ALL, "Setting r_mode %d failed, falling back on r_mode %d\n", g_cvars.mode->integer, R_MODE_FALLBACK);
 
 		if (StartDriverAndSetMode(gl, R_MODE_FALLBACK, false, false))
 			goto success;

@@ -27,7 +27,7 @@ extern "C"
 	float R_NoiseGet4f(float x, float y, float z, float t);
 }
 
-#define	WAVEVALUE(table, base, amplitude, phase, freq) ((base) + table[ri.ftol((((phase) + material->time_ * (freq)) * Main::funcTableSize)) & Main::funcTableMask] * (amplitude))
+#define	WAVEVALUE(table, base, amplitude, phase, freq) ((base) + table[ri.ftol((((phase) + material->time_ * (freq)) * g_funcTableSize)) & g_funcTableMask] * (amplitude))
 
 namespace renderer {
 
@@ -138,7 +138,7 @@ void MaterialStage::setTextureSamplers(Uniforms_MaterialStage *uniforms) const
 		//     -> costs more to sample a higher res texture then throw out the result
 		//  - disable texture sampling in glsl shader with #ifdefs, as before
 		//     -> increases the number of shaders that must be compiled
-		const bool phong = g_main->cvars.normalMapping->integer || g_main->cvars.specularMapping->integer;
+		const bool phong = g_cvars.normalMapping->integer || g_cvars.specularMapping->integer;
 		vec4 enableTextures;
 
 		if (stage.light != MaterialLight::None && phong)
@@ -148,9 +148,9 @@ void MaterialStage::setTextureSamplers(Uniforms_MaterialStage *uniforms) const
 				stage.setTextureSampler(MaterialTextureBundleIndex::NormalMap);
 				enableTextures[0] = 1.0f;
 			}
-			else if (g_main->cvars.normalMapping->integer)
+			else if (g_cvars.normalMapping->integer)
 			{
-				g_main->textureCache->getWhiteTexture()->setSampler(MaterialTextureBundleIndex::NormalMap);
+				g_textureCache->getWhiteTexture()->setSampler(MaterialTextureBundleIndex::NormalMap);
 			}
 
 			if (stage.bundles[MaterialTextureBundleIndex::Deluxemap].textures[0])
@@ -158,9 +158,9 @@ void MaterialStage::setTextureSamplers(Uniforms_MaterialStage *uniforms) const
 				stage.setTextureSampler(MaterialTextureBundleIndex::Deluxemap);
 				enableTextures[1] = 1.0f;
 			}
-			else if (g_main->cvars.deluxeMapping->integer)
+			else if (g_cvars.deluxeMapping->integer)
 			{
-				g_main->textureCache->getWhiteTexture()->setSampler(MaterialTextureBundleIndex::Deluxemap);
+				g_textureCache->getWhiteTexture()->setSampler(MaterialTextureBundleIndex::Deluxemap);
 			}
 
 			if (stage.bundles[MaterialTextureBundleIndex::Specularmap].textures[0])
@@ -168,9 +168,9 @@ void MaterialStage::setTextureSamplers(Uniforms_MaterialStage *uniforms) const
 				stage.setTextureSampler(MaterialTextureBundleIndex::Specularmap);
 				enableTextures[2] = 1.0f;
 			}
-			else if (g_main->cvars.specularMapping->integer)
+			else if (g_cvars.specularMapping->integer)
 			{
-				g_main->textureCache->getWhiteTexture()->setSampler(MaterialTextureBundleIndex::Specularmap);
+				g_textureCache->getWhiteTexture()->setSampler(MaterialTextureBundleIndex::Specularmap);
 			}
 		}
 
@@ -184,15 +184,15 @@ float *MaterialStage::tableForFunc(MaterialWaveformGenFunc func) const
 	switch(func)
 	{
 	case MaterialWaveformGenFunc::Sin:
-		return g_main->sinTable;
+		return g_sinTable;
 	case MaterialWaveformGenFunc::Triangle:
-		return g_main->triangleTable;
+		return g_triangleTable;
 	case MaterialWaveformGenFunc::Square:
-		return g_main->squareTable;
+		return g_squareTable;
 	case MaterialWaveformGenFunc::Sawtooth:
-		return g_main->sawToothTable;
+		return g_sawToothTable;
 	case MaterialWaveformGenFunc::InverseSawtooth:
-		return g_main->inverseSawToothTable;
+		return g_inverseSawToothTable;
 	case MaterialWaveformGenFunc::None:
 	default:
 		break;
@@ -337,9 +337,9 @@ void MaterialStage::calculateTransformTexMatrix(const MaterialTexModInfo &tmi, f
 void MaterialStage::calculateRotateTexMatrix(float degsPerSecond, float *matrix) const
 {
 	float degs = -degsPerSecond * material->time_;
-	int index = degs * (Main::funcTableSize / 360.0f);
-	float sinValue = g_main->sinTable[index & Main::funcTableMask];
-	float cosValue = g_main->sinTable[(index + Main::funcTableSize / 4) & Main::funcTableMask];
+	int index = degs * (g_funcTableSize / 360.0f);
+	float sinValue = g_sinTable[index & g_funcTableMask];
+	float cosValue = g_sinTable[(index + g_funcTableSize / 4) & g_funcTableMask];
 	matrix[0] = cosValue; matrix[2] = -sinValue; matrix[4] = 0.5 - 0.5 * cosValue + 0.5 * sinValue;
 	matrix[1] = sinValue; matrix[3] = cosValue;  matrix[5] = 0.5 - 0.5 * sinValue - 0.5 * cosValue;
 }
@@ -354,7 +354,7 @@ float MaterialStage::calculateWaveColorSingle(const MaterialWaveForm &wf) const
 	}
 	else
 	{
-		glow = evaluateWaveForm(wf) * g_main->identityLight;
+		glow = evaluateWaveForm(wf) * g_identityLight;
 	}
 	
 	return math::Clamped(glow, 0.0f, 1.0f);
@@ -377,7 +377,7 @@ void MaterialStage::calculateColors(vec4 *baseColor, vec4 *vertColor) const
 	switch (rgbGen)
 	{
 		case MaterialColorGen::IdentityLighting:
-			(*baseColor).r = (*baseColor).g = (*baseColor).b = g_main->identityLight;
+			(*baseColor).r = (*baseColor).g = (*baseColor).b = g_identityLight;
 			break;
 		case MaterialColorGen::ExactVertex:
 		case MaterialColorGen::ExactVertexLit:
@@ -392,15 +392,15 @@ void MaterialStage::calculateColors(vec4 *baseColor, vec4 *vertColor) const
 			break;
 		case MaterialColorGen::Vertex:
 			*baseColor = vec4::black;
-			*vertColor = vec4(g_main->identityLight, g_main->identityLight, g_main->identityLight, 1);
+			*vertColor = vec4(g_identityLight, g_identityLight, g_identityLight, 1);
 			break;
 		case MaterialColorGen::VertexLit:
 			*baseColor = vec4::black;
-			*vertColor = vec4(g_main->identityLight);
+			*vertColor = vec4(g_identityLight);
 			break;
 		case MaterialColorGen::OneMinusVertex:
-			(*baseColor).r = (*baseColor).g = (*baseColor).b = g_main->identityLight;
-			(*vertColor).r = (*vertColor).g = (*vertColor).b = -g_main->identityLight;
+			(*baseColor).r = (*baseColor).g = (*baseColor).b = g_identityLight;
+			(*vertColor).r = (*vertColor).g = (*vertColor).b = -g_identityLight;
 			break;
 		case MaterialColorGen::Fog:
 			/*{
@@ -486,19 +486,14 @@ void MaterialStage::calculateColors(vec4 *baseColor, vec4 *vertColor) const
 	}
 
 	// Multiply color by overbrightbits if this isn't a blend.
-	if (g_main->overbrightBits 
+	if (g_overbrightFactor > 1
 		&& blendSrc != BGFX_STATE_BLEND_DST_COLOR
 		&& blendSrc != BGFX_STATE_BLEND_INV_DST_COLOR
 		&& blendDst != BGFX_STATE_BLEND_SRC_COLOR
 		&& blendDst != BGFX_STATE_BLEND_INV_SRC_COLOR)
 	{
-		const float scale = 1 << g_main->overbrightBits;
-		(*baseColor)[0] *= scale;
-		(*baseColor)[1] *= scale;
-		(*baseColor)[2] *= scale;
-		(*vertColor)[0] *= scale;
-		(*vertColor)[1] *= scale;
-		(*vertColor)[2] *= scale;
+		(*baseColor) = vec4(baseColor->xyz() * g_overbrightFactor, baseColor->a);
+		(*vertColor) = vec4(vertColor->xyz() * g_overbrightFactor, vertColor->a);
 	}
 }
 
@@ -524,8 +519,8 @@ void MaterialStage::setTextureSampler(int sampler, Uniforms_MaterialStage *unifo
 	else
 	{
 		// It is necessary to do this messy calc to make sure animations line up exactly with waveforms of the same frequency.
-		int index = ri.ftol(material->time_ * bundle.imageAnimationSpeed * Main::funcTableSize);
-		index >>= Main::funcTableSize2;
+		int index = ri.ftol(material->time_ * bundle.imageAnimationSpeed * g_funcTableSize);
+		index >>= g_funcTableSize2;
 		index = std::max(0, index); // May happen with shader time offsets.
 		index %= bundle.numImageAnimations;
 		bgfx::setTexture(sampler, uniforms->textures[sampler]->handle, bundle.textures[index]->getHandle());
@@ -610,7 +605,7 @@ void Material::doCpuDeforms(DrawCall *dc, const mat3 &sceneRotation) const
 				const vec3 midpoint = (v[0]->pos + v[1]->pos + v[2]->pos + v[3]->pos) * 0.25f;
 				const float radius = (v[0]->pos - midpoint).length() * 0.707f; // / sqrt(2)
 
-				if (g_main->cvars.softSprites->integer)
+				if (g_cvars.softSprites->integer)
 				{
 					// Assumes all quads in this drawcall have the same radius.
 					dc->softSpriteDepth = radius / 2.0f;

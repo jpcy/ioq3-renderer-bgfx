@@ -581,25 +581,25 @@ public:
 
 			totalFactor += factor;
 
-			(*ambientLight)[0] += factor * data[0] * g_main->overbrightFactor;
-			(*ambientLight)[1] += factor * data[1] * g_main->overbrightFactor;
-			(*ambientLight)[2] += factor * data[2] * g_main->overbrightFactor;
-			(*directedLight)[0] += factor * data[3] * g_main->overbrightFactor;
-			(*directedLight)[1] += factor * data[4] * g_main->overbrightFactor;
-			(*directedLight)[2] += factor * data[5] * g_main->overbrightFactor;
+			(*ambientLight)[0] += factor * data[0] * g_overbrightFactor;
+			(*ambientLight)[1] += factor * data[1] * g_overbrightFactor;
+			(*ambientLight)[2] += factor * data[2] * g_overbrightFactor;
+			(*directedLight)[0] += factor * data[3] * g_overbrightFactor;
+			(*directedLight)[1] += factor * data[4] * g_overbrightFactor;
+			(*directedLight)[2] += factor * data[5] * g_overbrightFactor;
 
 			int lat = data[7];
 			int lng = data[6];
-			lat *= (Main::funcTableSize / 256);
-			lng *= (Main::funcTableSize / 256);
+			lat *= (g_funcTableSize / 256);
+			lng *= (g_funcTableSize / 256);
 
 			// decode X as cos(lat) * sin(long)
 			// decode Y as sin(lat) * sin(long)
 			// decode Z as cos(long)
 			vec3 normal;
-			normal[0] = g_main->sinTable[(lat + (Main::funcTableSize / 4)) & Main::funcTableMask] * g_main->sinTable[lng];
-			normal[1] = g_main->sinTable[lat] * g_main->sinTable[lng];
-			normal[2] = g_main->sinTable[(lng + (Main::funcTableSize / 4)) & Main::funcTableMask];
+			normal[0] = g_sinTable[(lat + (g_funcTableSize / 4)) & g_funcTableMask] * g_sinTable[lng];
+			normal[1] = g_sinTable[lat] * g_sinTable[lng];
+			normal[2] = g_sinTable[(lng + (g_funcTableSize / 4)) & g_funcTableMask];
 			direction += normal * factor;
 		}
 
@@ -1662,9 +1662,9 @@ private:
 			f.bounds[1][2] = planes_[planeNum].dist;
 
 			// Get information from the material for fog parameters.
-			auto material = g_main->materialCache->findMaterial(ff.shader, MaterialLightmapId::None, true);
+			auto material = g_materialCache->findMaterial(ff.shader, MaterialLightmapId::None, true);
 			f.parms = material->fogParms;
-			f.colorInt = ColorBytes4(f.parms.color[0] * g_main->identityLight, f.parms.color[1] * g_main->identityLight,  f.parms.color[2] * g_main->identityLight, 1.0f);
+			f.colorInt = ColorBytes4(f.parms.color[0] * g_identityLight, f.parms.color[1] * g_identityLight,  f.parms.color[2] * g_identityLight, 1.0f);
 			const float d = f.parms.depthForOpaque < 1 ? 1 : f.parms.depthForOpaque;
 			f.tcScale = 1.0f / (d * 8);
 
@@ -1738,7 +1738,7 @@ private:
 							break;
 					}
 
-					lightmapAtlases_[i] = g_main->textureCache->createTexture(va("*lightmap%d", (int)i), image, TextureType::ColorAlpha, TextureFlags::ClampToEdge);
+					lightmapAtlases_[i] = g_textureCache->createTexture(va("*lightmap%d", (int)i), image, TextureType::ColorAlpha, TextureFlags::ClampToEdge);
 				}
 			}
 		}
@@ -1813,9 +1813,9 @@ private:
 
 			v.color = vec4
 			(
-				fv.color[0] * g_main->overbrightFactor / 255.0f,
-				fv.color[1] * g_main->overbrightFactor / 255.0f,
-				fv.color[2] * g_main->overbrightFactor / 255.0f,
+				fv.color[0] * g_overbrightFactor / 255.0f,
+				fv.color[1] * g_overbrightFactor / 255.0f,
+				fv.color[2] * g_overbrightFactor / 255.0f,
 				fv.color[3] / 255.0f
 			);
 		}
@@ -1920,7 +1920,7 @@ private:
 			}
 
 			model->batchSurfaces();
-			g_main->modelCache->addModel(std::move(model));
+			g_modelCache->addModel(std::move(model));
 		}
 
 		// Leaf surfaces
@@ -1987,9 +1987,9 @@ private:
 			clusterBytes_ = *((int *)(fileData_ + visLump.fileofs + sizeof(int)));
 
 			// CM_Load should have given us the vis data to share, so we don't need to allocate another copy.
-			if (g_main->externalVisData)
+			if (g_externalVisData)
 			{
-				visData_ = g_main->externalVisData;
+				visData_ = g_externalVisData;
 			}
 			else
 			{
@@ -2067,11 +2067,11 @@ private:
 			lightmapIndex /= nLightmapsPerAtlas_;
 		}
 
-		auto material = g_main->materialCache->findMaterial(materials_[materialIndex].name, lightmapIndex, true);
+		auto material = g_materialCache->findMaterial(materials_[materialIndex].name, lightmapIndex, true);
 
 		// If the material had errors, just use default material.
 		if (!material)
-			return g_main->materialCache->getDefaultMaterial();
+			return g_materialCache->getDefaultMaterial();
 
 		return material;
 	}
@@ -2201,7 +2201,7 @@ void Load(const char *name)
 
 void Unload()
 {
-	delete s_world.release();
+	s_world.reset(nullptr);
 }
 
 bool IsLoaded()
