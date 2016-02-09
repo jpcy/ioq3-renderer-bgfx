@@ -27,7 +27,8 @@ void main()
 	vec3 color = texture2D(u_DiffuseMap, v_texcoord0).rgb;
 
 	// tone map
-	color = ToGamma(ACESFilm(ToLinear(color)));
+	//color = ToGamma(ACESFilm(ToLinear(color)));
+	color = saturate(color);
 
 	// contrast and brightness
 	color = (color - 0.5) * contrast + 0.5 + brightness;
