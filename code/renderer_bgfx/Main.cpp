@@ -295,7 +295,7 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 	bgfx::setTexture(0, matStageUniforms_->diffuseMap.handle, textureCache_->getScratchTextures()[client]->getHandle());
 	matStageUniforms_->color.set(vec4::white);
 	bgfx::setState(BGFX_STATE_RGB_WRITE);
-	const uint8_t viewId = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), vec4(x, y, w, h));
+	const uint8_t viewId = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), vec4(x, y, w, h), PushViewFlags::Sequential);
 	bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::TextureColor].handle);
 }
 
@@ -494,7 +494,7 @@ void Main::onModelCreate(Model *model)
 	}
 }
 
-uint8_t Main::pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, vec4 rect)
+uint8_t Main::pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, vec4 rect, int flags)
 {
 	// Useful for debugging, can be disabled for performance later.
 #if 1
@@ -509,17 +509,8 @@ uint8_t Main::pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, cons
 	}
 
 	bgfx::setViewFrameBuffer(firstFreeViewId_, frameBuffer.handle);
-
-	if (rect.equals(vec4::empty))
-	{
-		bgfx::setViewRect(firstFreeViewId_, 0, 0, (uint16_t)glConfig.vidWidth, (uint16_t)glConfig.vidHeight);
-	}
-	else
-	{
-		bgfx::setViewRect(firstFreeViewId_, uint16_t(rect.x), uint16_t(rect.y), uint16_t(rect.z), uint16_t(rect.w));
-	}
-
-	bgfx::setViewSeq(firstFreeViewId_, true);
+	bgfx::setViewRect(firstFreeViewId_, uint16_t(rect.x), uint16_t(rect.y), uint16_t(rect.z), uint16_t(rect.w));
+	bgfx::setViewSeq(firstFreeViewId_, (flags & PushViewFlags::Sequential) != 0);
 	bgfx::setViewTransform(firstFreeViewId_, viewMatrix.get(), projectionMatrix.get());
 	firstFreeViewId_++;
 	return firstFreeViewId_ - 1;
@@ -546,7 +537,7 @@ void Main::flushStretchPics()
 
 			if (stretchPicViewId_ == UINT8_MAX)
 			{
-				stretchPicViewId_ = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, glConfig.vidWidth, 0, glConfig.vidHeight, -1, 1));
+				stretchPicViewId_ = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, glConfig.vidWidth, 0, glConfig.vidHeight, -1, 1), vec4(0, 0, glConfig.vidWidth, glConfig.vidHeight), PushViewFlags::Sequential);
 			}
 
 			for (const MaterialStage &stage : stretchPicMaterial_->stages)
@@ -879,11 +870,11 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	
 	if (isWorldCamera_)
 	{
-		mainViewId = pushView(sceneFb_, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, rect);
+		mainViewId = pushView(sceneFb_, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, rect, PushViewFlags::Sequential);
 	}
 	else
 	{
-		mainViewId = pushView(defaultFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect);		
+		mainViewId = pushView(defaultFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect, PushViewFlags::Sequential);
 	}
 
 	for (DrawCall &dc : drawCalls_)
@@ -1092,7 +1083,7 @@ void Main::renderFullscreenQuad(const FrameBuffer &frameBuffer, ShaderProgramId:
 	vertices[2].texCoord = vec2(maxu, maxv);
 	bgfx::setVertexBuffer(&vb);
 	bgfx::setState(state);
-	const uint8_t viewId = pushView(frameBuffer, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1));
+	const uint8_t viewId = pushView(frameBuffer, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), vec4(0, 0, glConfig.vidWidth, glConfig.vidHeight));
 	bgfx::submit(viewId, shaderPrograms_[program].handle);
 }
 

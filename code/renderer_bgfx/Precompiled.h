@@ -1017,16 +1017,16 @@ struct TextureFlags
 {
 	enum
 	{
-		None               = BIT(0),
-		Mipmap             = BIT(1),
-		Picmip             = BIT(2),
-		Cubemap            = BIT(3),
-		NoCompression      = BIT(4),
-		NoLightScale       = BIT(5),
-		ClampToEdge        = BIT(6),
-		SRGB               = BIT(7),
-		GenNormalMap       = BIT(8),
-		PremultipliedAlpha = BIT(9)
+		None               = 0,
+		Mipmap             = BIT(0),
+		Picmip             = BIT(1),
+		Cubemap            = BIT(2),
+		NoCompression      = BIT(3),
+		NoLightScale       = BIT(4),
+		ClampToEdge        = BIT(5),
+		SRGB               = BIT(6),
+		GenNormalMap       = BIT(7),
+		PremultipliedAlpha = BIT(8)
 	};
 };
 

@@ -115,7 +115,15 @@ private:
 		};
 	};
 
-	uint8_t pushView(const FrameBuffer &frameBuffer = defaultFb_, uint16_t clearFlags = BGFX_CLEAR_NONE, const mat4 &viewMatrix = mat4::identity, const mat4 &projectionMatrix = mat4::identity, vec4 rect = vec4::empty);
+	struct PushViewFlags
+	{
+		enum
+		{
+			Sequential = BIT(0)
+		};
+	};
+
+	uint8_t pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, vec4 rect, int flags = 0);
 	void flushStretchPics();
 	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, vec4 rect, vec2 fov, const uint8_t *areaMask);
 	void renderFullscreenQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, bool originBottomLeft = false, int textureWidth = 0, int textureHeight = 0);
