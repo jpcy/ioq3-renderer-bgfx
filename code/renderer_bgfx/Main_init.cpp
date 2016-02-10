@@ -782,7 +782,7 @@ static void RE_EndFrame(int *frontEndMsec, int *backEndMsec)
 static int RE_MarkFragments(int numPoints, const vec3_t *points, const vec3_t projection, int maxPoints, vec3_t pointBuffer, int maxFragments, markFragment_t *fragmentBuffer)
 {
 	if (world::IsLoaded())
-		return world::MarkFragments(numPoints, points, projection, maxPoints, pointBuffer, maxFragments, fragmentBuffer);
+		return world::MarkFragments(numPoints, (const vec3 *)points, projection, maxPoints, (vec3 *)pointBuffer, maxFragments, fragmentBuffer);
 
 	return 0;
 }

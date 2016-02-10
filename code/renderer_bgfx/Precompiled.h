@@ -1310,7 +1310,7 @@ namespace world
 	int FindFogIndex(vec3 position, float radius);
 	int FindFogIndex(const Bounds &bounds);
 	void CalculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMatrix, vec3 cameraPosition, vec3 localViewPosition, const mat3 &cameraRotation, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT);
-	int MarkFragments(int numPoints, const vec3_t *points, const vec3_t projection, int maxPoints, vec3_t pointBuffer, int maxFragments, markFragment_t *fragmentBuffer);
+	int MarkFragments(int numPoints, const vec3 *points, vec3 projection, int maxPoints, vec3 *pointBuffer, int maxFragments, markFragment_t *fragmentBuffer);
 	Bounds GetBounds(uint8_t visCacheId);
 	size_t GetNumSkies(uint8_t visCacheId);
 	void GetSky(uint8_t visCacheId, size_t index, Material **material, const std::vector<Vertex> **vertices);
