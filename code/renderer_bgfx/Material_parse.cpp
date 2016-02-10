@@ -428,8 +428,159 @@ vec3 Material::parseVector(char **text, bool *result) const
 bool Material::parseStage(MaterialStage *stage, char **text)
 {
 	bool depthWriteExplicit = false;
-
 	stage->active = true;
+
+	// Pre-parse the stage to figure out if premultiplied alpha can be used. It's a texture flag, so this needs to be determined before textures are loaded in the main parsing step.
+	char *startText = *text;
+
+	for (;;)
+	{
+		auto token = COM_ParseExt(text, qtrue);
+
+		if (!token[0])
+		{
+			ri.Printf(PRINT_WARNING, "WARNING: no matching '}' found\n");
+			return false;
+		}
+
+		if (token[0] == '}')
+			break;
+
+		// alphaGen 
+		if (!Q_stricmp(token, "alphaGen"))
+		{
+			token = COM_ParseExt(text, qfalse);
+
+			if (token[0] == 0)
+			{
+				ri.Printf(PRINT_WARNING, "WARNING: missing parameters for alphaGen in shader '%s'\n", name);
+			}
+			else if (!Q_stricmp(token, "wave"))
+			{
+				stage->alphaWave = parseWaveForm(text);
+				stage->alphaGen = MaterialAlphaGen::Waveform;
+			}
+			else if (!Q_stricmp(token, "const"))
+			{
+				token = COM_ParseExt(text, qfalse);
+				stage->constantColor[3] = 255 * atof(token);
+				stage->alphaGen = MaterialAlphaGen::Const;
+			}
+			else if (!Q_stricmp(token, "identity"))
+			{
+				stage->alphaGen = MaterialAlphaGen::Identity;
+			}
+			else if (!Q_stricmp(token, "entity"))
+			{
+				stage->alphaGen = MaterialAlphaGen::Entity;
+			}
+			else if (!Q_stricmp(token, "oneMinusEntity"))
+			{
+				stage->alphaGen = MaterialAlphaGen::OneMinusEntity;
+			}
+			else if (!Q_stricmp(token, "vertex"))
+			{
+				stage->alphaGen = MaterialAlphaGen::Vertex;
+			}
+			else if (!Q_stricmp(token, "lightingSpecular"))
+			{
+				stage->alphaGen = MaterialAlphaGen::LightingSpecular;
+			}
+			else if (!Q_stricmp(token, "oneMinusVertex"))
+			{
+				stage->alphaGen = MaterialAlphaGen::OneMinusVertex;
+			}
+			else if (!Q_stricmp(token, "portal"))
+			{
+				stage->alphaGen = MaterialAlphaGen::Portal;
+				token = COM_ParseExt(text, qfalse);
+
+				if (token[0] == 0)
+				{
+					ri.Printf(PRINT_WARNING, "WARNING: missing range parameter for alphaGen portal in shader '%s', defaulting to %g\n", name, portalRange);
+				}
+				else
+				{
+					portalRange = atof(token);
+				}
+			}
+			else
+			{
+				ri.Printf(PRINT_WARNING, "WARNING: unknown alphaGen parameter '%s' in shader '%s'\n", token, name);
+				continue;
+			}
+		}
+		// blendfunc <srcFactor> <dstFactor> or blendfunc <add|filter|blend>
+		else if (!Q_stricmp(token, "blendfunc"))
+		{
+			token = COM_ParseExt(text, qfalse);
+
+			if (token[0] == 0)
+			{
+				ri.Printf(PRINT_WARNING, "WARNING: missing parm for blendFunc in shader '%s'\n", name);
+				continue;
+			}
+
+			// check for "simple" blends first
+			if (!Q_stricmp(token, "add"))
+			{
+				stage->blendSrc = BGFX_STATE_BLEND_ONE;
+				stage->blendDst = BGFX_STATE_BLEND_ONE;
+			}
+			else if (!Q_stricmp(token, "filter"))
+			{
+				stage->blendSrc = BGFX_STATE_BLEND_DST_COLOR;
+				stage->blendDst = BGFX_STATE_BLEND_ZERO;
+			}
+			else if (!Q_stricmp(token, "blend"))
+			{
+				stage->blendSrc = BGFX_STATE_BLEND_SRC_ALPHA;
+				stage->blendDst = BGFX_STATE_BLEND_INV_SRC_ALPHA;
+			}
+			else
+			{
+				// complex double blends
+				stage->blendSrc = srcBlendModeFromName(token);
+
+				token = COM_ParseExt(text, qfalse);
+
+				if (token[0] == 0)
+				{
+					ri.Printf(PRINT_WARNING, "WARNING: missing parm for blendFunc in shader '%s'\n", name);
+					continue;
+				}
+
+				stage->blendDst = dstBlendModeFromName(token);
+			}
+
+			// clear depth write for blended surfaces
+			if (!depthWriteExplicit)
+			{
+				stage->depthWrite = false;
+			}
+		}
+		// depthmask
+		else if (!Q_stricmp(token, "depthwrite"))
+		{
+			stage->depthWrite = true;
+			depthWriteExplicit = true;
+		}
+		else
+		{
+			SkipRestOfLine(text);
+		}
+	}
+
+	bool usePremultipliedAlpha = false;
+
+	if (stage->blendSrc == BGFX_STATE_BLEND_SRC_ALPHA && stage->blendDst == BGFX_STATE_BLEND_INV_SRC_ALPHA && stage->alphaGen == MaterialAlphaGen::Identity)
+	{
+		usePremultipliedAlpha = true;
+		stage->blendSrc = BGFX_STATE_BLEND_ONE;
+	}
+
+	// Normal parsing.
+	text = &startText;
 
 	for (;;)
 	{
@@ -502,6 +653,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				if (!noPicMip)
 					flags |= TextureFlags::Picmip;
 
+				if (usePremultipliedAlpha)
+					flags |= TextureFlags::PremultipliedAlpha;
+
 				if (stage->type == MaterialStageType::NormalMap || stage->type == MaterialStageType::NormalParallaxMap)
 				{
 					type = TextureType::Normal;
@@ -543,6 +697,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (!noPicMip)
 				flags |= TextureFlags::Picmip;
+
+			if (usePremultipliedAlpha)
+				flags |= TextureFlags::PremultipliedAlpha;
 
 			if (stage->type == MaterialStageType::NormalMap || stage->type == MaterialStageType::NormalParallaxMap)
 			{
@@ -598,6 +755,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 					if (!noPicMip)
 						flags |= TextureFlags::Picmip;
+
+					if (usePremultipliedAlpha)
+						flags |= TextureFlags::PremultipliedAlpha;
 
 					stage->bundles[0].textures[num] = g_textureCache->findTexture(token, TextureType::ColorAlpha, flags);
 
@@ -675,51 +835,8 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 		// blendfunc <srcFactor> <dstFactor> or blendfunc <add|filter|blend>
 		else if (!Q_stricmp(token, "blendfunc"))
 		{
-			token = COM_ParseExt(text, qfalse);
-
-			if (token[0] == 0)
-			{
-				ri.Printf(PRINT_WARNING, "WARNING: missing parm for blendFunc in shader '%s'\n", name);
-				continue;
-			}
-
-			// check for "simple" blends first
-			if (!Q_stricmp(token, "add"))
-			{
-				stage->blendSrc = BGFX_STATE_BLEND_ONE;
-				stage->blendDst = BGFX_STATE_BLEND_ONE;
-			} 
-			else if (!Q_stricmp(token, "filter")) 
-			{
-				stage->blendSrc = BGFX_STATE_BLEND_DST_COLOR;
-				stage->blendDst = BGFX_STATE_BLEND_ZERO;
-			} 
-			else if (!Q_stricmp(token, "blend")) 
-			{
-				stage->blendSrc = BGFX_STATE_BLEND_SRC_ALPHA;
-				stage->blendDst = BGFX_STATE_BLEND_INV_SRC_ALPHA;
-			} 
-			else 
-			{
-				// complex double blends
-				stage->blendSrc = srcBlendModeFromName(token);
-
-				token = COM_ParseExt(text, qfalse);
-
-				if (token[0] == 0)
-				{
-					ri.Printf(PRINT_WARNING, "WARNING: missing parm for blendFunc in shader '%s'\n", name);
-					continue;
-				}
-
-				stage->blendDst = dstBlendModeFromName(token);
-			}
-
-			// clear depth write for blended surfaces
-			if (!depthWriteExplicit)
-			{
-				stage->depthWrite = false;
-			}
+			// Pre-parsed above.
+			SkipRestOfLine(text);
 		}
 		// stage <type>
 		else if (!Q_stricmp(token, "stage"))
@@ -966,66 +1083,8 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 		// alphaGen 
 		else if (!Q_stricmp(token, "alphaGen"))
 		{
-			token = COM_ParseExt(text, qfalse);
-
-			if (token[0] == 0)
-			{
-				ri.Printf(PRINT_WARNING, "WARNING: missing parameters for alphaGen in shader '%s'\n", name);
-			}
-			else if (!Q_stricmp(token, "wave"))
-			{
-				stage->alphaWave = parseWaveForm(text);
-				stage->alphaGen = MaterialAlphaGen::Waveform;
-			}
-			else if (!Q_stricmp(token, "const"))
-			{
-				token = COM_ParseExt(text, qfalse);
-				stage->constantColor[3] = 255 * atof(token);
-				stage->alphaGen = MaterialAlphaGen::Const;
-			}
-			else if (!Q_stricmp(token, "identity"))
-			{
-				stage->alphaGen = MaterialAlphaGen::Identity;
-			}
-			else if (!Q_stricmp(token, "entity"))
-			{
-				stage->alphaGen = MaterialAlphaGen::Entity;
-			}
-			else if (!Q_stricmp(token, "oneMinusEntity"))
-			{
-				stage->alphaGen = MaterialAlphaGen::OneMinusEntity;
-			}
-			else if (!Q_stricmp(token, "vertex"))
-			{
-				stage->alphaGen = MaterialAlphaGen::Vertex;
-			}
-			else if (!Q_stricmp(token, "lightingSpecular"))
-			{
-				stage->alphaGen = MaterialAlphaGen::LightingSpecular;
-			}
-			else if (!Q_stricmp(token, "oneMinusVertex"))
-			{
-				stage->alphaGen = MaterialAlphaGen::OneMinusVertex;
-			}
-			else if (!Q_stricmp(token, "portal"))
-			{
-				stage->alphaGen = MaterialAlphaGen::Portal;
-				token = COM_ParseExt(text, qfalse);
-
-				if (token[0] == 0)
-				{
-					ri.Printf(PRINT_WARNING, "WARNING: missing range parameter for alphaGen portal in shader '%s', defaulting to %g\n", name, portalRange);
-				}
-				else
-				{
-					portalRange = atof(token);
-				}
-			}
-			else
-			{
-				ri.Printf(PRINT_WARNING, "WARNING: unknown alphaGen parameter '%s' in shader '%s'\n", token, name);
-				continue;
-			}
+			// Pre-parsed above.
+			SkipRestOfLine(text);
 		}
 		// tcGen <function>
 		else if (!Q_stricmp(token, "texgen") || !Q_stricmp(token, "tcGen")) 
@@ -1087,8 +1146,8 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 		// depthmask
 		else if (!Q_stricmp(token, "depthwrite"))
 		{
-			stage->depthWrite = true;
-			depthWriteExplicit = true;
+			// Pre-parsed above.
+			SkipRestOfLine(text);
 		}
 		else
 		{

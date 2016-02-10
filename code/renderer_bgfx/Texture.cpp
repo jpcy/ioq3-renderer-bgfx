@@ -132,6 +132,11 @@ Texture *TextureCache::findTexture(const char *name, TextureType type, int flags
 		imageFlags |= Image::Flags::Picmip;
 	}
 
+	if (flags & TextureFlags::PremultipliedAlpha)
+	{
+		imageFlags |= Image::Flags::PremultipliedAlpha;
+	}
+
 	Image image(name, imageFlags);
 
 	if (!image.memory)

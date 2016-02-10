@@ -262,8 +262,9 @@ struct Image
 	{
 		enum
 		{
-			GenerateMipmaps = BIT(0),
-			Picmip          = BIT(1)
+			GenerateMipmaps    = BIT(0),
+			Picmip             = BIT(1),
+			PremultipliedAlpha = BIT(2)
 		};
 	};
 
@@ -1016,15 +1017,16 @@ struct TextureFlags
 {
 	enum
 	{
-		None           = 0x0000,
-		Mipmap         = 0x0001,
-		Picmip         = 0x0002,
-		Cubemap        = 0x0004,
-		NoCompression = 0x0010,
-		NoLightScale   = 0x0020,
-		ClampToEdge    = 0x0040,
-		SRGB           = 0x0080,
-		GenNormalMap   = 0x0100,
+		None               = BIT(0),
+		Mipmap             = BIT(1),
+		Picmip             = BIT(2),
+		Cubemap            = BIT(3),
+		NoCompression      = BIT(4),
+		NoLightScale       = BIT(5),
+		ClampToEdge        = BIT(6),
+		SRGB               = BIT(7),
+		GenNormalMap       = BIT(8),
+		PremultipliedAlpha = BIT(9)
 	};
 };
 
