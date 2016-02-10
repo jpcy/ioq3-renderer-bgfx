@@ -33,7 +33,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 namespace renderer {
 
-static vec3_t sky_clip[6] = 
+static vec3 sky_clip[6] = 
 {
 	{1,1,0},
 	{1,-1,0},
@@ -46,19 +46,18 @@ static vec3_t sky_clip[6] =
 static float	sky_mins[2][6], sky_maxs[2][6];
 static float	sky_min, sky_max;
 
-static vec3_t	s_skyPoints[SKY_SUBDIVISIONS+1][SKY_SUBDIVISIONS+1];
+static vec3	s_skyPoints[SKY_SUBDIVISIONS+1][SKY_SUBDIVISIONS+1];
 static float	s_skyTexCoords[SKY_SUBDIVISIONS+1][SKY_SUBDIVISIONS+1][2];
 
 static float s_cloudTexCoords[6][SKY_SUBDIVISIONS+1][SKY_SUBDIVISIONS+1][2];
 static float s_cloudTexP[6][SKY_SUBDIVISIONS+1][SKY_SUBDIVISIONS+1];
 
-static void AddSkyPolygon(int nump, vec3_t vecs) 
+static void AddSkyPolygon(int nump, vec3 *vecs) 
 {
 	int		i,j;
-	vec3_t	v, av;
+	vec3	av;
 	float	s, t, dv;
 	int		axis;
-	float	*vp;
 	// s = [0]/[2], t = [1]/[2]
 	static int	vec_to_st[6][3] =
 	{
@@ -76,10 +75,11 @@ static void AddSkyPolygon(int nump, vec3_t vecs)
 	};
 
 	// decide which face it maps to
-	VectorCopy (vec3_origin, v);
-	for (i=0, vp=vecs ; i<nump ; i++, vp+=3)
+	vec3 v;
+
+	for (i=0; i<nump ; i++)
 	{
-		VectorAdd (vp, v, v);
+		v += vecs[i];
 	}
 	av[0] = fabs(v[0]);
 	av[1] = fabs(v[1]);
@@ -107,25 +107,27 @@ static void AddSkyPolygon(int nump, vec3_t vecs)
 	}
 
 	// project new texture coords
-	for (i=0 ; i<nump ; i++, vecs+=3)
+	for (i=0 ; i<nump ; i++)
 	{
+		const vec3 &v = vecs[i];
+
 		j = vec_to_st[axis][2];
 		if (j > 0)
-			dv = vecs[j - 1];
+			dv = v[j - 1];
 		else
-			dv = -vecs[-j - 1];
+			dv = -v[-j - 1];
 		if (dv < 0.001)
 			continue;	// don't divide by zero
 		j = vec_to_st[axis][0];
 		if (j < 0)
-			s = -vecs[-j -1] / dv;
+			s = -v[-j -1] / dv;
 		else
-			s = vecs[j-1] / dv;
+			s = v[j-1] / dv;
 		j = vec_to_st[axis][1];
 		if (j < 0)
-			t = -vecs[-j -1] / dv;
+			t = -v[-j -1] / dv;
 		else
-			t = vecs[j-1] / dv;
+			t = v[j-1] / dv;
 
 		if (s < sky_mins[0][axis])
 			sky_mins[0][axis] = s;
@@ -138,15 +140,13 @@ static void AddSkyPolygon(int nump, vec3_t vecs)
 	}
 }
 
-static void ClipSkyPolygon(int nump, vec3_t vecs, int stage) 
+static void ClipSkyPolygon(int nump, vec3 *vecs, int stage) 
 {
-	float	*norm;
-	float	*v;
 	qboolean	front, back;
 	float	d, e;
 	float	dists[MAX_CLIP_VERTS];
 	int		sides[MAX_CLIP_VERTS];
-	vec3_t	newv[2][MAX_CLIP_VERTS];
+	vec3	newv[2][MAX_CLIP_VERTS];
 	int		newc[2];
 	int		i, j;
 
@@ -159,10 +159,10 @@ static void ClipSkyPolygon(int nump, vec3_t vecs, int stage)
 	}
 
 	front = back = qfalse;
-	norm = sky_clip[stage];
-	for (i=0, v = vecs ; i<nump ; i++, v+=3)
+
+	for (i=0; i<nump ; i++)
 	{
-		d = DotProduct (v, norm);
+		d = vec3::dotProduct(vecs[i], sky_clip[stage]);
 		if (d > ON_EPSILON)
 		{
 			front = qtrue;
@@ -187,25 +187,27 @@ static void ClipSkyPolygon(int nump, vec3_t vecs, int stage)
 	// clip it
 	sides[i] = sides[0];
 	dists[i] = dists[0];
-	VectorCopy (vecs, (vecs+(i*3)));
+	vecs[i] = vecs[0];
 	newc[0] = newc[1] = 0;
 
-	for (i=0, v = vecs ; i<nump ; i++, v+=3)
+	for (i=0; i<nump ; i++)
 	{
+		const vec3 &v = vecs[i];
+
 		switch (sides[i])
 		{
 		case SIDE_FRONT:
-			VectorCopy (v, newv[0][newc[0]]);
+			newv[0][newc[0]] = v;
 			newc[0]++;
 			break;
 		case SIDE_BACK:
-			VectorCopy (v, newv[1][newc[1]]);
+			newv[1][newc[1]] = v;
 			newc[1]++;
 			break;
 		case SIDE_ON:
-			VectorCopy (v, newv[0][newc[0]]);
+			newv[0][newc[0]] = v;
 			newc[0]++;
-			VectorCopy (v, newv[1][newc[1]]);
+			newv[1][newc[1]] = v;
 			newc[1]++;
 			break;
 		}
@@ -225,8 +227,8 @@ static void ClipSkyPolygon(int nump, vec3_t vecs, int stage)
 	}
 
 	// continue
-	ClipSkyPolygon(newc[0], newv[0][0], stage+1);
-	ClipSkyPolygon(newc[1], newv[1][0], stage+1);
+	ClipSkyPolygon(newc[0], &newv[0][0], stage+1);
+	ClipSkyPolygon(newc[1], &newv[1][0], stage+1);
 }
 
 /*
@@ -234,7 +236,7 @@ static void ClipSkyPolygon(int nump, vec3_t vecs, int stage)
 **
 ** Parms: s, t range from -1 to 1
 */
-static void MakeSkyVec(float zMax, float s, float t, int axis, float outSt[2], vec3_t outXYZ)
+static void MakeSkyVec(float zMax, float s, float t, int axis, float outSt[2], vec3 *outXYZ)
 {
 	// 1 = s, 2 = t, 3 = 2048
 	static int	st_to_vec[6][3] =
@@ -249,11 +251,11 @@ static void MakeSkyVec(float zMax, float s, float t, int axis, float outSt[2], v
 		{2,-1,-3}		// look straight down
 	};
 
-	vec3_t		b;
 	int			j, k;
 	float	boxSize;
 
 	boxSize = zMax / 1.75f;		// div sqrt(3)
+	vec3 b;
 	b[0] = s*boxSize;
 	b[1] = t*boxSize;
 	b[2] = boxSize;
@@ -263,11 +265,11 @@ static void MakeSkyVec(float zMax, float s, float t, int axis, float outSt[2], v
 		k = st_to_vec[axis][j];
 		if (k < 0)
 		{
-			outXYZ[j] = -b[-k - 1];
+			(*outXYZ)[j] = -b[-k - 1];
 		}
 		else
 		{
-			outXYZ[j] = b[k - 1];
+			(*outXYZ)[j] = b[k - 1];
 		}
 	}
 
@@ -352,7 +354,7 @@ static bool TessellateSkyBoxSide(int i, Vertex *vertices, uint16_t *indices, uin
 						( t - HALF_SKY_SUBDIVISIONS ) / ( float ) HALF_SKY_SUBDIVISIONS, 
 						i, 
 						s_skyTexCoords[t][s], 
-						s_skyPoints[t][s] );
+						&s_skyPoints[t][s]);
 		}
 	}
 
@@ -364,7 +366,7 @@ static bool TessellateSkyBoxSide(int i, Vertex *vertices, uint16_t *indices, uin
 		{
 			if (vertices)
 			{
-				vertices[currentVertex].pos = vec3(s_skyPoints[t][s]) + cameraPosition;
+				vertices[currentVertex].pos = s_skyPoints[t][s] + cameraPosition;
 				vertices[currentVertex].texCoord[0] = s_skyTexCoords[t][s][0];
 				vertices[currentVertex].texCoord[1] = s_skyTexCoords[t][s][1];
 			}
@@ -484,7 +486,7 @@ static void TessellateCloudBox(Vertex *vertices, uint16_t *indices, uint32_t *nV
 							(t - HALF_SKY_SUBDIVISIONS) / (float) HALF_SKY_SUBDIVISIONS, 
 							sideIndex, 
 							NULL,
-							s_skyPoints[t][s]);
+							&s_skyPoints[t][s]);
 
 				s_skyTexCoords[t][s][0] = s_cloudTexCoords[sideIndex][t][s][0];
 				s_skyTexCoords[t][s][1] = s_cloudTexCoords[sideIndex][t][s][1];
@@ -501,7 +503,7 @@ static void TessellateCloudBox(Vertex *vertices, uint16_t *indices, uint32_t *nV
 			{
 				if (vertices)
 				{
-					vertices[currentVertex].pos = vec3(s_skyPoints[t][s]) + cameraPosition;
+					vertices[currentVertex].pos = s_skyPoints[t][s] + cameraPosition;
 					vertices[currentVertex].texCoord[0] = s_skyTexCoords[t][s][0];
 					vertices[currentVertex].texCoord[1] = s_skyTexCoords[t][s][1];
 				}
@@ -542,8 +544,7 @@ void Sky_InitializeTexCoords(float heightCloud)
 	float radiusWorld = 4096;
 	float p;
 	float sRad, tRad;
-	vec3_t skyVec;
-	vec3_t v;
+	vec3 skyVec;
 
 	for (i = 0; i < 6; i++)
 	{
@@ -556,10 +557,10 @@ void Sky_InitializeTexCoords(float heightCloud)
 							(t - HALF_SKY_SUBDIVISIONS) / (float) HALF_SKY_SUBDIVISIONS, 
 							i, 
 							NULL,
-							skyVec);
+							&skyVec);
 
 				// compute parametric value 'p' that intersects with cloud layer
-				p = (1.0f / (2 * DotProduct(skyVec, skyVec))) *
+				p = (1.0f / (2 * vec3::dotProduct(skyVec, skyVec))) *
 					(-2 * skyVec[2] * radiusWorld + 
 					   2 * sqrt(SQR(skyVec[2]) * SQR(radiusWorld) + 
 					             2 * SQR(skyVec[0]) * radiusWorld * heightCloud +
@@ -572,11 +573,11 @@ void Sky_InitializeTexCoords(float heightCloud)
 				s_cloudTexP[i][t][s] = p;
 
 				// compute intersection point based on p
-				VectorScale(skyVec, p, v);
+				vec3 v = skyVec * p;
 				v[2] += radiusWorld;
 
 				// compute vector from world origin to intersection point 'v'
-				VectorNormalize(v);
+				v.normalize();
 
 				sRad = Q_acos(v[0]);
 				tRad = Q_acos(v[1]);
@@ -622,14 +623,14 @@ void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, uint8_t visCach
 		// Clip sky polygons.
 		for (size_t i = 0; i < vertices->size(); i += 3)
 		{
-			vec3_t p[5]; // need one extra point for clipping
+			vec3 p[5]; // need one extra point for clipping
 
 			for (size_t j = 0 ; j < 3 ; j++) 
 			{
-				VectorSubtract((*vertices)[i + j].pos, cameraPosition, p[j]);
+				p[j] = (*vertices)[i + j].pos - cameraPosition;
 			}
 
-			ClipSkyPolygon(3, p[0], 0);
+			ClipSkyPolygon(3, p, 0);
 		}
 
 		// Draw the skybox.
