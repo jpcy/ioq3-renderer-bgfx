@@ -462,13 +462,14 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			else if (!Q_stricmp(token, "$lightmap"))
 			{
 				stage->bundles[0].isLightmap = true;
-				stage->bundles[0].textures[0] = g_textureCache->getWhiteTexture();
+				const Texture *lightmap = world::IsLoaded() ? world::GetLightmap(lightmapIndex) : nullptr;
 
-				if (world::IsLoaded())
+				if (!lightmap)
 				{
-					auto lightmap = world::GetLightmap(lightmapIndex);
-					stage->bundles[0].textures[0] = lightmap ? lightmap : g_textureCache->getWhiteTexture();
+					lightmap = g_textureCache->getIdentityLightTexture();
 				}
+				
+				stage->bundles[0].textures[0] = lightmap;
 			}
 			else if (!Q_stricmp(token, "$deluxemap"))
 			{

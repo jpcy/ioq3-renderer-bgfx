@@ -1065,6 +1065,7 @@ public:
 	Texture *findTexture(const char *name, TextureType type = TextureType::ColorAlpha, int flags = TextureFlags::None);
 
 	const Texture *getDefaultTexture() const { return defaultTexture_; }
+	const Texture *getIdentityLightTexture() const { return identityLightTexture_; }
 	const Texture *getWhiteTexture() const { return whiteTexture_; }
 	std::array<Texture *, 32> &getScratchTextures() { return scratchTextures_; }
 
