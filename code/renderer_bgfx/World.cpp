@@ -50,7 +50,7 @@ struct CullInfo
 	Bounds bounds;
 	vec3 localOrigin;
 	float radius;
-	cplane_t plane;
+	Plane plane;
 };
 
 struct Surface
@@ -825,7 +825,7 @@ public:
 				{
 					for (j = 0; j < 3; j++)
 					{
-						clipPoints[0][j] = vertices_[surface->bufferIndex][tri[j]].pos + vec3(surface->cullinfo.plane.normal) * MARKER_OFFSET;
+						clipPoints[0][j] = vertices_[surface->bufferIndex][tri[j]].pos + surface->cullinfo.plane.normal * MARKER_OFFSET;
 					}
 
 					// add the fragments of this face
@@ -946,19 +946,18 @@ public:
 			return false;
 
 		// Calculate surface plane.
-		cplane_t plane;
+		Plane plane;
 
 		if (portalSurface->indices.size() >= 3)
 		{
 			const vec3 v1(vertices_[portalSurface->bufferIndex][portalSurface->indices[0]].pos);
 			const vec3 v2(vertices_[portalSurface->bufferIndex][portalSurface->indices[1]].pos);
 			const vec3 v3(vertices_[portalSurface->bufferIndex][portalSurface->indices[2]].pos);
-			VectorCopy(vec3::crossProduct(v3 - v1, v2 - v1).normal(), plane.normal);
-			plane.dist = vec3::dotProduct(v1, plane.normal);
+			plane.normal = vec3::crossProduct(v3 - v1, v2 - v1).normal();
+			plane.distance = vec3::dotProduct(v1, plane.normal);
 		}
 		else
 		{
-			Com_Memset(&plane, 0, sizeof(plane));
 			plane.normal[0] = 1;	
 		}
 
@@ -972,7 +971,7 @@ public:
 			
 			if (entity.e.reType == RT_PORTALSURFACE)
 			{
-				const float d = vec3::dotProduct(entity.e.origin, plane.normal) - plane.dist;
+				const float d = vec3::dotProduct(entity.e.origin, plane.normal) - plane.distance;
 
 				if (d > 64 || d < -64)
 					continue;
@@ -1007,7 +1006,7 @@ public:
 		// If the entity is just a mirror, don't use as a camera point.
 		if (*isMirror)
 		{
-			surfaceTransform.position = vec3(plane.normal) * plane.dist;
+			surfaceTransform.position = plane.normal * plane.distance;
 			cameraTransform.position = surfaceTransform.position;
 			cameraTransform.rotation[0] = -surfaceTransform.rotation[0];
 			cameraTransform.rotation[1] = surfaceTransform.rotation[1];
@@ -1016,7 +1015,7 @@ public:
 		else
 		{
 			// Project the origin onto the surface plane to get an origin point we can rotate around.
-			const float d = vec3::dotProduct(portalEntity->e.origin, plane.normal) - plane.dist;
+			const float d = vec3::dotProduct(portalEntity->e.origin, plane.normal) - plane.distance;
 			surfaceTransform.position = vec3(portalEntity->e.origin) + surfaceTransform.rotation[0] * -d;
 
 			// Now get the camera position and rotation.
@@ -1852,13 +1851,13 @@ private:
 				}
 
 				// take the plane information from the lightmap vector
-				for (int i = 0 ; i < 3 ; i++ ) {
-					s.cullinfo.plane.normal[i] = LittleFloat( fs.lightmapVecs[2][i] );
+				for (int i = 0; i < 3; i++)
+				{
+					s.cullinfo.plane.normal[i] = LittleFloat(fs.lightmapVecs[2][i]);
 				}
 
-				s.cullinfo.plane.dist = vec3::dotProduct(vertices[firstVertex].pos, s.cullinfo.plane.normal );
-				SetPlaneSignbits( &s.cullinfo.plane );
-				s.cullinfo.plane.type = PlaneTypeForNormal(s.cullinfo.plane.normal );
+				s.cullinfo.plane.distance = vec3::dotProduct(vertices[firstVertex].pos, s.cullinfo.plane.normal);
+				s.cullinfo.plane.setupFastBoundsTest();
 			}
 			else if (type == MST_TRIANGLE_SOUP)
 			{
@@ -2112,7 +2111,7 @@ private:
 			else if (surface->type == SurfaceType::Face)
 			{
 				// the face plane should go through the box
-				int s = BoxOnPlaneSide(&bounds.min[0], &bounds.max[0], &surface->cullinfo.plane);
+				int s = surface->cullinfo.plane.testBounds(bounds);
 
 				if (s == 1 || s == 2)
 				{
