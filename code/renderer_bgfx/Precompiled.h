@@ -891,7 +891,6 @@ struct Patch
 	Bounds cullBounds;
 	vec3			cullOrigin;
 	float			cullRadius;
-	cplane_t        cullPlane;
 
 	// indexes
 	int             numIndexes;

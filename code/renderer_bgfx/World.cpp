@@ -88,7 +88,7 @@ struct Node
 	Bounds bounds;
 
 	// node specific
-	cplane_t *plane;
+	Plane *plane;
 	Node *children[2];	
 
 	// leaf specific
@@ -1428,7 +1428,7 @@ private:
 	};
 
 	std::vector<MaterialDef> materials_;
-	std::vector<cplane_t> planes_;
+	std::vector<Plane> planes_;
 
 	struct ModelDef
 	{
@@ -1586,20 +1586,8 @@ private:
 
 		for (auto &p : planes_)
 		{
-			p.signbits = 0;
-		
-			for (size_t i = 0; i < 3; i++)
-			{
-				p.normal[i] = LittleFloat(filePlane->normal[i]);
-
-				if (p.normal[i] < 0)
-				{
-					p.signbits |= 1 << i;
-				}
-			}
-
-			p.dist = LittleFloat(filePlane->dist);
-			p.type = PlaneTypeForNormal(p.normal);
+			p = Plane(filePlane->normal, filePlane->dist);
+			p.setupFastBoundsTest();
 			filePlane++;
 		}
 
@@ -1633,27 +1621,27 @@ private:
 			// Brushes are always sorted with the axial sides first.
 			int sideNum = firstSide + 0;
 			int planeNum = LittleLong(fileBrushSides[sideNum].planeNum);
-			f.bounds[0][0] = -planes_[planeNum].dist;
+			f.bounds[0][0] = -planes_[planeNum].distance;
 
 			sideNum = firstSide + 1;
 			planeNum = LittleLong(fileBrushSides[sideNum].planeNum);
-			f.bounds[1][0] = planes_[planeNum].dist;
+			f.bounds[1][0] = planes_[planeNum].distance;
 
 			sideNum = firstSide + 2;
 			planeNum = LittleLong(fileBrushSides[sideNum].planeNum);
-			f.bounds[0][1] = -planes_[planeNum].dist;
+			f.bounds[0][1] = -planes_[planeNum].distance;
 
 			sideNum = firstSide + 3;
 			planeNum = LittleLong(fileBrushSides[sideNum].planeNum);
-			f.bounds[1][1] = planes_[planeNum].dist;
+			f.bounds[1][1] = planes_[planeNum].distance;
 
 			sideNum = firstSide + 4;
 			planeNum = LittleLong(fileBrushSides[sideNum].planeNum);
-			f.bounds[0][2] = -planes_[planeNum].dist;
+			f.bounds[0][2] = -planes_[planeNum].distance;
 
 			sideNum = firstSide + 5;
 			planeNum = LittleLong(fileBrushSides[sideNum].planeNum);
-			f.bounds[1][2] = planes_[planeNum].dist;
+			f.bounds[1][2] = planes_[planeNum].distance;
 
 			// Get information from the material for fog parameters.
 			auto material = g_materialCache->findMaterial(ff.shader, MaterialLightmapId::None, true);
@@ -1669,7 +1657,7 @@ private:
 			if (f.hasSurface)
 			{
 				planeNum = LittleLong(fileBrushSides[firstSide + sideNum].planeNum);
-				f.surface = vec4(-vec3(planes_[planeNum].normal), -planes_[planeNum].dist);
+				f.surface = vec4(-vec3(planes_[planeNum].normal), -planes_[planeNum].distance);
 			}
 		}
 
@@ -2078,7 +2066,7 @@ private:
 			if (node->leaf)
 				break;
 
-			const float d = vec3::dotProduct(pos, node->plane->normal) - node->plane->dist;
+			const float d = vec3::dotProduct(pos, node->plane->normal) - node->plane->distance;
 			node = d > 0 ? node->children[0] : node->children[1];
 		}
 	
@@ -2090,7 +2078,7 @@ private:
 		// do the tail recursion in a loop
 		while (!node->leaf)
 		{
-			int s = BoxOnPlaneSide(&bounds.min[0], &bounds.max[0], node->plane);
+			int s = node->plane->testBounds(bounds);
 
 			if (s == 1)
 			{

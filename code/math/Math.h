@@ -541,34 +541,49 @@ public:
 		On
 	};
 
+	enum class Type : uint8_t
+	{
+		AxialX,
+		AxialY,
+		AxialZ,
+		NonAxial
+	};
+
 	Plane();
 	Plane(float a, float b, float c, float d);
-	Plane(const vec3 &normal, const float distance);
+	Plane(vec3 normal, float distance);
 
 	float &operator[](size_t index)
 	{
 		assert(index >= 0 && index < 4);
-		return index == 3 ? distance_ : normal_[index];
+		return index == 3 ? distance : normal[index];
 	}
 
 	const float &operator[](size_t index) const
 	{
 		assert(index >= 0 && index < 4);
-		return index == 3 ? distance_ : normal_[index];
+		return index == 3 ? distance : normal[index];
 	}
 
-	vec3 getNormal() const;
-	float getDistance() const;
 	float calculateDistance(const vec3 &v) const;
 	Side calculateSide(const vec3 &v, const float epsilon = 0.001f) const;
 	Plane inverse() const;
 	void invert();
 
+	void setupFastBoundsTest();
+
+	// Returns 1, 2, or 1 + 2
+	int testBounds(Bounds bounds);
+
+	vec3 normal;
+	float distance;
+
 private:
 	void normalize();
 
-	vec3 normal_;
-	float distance_;
+	Type type_; // for fast side tests
+	uint8_t signBits_; // signx + (signy<<1) + (signz<<2), used as lookup during collision
+	uint8_t pad_[2];
 };
 
 class Frustum

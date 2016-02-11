@@ -46,43 +46,33 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 namespace math {
 
-Plane::Plane() : distance_(0)
+Plane::Plane() : distance(0), type_(Type::NonAxial), signBits_(0)
 {
 }
 
-Plane::Plane(float a, float b, float c, float d) : normal_(a, b, c), distance_(d)
+Plane::Plane(float a, float b, float c, float d) : normal(a, b, c), distance(d), type_(Type::NonAxial), signBits_(0)
 {
 	normalize();
 }
 
-Plane::Plane(const vec3 &normal, const float distance) : normal_(normal), distance_(distance)
+Plane::Plane(vec3 normal, float distance) : normal(normal), distance(distance), type_(Type::NonAxial), signBits_(0)
 {
-}
-
-vec3 Plane::getNormal() const
-{
-	return normal_;
-}
-
-float Plane::getDistance() const
-{
-	return distance_;
 }
 
 float Plane::calculateDistance(const vec3 &v) const
 {
-	return vec3::dotProduct(v, normal_) + distance_;
+	return vec3::dotProduct(v, normal) + distance;
 }
 
 Plane::Side Plane::calculateSide(const vec3 &v, const float epsilon) const
 {
-	const float distance = calculateDistance(v);
+	const float d = calculateDistance(v);
 
-	if (distance > epsilon)
+	if (d > epsilon)
 	{
 		return Front;
 	}
-	else if (distance < -epsilon)
+	else if (d < -epsilon)
 	{
 		return Back;
 	}
@@ -92,23 +82,82 @@ Plane::Side Plane::calculateSide(const vec3 &v, const float epsilon) const
 
 Plane Plane::inverse() const
 {
-	return Plane(normal_.inverse(), -distance_);
+	return Plane(normal.inverse(), -distance);
 }
 
 void Plane::invert()
 {
-	normal_.invert();
+	normal.invert();
+}
+
+void Plane::setupFastBoundsTest()
+{
+	if (normal.x == 1.0f)
+		type_ = Type::AxialX;
+	else if (normal.y == 1.0f)
+		type_ = Type::AxialY;
+	else if (normal.z == 1.0f)
+		type_ = Type::AxialZ;
+	else
+		type_ = Type::NonAxial;
+
+	signBits_ = 0;
+
+	for (int i = 0; i < 3; i++)
+	{
+		if (normal[i] < 0)
+		{
+			signBits_ |= 1 << i;
+		}
+	}
+}
+
+int Plane::testBounds(Bounds bounds)
+{
+	// Fast axial cases.
+	if (type_ != Type::NonAxial)
+	{
+		if (distance <= bounds.min[(uint8_t)type_])
+			return 1;
+		if (distance >= bounds.max[(uint8_t)type_])
+			return 2;
+
+		return 3;
+	}
+
+	// General case.
+	float dist[2];
+	dist[0] = dist[1] = 0;
+
+	if (signBits_ < 8) // >= 8: default case is original code (dist[0]=dist[1]=0)
+	{
+		for (int i = 0; i < 3; i++)
+		{
+			const int b = (signBits_ >> i) & 1;
+			dist[b] += normal[i] * bounds.max[i];
+			dist[!b] += normal[i] * bounds.min[i];
+		}
+	}
+
+	int sides = 0;
+
+	if (dist[0] >= distance)
+		sides = 1;
+	if (dist[1] < distance)
+		sides |= 2;
+
+	return sides;
 }
 
 void Plane::normalize()
 {
-	const float length = normal_.length();
+	const float length = normal.length();
 
 	if (length > 0)
 	{
 		const float ilength = 1.0f / length;
-		normal_ *= ilength;
-		distance_ *= ilength;
+		normal *= ilength;
+		distance *= ilength;
 	}
 }
 
