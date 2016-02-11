@@ -1307,6 +1307,7 @@ namespace world
 	bool GetEntityToken(char *buffer, int size);
 	bool HasLightGrid();
 	void SampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
+	bool InPvs(vec3 position1, vec3 position2);
 	int FindFogIndex(vec3 position, float radius);
 	int FindFogIndex(const Bounds &bounds);
 	void CalculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMatrix, vec3 cameraPosition, vec3 localViewPosition, const mat3 &cameraRotation, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT);

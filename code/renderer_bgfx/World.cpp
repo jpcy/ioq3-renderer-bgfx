@@ -613,6 +613,14 @@ public:
 		lightDir->normalizeFast();
 	}
 
+	bool inPvs(vec3 position1, vec3 position2)
+	{
+		Node *leaf = leafFromPosition(position1);
+		byte *vis = ri.CM_ClusterPVS(leaf->cluster);
+		leaf = leafFromPosition(position2);
+		return ((vis[leaf->cluster >> 3] & (1 << (leaf->cluster & 7))) != 0);
+	}
+
 	int findFogIndex(vec3 position, float radius) const
 	{
 		for (int i = 0; i < fogs_.size(); i++)
@@ -2216,6 +2224,12 @@ void SampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec
 {
 	assert(IsLoaded());
 	s_world->sampleLightGrid(position, ambientLight, directedLight, lightDir);
+}
+
+bool InPvs(vec3 position1, vec3 position2)
+{
+	assert(IsLoaded());
+	return s_world->inPvs(position1, position2);
 }
 
 int FindFogIndex(vec3 position, float radius)

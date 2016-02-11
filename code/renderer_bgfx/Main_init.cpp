@@ -826,17 +826,18 @@ static void RE_RemapShader(const char *oldShader, const char *newShader, const c
 
 static qboolean RE_GetEntityToken(char *buffer, int size)
 {
-	if (world::IsLoaded())
-	{
-		return world::GetEntityToken(buffer, size) ? qtrue : qfalse;
-	}
+	if (world::IsLoaded() && world::GetEntityToken(buffer, size))
+		return qtrue;
 
 	return qfalse;
 }
 
 static qboolean RE_inPVS( const vec3_t p1, const vec3_t p2)
 {
-	return qtrue;
+	if (world::IsLoaded() && world::InPvs(p1, p2))
+		return qtrue;
+
+	return qfalse;
 }
 
 static void RE_TakeVideoFrame( int h, int w, byte* captureBuffer, byte *encodeBuffer, qboolean motionJpeg)
