@@ -52,7 +52,7 @@ VideoMode r_vidModes[] =
 	{ "Mode 11: 856x480 (wide)",856,	480,	1 }
 };
 
-static int s_numVidModes = ARRAY_LEN(r_vidModes);
+static int s_numVidModes = BX_COUNTOF(r_vidModes);
 
 enum class SetModeResult
 {
@@ -133,7 +133,7 @@ static SetModeResult SetMode(bool gl, int mode, bool fullscreen, bool noborder)
 	}
 	else
 	{
-		Com_Memset(&desktopMode, 0, sizeof(SDL_DisplayMode));
+		memset(&desktopMode, 0, sizeof(SDL_DisplayMode));
 		ri.Printf(PRINT_ALL, "Cannot determine display aspect, assuming 1.333\n");
 	}
 
@@ -271,7 +271,7 @@ void Window_Initialize(bool gl)
 {
 	if (ri.Cvar_VariableIntegerValue("com_abnormalExit"))
 	{
-		ri.Cvar_Set("r_mode", va("%d", R_MODE_FALLBACK));
+		ri.Cvar_Set("r_mode", util::VarArgs("%d", R_MODE_FALLBACK));
 		ri.Cvar_Set("r_fullscreen", "0");
 		ri.Cvar_Set("r_centerWindow", "0");
 		ri.Cvar_Set("com_abnormalExit", "0");

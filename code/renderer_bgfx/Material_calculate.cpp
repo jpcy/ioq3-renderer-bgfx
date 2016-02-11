@@ -22,11 +22,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Precompiled.h"
 #pragma hdrstop
 
-extern "C"
-{
-	float R_NoiseGet4f(float x, float y, float z, float t);
-}
-
 #define	WAVEVALUE(table, base, amplitude, phase, freq) ((base) + table[ri.ftol((((phase) + material->time_ * (freq)) * g_funcTableSize)) & g_funcTableMask] * (amplitude))
 
 namespace renderer {
@@ -350,7 +345,7 @@ float MaterialStage::calculateWaveColorSingle(const MaterialWaveForm &wf) const
 
 	if (wf.func == MaterialWaveformGenFunc::Noise)
 	{
-		glow = wf.base + R_NoiseGet4f(0, 0, 0, (material->time_ + wf.phase ) * wf.frequency ) * wf.amplitude;
+		glow = wf.base + main::GetNoise(0, 0, 0, (material->time_ + wf.phase ) * wf.frequency ) * wf.amplitude;
 	}
 	else
 	{

@@ -47,7 +47,7 @@ Model *ModelCache::findModel(const char *name)
 
 	for (auto m = hashTable_[hash]; m; m = m->next_)
 	{
-		if (!Q_stricmp(m->name_, name))
+		if (!util::Stricmp(m->name_, name))
 		{
 			// match found
 			return m;

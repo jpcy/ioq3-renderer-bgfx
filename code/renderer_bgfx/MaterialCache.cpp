@@ -123,7 +123,7 @@ static const char *CommaParse(char **data_p)
 
 Skin::Skin(const char *name, qhandle_t handle)
 {
-	Q_strncpyz(name_, name, sizeof(name_));
+	util::Strncpyz(name_, name, sizeof(name_));
 	handle_ = handle;
 	nSurfaces_ = 0;
 
@@ -150,13 +150,13 @@ Skin::Skin(const char *name, qhandle_t handle)
 
 		// Get surface name.
 		auto token = CommaParse(&text_p);
-		Q_strncpyz(surface.name, token, sizeof(surface.name));
+		util::Strncpyz(surface.name, token, sizeof(surface.name));
 
 		if (!token[0])
 			break;
 
 		// Lowercase the surface name so skin compares are faster.
-		Q_strlwr(surface.name);
+		util::ToLowerCase(surface.name);
 
 		if (*text_p == ',')
 			text_p++;
@@ -180,7 +180,7 @@ Skin::Skin(const char *name, qhandle_t handle)
 
 Skin::Skin(const char *name, qhandle_t handle, Material *material)
 {
-	Q_strncpyz(name_, name, sizeof(name_));
+	util::Strncpyz(name_, name, sizeof(name_));
 	handle_ = handle;
 	nSurfaces_ = 1;
 	surfaces_[0].name[0] = 0;
@@ -232,7 +232,7 @@ Material *MaterialCache::findMaterial(const char *name, int lightmapIndex, bool 
 		return defaultMaterial_;
 
 	char strippedName[MAX_QPATH];
-	COM_StripExtension(name, strippedName, sizeof(strippedName));
+	util::StripExtension(name, strippedName, sizeof(strippedName));
 	auto hash = generateHash(strippedName, hashTableSize_);
 
 	// see if the shader is already loaded
@@ -242,7 +242,7 @@ Material *MaterialCache::findMaterial(const char *name, int lightmapIndex, bool 
 		// then a default shader is created with lightmapIndex == MaterialLightmapId::None, so we
 		// have to check all default shaders otherwise for every call to findMaterial
 		// with that same strippedName a new default shader is created.
-		if ((m->lightmapIndex == lightmapIndex || m->defaultShader) && !Q_stricmp(m->name, strippedName))
+		if ((m->lightmapIndex == lightmapIndex || m->defaultShader) && !util::Stricmp(m->name, strippedName))
 		{
 			// match found
 			return m;
@@ -370,12 +370,12 @@ void MaterialCache::remapMaterial(const char *oldName, const char *newName, cons
 
 	// Remap all the materials with the given name, even though they might have different lightmaps.
 	char strippedName[MAX_QPATH];
-	COM_StripExtension(oldName, strippedName, sizeof(strippedName));
+	util::StripExtension(oldName, strippedName, sizeof(strippedName));
 	auto hash = generateHash(strippedName, hashTableSize_);
 
 	for (auto m = hashTable_[hash]; m; m = m->next)
 	{
-		if (Q_stricmp(m->name, strippedName) == 0)
+		if (util::Stricmp(m->name, strippedName) == 0)
 		{
 			if (m != materials[1])
 			{
@@ -411,7 +411,7 @@ Skin *MaterialCache::findSkin(const char *name)
 	// See if the skin is already loaded.
 	for (auto &skin : skins_)
 	{
-		if (!Q_stricmp(skin->getName(), name))
+		if (!util::Stricmp(skin->getName(), name))
 		{
 			if (!skin->hasSurfaces())
 				return nullptr;
@@ -472,7 +472,7 @@ void MaterialCache::scanAndLoadShaderFiles()
 		return;
 	}
 
-	numShaderFiles = MIN(numShaderFiles, maxShaderFiles_);
+	numShaderFiles = std::min(numShaderFiles, (int)maxShaderFiles_);
 
 	// load and parse shader files
 	char *buffers[maxShaderFiles_] = {NULL};
@@ -484,7 +484,7 @@ void MaterialCache::scanAndLoadShaderFiles()
 
 		// look for a .mtr file first
 		{
-			Com_sprintf(filename, sizeof(filename), "scripts/%s", shaderFiles[i]);
+			util::Sprintf(filename, sizeof(filename), "scripts/%s", shaderFiles[i]);
 
 			char *ext;
 
@@ -495,7 +495,7 @@ void MaterialCache::scanAndLoadShaderFiles()
 
 			if (ri.FS_ReadFile(filename, NULL) <= 0)
 			{
-				Com_sprintf(filename, sizeof(filename), "scripts/%s", shaderFiles[i]);
+				util::Sprintf(filename, sizeof(filename), "scripts/%s", shaderFiles[i]);
 			}
 		}
 		
@@ -507,20 +507,20 @@ void MaterialCache::scanAndLoadShaderFiles()
 		
 		// Do a simple check on the shader structure in that file to make sure one bad shader file cannot fuck up all other shaders.
 		char *p = buffers[i];
-		COM_BeginParseSession(filename);
+		util::BeginParseSession(filename);
 
 		while(1)
 		{
-			auto token = COM_ParseExt(&p, qtrue);
+			auto token = util::Parse(&p, true);
 			
 			if (!*token)
 				break;
 
 			char shaderName[MAX_QPATH];
-			Q_strncpyz(shaderName, token, sizeof(shaderName));
-			int shaderLine = COM_GetCurrentParseLine();
+			util::Strncpyz(shaderName, token, sizeof(shaderName));
+			int shaderLine = util::GetCurrentParseLine();
 
-			token = COM_ParseExt(&p, qtrue);
+			token = util::Parse(&p, true);
 
 			if (token[0] != '{' || token[1] != '\0')
 			{
@@ -528,7 +528,7 @@ void MaterialCache::scanAndLoadShaderFiles()
 
 				if (token[0])
 				{
-					ri.Printf(PRINT_WARNING, " (found \"%s\" on line %d)", token, COM_GetCurrentParseLine());
+					ri.Printf(PRINT_WARNING, " (found \"%s\" on line %d)", token, util::GetCurrentParseLine());
 				}
 
 				ri.Printf(PRINT_WARNING, ".\n");
@@ -537,7 +537,7 @@ void MaterialCache::scanAndLoadShaderFiles()
 				break;
 			}
 
-			if (!SkipBracedSection(&p, 1))
+			if (!util::SkipBracedSection(&p, 1))
 			{
 				ri.Printf(PRINT_WARNING, "WARNING: Ignoring shader file %s. Shader \"%s\" on line %d missing closing brace.\n", filename, shaderName, shaderLine);
 				ri.FS_FreeFile(buffers[i]);
@@ -567,20 +567,20 @@ void MaterialCache::scanAndLoadShaderFiles()
 		ri.FS_FreeFile(buffers[i]);
 	}
 
-	COM_Compress(s_shaderText);
+	util::Compress(s_shaderText);
 
 	// free up memory
 	ri.FS_FreeFileList(shaderFiles);
 
 	// look for shader names
 	int textHashTable_Sizes[textHashTableSize_];
-	Com_Memset(textHashTable_Sizes, 0, sizeof(textHashTable_Sizes));
+	memset(textHashTable_Sizes, 0, sizeof(textHashTable_Sizes));
 	int size = 0;
 	char *p = s_shaderText;
 
 	while (1)
 	{
-		auto token = COM_ParseExt(&p, qtrue);
+		auto token = util::Parse(&p, true);
 
 		if (token[0] == 0)
 			break;
@@ -588,7 +588,7 @@ void MaterialCache::scanAndLoadShaderFiles()
 		auto hash = generateHash(token, textHashTableSize_);
 		textHashTable_Sizes[hash]++;
 		size++;
-		SkipBracedSection(&p, 0);
+		util::SkipBracedSection(&p, 0);
 	}
 
 	size += textHashTableSize_;
@@ -601,20 +601,20 @@ void MaterialCache::scanAndLoadShaderFiles()
 	}
 
 	// look for shader names
-	Com_Memset(textHashTable_Sizes, 0, sizeof(textHashTable_Sizes));
+	memset(textHashTable_Sizes, 0, sizeof(textHashTable_Sizes));
 	p = s_shaderText;
 
 	while (1)
 	{
 		char *oldp = p;
-		auto token = COM_ParseExt(&p, qtrue);
+		auto token = util::Parse(&p, true);
 
 		if (token[0] == 0)
 			break;
 
 		auto hash = generateHash(token, textHashTableSize_);
 		textHashTable_[hash][textHashTable_Sizes[hash]++] = oldp;
-		SkipBracedSection(&p, 0);
+		util::SkipBracedSection(&p, 0);
 	}
 }
 
@@ -631,9 +631,9 @@ char *MaterialCache::findShaderInShaderText(const char *name)
 		for (size_t i = 0; textHashTable_[hash][i]; i++)
 		{
 			auto p = textHashTable_[hash][i];
-			auto token = COM_ParseExt(&p, qtrue);
+			auto token = util::Parse(&p, true);
 		
-			if (!Q_stricmp(token, name))
+			if (!util::Stricmp(token, name))
 				return p;
 		}
 	}
@@ -646,16 +646,16 @@ char *MaterialCache::findShaderInShaderText(const char *name)
 	// look for label
 	for (;;)
 	{
-		auto token = COM_ParseExt(&p, qtrue);
+		auto token = util::Parse(&p, true);
 
 		if (token[0] == 0)
 			break;
 
-		if (!Q_stricmp(token, name))
+		if (!util::Stricmp(token, name))
 			return p;
 		
 		// skip the definition
-		SkipBracedSection(&p, 0);
+		util::SkipBracedSection(&p, 0);
 	}
 
 	return NULL;

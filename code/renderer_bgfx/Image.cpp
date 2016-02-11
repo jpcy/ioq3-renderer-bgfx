@@ -174,7 +174,7 @@ Image::Image(const char *filename, int flags)
 	memory = nullptr;
 
 	// Calculate the filename extension to determine which image handler to try first.
-	auto extension = COM_GetExtension(filename);
+	auto extension = util::GetExtension(filename);
 
 	// Try the image handler that corresponds to the filename extension.
 	const ImageHandler *triedHandler = nullptr;
@@ -183,7 +183,7 @@ Image::Image(const char *filename, int flags)
 	{
 		const auto handler = &imageHandlers[i];
 
-		if (!Q_stricmp(handler->extension, extension))
+		if (!util::Stricmp(handler->extension, extension))
 		{
 			triedHandler = handler;
 			ReadOnlyFile file(filename);
@@ -213,8 +213,8 @@ Image::Image(const char *filename, int flags)
 		if (handler == triedHandler)
 			continue;
 
-		COM_StripExtension(filename, newFilename, sizeof(newFilename));
-		Q_strcat(newFilename, sizeof(newFilename), va(".%s", handler->extension));
+		util::StripExtension(filename, newFilename, sizeof(newFilename));
+		util::Strcat(newFilename, sizeof(newFilename), util::VarArgs(".%s", handler->extension));
 
 		ReadOnlyFile file(newFilename);
 

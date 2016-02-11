@@ -35,16 +35,7 @@ extern "C"
 #include <SDL_syswm.h>
 #endif
 #undef main
-
-#include "../qcommon/q_shared.h"
-#include "../qcommon/qfiles.h"
-#include "../qcommon/qcommon.h"
-#include "../renderercommon/tr_public.h"
-#undef MAX_DLIGHTS
 }
-
-#include "../math/Math.h"
-using namespace math;
 
 #include "bgfx/bgfx.h"
 #include "bgfx/bgfxplatform.h"
@@ -52,6 +43,9 @@ using namespace math;
 #include "bx/fpumath.h"
 #include "bx/string.h"
 
+#include "../math/Math.h"
+using namespace math;
+#include "Interface.h"
 #include "../../shaders/SharedDefines.sh"
 
 #undef major
@@ -286,6 +280,7 @@ namespace main
 {
 	const Entity *GetCurrentEntity();
 	float GetFloatTime();
+	float GetNoise(float x, float y, float z, float t);
 	bool IsMirrorCamera();
 	void SetSunLight(const SunLight &sunLight);
 
@@ -1248,6 +1243,58 @@ struct Uniforms_MaterialStage
 	Uniform_vec4 portalRange = "u_PortalRange";
 	/// @}
 };
+
+namespace util
+{
+	/// @name Parsing
+	/// @{
+
+	void BeginParseSession(const char *name);
+	int GetCurrentParseLine();
+
+	/*
+	Parse a token out of a string
+	Will never return NULL, just empty strings
+
+	If "allowLineBreaks" is qtrue then an empty
+	string will be returned if the next token is
+	a newline.
+	*/
+	char *Parse(char **data_p, bool allowLineBreaks);
+
+	/*
+	The next token should be an open brace or set depth to 1 if already parsed it.
+	Skips until a matching close brace is found.
+	Internal brace depths are properly skipped.
+	*/
+	bool SkipBracedSection(char **program, int depth);
+
+	void SkipRestOfLine(char **data);
+	int Compress(char *data_p);
+
+	/// @}
+
+	char *SkipPath(char *pathname);
+	const char *GetExtension(const char *name);
+	void StripExtension(const char *in, char *out, int destsize);
+
+	int Sprintf(char *dest, int size, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
+
+	// portable case insensitive compare
+	int Stricmp(const char *s1, const char *s2);
+	int Stricmpn(const char *s1, const char *s2, int n);
+
+	// buffer size safe library replacements
+	void Strncpyz(char *dest, const char *src, int destsize); // Safe strncpy that ensures a trailing zero
+	void Strcat(char *dest, int size, const char *src); // never goes past bounds or leaves without a terminating 0
+
+	char *ToLowerCase(char *s1);
+
+	// does a varargs printf into a temp buffer, so I don't need to have varargs versions of all text functions.
+	char *VarArgs(char *format, ...) __attribute__((format(printf, 1, 2)));
+
+	int Vsnprintf(char *str, size_t size, const char *format, va_list ap);
+}
 
 struct Vertex
 {

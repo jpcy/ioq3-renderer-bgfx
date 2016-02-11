@@ -288,7 +288,7 @@ static void InvertErrorTable( float errorTable[2][MAX_GRID_SIZE], int width, int
 	int		i;
 	float	copy[2][MAX_GRID_SIZE];
 
-	Com_Memcpy( copy, errorTable, sizeof( copy ) );
+	memcpy( copy, errorTable, sizeof( copy ) );
 
 	for ( i = 0 ; i < width ; i++ ) {
 		errorTable[1][i] = copy[0][i];	//[width-1-i];
@@ -345,33 +345,33 @@ Patch *R_CreateSurfaceGridMesh(int width, int height,
 
 #ifdef PATCH_STITCHING
 	grid = /*ri.Hunk_Alloc*/ (Patch *)malloc(size);
-	Com_Memset(grid, 0, size);
+	memset(grid, 0, size);
 
 	grid->widthLodError = /*ri.Hunk_Alloc*/ (float *)malloc(width * 4 );
-	Com_Memcpy( grid->widthLodError, errorTable[0], width * 4 );
+	memcpy( grid->widthLodError, errorTable[0], width * 4 );
 
 	grid->heightLodError = /*ri.Hunk_Alloc*/ (float *)malloc(height * 4 );
-	Com_Memcpy( grid->heightLodError, errorTable[1], height * 4 );
+	memcpy( grid->heightLodError, errorTable[1], height * 4 );
 
 	grid->numIndexes = numIndexes;
 	grid->indexes = (uint16_t *)malloc(grid->numIndexes * sizeof(uint16_t));
-	Com_Memcpy(grid->indexes, indexes, numIndexes * sizeof(uint16_t));
+	memcpy(grid->indexes, indexes, numIndexes * sizeof(uint16_t));
 
 	grid->numVerts = (width * height);
 	grid->verts = (Vertex *)malloc(grid->numVerts * sizeof(Vertex));
 #else
 	grid = ri.Hunk_Alloc( size );
-	Com_Memset(grid, 0, size);
+	memset(grid, 0, size);
 
 	grid->widthLodError = ri.Hunk_Alloc( width * 4 );
-	Com_Memcpy( grid->widthLodError, errorTable[0], width * 4 );
+	memcpy( grid->widthLodError, errorTable[0], width * 4 );
 
 	grid->heightLodError = ri.Hunk_Alloc( height * 4 );
-	Com_Memcpy( grid->heightLodError, errorTable[1], height * 4 );
+	memcpy( grid->heightLodError, errorTable[1], height * 4 );
 
 	grid->numIndexes = numIndexes;
 	grid->indexes = ri.Hunk_Alloc(grid->numIndexes * sizeof(uint16_t), h_low);
-	Com_Memcpy(grid->indexes, indexes, numIndexes * sizeof(uint16_t));
+	memcpy(grid->indexes, indexes, numIndexes * sizeof(uint16_t));
 
 	grid->numVerts = (width * height);
 	grid->verts = ri.Hunk_Alloc(grid->numVerts * sizeof(Vertex), h_low);

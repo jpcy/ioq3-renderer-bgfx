@@ -579,8 +579,8 @@ void Sky_InitializeTexCoords(float heightCloud)
 				// compute vector from world origin to intersection point 'v'
 				v.normalize();
 
-				sRad = Q_acos(v[0]);
-				tRad = Q_acos(v[1]);
+				sRad = ArcCos(v[0]);
+				tRad = ArcCos(v[1]);
 
 				s_cloudTexCoords[i][t][s][0] = sRad;
 				s_cloudTexCoords[i][t][s][1] = tRad;
@@ -641,7 +641,7 @@ void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, uint8_t visCach
 				uint32_t nVertices, nIndices;
 				sky_min = 0;
 				sky_max = 1;
-				Com_Memset( s_skyTexCoords, 0, sizeof( s_skyTexCoords ) );
+				memset( s_skyTexCoords, 0, sizeof( s_skyTexCoords ) );
 
 				if (!TessellateSkyBoxSide(i, nullptr, nullptr, &nVertices, &nIndices, cameraPosition, zMax))
 					continue;
@@ -656,7 +656,7 @@ void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, uint8_t visCach
 
 				sky_min = 0;
 				sky_max = 1;
-				Com_Memset( s_skyTexCoords, 0, sizeof( s_skyTexCoords ) );
+				memset( s_skyTexCoords, 0, sizeof( s_skyTexCoords ) );
 				TessellateSkyBoxSide(i, (Vertex *)dc.vb.transientHandle.data, (uint16_t *)dc.ib.transientHandle.data, nullptr, nullptr, cameraPosition, zMax);
 				dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 				dc.vb.nVertices = nVertices;

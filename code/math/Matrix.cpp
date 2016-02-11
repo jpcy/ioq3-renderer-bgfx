@@ -72,11 +72,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "Math.h"
 
-extern "C"
-{
-	#include "../qcommon/q_shared.h"
-}
-
 namespace math {
 
 const mat3 mat3::identity;

@@ -22,11 +22,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #include "Math.h"
 
-extern "C"
-{
-	#include "../qcommon/q_shared.h"
-}
-
 namespace math {
 
 const vec2 vec2::empty;
@@ -258,6 +253,28 @@ vec3 vec3::rotated(const vec3 &direction, float degrees) const
 	return dst;
 }
 
+static void MatrixMultiply(float in1[3][3], float in2[3][3], float out[3][3])
+{
+	out[0][0] = in1[0][0] * in2[0][0] + in1[0][1] * in2[1][0] +
+		in1[0][2] * in2[2][0];
+	out[0][1] = in1[0][0] * in2[0][1] + in1[0][1] * in2[1][1] +
+		in1[0][2] * in2[2][1];
+	out[0][2] = in1[0][0] * in2[0][2] + in1[0][1] * in2[1][2] +
+		in1[0][2] * in2[2][2];
+	out[1][0] = in1[1][0] * in2[0][0] + in1[1][1] * in2[1][0] +
+		in1[1][2] * in2[2][0];
+	out[1][1] = in1[1][0] * in2[0][1] + in1[1][1] * in2[1][1] +
+		in1[1][2] * in2[2][1];
+	out[1][2] = in1[1][0] * in2[0][2] + in1[1][1] * in2[1][2] +
+		in1[1][2] * in2[2][2];
+	out[2][0] = in1[2][0] * in2[0][0] + in1[2][1] * in2[1][0] +
+		in1[2][2] * in2[2][0];
+	out[2][1] = in1[2][0] * in2[0][1] + in1[2][1] * in2[1][1] +
+		in1[2][2] * in2[2][1];
+	out[2][2] = in1[2][0] * in2[0][2] + in1[2][1] * in2[1][2] +
+		in1[2][2] * in2[2][2];
+}
+
 // This is not implemented very well...
 vec3 vec3::rotatedAroundDirection(vec3 direction, float degrees) const
 {
@@ -366,7 +383,7 @@ float vec3::normalize()
 // that length != 0, nor does it return length, uses rsqrt approximation
 void vec3::normalizeFast()
 {
-	const float ilength = Q_rsqrt(vec3::dotProduct(*this, *this));
+	const float ilength = ReciprocalSqrt(vec3::dotProduct(*this, *this));
 	x *= ilength;
 	y *= ilength;
 	z *= ilength;

@@ -23,10 +23,18 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <assert.h>
 #include <math.h>
 #include <stdint.h>
+#include <string.h>
 #include <array>
 
 #undef min
 #undef max
+
+#ifndef M_PI
+#define M_PI		3.14159265358979323846f	// matches value in gcc v2 math.h
+#endif
+
+#define DEG2RAD( a ) ( ( (a) * M_PI ) / 180.0F )
+#define RAD2DEG( a ) ( ( (a) * 180.0f ) / M_PI )
 
 // angle indexes
 #define	PITCH 0 // up / down
@@ -51,6 +59,26 @@ inline float AngleSubtract(float a1, float a2)
 	return a;
 }
 
+/*
+the msvc acos doesn't always return a value between -PI and PI:
+
+int i;
+i = 1065353246;
+acos(*(float*) &i) == -1.#IND0
+*/
+inline float ArcCos(float c)
+{
+	float angle = acos(c);
+
+	if (angle > M_PI)
+		return (float)M_PI;
+
+	if (angle < -M_PI)
+		return (float)M_PI;
+
+	return angle;
+}
+
 template<class T>
 inline T Clamped(T value, const T &lowerClamp, const T &upperClamp)
 {
@@ -71,6 +99,28 @@ inline bool IsPowerOfTwo(T x)
 inline float Lerp(float from, float to, float fraction)
 {
 	return from + (to - from) * fraction;
+}
+
+typedef union {
+	float f;
+	int i;
+	unsigned int ui;
+} floatint_t;
+
+inline float ReciprocalSqrt(float number)
+{
+	floatint_t t;
+	float x2, y;
+	const float threehalfs = 1.5F;
+
+	x2 = number * 0.5F;
+	t.f = number;
+	t.i = 0x5f3759df - (t.i >> 1);               // what the fuck?
+	y = t.f;
+	y = y * (threehalfs - (x2 * y * y));   // 1st iteration
+										   //	y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
+
+	return y;
 }
 
 inline int Sign(float value, float epsilon = 0.001f)

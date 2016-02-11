@@ -37,6 +37,7 @@ public:
 	const Entity *getCurrentEntity() const { return currentEntity_; }
 	float getFloatTime() const { return floatTime_; }
 	int getFrameNo() const { return frameNo_; }
+	float getNoise(float x, float y, float z, float t) const;
 	int getTime() const { return time_; }
 	bool isMirrorCamera() const { return isMirrorCamera_; }
 
@@ -200,6 +201,13 @@ private:
 	Model *bfgMissibleModel_ = nullptr;
 	Material *plasmaBallMaterial_ = nullptr;
 	Material *plasmaExplosionMaterial_ = nullptr;
+	/// @}
+
+	/// @name Noise
+	/// @{
+	static const int noiseSize_ = 256;
+	float noiseTable_[noiseSize_];
+	int noisePerm_[noiseSize_];
 	/// @}
 
 	/// @name Resource caches

@@ -25,35 +25,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "../../build/Shaders.h"
 #include "Main.h"
 
-extern "C"
-{
-	void R_NoiseInit();
-}
-
-void QDECL Com_Printf(const char *msg, ...)
-{
-	va_list argptr;
-	char text[1024];
-
-	va_start(argptr, msg);
-	Q_vsnprintf(text, sizeof(text), msg, argptr);
-	va_end(argptr);
-
-	renderer::ri.Printf(PRINT_ALL, "%s", text);
-}
-
-void QDECL Com_Error(int level, const char *error, ...)
-{
-	va_list argptr;
-	char text[1024];
-
-	va_start(argptr, error);
-	Q_vsnprintf(text, sizeof(text), error, argptr);
-	va_end(argptr);
-
-	renderer::ri.Error(level, "%s", text);
-}
-
 namespace renderer {
 
 struct BackendMap
@@ -124,7 +95,7 @@ void ConsoleVariables::initialize()
 
 		#define FORMAT "%-10s%s\n"
 		std::string description;
-		description += va(FORMAT, "<empty>", "Autodetect");
+		description += util::VarArgs(FORMAT, "<empty>", "Autodetect");
 
 		for (const BackendMap &map : backendMaps)
 		{
@@ -137,7 +108,7 @@ void ConsoleVariables::initialize()
 			}
 
 			if (j != nSupportedBackends)
-				description += va(FORMAT, map.id, bgfx::getRendererName(map.type));
+				description += util::VarArgs(FORMAT, map.id, bgfx::getRendererName(map.type));
 		}
 
 		ri.Cvar_SetDescription(backend, description.c_str());
@@ -185,7 +156,7 @@ static void TakeScreenshot(const char *extension)
 	if (ri.Cmd_Argc() == 2 && !silent)
 	{
 		// Explicit filename.
-		Com_sprintf(filename, MAX_OSPATH, "screenshots/%s.%s", ri.Cmd_Argv(1), extension);
+		util::Sprintf(filename, MAX_OSPATH, "screenshots/%s.%s", ri.Cmd_Argv(1), extension);
 	}
 	else
 	{
@@ -199,7 +170,7 @@ static void TakeScreenshot(const char *extension)
 		{
 			if (lastNumber < 0 || lastNumber > 9999)
 			{
-				Com_sprintf(filename, MAX_OSPATH, "screenshots/shot9999.%s", extension);
+				util::Sprintf(filename, MAX_OSPATH, "screenshots/shot9999.%s", extension);
 			}
 			else
 			{
@@ -210,7 +181,7 @@ static void TakeScreenshot(const char *extension)
 				int c = lastNumber / 10;
 				lastNumber -= c * 10;
 				int d = lastNumber;
-				Com_sprintf(filename, MAX_OSPATH, "screenshots/shot%i%i%i%i.%s", a, b, c, d, extension);
+				util::Sprintf(filename, MAX_OSPATH, "screenshots/shot%i%i%i%i.%s", a, b, c, d, extension);
 			}
 
 			if (!ri.FS_FileExists(filename))
@@ -281,7 +252,11 @@ Main::Main()
 		}
 	}
 
-	R_NoiseInit();
+	for (int i = 0; i < noiseSize_; i++)
+	{
+		noiseTable_[i] = (float)(((rand() / (float)RAND_MAX) * 2.0 - 1.0));
+		noisePerm_[i] = (unsigned char)(rand() / (float)RAND_MAX * 255);
+	}
 }
 
 Main::~Main()
@@ -322,7 +297,7 @@ void Main::initialize()
 			if (j == nSupportedBackends)
 				continue; // Not supported.
 
-			if (!Q_stricmp(g_cvars.backend->string, map.id))
+			if (!util::Stricmp(g_cvars.backend->string, map.id))
 			{
 				selectedBackend = map.type;
 				break;
@@ -464,7 +439,7 @@ void Main::initialize()
 	}
 
 	// Parse anti-aliasing cvar.
-	aa_ = Q_stricmp(g_cvars.aa->string, "fxaa") == 0 ? AntiAliasing::FXAA : AntiAliasing::None;
+	aa_ = util::Stricmp(g_cvars.aa->string, "fxaa") == 0 ? AntiAliasing::FXAA : AntiAliasing::None;
 
 	// FXAA frame buffer.
 	if (aa_ == AntiAliasing::FXAA)
@@ -515,7 +490,7 @@ static float Font_ReadFloat(const uint8_t *data, int *offset)
 	temp[1] = data[*offset+2];
 	temp[2] = data[*offset+1];
 	temp[3] = data[*offset+0];
-#elif defined Q3_LITTLE_ENDIAN
+#else
 	temp[0] = data[*offset+0];
 	temp[1] = data[*offset+1];
 	temp[2] = data[*offset+2];
@@ -543,13 +518,13 @@ void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
 	}
 
 	char name[1024];
-	Com_sprintf(name, sizeof(name), "fonts/fontImage_%i.dat", pointSize);
+	util::Sprintf(name, sizeof(name), "fonts/fontImage_%i.dat", pointSize);
 
 	for (int i = 0; i < nFonts_; i++)
 	{
-		if (Q_stricmp(name, fonts_[i].name) == 0)
+		if (util::Stricmp(name, fonts_[i].name) == 0)
 		{
-			Com_Memcpy(font, &fonts_[i], sizeof(fontInfo_t));
+			memcpy(font, &fonts_[i], sizeof(fontInfo_t));
 			return;
 		}
 	}
@@ -577,12 +552,12 @@ void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
 		font->glyphs[i].s2			= Font_ReadFloat(data, &offset);
 		font->glyphs[i].t2			= Font_ReadFloat(data, &offset);
 		font->glyphs[i].glyph		= Font_ReadInt(data, &offset);
-		Q_strncpyz(font->glyphs[i].shaderName, (const char *)&data[offset], sizeof(font->glyphs[i].shaderName));
+		util::Strncpyz(font->glyphs[i].shaderName, (const char *)&data[offset], sizeof(font->glyphs[i].shaderName));
 		offset += sizeof(font->glyphs[i].shaderName);
 	}
 
 	font->glyphScale = Font_ReadFloat(data, &offset);
-	Q_strncpyz(font->name, name, sizeof(font->name));
+	util::Strncpyz(font->name, name, sizeof(font->name));
 
 	for (int i = GLYPH_START; i <= GLYPH_END; i++)
 	{
@@ -590,7 +565,7 @@ void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
 		font->glyphs[i].glyph = m->defaultShader ? 0 : m->index;
 	}
 
-	Com_Memcpy(&fonts_[nFonts_++], font, sizeof(fontInfo_t));
+	memcpy(&fonts_[nFonts_++], font, sizeof(fontInfo_t));
 	ri.FS_FreeFile((void **)data);
 }
 
@@ -604,6 +579,11 @@ const Entity *GetCurrentEntity()
 float GetFloatTime()
 {
 	return s_main->getFloatTime();
+}
+
+float GetNoise(float x, float y, float z, float t)
+{
+	return s_main->getNoise(x, y, z, t);
 }
 
 bool IsMirrorCamera()
@@ -799,10 +779,10 @@ static int RE_LerpTag(orientation_t *orientation, qhandle_t handle, int startFra
 	lerped.rotation[1] = vec3::lerp(from.rotation[1], to.rotation[1], frac).normal();
 	lerped.rotation[2] = vec3::lerp(from.rotation[2], to.rotation[2], frac).normal();
 
-	VectorCopy(lerped.position, orientation->origin);
-	VectorCopy(lerped.rotation[0], orientation->axis[0]);
-	VectorCopy(lerped.rotation[1], orientation->axis[1]);
-	VectorCopy(lerped.rotation[2], orientation->axis[2]);
+	memcpy(orientation->origin, &lerped.position.x, sizeof(vec3_t));
+	memcpy(orientation->axis[0], &lerped.rotation[0].x, sizeof(vec3_t));
+	memcpy(orientation->axis[1], &lerped.rotation[1].x, sizeof(vec3_t));
+	memcpy(orientation->axis[2], &lerped.rotation[2].x, sizeof(vec3_t));
 	return qtrue;
 }
 
@@ -810,8 +790,8 @@ static void RE_ModelBounds(qhandle_t handle, vec3_t mins, vec3_t maxs)
 {
 	auto m = g_modelCache->getModel(handle);
 	auto bounds = m->getBounds();
-	VectorCopy(bounds[0], mins);
-	VectorCopy(bounds[1], maxs);
+	memcpy(mins, &bounds.min.x, sizeof(vec3_t));
+	memcpy(maxs, &bounds.max.x, sizeof(vec3_t));
 }
 
 static void RE_RegisterFont(const char *fontName, int pointSize, fontInfo_t *font)
@@ -844,17 +824,12 @@ static void RE_TakeVideoFrame( int h, int w, byte* captureBuffer, byte *encodeBu
 {
 }
 
-#ifdef USE_RENDERER_DLOPEN
 extern "C" Q_EXPORT refexport_t * QDECL GetRefAPI(int apiVersion, refimport_t *rimp)
 {
-#else
-extern "C" refexport_t *GetRefAPI(int apiVersion, refimport_t *rimp)
-{
-#endif
 	ri = *rimp;
 
 	static refexport_t re;
-	Com_Memset(&re, 0, sizeof(re));
+	memset(&re, 0, sizeof(re));
 
 	if (apiVersion != REF_API_VERSION )
 	{

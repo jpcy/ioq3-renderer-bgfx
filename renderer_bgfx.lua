@@ -15,31 +15,12 @@ function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sd
 	files
 	{
 		path.join(bgfxPath, "src/amalgamated.cpp"),
-		path.join(rendererPath, "code/qcommon/cm_public.h"),
-		path.join(rendererPath, "code/qcommon/puff.c"),
-		path.join(rendererPath, "code/qcommon/puff.h"),
-		path.join(rendererPath, "code/qcommon/q_math.c"),
-		path.join(rendererPath, "code/qcommon/q_platform.h"),
-		path.join(rendererPath, "code/qcommon/q_shared.c"),
-		path.join(rendererPath, "code/qcommon/q_shared.h"),
-		path.join(rendererPath, "code/qcommon/qcommon.h"),
-		path.join(rendererPath, "code/qcommon/qfiles.h"),
-		path.join(rendererPath, "code/qcommon/surfaceflags.h"),
 		path.join(rendererPath, "code/math/*.cpp"),
 		path.join(rendererPath, "code/math/*.h"),
 		path.join(rendererPath, "code/renderer_bgfx/*.cpp"),
 		path.join(rendererPath, "code/renderer_bgfx/*.h"),
-		path.join(rendererPath, "code/renderercommon/qgl.h"),
-		path.join(rendererPath, "code/renderercommon/tr_common.h"),
-		path.join(rendererPath, "code/renderercommon/tr_noise.c"),
-		path.join(rendererPath, "code/renderercommon/tr_public.h"),
-		path.join(rendererPath, "code/renderercommon/tr_types.h"),
 		path.join(rendererPath, "shaders/*.sc"),
 		path.join(rendererPath, "shaders/*.sh"),
-		path.join(rendererPath, "code/qcommon/puff.c"),
-		path.join(rendererPath, "code/qcommon/q_math.c"),
-		path.join(rendererPath, "code/qcommon/q_shared.c"),
-		path.join(rendererPath, "code/renderercommon/tr_noise.c")
 	}
 	
 	includedirs

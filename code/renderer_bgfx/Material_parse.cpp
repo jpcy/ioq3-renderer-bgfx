@@ -38,7 +38,7 @@ public:
 	{
 		for (auto &p : pairs)
 		{
-			if (Q_stricmp(p.name, name) == 0)
+			if (util::Stricmp(p.name, name) == 0)
 			{
 				if (value)
 					*value = p.value;
@@ -104,7 +104,7 @@ static infoParm_t infoParms[] =
 
 bool Material::parse(char **text)
 {
-	auto token = COM_ParseExt(text, qtrue);
+	auto token = util::Parse(text, true);
 
 	if (token[0] != '{')
 	{
@@ -116,7 +116,7 @@ bool Material::parse(char **text)
 
 	for (;;)
 	{
-		token = COM_ParseExt(text, qtrue);
+		token = util::Parse(text, true);
 
 		if (!token[0])
 		{
@@ -145,35 +145,35 @@ bool Material::parse(char **text)
 			stageIndex++;
 		}
 		// skip stuff that only the QuakeEdRadient needs
-		else if (!Q_stricmpn(token, "qer", 3))
+		else if (!util::Stricmpn(token, "qer", 3))
 		{
-			SkipRestOfLine(text);
+			util::SkipRestOfLine(text);
 		}
 		// sun parms
-		else if (!Q_stricmp(token, "q3map_sun") || !Q_stricmp(token, "q3map_sunExt") || !Q_stricmp(token, "q3gl2_sun"))
+		else if (!util::Stricmp(token, "q3map_sun") || !util::Stricmp(token, "q3map_sunExt") || !util::Stricmp(token, "q3gl2_sun"))
 		{
 			SunLight sun;
 
-			if (!Q_stricmp(token, "q3gl2_sun"))
+			if (!util::Stricmp(token, "q3gl2_sun"))
 			{
 				sun.shadows = true;
 			}
 
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 			sun.light[0] = atof(token);
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 			sun.light[1] = atof(token);
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 			sun.light[2] = atof(token);
 			
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 			sun.light.normalize();
 			sun.light *= atof(token);
 
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 			const float a = atof(token) / (180 * M_PI);
 
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 			float b = atof(token) / (180 * M_PI);
 
 			sun.direction[0] = cos(a) * cos(b);
@@ -182,37 +182,37 @@ bool Material::parse(char **text)
 
 			if (sun.shadows)
 			{
-				token = COM_ParseExt(text, qfalse);
+				token = util::Parse(text, false);
 				sun.lightScale = atof(token);
 
-				token = COM_ParseExt(text, qfalse);
+				token = util::Parse(text, false);
 				sun.shadowScale = atof(token);
 			}
 
 			main::SetSunLight(sun);
-			SkipRestOfLine(text);
+			util::SkipRestOfLine(text);
 		}
 		// tonemap parms
-		else if (!Q_stricmp(token, "q3gl2_tonemap"))
+		else if (!util::Stricmp(token, "q3gl2_tonemap"))
 		{
 			vec2 autoExposureMinMax = { -2, 2 };
 			vec3 toneMinAvgMaxLevel = { -8, -2, 0 };
 
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 			toneMinAvgMaxLevel[0] = atof(token);
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 			toneMinAvgMaxLevel[1] = atof(token);
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 			toneMinAvgMaxLevel[2] = atof(token);
 
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 			autoExposureMinMax[0] = atof(token);
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 			autoExposureMinMax[1] = atof(token);
 
-			SkipRestOfLine(text);
+			util::SkipRestOfLine(text);
 		}
-		else if (!Q_stricmp(token, "deformVertexes"))
+		else if (!util::Stricmp(token, "deformVertexes"))
 		{
 			if (numDeforms == maxDeforms)
 			{
@@ -223,13 +223,13 @@ bool Material::parse(char **text)
 			deforms[numDeforms] = parseDeform(text);
 			numDeforms++;
 		}
-		else if (!Q_stricmp(token, "tesssize"))
+		else if (!util::Stricmp(token, "tesssize"))
 		{
-			SkipRestOfLine(text);
+			util::SkipRestOfLine(text);
 		}
-		else if (!Q_stricmp(token, "clampTime")) 
+		else if (!util::Stricmp(token, "clampTime")) 
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0])
 			{
@@ -237,19 +237,19 @@ bool Material::parse(char **text)
 			}
 		}
 		// skip stuff that only the q3map needs
-		else if (!Q_stricmpn(token, "q3map", 5))
+		else if (!util::Stricmpn(token, "q3map", 5))
 		{
-			SkipRestOfLine(text);
+			util::SkipRestOfLine(text);
 		}
 		// skip stuff that only q3map or the server needs
-		else if (!Q_stricmp(token, "surfaceParm"))
+		else if (!util::Stricmp(token, "surfaceParm"))
 		{
-			const size_t nInfoParms = ARRAY_LEN(infoParms);
-			token = COM_ParseExt(text, qfalse);
+			const size_t nInfoParms = BX_COUNTOF(infoParms);
+			token = util::Parse(text, false);
 
 			for (size_t i = 0; i < nInfoParms; i++)
 			{
-				if (!Q_stricmp(token, infoParms[i].name))
+				if (!util::Stricmp(token, infoParms[i].name))
 				{
 					surfaceFlags |= infoParms[i].surfaceFlags;
 					contentFlags |= infoParms[i].contents;
@@ -258,18 +258,18 @@ bool Material::parse(char **text)
 			}
 		}
 		// no mip maps
-		else if (!Q_stricmp(token, "nomipmaps"))
+		else if (!util::Stricmp(token, "nomipmaps"))
 		{
 			noMipMaps = true;
 			noPicMip = true;
 		}
 		// no picmip adjustment
-		else if (!Q_stricmp(token, "nopicmip"))
+		else if (!util::Stricmp(token, "nopicmip"))
 		{
 			noPicMip = true;
 		}
 		// polygonOffset
-		else if (!Q_stricmp(token, "polygonOffset"))
+		else if (!util::Stricmp(token, "polygonOffset"))
 		{
 			polygonOffset = true;
 		}
@@ -277,12 +277,12 @@ bool Material::parse(char **text)
 		// to be merged into one batch.  This is a savings for smoke
 		// puffs and blood, but can't be used for anything where the
 		// shader calcs (not the surface function) reference the entity color or scroll
-		else if (!Q_stricmp(token, "entityMergable"))
+		else if (!util::Stricmp(token, "entityMergable"))
 		{
 			entityMergable = true;
 		}
 		// fogParms
-		else if (!Q_stricmp(token, "fogParms"))
+		else if (!util::Stricmp(token, "fogParms"))
 		{
 			bool parsedColor;
 			fogParms.color = parseVector(text, &parsedColor);
@@ -292,7 +292,7 @@ bool Material::parse(char **text)
 				return false;
 			}
 
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (!token[0]) 
 			{
@@ -303,38 +303,38 @@ bool Material::parse(char **text)
 			fogParms.depthForOpaque = atof(token);
 
 			// skip any old gradient directions
-			SkipRestOfLine(text);
+			util::SkipRestOfLine(text);
 		}
 		// portal
-		else if (!Q_stricmp(token, "portal"))
+		else if (!util::Stricmp(token, "portal"))
 		{
 			sort = MaterialSort::Portal;
 			isPortal = true;
 		}
 		// skyparms <cloudheight> <outerbox> <innerbox>
-		else if (!Q_stricmp(token, "skyparms"))
+		else if (!util::Stricmp(token, "skyparms"))
 		{
 			parseSkyParms(text);
 		}
 		// light <value> determines flaring in q3map, not needed here
-		else if (!Q_stricmp(token, "light")) 
+		else if (!util::Stricmp(token, "light")) 
 		{
-			COM_ParseExt(text, qfalse);
+			util::Parse(text, false);
 		}
 		// cull <face>
-		else if (!Q_stricmp(token, "cull")) 
+		else if (!util::Stricmp(token, "cull")) 
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
 				ri.Printf(PRINT_WARNING, "WARNING: missing cull parms in shader '%s'\n", name);
 			}
-			else if (!Q_stricmp(token, "none") || !Q_stricmp(token, "twosided") || !Q_stricmp(token, "disable"))
+			else if (!util::Stricmp(token, "none") || !util::Stricmp(token, "twosided") || !util::Stricmp(token, "disable"))
 			{
 				cullType = MaterialCullType::TwoSided;
 			}
-			else if (!Q_stricmp(token, "back") || !Q_stricmp(token, "backside") || !Q_stricmp(token, "backsided"))
+			else if (!util::Stricmp(token, "back") || !util::Stricmp(token, "backside") || !util::Stricmp(token, "backsided"))
 			{
 				cullType = MaterialCullType::BackSided;
 			}
@@ -344,9 +344,9 @@ bool Material::parse(char **text)
 			}
 		}
 		// sort
-		else if (!Q_stricmp(token, "sort"))
+		else if (!util::Stricmp(token, "sort"))
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
@@ -378,7 +378,7 @@ vec3 Material::parseVector(char **text, bool *result) const
 	vec3 v;
 
 	// FIXME: spaces are currently required after parens, should change parseext...
-	auto token = COM_ParseExt(text, qfalse);
+	auto token = util::Parse(text, false);
 
 	if (strcmp(token, "("))
 	{
@@ -392,7 +392,7 @@ vec3 Material::parseVector(char **text, bool *result) const
 
 	for (size_t i = 0; i < 3; i++)
 	{
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (!token[0])
 		{
@@ -407,7 +407,7 @@ vec3 Material::parseVector(char **text, bool *result) const
 		v[i] = atof(token);
 	}
 
-	token = COM_ParseExt(text, qfalse);
+	token = util::Parse(text, false);
 
 	if (strcmp(token, ")"))
 	{
@@ -435,7 +435,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 	for (;;)
 	{
-		auto token = COM_ParseExt(text, qtrue);
+		auto token = util::Parse(text, true);
 
 		if (!token[0])
 		{
@@ -447,53 +447,53 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			break;
 
 		// alphaGen 
-		if (!Q_stricmp(token, "alphaGen"))
+		if (!util::Stricmp(token, "alphaGen"))
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
 				ri.Printf(PRINT_WARNING, "WARNING: missing parameters for alphaGen in shader '%s'\n", name);
 			}
-			else if (!Q_stricmp(token, "wave"))
+			else if (!util::Stricmp(token, "wave"))
 			{
 				stage->alphaWave = parseWaveForm(text);
 				stage->alphaGen = MaterialAlphaGen::Waveform;
 			}
-			else if (!Q_stricmp(token, "const"))
+			else if (!util::Stricmp(token, "const"))
 			{
-				token = COM_ParseExt(text, qfalse);
+				token = util::Parse(text, false);
 				stage->constantColor[3] = 255 * atof(token);
 				stage->alphaGen = MaterialAlphaGen::Const;
 			}
-			else if (!Q_stricmp(token, "identity"))
+			else if (!util::Stricmp(token, "identity"))
 			{
 				stage->alphaGen = MaterialAlphaGen::Identity;
 			}
-			else if (!Q_stricmp(token, "entity"))
+			else if (!util::Stricmp(token, "entity"))
 			{
 				stage->alphaGen = MaterialAlphaGen::Entity;
 			}
-			else if (!Q_stricmp(token, "oneMinusEntity"))
+			else if (!util::Stricmp(token, "oneMinusEntity"))
 			{
 				stage->alphaGen = MaterialAlphaGen::OneMinusEntity;
 			}
-			else if (!Q_stricmp(token, "vertex"))
+			else if (!util::Stricmp(token, "vertex"))
 			{
 				stage->alphaGen = MaterialAlphaGen::Vertex;
 			}
-			else if (!Q_stricmp(token, "lightingSpecular"))
+			else if (!util::Stricmp(token, "lightingSpecular"))
 			{
 				stage->alphaGen = MaterialAlphaGen::LightingSpecular;
 			}
-			else if (!Q_stricmp(token, "oneMinusVertex"))
+			else if (!util::Stricmp(token, "oneMinusVertex"))
 			{
 				stage->alphaGen = MaterialAlphaGen::OneMinusVertex;
 			}
-			else if (!Q_stricmp(token, "portal"))
+			else if (!util::Stricmp(token, "portal"))
 			{
 				stage->alphaGen = MaterialAlphaGen::Portal;
-				token = COM_ParseExt(text, qfalse);
+				token = util::Parse(text, false);
 
 				if (token[0] == 0)
 				{
@@ -511,9 +511,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 		}
 		// blendfunc <srcFactor> <dstFactor> or blendfunc <add|filter|blend>
-		else if (!Q_stricmp(token, "blendfunc"))
+		else if (!util::Stricmp(token, "blendfunc"))
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
@@ -522,17 +522,17 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 
 			// check for "simple" blends first
-			if (!Q_stricmp(token, "add"))
+			if (!util::Stricmp(token, "add"))
 			{
 				stage->blendSrc = BGFX_STATE_BLEND_ONE;
 				stage->blendDst = BGFX_STATE_BLEND_ONE;
 			}
-			else if (!Q_stricmp(token, "filter"))
+			else if (!util::Stricmp(token, "filter"))
 			{
 				stage->blendSrc = BGFX_STATE_BLEND_DST_COLOR;
 				stage->blendDst = BGFX_STATE_BLEND_ZERO;
 			}
-			else if (!Q_stricmp(token, "blend"))
+			else if (!util::Stricmp(token, "blend"))
 			{
 				stage->blendSrc = BGFX_STATE_BLEND_SRC_ALPHA;
 				stage->blendDst = BGFX_STATE_BLEND_INV_SRC_ALPHA;
@@ -542,7 +542,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				// complex double blends
 				stage->blendSrc = srcBlendModeFromName(token);
 
-				token = COM_ParseExt(text, qfalse);
+				token = util::Parse(text, false);
 
 				if (token[0] == 0)
 				{
@@ -560,14 +560,14 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 		}
 		// depthmask
-		else if (!Q_stricmp(token, "depthwrite"))
+		else if (!util::Stricmp(token, "depthwrite"))
 		{
 			stage->depthWrite = true;
 			depthWriteExplicit = true;
 		}
 		else
 		{
-			SkipRestOfLine(text);
+			util::SkipRestOfLine(text);
 		}
 	}
 
@@ -584,7 +584,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 	for (;;)
 	{
-		auto token = COM_ParseExt(text, qtrue);
+		auto token = util::Parse(text, true);
 
 		if (!token[0])
 		{
@@ -596,9 +596,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			break;
 		
 		// map <name>
-		if (!Q_stricmp(token, "map"))
+		if (!util::Stricmp(token, "map"))
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (!token[0])
 			{
@@ -606,11 +606,11 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				return false;
 			}
 
-			if (!Q_stricmp(token, "$whiteimage"))
+			if (!util::Stricmp(token, "$whiteimage"))
 			{
 				stage->bundles[0].textures[0] = g_textureCache->getWhiteTexture();
 			}
-			else if (!Q_stricmp(token, "$lightmap"))
+			else if (!util::Stricmp(token, "$lightmap"))
 			{
 				stage->bundles[0].isLightmap = true;
 				const Texture *lightmap = world::IsLoaded() ? world::GetLightmap(lightmapIndex) : nullptr;
@@ -622,7 +622,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				
 				stage->bundles[0].textures[0] = lightmap;
 			}
-			else if (!Q_stricmp(token, "$deluxemap"))
+			else if (!util::Stricmp(token, "$deluxemap"))
 			{
 				/*if (!tr.worldDeluxeMapping)
 				{
@@ -680,12 +680,12 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 		}
 		// clampmap <name>
-		else if (!Q_stricmp(token, "clampmap"))
+		else if (!util::Stricmp(token, "clampmap"))
 		{
 			TextureType type = TextureType::ColorAlpha;
 			int flags = TextureFlags::ClampToEdge;
 
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 			if (!token[0])
 			{
 				ri.Printf(PRINT_WARNING, "WARNING: missing parameter for 'clampmap' keyword in shader '%s'\n", name);
@@ -724,9 +724,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 		}
 		// animMap <frequency> <image1> .... <imageN>
-		else if (!Q_stricmp(token, "animMap"))
+		else if (!util::Stricmp(token, "animMap"))
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (!token[0])
 			{
@@ -739,7 +739,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			// parse up to MaterialTextureBundle::maxImageAnimations animations
 			for (;;)
 			{
-				token = COM_ParseExt(text, qfalse);
+				token = util::Parse(text, false);
 
 				if (!token[0])
 					break;
@@ -771,9 +771,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				}
 			}
 		}
-		else if (!Q_stricmp(token, "videoMap"))
+		else if (!util::Stricmp(token, "videoMap"))
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (!token[0])
 			{
@@ -790,9 +790,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 		}
 		// alphafunc <func>
-		else if (!Q_stricmp(token, "alphaFunc"))
+		else if (!util::Stricmp(token, "alphaFunc"))
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (!token[0])
 			{
@@ -804,9 +804,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			stage->alphaTest = alphaTestFromName(token);
 		}
 		// depthFunc <func>
-		else if (!Q_stricmp(token, "depthfunc"))
+		else if (!util::Stricmp(token, "depthfunc"))
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (!token[0])
 			{
@@ -814,11 +814,11 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				return false;
 			}
 
-			if (!Q_stricmp(token, "lequal"))
+			if (!util::Stricmp(token, "lequal"))
 			{
 				stage->depthTestBits = BGFX_STATE_DEPTH_TEST_LEQUAL;
 			}
-			else if (!Q_stricmp(token, "equal"))
+			else if (!util::Stricmp(token, "equal"))
 			{
 				stage->depthTestBits = BGFX_STATE_DEPTH_TEST_EQUAL;
 			}
@@ -828,35 +828,35 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 		}
 		// detail
-		else if (!Q_stricmp(token, "detail"))
+		else if (!util::Stricmp(token, "detail"))
 		{
 			stage->isDetail = qtrue;
 		}
 		// blendfunc <srcFactor> <dstFactor> or blendfunc <add|filter|blend>
-		else if (!Q_stricmp(token, "blendfunc"))
+		else if (!util::Stricmp(token, "blendfunc"))
 		{
 			// Pre-parsed above.
-			SkipRestOfLine(text);
+			util::SkipRestOfLine(text);
 		}
 		// stage <type>
-		else if (!Q_stricmp(token, "stage"))
+		else if (!util::Stricmp(token, "stage"))
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
 				ri.Printf(PRINT_WARNING, "WARNING: missing parameters for stage in shader '%s'\n", name);
 			}
-			else if (!Q_stricmp(token, "diffuseMap"))
+			else if (!util::Stricmp(token, "diffuseMap"))
 			{
 				stage->type = MaterialStageType::DiffuseMap;
 			}
-			else if (!Q_stricmp(token, "normalMap") || !Q_stricmp(token, "bumpMap"))
+			else if (!util::Stricmp(token, "normalMap") || !util::Stricmp(token, "bumpMap"))
 			{
 				stage->type = MaterialStageType::NormalMap;
 				//VectorSet4(stage->normalScale, r_baseNormalX->value, r_baseNormalY->value, 1.0f, r_baseParallax->value);
 			}
-			else if (!Q_stricmp(token, "normalParallaxMap") || !Q_stricmp(token, "bumpParallaxMap"))
+			else if (!util::Stricmp(token, "normalParallaxMap") || !util::Stricmp(token, "bumpParallaxMap"))
 			{
 				/*if (r_parallaxMapping->integer)
 					stage->type = MaterialStageType::NormalParallaxMap;
@@ -865,7 +865,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 				VectorSet4(stage->normalScale, r_baseNormalX->value, r_baseNormalY->value, 1.0f, r_baseParallax->value);*/
 			}
-			else if (!Q_stricmp(token, "specularMap"))
+			else if (!util::Stricmp(token, "specularMap"))
 			{
 				stage->type = MaterialStageType::SpecularMap;
 				stage->specularScale = { 1, 1, 1, 1 };
@@ -876,9 +876,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 		}
 		// specularReflectance <value>
-		else if (!Q_stricmp(token, "specularreflectance"))
+		else if (!util::Stricmp(token, "specularreflectance"))
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
@@ -889,9 +889,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			stage->specularScale = vec4(atof(token));
 		}
 		// specularExponent <value>
-		else if (!Q_stricmp(token, "specularexponent"))
+		else if (!util::Stricmp(token, "specularexponent"))
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
@@ -905,9 +905,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			stage->specularScale.a = log(exponent) / log(8192.0f);
 		}
 		// gloss <value>
-		else if (!Q_stricmp(token, "gloss"))
+		else if (!util::Stricmp(token, "gloss"))
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
@@ -918,9 +918,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			stage->specularScale.a = atof(token);
 		}
 		// parallaxDepth <value>
-		else if (!Q_stricmp(token, "parallaxdepth"))
+		else if (!util::Stricmp(token, "parallaxdepth"))
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
@@ -933,9 +933,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 		// normalScale <xy>
 		// or normalScale <x> <y>
 		// or normalScale <x> <y> <height>
-		else if (!Q_stricmp(token, "normalscale"))
+		else if (!util::Stricmp(token, "normalscale"))
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
@@ -944,7 +944,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 
 			stage->normalScale.x = atof(token);
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
@@ -954,7 +954,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 
 			stage->normalScale.y = atof(token);
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 				continue; // two values, no height
@@ -964,9 +964,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 		// specularScale <rgb> <gloss>
 		// or specularScale <r> <g> <b>
 		// or specularScale <r> <g> <b> <gloss>
-		else if (!Q_stricmp(token, "specularscale"))
+		else if (!util::Stricmp(token, "specularscale"))
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
@@ -975,7 +975,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 
 			stage->specularScale.r = atof(token);
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
@@ -984,7 +984,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 
 			stage->specularScale.g = atof(token);
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
@@ -996,7 +996,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 
 			stage->specularScale.b = atof(token);
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
@@ -1008,20 +1008,20 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 		}
 		// rgbGen
-		else if (!Q_stricmp(token, "rgbGen"))
+		else if (!util::Stricmp(token, "rgbGen"))
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
 				ri.Printf(PRINT_WARNING, "WARNING: missing parameters for rgbGen in shader '%s'\n", name);
 			}
-			else if (!Q_stricmp(token, "wave"))
+			else if (!util::Stricmp(token, "wave"))
 			{
 				stage->rgbWave = parseWaveForm(text);
 				stage->rgbGen = MaterialColorGen::Waveform;
 			}
-			else if (!Q_stricmp(token, "const"))
+			else if (!util::Stricmp(token, "const"))
 			{
 				auto color = parseVector(text);
 				stage->constantColor[0] = 255 * color.r;
@@ -1029,49 +1029,49 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				stage->constantColor[2] = 255 * color.b;
 				stage->rgbGen = MaterialColorGen::Const;
 			}
-			else if (!Q_stricmp(token, "identity"))
+			else if (!util::Stricmp(token, "identity"))
 			{
 				stage->rgbGen = MaterialColorGen::Identity;
 			}
-			else if (!Q_stricmp(token, "identityLighting"))
+			else if (!util::Stricmp(token, "identityLighting"))
 			{
 				stage->rgbGen = MaterialColorGen::IdentityLighting;
 			}
-			else if (!Q_stricmp(token, "entity"))
+			else if (!util::Stricmp(token, "entity"))
 			{
 				stage->rgbGen = MaterialColorGen::Entity;
 			}
-			else if (!Q_stricmp(token, "oneMinusEntity"))
+			else if (!util::Stricmp(token, "oneMinusEntity"))
 			{
 				stage->rgbGen = MaterialColorGen::OneMinusEntity;
 			}
-			else if (!Q_stricmp(token, "vertex"))
+			else if (!util::Stricmp(token, "vertex"))
 			{
 				stage->rgbGen = MaterialColorGen::Vertex;
 
 				if (stage->alphaGen == MaterialAlphaGen::Identity)
 					stage->alphaGen = MaterialAlphaGen::Vertex;
 			}
-			else if (!Q_stricmp(token, "exactVertex"))
+			else if (!util::Stricmp(token, "exactVertex"))
 			{
 				stage->rgbGen = MaterialColorGen::ExactVertex;
 			}
-			else if (!Q_stricmp(token, "vertexLit"))
+			else if (!util::Stricmp(token, "vertexLit"))
 			{
 				stage->rgbGen = MaterialColorGen::VertexLit;
 
 				if (stage->alphaGen == MaterialAlphaGen::Identity)
 					stage->alphaGen = MaterialAlphaGen::Vertex;
 			}
-			else if (!Q_stricmp(token, "exactVertexLit"))
+			else if (!util::Stricmp(token, "exactVertexLit"))
 			{
 				stage->rgbGen = MaterialColorGen::ExactVertexLit;
 			}
-			else if (!Q_stricmp(token, "lightingDiffuse"))
+			else if (!util::Stricmp(token, "lightingDiffuse"))
 			{
 				stage->rgbGen = MaterialColorGen::LightingDiffuse;
 			}
-			else if (!Q_stricmp(token, "oneMinusVertex"))
+			else if (!util::Stricmp(token, "oneMinusVertex"))
 			{
 				stage->rgbGen = MaterialColorGen::OneMinusVertex;
 			}
@@ -1081,33 +1081,33 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 		}
 		// alphaGen 
-		else if (!Q_stricmp(token, "alphaGen"))
+		else if (!util::Stricmp(token, "alphaGen"))
 		{
 			// Pre-parsed above.
-			SkipRestOfLine(text);
+			util::SkipRestOfLine(text);
 		}
 		// tcGen <function>
-		else if (!Q_stricmp(token, "texgen") || !Q_stricmp(token, "tcGen")) 
+		else if (!util::Stricmp(token, "texgen") || !util::Stricmp(token, "tcGen")) 
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
 				ri.Printf(PRINT_WARNING, "WARNING: missing texgen parm in shader '%s'\n", name);
 			}
-			else if (!Q_stricmp(token, "environment"))
+			else if (!util::Stricmp(token, "environment"))
 			{
 				stage->bundles[0].tcGen = MaterialTexCoordGen::EnvironmentMapped;
 			}
-			else if (!Q_stricmp(token, "lightmap"))
+			else if (!util::Stricmp(token, "lightmap"))
 			{
 				stage->bundles[0].tcGen = MaterialTexCoordGen::Lightmap;
 			}
-			else if (!Q_stricmp(token, "texture") || !Q_stricmp(token, "base"))
+			else if (!util::Stricmp(token, "texture") || !util::Stricmp(token, "base"))
 			{
 				stage->bundles[0].tcGen = MaterialTexCoordGen::Texture;
 			}
-			else if (!Q_stricmp(token, "vector"))
+			else if (!util::Stricmp(token, "vector"))
 			{
 				stage->bundles[0].tcGenVectors[0] = parseVector(text);
 				stage->bundles[0].tcGenVectors[1] = parseVector(text);
@@ -1119,7 +1119,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 		}
 		// tcMod <type> <...>
-		else if (!Q_stricmp(token, "tcMod"))
+		else if (!util::Stricmp(token, "tcMod"))
 		{
 			if (stage->bundles[0].numTexMods == MaterialTextureBundle::maxTexMods)
 			{
@@ -1131,23 +1131,23 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			while (1)
 			{
-				token = COM_ParseExt(text, qfalse);
+				token = util::Parse(text, false);
 
 				if (token[0] == 0)
 					break;
 
-				Q_strcat(buffer, sizeof (buffer), token);
-				Q_strcat(buffer, sizeof (buffer), " ");
+				util::Strcat(buffer, sizeof (buffer), token);
+				util::Strcat(buffer, sizeof (buffer), " ");
 			}
 
 			stage->bundles[0].texMods[stage->bundles[0].numTexMods] = parseTexMod(buffer);
 			stage->bundles[0].numTexMods++;
 		}
 		// depthmask
-		else if (!Q_stricmp(token, "depthwrite"))
+		else if (!util::Stricmp(token, "depthwrite"))
 		{
 			// Pre-parsed above.
-			SkipRestOfLine(text);
+			util::SkipRestOfLine(text);
 		}
 		else
 		{
@@ -1191,7 +1191,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 MaterialWaveForm Material::parseWaveForm(char **text) const
 {
 	MaterialWaveForm wave;
-	auto token = COM_ParseExt(text, qfalse);
+	auto token = util::Parse(text, false);
 
 	if (token[0] == 0)
 	{
@@ -1202,7 +1202,7 @@ MaterialWaveForm Material::parseWaveForm(char **text) const
 	wave.func = genFuncFromName(token);
 
 	// BASE, AMP, PHASE, FREQ
-	token = COM_ParseExt(text, qfalse);
+	token = util::Parse(text, false);
 
 	if (token[0] == 0)
 	{
@@ -1211,7 +1211,7 @@ MaterialWaveForm Material::parseWaveForm(char **text) const
 	}
 
 	wave.base = atof(token);
-	token = COM_ParseExt(text, qfalse);
+	token = util::Parse(text, false);
 
 	if (token[0] == 0)
 	{
@@ -1220,7 +1220,7 @@ MaterialWaveForm Material::parseWaveForm(char **text) const
 	}
 
 	wave.amplitude = atof(token);
-	token = COM_ParseExt(text, qfalse);
+	token = util::Parse(text, false);
 
 	if (token[0] == 0)
 	{
@@ -1229,7 +1229,7 @@ MaterialWaveForm Material::parseWaveForm(char **text) const
 	}
 
 	wave.phase = atof(token);
-	token = COM_ParseExt(text, qfalse);
+	token = util::Parse(text, false);
 
 	if (token[0] == 0)
 	{
@@ -1245,11 +1245,11 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 {
 	MaterialTexModInfo tmi;
 	char **text = &buffer;
-	auto token = COM_ParseExt(text, qfalse);
+	auto token = util::Parse(text, false);
 
-	if (!Q_stricmp(token, "turb"))
+	if (!util::Stricmp(token, "turb"))
 	{
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1258,7 +1258,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		}
 
 		tmi.wave.base = atof(token);
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1267,7 +1267,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		}
 
 		tmi.wave.amplitude = atof(token);
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1276,7 +1276,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		}
 
 		tmi.wave.phase = atof(token);
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1287,9 +1287,9 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		tmi.wave.frequency = atof(token);
 		tmi.type = MaterialTexMod::Turbulent;
 	}
-	else if (!Q_stricmp(token, "scale"))
+	else if (!util::Stricmp(token, "scale"))
 	{
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1298,7 +1298,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		}
 
 		tmi.scale[0] = atof(token);
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1309,9 +1309,9 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		tmi.scale[1] = atof(token);
 		tmi.type = MaterialTexMod::Scale;
 	}
-	else if (!Q_stricmp(token, "scroll"))
+	else if (!util::Stricmp(token, "scroll"))
 	{
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1320,7 +1320,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		}
 
 		tmi.scroll[0] = atof(token);
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1331,9 +1331,9 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		tmi.scroll[1] = atof(token);
 		tmi.type = MaterialTexMod::Scroll;
 	}
-	else if (!Q_stricmp(token, "stretch"))
+	else if (!util::Stricmp(token, "stretch"))
 	{
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1342,7 +1342,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		}
 
 		tmi.wave.func = genFuncFromName(token);
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1351,7 +1351,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		}
 
 		tmi.wave.base = atof(token);
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1360,7 +1360,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		}
 
 		tmi.wave.amplitude = atof(token);
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1369,7 +1369,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		}
 
 		tmi.wave.phase = atof(token);
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1380,9 +1380,9 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		tmi.wave.frequency = atof(token);
 		tmi.type = MaterialTexMod::Stretch;
 	}
-	else if (!Q_stricmp(token, "transform"))
+	else if (!util::Stricmp(token, "transform"))
 	{
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1391,7 +1391,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		}
 
 		tmi.matrix[0][0] = atof(token);
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1400,7 +1400,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		}
 
 		tmi.matrix[0][1] = atof(token);
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1409,7 +1409,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		}
 
 		tmi.matrix[1][0] = atof(token);
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1418,7 +1418,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		}
 
 		tmi.matrix[1][1] = atof(token);
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1427,7 +1427,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		}
 
 		tmi.translate[0] = atof(token);
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1438,9 +1438,9 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		tmi.translate[1] = atof(token);
 		tmi.type = MaterialTexMod::Transform;
 	}
-	else if (!Q_stricmp(token, "rotate"))
+	else if (!util::Stricmp(token, "rotate"))
 	{
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1451,7 +1451,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 		tmi.rotateSpeed = atof(token);
 		tmi.type = MaterialTexMod::Rotate;
 	}
-	else if (!Q_stricmp(token, "entityTranslate"))
+	else if (!util::Stricmp(token, "entityTranslate"))
 	{
 		tmi.type = MaterialTexMod::EntityTranslate;
 	}
@@ -1476,25 +1476,25 @@ deformVertexes text[0-7]
 MaterialDeformStage Material::parseDeform(char **text) const
 {
 	MaterialDeformStage ds;
-	auto token = COM_ParseExt(text, qfalse);
+	auto token = util::Parse(text, false);
 
 	if (token[0] == 0)
 	{
 		ri.Printf(PRINT_WARNING, "WARNING: missing deform parm in shader '%s'\n", name);
 	}
-	else if (!Q_stricmp(token, "projectionShadow"))
+	else if (!util::Stricmp(token, "projectionShadow"))
 	{
 		ds.deformation = MaterialDeform::ProjectionShadow;
 	}
-	else if (!Q_stricmp(token, "autosprite"))
+	else if (!util::Stricmp(token, "autosprite"))
 	{
 		ds.deformation = MaterialDeform::Autosprite;
 	}
-	else if (!Q_stricmp(token, "autosprite2"))
+	else if (!util::Stricmp(token, "autosprite2"))
 	{
 		ds.deformation = MaterialDeform::Autosprite2;
 	}
-	else if (!Q_stricmpn(token, "text", 4))
+	else if (!util::Stricmpn(token, "text", 4))
 	{
 		int n = token[4] - '0';
 
@@ -1503,9 +1503,9 @@ MaterialDeformStage Material::parseDeform(char **text) const
 
 		ds.deformation = MaterialDeform((int)MaterialDeform::Text0 + n);
 	}
-	else if (!Q_stricmp(token, "bulge"))
+	else if (!util::Stricmp(token, "bulge"))
 	{
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1514,7 +1514,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 		}
 
 		ds.bulgeWidth = atof(token);
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1523,7 +1523,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 		}
 
 		ds.bulgeHeight = atof(token);
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1534,9 +1534,9 @@ MaterialDeformStage Material::parseDeform(char **text) const
 		ds.bulgeSpeed = atof(token);
 		ds.deformation = MaterialDeform::Bulge;
 	}
-	else if (!Q_stricmp(token, "wave"))
+	else if (!util::Stricmp(token, "wave"))
 	{
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1557,9 +1557,9 @@ MaterialDeformStage Material::parseDeform(char **text) const
 		ds.deformationWave = parseWaveForm(text);
 		ds.deformation = MaterialDeform::Wave;
 	}
-	else if (!Q_stricmp(token, "normal"))
+	else if (!util::Stricmp(token, "normal"))
 	{
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1568,7 +1568,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 		}
 
 		ds.deformationWave.amplitude = atof(token);
-		token = COM_ParseExt(text, qfalse);
+		token = util::Parse(text, false);
 
 		if (token[0] == 0)
 		{
@@ -1579,11 +1579,11 @@ MaterialDeformStage Material::parseDeform(char **text) const
 		ds.deformationWave.frequency = atof(token);
 		ds.deformation = MaterialDeform::Normals;
 	}
-	else if (!Q_stricmp(token, "move"))
+	else if (!util::Stricmp(token, "move"))
 	{
 		for (size_t i = 0; i < 3; i++)
 		{
-			token = COM_ParseExt(text, qfalse);
+			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 			{
@@ -1612,7 +1612,7 @@ void Material::parseSkyParms(char **text)
 	const int imgFlags = TextureFlags::Mipmap | TextureFlags::Picmip;
 
 	// outerbox
-	auto token = COM_ParseExt(text, qfalse);
+	auto token = util::Parse(text, false);
 
 	if (token[0] == 0)
 	{
@@ -1625,7 +1625,7 @@ void Material::parseSkyParms(char **text)
 		for (size_t i = 0; i < 6; i++)
 		{
 			char pathname[MAX_QPATH];
-			Com_sprintf(pathname, sizeof(pathname), "%s_%s.tga", token, suf[i]);
+			util::Sprintf(pathname, sizeof(pathname), "%s_%s.tga", token, suf[i]);
 			sky.outerbox[i] = g_textureCache->findTexture(pathname, TextureType::ColorAlpha, imgFlags | TextureFlags::ClampToEdge);
 
 			if (!sky.outerbox[i])
@@ -1636,7 +1636,7 @@ void Material::parseSkyParms(char **text)
 	}
 
 	// cloudheight
-	token = COM_ParseExt(text, qfalse);
+	token = util::Parse(text, false);
 
 	if (token[0] == 0)
 	{
@@ -1654,7 +1654,7 @@ void Material::parseSkyParms(char **text)
 	Sky_InitializeTexCoords(sky.cloudHeight);
 
 	// innerbox
-	token = COM_ParseExt(text, qfalse);
+	token = util::Parse(text, false);
 
 	if (token[0] == 0) 
 	{
@@ -1667,7 +1667,7 @@ void Material::parseSkyParms(char **text)
 		for (size_t i=0 ; i<6 ; i++) 
 		{
 			char pathname[MAX_QPATH];
-			Com_sprintf(pathname, sizeof(pathname), "%s_%s.tga", token, suf[i]);
+			util::Sprintf(pathname, sizeof(pathname), "%s_%s.tga", token, suf[i]);
 			sky.innerbox[i] = g_textureCache->findTexture(pathname, TextureType::ColorAlpha, imgFlags);
 
 			if (!sky.innerbox[i])

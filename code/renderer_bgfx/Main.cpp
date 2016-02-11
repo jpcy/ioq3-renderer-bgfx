@@ -124,8 +124,8 @@ static void ImageWriteCallbackConst(void *context, const void *data, int size)
 void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _height, uint32_t _pitch, const void* _data, uint32_t _size, bool _yflip)
 {
 	const int nComponents = 4;
-	const char *extension = COM_GetExtension(_filePath);
-	const bool writeAsPng = !Q_stricmp(extension, "png");
+	const char *extension = util::GetExtension(_filePath);
+	const bool writeAsPng = !util::Stricmp(extension, "png");
 	const size_t outputPitch = writeAsPng ? _pitch : _width * nComponents; // PNG can use any pitch, others can't.
 
 	// Convert from BGRA to RGBA, and flip y if needed.
@@ -162,7 +162,7 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 			return;
 		}
 	}
-	else if (!Q_stricmp(extension, "jpg"))
+	else if (!util::Stricmp(extension, "jpg"))
 	{
 		if (!jo_write_jpg_to_func(ImageWriteCallbackConst, &buffer, screenShotDataBuffer_.data(), _width, _height, nComponents, g_cvars.screenshotJpegQuality->integer))
 		{
@@ -223,12 +223,57 @@ bool DrawCall::operator<(const DrawCall &other) const
 	return false;
 }
 
+#define NOISE_PERM(a) noisePerm_[(a) & (noiseSize_ - 1)]
+#define NOISE_TABLE(x, y, z, t) noiseTable_[NOISE_PERM(x + NOISE_PERM(y + NOISE_PERM(z + NOISE_PERM(t))))]
+#define NOISE_LERP( a, b, w ) ( ( a ) * ( 1.0f - ( w ) ) + ( b ) * ( w ) )
+
+float Main::getNoise(float x, float y, float z, float t) const
+{
+	int i;
+	int ix, iy, iz, it;
+	float fx, fy, fz, ft;
+	float front[4];
+	float back[4];
+	float fvalue, bvalue, value[2], finalvalue;
+
+	ix = (int)floor(x);
+	fx = x - ix;
+	iy = (int)floor(y);
+	fy = y - iy;
+	iz = (int)floor(z);
+	fz = z - iz;
+	it = (int)floor(t);
+	ft = t - it;
+
+	for (i = 0; i < 2; i++)
+	{
+		front[0] = NOISE_TABLE(ix, iy, iz, it + i);
+		front[1] = NOISE_TABLE(ix + 1, iy, iz, it + i);
+		front[2] = NOISE_TABLE(ix, iy + 1, iz, it + i);
+		front[3] = NOISE_TABLE(ix + 1, iy + 1, iz, it + i);
+
+		back[0] = NOISE_TABLE(ix, iy, iz + 1, it + i);
+		back[1] = NOISE_TABLE(ix + 1, iy, iz + 1, it + i);
+		back[2] = NOISE_TABLE(ix, iy + 1, iz + 1, it + i);
+		back[3] = NOISE_TABLE(ix + 1, iy + 1, iz + 1, it + i);
+
+		fvalue = NOISE_LERP(NOISE_LERP(front[0], front[1], fx), NOISE_LERP(front[2], front[3], fx), fy);
+		bvalue = NOISE_LERP(NOISE_LERP(back[0], back[1], fx), NOISE_LERP(back[2], back[3], fx), fy);
+
+		value[i] = NOISE_LERP(fvalue, bvalue, fz);
+	}
+
+	finalvalue = NOISE_LERP(value[0], value[1], ft);
+
+	return finalvalue;
+}
+
 void Main::debugPrint(const char *format, ...)
 {
 	va_list args;
 	va_start(args, format);
 	char text[1024];
-	Q_vsnprintf(text, sizeof(text), format, args);
+	util::Vsnprintf(text, sizeof(text), format, args);
 	va_end(args);
 	bgfx::dbgTextPrintf(0, debugTextY, 0x4f, text);
 	debugTextY++;
@@ -472,15 +517,15 @@ bool Main::sampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, v
 
 void Main::onMaterialCreate(Material *material)
 {
-	if (!Q_stricmp(material->name, "bfgExplosion"))
+	if (!util::Stricmp(material->name, "bfgExplosion"))
 	{
 		bfgExplosionMaterial_ = material;
 	}
-	else if (!Q_stricmp(material->name, "sprites/plasma1"))
+	else if (!util::Stricmp(material->name, "sprites/plasma1"))
 	{
 		plasmaBallMaterial_ = material;
 	}
-	else if (!Q_stricmp(material->name, "plasmaExplosion"))
+	else if (!util::Stricmp(material->name, "plasmaExplosion"))
 	{
 		plasmaExplosionMaterial_ = material;
 	}
@@ -488,7 +533,7 @@ void Main::onMaterialCreate(Material *material)
 
 void Main::onModelCreate(Model *model)
 {
-	if (!Q_stricmp(model->getName(), "models/weaphits/bfg.md3"))
+	if (!util::Stricmp(model->getName(), "models/weaphits/bfg.md3"))
 	{
 		bfgMissibleModel_ = model;
 	}

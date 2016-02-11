@@ -154,7 +154,7 @@ void TextureCache::createBuiltinTextures()
 	image.width = image.height = defaultSize;
 	image.nComponents = 4;
 	image.allocMemory();
-	Com_Memset(image.memory->data, 32, image.memory->size);
+	memset(image.memory->data, 32, image.memory->size);
 
 	for (int x = 0; x < defaultSize; x++)
 	{
@@ -169,7 +169,7 @@ void TextureCache::createBuiltinTextures()
 	// White texture.
 	image.width = image.height = 8;
 	image.allocMemory();
-	Com_Memset(image.memory->data, 255, image.memory->size);
+	memset(image.memory->data, 255, image.memory->size);
 	whiteTexture_ = createTexture("*white", image);
 
 	// With overbright bits active, we need an image which is some fraction of full color, for default lightmaps, etc.
@@ -191,7 +191,7 @@ void TextureCache::createBuiltinTextures()
 	for (size_t i = 0; i < scratchTextures_.size(); i++)
 	{
 		image.allocMemory();
-		Com_Memset(image.memory->data, 0, image.memory->size);
+		memset(image.memory->data, 0, image.memory->size);
 		scratchTextures_[i] = createTexture("*scratch", image, TextureType::ColorAlpha, TextureFlags::Picmip | TextureFlags::ClampToEdge);
 	}
 }

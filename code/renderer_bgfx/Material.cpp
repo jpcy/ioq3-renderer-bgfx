@@ -26,7 +26,7 @@ namespace renderer {
 
 Material::Material(const char *name)
 {
-	Q_strncpyz(this->name, name, sizeof(this->name));
+	util::Strncpyz(this->name, name, sizeof(this->name));
 }
 
 int Material::getNumGpuDeforms() const

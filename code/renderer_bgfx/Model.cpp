@@ -22,6 +22,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Precompiled.h"
 #pragma hdrstop
 
+#define LittleFloat(x) (x)
+#define LittleLong(x) (x)
+#define LittleShort(x) (x)
 #define	LL(x) x = LittleLong(x)
 
 namespace renderer {
@@ -86,7 +89,7 @@ std::unique_ptr<Model> Model::createMD3(const char *name)
 
 Model_md3::Model_md3(const char *name)
 {
-	Q_strncpyz(name_, name, sizeof(name_));
+	util::Strncpyz(name_, name, sizeof(name_));
 }
 
 bool Model_md3::load()
@@ -166,7 +169,7 @@ bool Model_md3::load()
 
 	for (size_t i = 0; i < fileHeader->numTags; i++)
 	{
-		Q_strncpyz(tagNames_[i].name, fileTags[i].name, sizeof(tagNames_[i].name));
+		util::Strncpyz(tagNames_[i].name, fileTags[i].name, sizeof(tagNames_[i].name));
 	}
 
 	// Surfaces
@@ -189,8 +192,8 @@ bool Model_md3::load()
 		LL(fs.ofsXyzNormals);
 		LL(fs.ofsEnd);
 
-		Q_strncpyz(s.name, fs.name, sizeof(s.name));
-		Q_strlwr(s.name); // Lowercase the surface name so skin compares are faster.
+		util::Strncpyz(s.name, fs.name, sizeof(s.name));
+		util::ToLowerCase(s.name); // Lowercase the surface name so skin compares are faster.
 
 		// Strip off a trailing _1 or _2. This is a crutch for q3data being a mess.
 		auto n = strlen(s.name);

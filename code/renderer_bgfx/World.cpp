@@ -22,6 +22,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Precompiled.h"
 #pragma hdrstop
 
+#define LittleFloat(x) (x)
+#define LittleLong(x) (x)
+#define LittleShort(x) (x)
+
 #define MAX_VERTS_ON_POLY		64
 
 #define MARKER_OFFSET			0	// 1
@@ -156,7 +160,7 @@ class WorldModel : public Model
 public:
 	WorldModel(int index, size_t nSurfaces, Bounds bounds) : tempSurfaces_(nSurfaces), bounds_(bounds)
 	{
-		Com_sprintf(name_, sizeof(name_), "*%d", index);
+		util::Sprintf(name_, sizeof(name_), "*%d", index);
 	}
 
 	bool load() override
@@ -499,8 +503,8 @@ public:
 
 	bool getEntityToken(char *buffer, int size)
 	{
-		const char *s = COM_Parse(&entityParsePoint_);
-		Q_strncpyz(buffer, s, size);
+		const char *s = util::Parse(&entityParsePoint_, true);
+		util::Strncpyz(buffer, s, size);
 
 		if (!entityParsePoint_ && !s[0])
 		{
@@ -1063,9 +1067,9 @@ public:
 
 	void load(const char *name)
 	{
-		Q_strncpyz(name_, name, sizeof(name_));
-		Q_strncpyz(baseName_, COM_SkipPath(name_), sizeof(baseName_));
-		COM_StripExtension(baseName_, baseName_, sizeof(baseName_));
+		util::Strncpyz(name_, name, sizeof(name_));
+		util::Strncpyz(baseName_, util::SkipPath(name_), sizeof(baseName_));
+		util::StripExtension(baseName_, baseName_, sizeof(baseName_));
 
 		ReadOnlyFile file(name_);
 
@@ -1544,32 +1548,32 @@ private:
 			strcpy(entityString_.data(), p);
 			entityParsePoint_ = entityString_.data();
 
-			char *token = COM_ParseExt(&p, qtrue);
+			char *token = util::Parse(&p, true);
 
 			if (*token && *token == '{')
 			{
 				for (;;)
 				{	
 					// Parse key.
-					token = COM_ParseExt(&p, qtrue);
+					token = util::Parse(&p, true);
 
 					if (!*token || *token == '}')
 						break;
 
 					char keyname[MAX_TOKEN_CHARS];
-					Q_strncpyz(keyname, token, sizeof(keyname));
+					util::Strncpyz(keyname, token, sizeof(keyname));
 
 					// Parse value.
-					token = COM_ParseExt( &p, qtrue );
+					token = util::Parse(&p, true);
 
 					if (!*token || *token == '}')
 						break;
 
 					char value[MAX_TOKEN_CHARS];
-					Q_strncpyz(value, token, sizeof(value));
+					util::Strncpyz(value, token, sizeof(value));
 
 					// Check for a different light grid size.
-					if (!Q_stricmp(keyname, "gridsize"))
+					if (!util::Stricmp(keyname, "gridsize"))
 					{
 						sscanf(value, "%f %f %f", &lightGridSize_.x, &lightGridSize_.y, &lightGridSize_.z);
 						continue;
@@ -1645,7 +1649,10 @@ private:
 			// Get information from the material for fog parameters.
 			auto material = g_materialCache->findMaterial(ff.shader, MaterialLightmapId::None, true);
 			f.parms = material->fogParms;
-			f.colorInt = ColorBytes4(f.parms.color[0] * g_identityLight, f.parms.color[1] * g_identityLight,  f.parms.color[2] * g_identityLight, 1.0f);
+			((uint8_t *)&f.colorInt)[0] = f.parms.color[0] * g_identityLight * 255;
+			((uint8_t *)&f.colorInt)[1] = f.parms.color[1] * g_identityLight * 255;
+			((uint8_t *)&f.colorInt)[2] = f.parms.color[2] * g_identityLight * 255;
+			((uint8_t *)&f.colorInt)[3] = 255;
 			const float d = f.parms.depthForOpaque < 1 ? 1 : f.parms.depthForOpaque;
 			f.tcScale = 1.0f / (d * 8);
 
@@ -1718,7 +1725,7 @@ private:
 							break;
 					}
 
-					lightmapAtlases_[i] = g_textureCache->createTexture(va("*lightmap%d", (int)i), image, TextureType::ColorAlpha, TextureFlags::ClampToEdge);
+					lightmapAtlases_[i] = g_textureCache->createTexture(util::VarArgs("*lightmap%d", (int)i), image, TextureType::ColorAlpha, TextureFlags::ClampToEdge);
 				}
 			}
 		}
@@ -1762,7 +1769,7 @@ private:
 			else
 			{
 				lightGridData_.resize(lump.filelen);
-				Com_Memcpy(lightGridData_.data(), &fileData_[lump.fileofs], lump.filelen);
+				memcpy(lightGridData_.data(), &fileData_[lump.fileofs], lump.filelen);
 			}
 		}
 
@@ -1772,7 +1779,7 @@ private:
 
 		for (auto &m : materials_)
 		{
-			Q_strncpyz(m.name, fileMaterial->shader, sizeof(m.name));
+			util::Strncpyz(m.name, fileMaterial->shader, sizeof(m.name));
 			m.surfaceFlags = LittleLong(fileMaterial->surfaceFlags );
 			m.contentFlags = LittleLong(fileMaterial->contentFlags );
 			fileMaterial++;
