@@ -888,8 +888,8 @@ struct Patch
 	int             pshadowBits;
 
 	// culling information
-	vec3_t			cullBounds[2];
-	vec3_t			cullOrigin;
+	Bounds cullBounds;
+	vec3			cullOrigin;
 	float			cullRadius;
 	cplane_t        cullPlane;
 
@@ -912,7 +912,7 @@ struct Patch
 	// lod information, which may be different
 	// than the culling information to allow for
 	// groups of curves that LOD as a unit
-	vec3_t			lodOrigin;
+	vec3			lodOrigin;
 	float			lodRadius;
 	int				lodFixed;
 	int				lodStitched;
