@@ -131,13 +131,13 @@ bool Model_md3::load()
 	auto fileFrames = (const md3Frame_t *)&data[fileHeader->ofsFrames];
 	frames_.resize(fileHeader->numFrames);
 
-	for (size_t i = 0; i < fileHeader->numFrames; i++)
+	for (int i = 0; i < fileHeader->numFrames; i++)
 	{
 		auto &frame = frames_[i];
 		auto &fileFrame = fileFrames[i];
 		frame.radius = LittleFloat(fileFrame.radius);
 
-		for (size_t j = 0; j < 3; j++)
+		for (int j = 0; j < 3; j++)
 		{
 			frame.bounds[0][j] = LittleFloat(fileFrame.bounds[0][j]);
 			frame.bounds[1][j] = LittleFloat(fileFrame.bounds[1][j]);
@@ -148,12 +148,12 @@ bool Model_md3::load()
 		auto fileTags = (const md3Tag_t *)&data[fileHeader->ofsTags];
 		frame.tags.resize(fileHeader->numTags);
 
-		for (size_t j = 0; j < fileHeader->numTags; j++)
+		for (int j = 0; j < fileHeader->numTags; j++)
 		{
 			auto &tag = frame.tags[j];
 			auto &fileTag = fileTags[j + i * fileHeader->numTags];
 			
-			for (size_t k = 0; k < 3; k++)
+			for (int k = 0; k < 3; k++)
 			{
 				tag.position[k] = LittleFloat(fileTag.origin[k]);
 				tag.rotation[0][k] = LittleFloat(fileTag.axis[0][k]);
@@ -167,7 +167,7 @@ bool Model_md3::load()
 	auto fileTags = (const md3Tag_t *)&data[fileHeader->ofsTags];
 	tagNames_.resize(fileHeader->numTags);
 
-	for (size_t i = 0; i < fileHeader->numTags; i++)
+	for (int i = 0; i < fileHeader->numTags; i++)
 	{
 		util::Strncpyz(tagNames_[i].name, fileTags[i].name, sizeof(tagNames_[i].name));
 	}
@@ -176,7 +176,7 @@ bool Model_md3::load()
 	auto fileSurface = (md3Surface_t *)&data[fileHeader->ofsSurfaces];
 	surfaces_.resize(fileHeader->numSurfaces);
 
-	for (size_t i = 0; i < fileHeader->numSurfaces; i++)
+	for (int i = 0; i < fileHeader->numSurfaces; i++)
 	{
 		auto &s = surfaces_[i];
 		auto &fs = *fileSurface; // Just an alias.
@@ -207,7 +207,7 @@ bool Model_md3::load()
 		auto fileShaders = (md3Shader_t *)((uint8_t *)&fs + fs.ofsShaders);
 		s.materials.resize(fs.numShaders);
 
-		for (size_t j = 0; j < fs.numShaders; j++)
+		for (int j = 0; j < fs.numShaders; j++)
 		{
 			s.materials[j] = g_materialCache->findMaterial(fileShaders[j].name, MaterialLightmapId::None);
 		}
@@ -221,7 +221,7 @@ bool Model_md3::load()
 	nVertices_ = 0;
 	fileSurface = (md3Surface_t *)&data[fileHeader->ofsSurfaces];
 
-	for (size_t i = 0; i < fileHeader->numSurfaces; i++)
+	for (int i = 0; i < fileHeader->numSurfaces; i++)
 	{
 		nIndices += fileSurface->numTriangles * 3;
 		nVertices_ += fileSurface->numVerts;
@@ -246,14 +246,14 @@ bool Model_md3::load()
 		indices_.resize(nIndices);
 	}
 
-	for (size_t i = 0; i < fileHeader->numSurfaces; i++)
+	for (int i = 0; i < fileHeader->numSurfaces; i++)
 	{
 		auto &surface = surfaces_[i];
 		surface.startIndex = startIndex;
 		surface.nIndices = fileSurface->numTriangles * 3;
 		auto fileIndices = (int *)((uint8_t *)fileSurface + fileSurface->ofsTriangles);
 
-		for (size_t j = 0; j < surface.nIndices; j++)
+		for (uint32_t j = 0; j < surface.nIndices; j++)
 		{
 			indices[startIndex + j] = LittleLong(startVertex + fileIndices[j]);
 
@@ -283,12 +283,12 @@ bool Model_md3::load()
 		size_t startVertex = 0;
 		auto fileSurface = (md3Surface_t *)&data[fileHeader->ofsSurfaces];
 
-		for (size_t i = 0; i < fileHeader->numSurfaces; i++)
+		for (int i = 0; i < fileHeader->numSurfaces; i++)
 		{
 			auto fileTexCoords = (md3St_t *)((uint8_t *)fileSurface + fileSurface->ofsSt);
 			auto fileXyzNormals = (md3XyzNormal_t *)((uint8_t *)fileSurface + fileSurface->ofsXyzNormals);
 
-			for (size_t j = 0; j < fileSurface->numVerts; j++)
+			for (int j = 0; j < fileSurface->numVerts; j++)
 			{
 				vertices[startVertex + j] = loadVertex(j, fileTexCoords, fileXyzNormals);
 
@@ -304,7 +304,7 @@ bool Model_md3::load()
 	}
 	else
 	{
-		for (size_t i = 0; i < fileHeader->numFrames; i++)
+		for (int i = 0; i < fileHeader->numFrames; i++)
 		{
 			frames_[i].vertices.resize(nVertices_);
 		}
@@ -312,16 +312,16 @@ bool Model_md3::load()
 		size_t startVertex = 0;
 		auto fileSurface = (md3Surface_t *)&data[fileHeader->ofsSurfaces];
 
-		for (size_t i = 0; i < fileHeader->numSurfaces; i++)
+		for (int i = 0; i < fileHeader->numSurfaces; i++)
 		{
 			// Texture coords are the same for each frame, positions and normals aren't.
 			auto fileTexCoords = (md3St_t *)((uint8_t *)fileSurface + fileSurface->ofsSt);
 
-			for (size_t j = 0; j < fileHeader->numFrames; j++)
+			for (int j = 0; j < fileHeader->numFrames; j++)
 			{
 				auto fileXyzNormals = (md3XyzNormal_t *)((uint8_t *)fileSurface + fileSurface->ofsXyzNormals + j * sizeof(md3XyzNormal_t) * fileSurface->numVerts);
 
-				for (size_t k = 0; k < fileSurface->numVerts; k++)
+				for (int k = 0; k < fileSurface->numVerts; k++)
 				{
 					frames_[j].vertices[startVertex + k] = loadVertex(k, fileTexCoords, fileXyzNormals);
 				}
@@ -359,7 +359,7 @@ bool Model_md3::isCulled(Entity *entity, const Frustum &cameraFrustum) const
 	assert(entity);
 
 	// It is possible to have a bad frame while changing models.
-	if (entity->e.frame >= frames_.size() || entity->e.oldframe >= frames_.size())
+	if (entity->e.frame >= (int)frames_.size() || entity->e.oldframe >= (int)frames_.size())
 		return true;
 
 	const auto &frame = frames_[entity->e.frame];
@@ -408,7 +408,7 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 		return;
 
 	// It is possible to have a bad frame while changing models.
-	if (entity->e.frame >= frames_.size() || entity->e.oldframe >= frames_.size())
+	if (entity->e.frame >= (int)frames_.size() || entity->e.oldframe >= (int)frames_.size())
 		return;
 
 	const auto modelMatrix = mat4::transform(entity->e.axis, entity->e.origin);

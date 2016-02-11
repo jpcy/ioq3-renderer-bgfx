@@ -274,8 +274,8 @@ static void MakeSkyVec(float zMax, float s, float t, int axis, float outSt[2], v
 	}
 
 	// avoid bilerp seam
-	s = (s+1)*0.5;
-	t = (t+1)*0.5;
+	s = (s+1)*0.5f;
+	t = (t+1)*0.5f;
 	if (s < sky_min)
 	{
 		s = sky_min;
@@ -294,7 +294,7 @@ static void MakeSkyVec(float zMax, float s, float t, int axis, float outSt[2], v
 		t = sky_max;
 	}
 
-	t = 1.0 - t;
+	t = 1.0f - t;
 
 
 	if (outSt)
@@ -320,10 +320,10 @@ static bool TessellateSkyBoxSide(int i, Vertex *vertices, uint16_t *indices, uin
 		return false;
 
 	int sky_mins_subd[2], sky_maxs_subd[2];;
-	sky_mins_subd[0] = sky_mins[0][i] * HALF_SKY_SUBDIVISIONS;
-	sky_mins_subd[1] = sky_mins[1][i] * HALF_SKY_SUBDIVISIONS;
-	sky_maxs_subd[0] = sky_maxs[0][i] * HALF_SKY_SUBDIVISIONS;
-	sky_maxs_subd[1] = sky_maxs[1][i] * HALF_SKY_SUBDIVISIONS;
+	sky_mins_subd[0] = int(sky_mins[0][i] * HALF_SKY_SUBDIVISIONS);
+	sky_mins_subd[1] = int(sky_mins[1][i] * HALF_SKY_SUBDIVISIONS);
+	sky_maxs_subd[0] = int(sky_maxs[0][i] * HALF_SKY_SUBDIVISIONS);
+	sky_maxs_subd[1] = int(sky_maxs[1][i] * HALF_SKY_SUBDIVISIONS);
 
 	if ( sky_mins_subd[0] < -HALF_SKY_SUBDIVISIONS ) 
 		sky_mins_subd[0] = -HALF_SKY_SUBDIVISIONS;
@@ -464,7 +464,7 @@ static void TessellateCloudBox(Vertex *vertices, uint16_t *indices, uint32_t *nV
 		else if (sky_mins_subd[0] > HALF_SKY_SUBDIVISIONS) 
 			sky_mins_subd[0] = HALF_SKY_SUBDIVISIONS;
 		if (sky_mins_subd[1] < MIN_T)
-			sky_mins_subd[1] = MIN_T;
+			sky_mins_subd[1] = (int)MIN_T;
 		else if (sky_mins_subd[1] > HALF_SKY_SUBDIVISIONS) 
 			sky_mins_subd[1] = HALF_SKY_SUBDIVISIONS;
 
@@ -473,7 +473,7 @@ static void TessellateCloudBox(Vertex *vertices, uint16_t *indices, uint32_t *nV
 		else if (sky_maxs_subd[0] > HALF_SKY_SUBDIVISIONS) 
 			sky_maxs_subd[0] = HALF_SKY_SUBDIVISIONS;
 		if (sky_maxs_subd[1] < MIN_T)
-			sky_maxs_subd[1] = MIN_T;
+			sky_maxs_subd[1] = (int)MIN_T;
 		else if (sky_maxs_subd[1] > HALF_SKY_SUBDIVISIONS) 
 			sky_maxs_subd[1] = HALF_SKY_SUBDIVISIONS;
 

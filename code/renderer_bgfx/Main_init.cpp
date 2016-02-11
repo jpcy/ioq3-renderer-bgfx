@@ -465,7 +465,7 @@ void Main::initialize()
 	while (dynamicLightTextureSize_ < sr)
 		dynamicLightTextureSize_ *= 2;
 
-	dynamicLightTextureSize_ = pow(dynamicLightTextureSize_, 2);
+	dynamicLightTextureSize_ = (int)pow(dynamicLightTextureSize_, 2);
 
 	for (size_t i = 0; i < maxDynamicLightTextures_; i++)
 	{

@@ -534,7 +534,7 @@ public:
 		for (size_t i = 0; i < 3; i++)
 		{
 			float v = lightPosition[i] * lightGridInverseSize_[i];
-			pos[i] = floor(v),
+			pos[i] = (int)floor(v),
 			frac[i] = v - pos[i];
 			pos[i] = math::Clamped(pos[i], 0, lightGridBounds_[i] - 1);
 		}
@@ -627,7 +627,7 @@ public:
 
 	int findFogIndex(vec3 position, float radius) const
 	{
-		for (int i = 0; i < fogs_.size(); i++)
+		for (int i = 0; i < (int)fogs_.size(); i++)
 		{
 			auto &fog = fogs_[i];
 			int j;
@@ -647,7 +647,7 @@ public:
 
 	int findFogIndex(const Bounds &bounds) const
 	{
-		for (int i = 0; i < fogs_.size(); i++)
+		for (int i = 0; i < (int)fogs_.size(); i++)
 		{
 			if (Bounds::intersect(bounds, fogs_[i].bounds))
 				return i;
@@ -825,7 +825,7 @@ public:
 
 				uint16_t *tri;
 
-				for (k = 0, tri = &surface->indices[0]; k < surface->indices.size(); k += 3, tri += 3)
+				for (k = 0, tri = &surface->indices[0]; k < (int)surface->indices.size(); k += 3, tri += 3)
 				{
 					for (j = 0; j < 3; j++)
 					{
@@ -843,7 +843,7 @@ public:
 			{
 				uint16_t *tri;
 
-				for (k = 0, tri = &surface->indices[0]; k < surface->indices.size(); k += 3, tri += 3)
+				for (k = 0, tri = &surface->indices[0]; k < (int)surface->indices.size(); k += 3, tri += 3)
 				{
 					for (j = 0; j < 3; j++)
 					{
@@ -1049,7 +1049,7 @@ public:
 				}
 				else if (portalEntity->e.skinNum)
 				{
-					d = portalEntity->e.skinNum;
+					d = (float)portalEntity->e.skinNum;
 				}
 
 				cameraTransform.rotation[1] = cameraTransform.rotation[1].rotatedAroundDirection(cameraTransform.rotation[0], d);
@@ -1131,12 +1131,12 @@ public:
 				// Merge this leaf's bounds.
 				visCache->bounds.addPoints(leaf.bounds);
 
-				for (size_t j = 0; j < leaf.nSurfaces; j++)
+				for (int j = 0; j < leaf.nSurfaces; j++)
 				{
 					const int si = leafSurfaces_[leaf.firstSurface + j];
 
 					// Ignore surfaces in models.
-					if (si < 0 || si >= surfaces_.size())
+					if (si < 0 || si >= (int)surfaces_.size())
 						continue;
 					
 					auto &surface = surfaces_[si];
@@ -1649,9 +1649,9 @@ private:
 			// Get information from the material for fog parameters.
 			auto material = g_materialCache->findMaterial(ff.shader, MaterialLightmapId::None, true);
 			f.parms = material->fogParms;
-			((uint8_t *)&f.colorInt)[0] = f.parms.color[0] * g_identityLight * 255;
-			((uint8_t *)&f.colorInt)[1] = f.parms.color[1] * g_identityLight * 255;
-			((uint8_t *)&f.colorInt)[2] = f.parms.color[2] * g_identityLight * 255;
+			((uint8_t *)&f.colorInt)[0] = uint8_t(f.parms.color[0] * g_identityLight * 255);
+			((uint8_t *)&f.colorInt)[1] = uint8_t(f.parms.color[1] * g_identityLight * 255);
+			((uint8_t *)&f.colorInt)[2] = uint8_t(f.parms.color[2] * g_identityLight * 255);
 			((uint8_t *)&f.colorInt)[3] = 255;
 			const float d = f.parms.depthForOpaque < 1 ? 1 : f.parms.depthForOpaque;
 			f.tcScale = 1.0f / (d * 8);
@@ -1678,15 +1678,15 @@ private:
 			{
 				// Calculate the smallest square POT atlas size.
 				// 1024 is 4MB, 2048 is 16MB. Anything over 1024 is likely to waste a lot of memory for empty space, so use multiple pages in that case.
-				const int sr = (int)ceil(sqrtf(nLightmaps));
+				const int sr = (int)ceil(sqrtf((float)nLightmaps));
 				lightmapAtlasSize_ = 1;
 
 				while (lightmapAtlasSize_ < sr)
 					lightmapAtlasSize_ *= 2;
 
 				lightmapAtlasSize_ = std::min(1024, lightmapAtlasSize_ * lightmapSize_);
-				nLightmapsPerAtlas_ = pow(lightmapAtlasSize_ / lightmapSize_, 2);
-				lightmapAtlases_.resize(ceil(nLightmaps / (float)nLightmapsPerAtlas_));
+				nLightmapsPerAtlas_ = (int)pow(lightmapAtlasSize_ / lightmapSize_, 2);
+				lightmapAtlases_.resize((size_t)ceil(nLightmaps / (float)nLightmapsPerAtlas_));
 
 				// Pack lightmaps into atlas(es).
 				size_t lightmapIndex = 0;
@@ -1703,9 +1703,9 @@ private:
 					for (;;)
 					{
 						// Expand from 24bpp to 32bpp.
-						for (size_t y = 0; y < lightmapSize_; y++)
+						for (int y = 0; y < lightmapSize_; y++)
 						{
-							for (size_t x = 0; x < lightmapSize_; x++)
+							for (int x = 0; x < lightmapSize_; x++)
 							{
 								const size_t srcOffset = (x + y * lightmapSize_) * 3;
 								const int nLightmapsPerDimension = lightmapAtlasSize_ / lightmapSize_;
@@ -1757,7 +1757,7 @@ private:
 			{
 				lightGridOrigin_[i] = lightGridSize_[i] * ceil(modelDefs_[0].bounds.min[i] / lightGridSize_[i]);
 				const float max = lightGridSize_[i] * floor(modelDefs_[0].bounds.max[i] / lightGridSize_[i]);
-				lightGridBounds_[i] = (max - lightGridOrigin_[i]) / lightGridSize_[i] + 1;
+				lightGridBounds_[i] = int((max - lightGridOrigin_[i]) / lightGridSize_[i] + 1);
 			}
 
 			const int numGridPoints = lightGridBounds_[0] * lightGridBounds_[1] * lightGridBounds_[2];
@@ -1932,8 +1932,8 @@ private:
 			auto &fn = fileNodes[i];
 
 			n.leaf = false;
-			n.bounds[0] = vec3(LittleLong(fn.mins[0]), LittleLong(fn.mins[1]), LittleLong(fn.mins[2]));
-			n.bounds[1] = vec3(LittleLong(fn.maxs[0]), LittleLong(fn.maxs[1]), LittleLong(fn.maxs[2]));
+			n.bounds[0] = vec3((float)LittleLong(fn.mins[0]), (float)LittleLong(fn.mins[1]), (float)LittleLong(fn.mins[2]));
+			n.bounds[1] = vec3((float)LittleLong(fn.maxs[0]), (float)LittleLong(fn.maxs[1]), (float)LittleLong(fn.maxs[2]));
 			n.plane = &planes_[LittleLong(fn.planeNum)];
 
 			for (size_t j = 0; j < 2; j++)
@@ -1951,8 +1951,8 @@ private:
 			auto &fl = fileLeaves[i];
 
 			l.leaf = true;
-			l.bounds[0] = vec3(LittleLong(fl.mins[0]), LittleLong(fl.mins[1]), LittleLong(fl.mins[2]));
-			l.bounds[1] = vec3(LittleLong(fl.maxs[0]), LittleLong(fl.maxs[1]), LittleLong(fl.maxs[2]));
+			l.bounds[0] = vec3((float)LittleLong(fl.mins[0]), (float)LittleLong(fl.mins[1]), (float)LittleLong(fl.mins[2]));
+			l.bounds[1] = vec3((float)LittleLong(fl.maxs[0]), (float)LittleLong(fl.maxs[1]), (float)LittleLong(fl.maxs[2]));
 			l.cluster = LittleLong(fl.cluster);
 			l.area = LittleLong(fl.area);
 
@@ -2044,7 +2044,7 @@ private:
 
 	Material *findMaterial(int materialIndex, int lightmapIndex)
 	{
-		if (materialIndex < 0 || materialIndex >= materials_.size())
+		if (materialIndex < 0 || materialIndex >= (int)materials_.size())
 		{
 			ri.Error(ERR_DROP, "%s: bad material index %i", name_, materialIndex);
 		}

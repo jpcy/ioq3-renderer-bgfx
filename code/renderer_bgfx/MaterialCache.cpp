@@ -390,7 +390,7 @@ void MaterialCache::remapMaterial(const char *oldName, const char *newName, cons
 
 	if (offsetTime)
 	{
-		materials[1]->timeOffset = atof(offsetTime);
+		materials[1]->timeOffset = (float)atof(offsetTime);
 	}
 }
 

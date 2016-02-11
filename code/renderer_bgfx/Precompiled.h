@@ -1291,7 +1291,7 @@ namespace util
 	char *ToLowerCase(char *s1);
 
 	// does a varargs printf into a temp buffer, so I don't need to have varargs versions of all text functions.
-	char *VarArgs(char *format, ...) __attribute__((format(printf, 1, 2)));
+	char *VarArgs(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
 	int Vsnprintf(char *str, size_t size, const char *format, va_list ap);
 }

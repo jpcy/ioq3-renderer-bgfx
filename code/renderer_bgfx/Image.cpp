@@ -32,7 +32,7 @@ namespace renderer {
 
 void Image::calculateNumMips()
 {
-	nMips = 1 + std::floor(std::log2(std::max(width, height)));
+	nMips = 1 + (int)std::floor(std::log2(std::max(width, height)));
 }
 
 void Image::allocMemory()
@@ -40,7 +40,7 @@ void Image::allocMemory()
 	int mipWidth = width, mipHeight = height;
 	size_t memSize = 0;
 
-	for (size_t i = 0; i < nMips; i++)
+	for (int i = 0; i < nMips; i++)
 	{
 		memSize += mipWidth * mipHeight * nComponents;
 		mipWidth = std::max(1, mipWidth >> 1);
@@ -140,7 +140,7 @@ static void FinalizeImage(Image *image, uint8_t *data, int flags)
 		int width = image->width, height = image->height;
 		uint8_t *mipSource = image->memory->data;
 
-		for (size_t i = 0; i < image->nMips - 1; i++)
+		for (int i = 0; i < image->nMips - 1; i++)
 		{
 			uint8_t *mipDest = mipSource + (width * height * image->nComponents);
 

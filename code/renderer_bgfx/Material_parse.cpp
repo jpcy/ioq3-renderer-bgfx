@@ -160,21 +160,21 @@ bool Material::parse(char **text)
 			}
 
 			token = util::Parse(text, false);
-			sun.light[0] = atof(token);
+			sun.light[0] = (float)atof(token);
 			token = util::Parse(text, false);
-			sun.light[1] = atof(token);
+			sun.light[1] = (float)atof(token);
 			token = util::Parse(text, false);
-			sun.light[2] = atof(token);
+			sun.light[2] = (float)atof(token);
 			
 			token = util::Parse(text, false);
 			sun.light.normalize();
-			sun.light *= atof(token);
+			sun.light *= (float)atof(token);
 
 			token = util::Parse(text, false);
-			const float a = atof(token) / (180 * M_PI);
+			const float a = (float)atof(token) / (180.0f * (float)M_PI);
 
 			token = util::Parse(text, false);
-			float b = atof(token) / (180 * M_PI);
+			float b = (float)atof(token) / (180.0f * (float)M_PI);
 
 			sun.direction[0] = cos(a) * cos(b);
 			sun.direction[1] = sin(a) * cos(b);
@@ -183,10 +183,10 @@ bool Material::parse(char **text)
 			if (sun.shadows)
 			{
 				token = util::Parse(text, false);
-				sun.lightScale = atof(token);
+				sun.lightScale = (float)atof(token);
 
 				token = util::Parse(text, false);
-				sun.shadowScale = atof(token);
+				sun.shadowScale = (float)atof(token);
 			}
 
 			main::SetSunLight(sun);
@@ -199,16 +199,16 @@ bool Material::parse(char **text)
 			vec3 toneMinAvgMaxLevel = { -8, -2, 0 };
 
 			token = util::Parse(text, false);
-			toneMinAvgMaxLevel[0] = atof(token);
+			toneMinAvgMaxLevel[0] = (float)atof(token);
 			token = util::Parse(text, false);
-			toneMinAvgMaxLevel[1] = atof(token);
+			toneMinAvgMaxLevel[1] = (float)atof(token);
 			token = util::Parse(text, false);
-			toneMinAvgMaxLevel[2] = atof(token);
+			toneMinAvgMaxLevel[2] = (float)atof(token);
 
 			token = util::Parse(text, false);
-			autoExposureMinMax[0] = atof(token);
+			autoExposureMinMax[0] = (float)atof(token);
 			token = util::Parse(text, false);
-			autoExposureMinMax[1] = atof(token);
+			autoExposureMinMax[1] = (float)atof(token);
 
 			util::SkipRestOfLine(text);
 		}
@@ -233,7 +233,7 @@ bool Material::parse(char **text)
 
 			if (token[0])
 			{
-				clampTime = atof(token);
+				clampTime = (float)atof(token);
 			}
 		}
 		// skip stuff that only the q3map needs
@@ -300,7 +300,7 @@ bool Material::parse(char **text)
 				continue;
 			}
 
-			fogParms.depthForOpaque = atof(token);
+			fogParms.depthForOpaque = (float)atof(token);
 
 			// skip any old gradient directions
 			util::SkipRestOfLine(text);
@@ -404,7 +404,7 @@ vec3 Material::parseVector(char **text, bool *result) const
 			return v;
 		}
 
-		v[i] = atof(token);
+		v[i] = (float)atof(token);
 	}
 
 	token = util::Parse(text, false);
@@ -463,7 +463,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			else if (!util::Stricmp(token, "const"))
 			{
 				token = util::Parse(text, false);
-				stage->constantColor[3] = 255 * atof(token);
+				stage->constantColor[3] = uint8_t(255 * atof(token));
 				stage->alphaGen = MaterialAlphaGen::Const;
 			}
 			else if (!util::Stricmp(token, "identity"))
@@ -501,7 +501,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				}
 				else
 				{
-					portalRange = atof(token);
+					portalRange = (float)atof(token);
 				}
 			}
 			else
@@ -734,7 +734,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				return false;
 			}
 
-			stage->bundles[0].imageAnimationSpeed = atof(token);
+			stage->bundles[0].imageAnimationSpeed = (float)atof(token);
 
 			// parse up to MaterialTextureBundle::maxImageAnimations animations
 			for (;;)
@@ -886,7 +886,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				continue;
 			}
 
-			stage->specularScale = vec4(atof(token));
+			stage->specularScale = vec4((float)atof(token));
 		}
 		// specularExponent <value>
 		else if (!util::Stricmp(token, "specularexponent"))
@@ -915,7 +915,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				continue;
 			}
 
-			stage->specularScale.a = atof(token);
+			stage->specularScale.a = (float)atof(token);
 		}
 		// parallaxDepth <value>
 		else if (!util::Stricmp(token, "parallaxdepth"))
@@ -928,7 +928,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				continue;
 			}
 
-			stage->normalScale.w = atof(token);
+			stage->normalScale.w = (float)atof(token);
 		}
 		// normalScale <xy>
 		// or normalScale <x> <y>
@@ -943,7 +943,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				continue;
 			}
 
-			stage->normalScale.x = atof(token);
+			stage->normalScale.x = (float)atof(token);
 			token = util::Parse(text, false);
 
 			if (token[0] == 0)
@@ -953,13 +953,13 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				continue;
 			}
 
-			stage->normalScale.y = atof(token);
+			stage->normalScale.y = (float)atof(token);
 			token = util::Parse(text, false);
 
 			if (token[0] == 0)
 				continue; // two values, no height
 
-			stage->normalScale.z = atof(token);
+			stage->normalScale.z = (float)atof(token);
 		}
 		// specularScale <rgb> <gloss>
 		// or specularScale <r> <g> <b>
@@ -974,7 +974,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				continue;
 			}
 
-			stage->specularScale.r = atof(token);
+			stage->specularScale.r = (float)atof(token);
 			token = util::Parse(text, false);
 
 			if (token[0] == 0)
@@ -983,7 +983,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				continue;
 			}
 
-			stage->specularScale.g = atof(token);
+			stage->specularScale.g = (float)atof(token);
 			token = util::Parse(text, false);
 
 			if (token[0] == 0)
@@ -995,7 +995,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				continue;
 			}
 
-			stage->specularScale.b = atof(token);
+			stage->specularScale.b = (float)atof(token);
 			token = util::Parse(text, false);
 
 			if (token[0] == 0)
@@ -1004,7 +1004,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				continue;
 			}
 
-			stage->specularScale.b = atof(token);
+			stage->specularScale.b = (float)atof(token);
 
 		}
 		// rgbGen
@@ -1024,9 +1024,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			else if (!util::Stricmp(token, "const"))
 			{
 				auto color = parseVector(text);
-				stage->constantColor[0] = 255 * color.r;
-				stage->constantColor[1] = 255 * color.g;
-				stage->constantColor[2] = 255 * color.b;
+				stage->constantColor[0] = uint8_t(255 * color.r);
+				stage->constantColor[1] = uint8_t(255 * color.g);
+				stage->constantColor[2] = uint8_t(255 * color.b);
 				stage->rgbGen = MaterialColorGen::Const;
 			}
 			else if (!util::Stricmp(token, "identity"))
@@ -1210,7 +1210,7 @@ MaterialWaveForm Material::parseWaveForm(char **text) const
 		return wave;
 	}
 
-	wave.base = atof(token);
+	wave.base = (float)atof(token);
 	token = util::Parse(text, false);
 
 	if (token[0] == 0)
@@ -1219,7 +1219,7 @@ MaterialWaveForm Material::parseWaveForm(char **text) const
 		return wave;
 	}
 
-	wave.amplitude = atof(token);
+	wave.amplitude = (float)atof(token);
 	token = util::Parse(text, false);
 
 	if (token[0] == 0)
@@ -1228,7 +1228,7 @@ MaterialWaveForm Material::parseWaveForm(char **text) const
 		return wave;
 	}
 
-	wave.phase = atof(token);
+	wave.phase = (float)atof(token);
 	token = util::Parse(text, false);
 
 	if (token[0] == 0)
@@ -1237,7 +1237,7 @@ MaterialWaveForm Material::parseWaveForm(char **text) const
 		return wave;
 	}
 
-	wave.frequency = atof(token);
+	wave.frequency = (float)atof(token);
 	return wave;
 }
 
@@ -1257,7 +1257,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.wave.base = atof(token);
+		tmi.wave.base = (float)atof(token);
 		token = util::Parse(text, false);
 
 		if (token[0] == 0)
@@ -1266,7 +1266,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.wave.amplitude = atof(token);
+		tmi.wave.amplitude = (float)atof(token);
 		token = util::Parse(text, false);
 
 		if (token[0] == 0)
@@ -1275,7 +1275,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.wave.phase = atof(token);
+		tmi.wave.phase = (float)atof(token);
 		token = util::Parse(text, false);
 
 		if (token[0] == 0)
@@ -1284,7 +1284,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.wave.frequency = atof(token);
+		tmi.wave.frequency = (float)atof(token);
 		tmi.type = MaterialTexMod::Turbulent;
 	}
 	else if (!util::Stricmp(token, "scale"))
@@ -1297,7 +1297,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.scale[0] = atof(token);
+		tmi.scale[0] = (float)atof(token);
 		token = util::Parse(text, false);
 
 		if (token[0] == 0)
@@ -1306,7 +1306,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.scale[1] = atof(token);
+		tmi.scale[1] = (float)atof(token);
 		tmi.type = MaterialTexMod::Scale;
 	}
 	else if (!util::Stricmp(token, "scroll"))
@@ -1319,7 +1319,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.scroll[0] = atof(token);
+		tmi.scroll[0] = (float)atof(token);
 		token = util::Parse(text, false);
 
 		if (token[0] == 0)
@@ -1328,7 +1328,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.scroll[1] = atof(token);
+		tmi.scroll[1] = (float)atof(token);
 		tmi.type = MaterialTexMod::Scroll;
 	}
 	else if (!util::Stricmp(token, "stretch"))
@@ -1350,7 +1350,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.wave.base = atof(token);
+		tmi.wave.base = (float)atof(token);
 		token = util::Parse(text, false);
 
 		if (token[0] == 0)
@@ -1359,7 +1359,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.wave.amplitude = atof(token);
+		tmi.wave.amplitude = (float)atof(token);
 		token = util::Parse(text, false);
 
 		if (token[0] == 0)
@@ -1368,7 +1368,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.wave.phase = atof(token);
+		tmi.wave.phase = (float)atof(token);
 		token = util::Parse(text, false);
 
 		if (token[0] == 0)
@@ -1377,7 +1377,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.wave.frequency = atof(token);
+		tmi.wave.frequency = (float)atof(token);
 		tmi.type = MaterialTexMod::Stretch;
 	}
 	else if (!util::Stricmp(token, "transform"))
@@ -1390,7 +1390,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.matrix[0][0] = atof(token);
+		tmi.matrix[0][0] = (float)atof(token);
 		token = util::Parse(text, false);
 
 		if (token[0] == 0)
@@ -1399,7 +1399,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.matrix[0][1] = atof(token);
+		tmi.matrix[0][1] = (float)atof(token);
 		token = util::Parse(text, false);
 
 		if (token[0] == 0)
@@ -1408,7 +1408,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.matrix[1][0] = atof(token);
+		tmi.matrix[1][0] = (float)atof(token);
 		token = util::Parse(text, false);
 
 		if (token[0] == 0)
@@ -1417,7 +1417,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.matrix[1][1] = atof(token);
+		tmi.matrix[1][1] = (float)atof(token);
 		token = util::Parse(text, false);
 
 		if (token[0] == 0)
@@ -1426,7 +1426,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.translate[0] = atof(token);
+		tmi.translate[0] = (float)atof(token);
 		token = util::Parse(text, false);
 
 		if (token[0] == 0)
@@ -1435,7 +1435,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.translate[1] = atof(token);
+		tmi.translate[1] = (float)atof(token);
 		tmi.type = MaterialTexMod::Transform;
 	}
 	else if (!util::Stricmp(token, "rotate"))
@@ -1448,7 +1448,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 			return tmi;
 		}
 
-		tmi.rotateSpeed = atof(token);
+		tmi.rotateSpeed = (float)atof(token);
 		tmi.type = MaterialTexMod::Rotate;
 	}
 	else if (!util::Stricmp(token, "entityTranslate"))
@@ -1513,7 +1513,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 			return ds;
 		}
 
-		ds.bulgeWidth = atof(token);
+		ds.bulgeWidth = (float)atof(token);
 		token = util::Parse(text, false);
 
 		if (token[0] == 0)
@@ -1522,7 +1522,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 			return ds;
 		}
 
-		ds.bulgeHeight = atof(token);
+		ds.bulgeHeight = (float)atof(token);
 		token = util::Parse(text, false);
 
 		if (token[0] == 0)
@@ -1531,7 +1531,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 			return ds;
 		}
 
-		ds.bulgeSpeed = atof(token);
+		ds.bulgeSpeed = (float)atof(token);
 		ds.deformation = MaterialDeform::Bulge;
 	}
 	else if (!util::Stricmp(token, "wave"))
@@ -1546,7 +1546,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 
 		if (atof(token) != 0)
 		{
-			ds.deformationSpread = 1.0f / atof(token);
+			ds.deformationSpread = 1.0f / (float)atof(token);
 		}
 		else
 		{
@@ -1567,7 +1567,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 			return ds;
 		}
 
-		ds.deformationWave.amplitude = atof(token);
+		ds.deformationWave.amplitude = (float)atof(token);
 		token = util::Parse(text, false);
 
 		if (token[0] == 0)
@@ -1576,7 +1576,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 			return ds;
 		}
 
-		ds.deformationWave.frequency = atof(token);
+		ds.deformationWave.frequency = (float)atof(token);
 		ds.deformation = MaterialDeform::Normals;
 	}
 	else if (!util::Stricmp(token, "move"))
@@ -1591,7 +1591,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 				return ds;
 			}
 
-			ds.moveVector[i] = atof(token);
+			ds.moveVector[i] = (float)atof(token);
 		}
 
 		ds.deformationWave = parseWaveForm(text);
@@ -1644,7 +1644,7 @@ void Material::parseSkyParms(char **text)
 		return;
 	}
 
-	sky.cloudHeight = atof(token);
+	sky.cloudHeight = (float)atof(token);
 
 	if (!sky.cloudHeight)
 	{
@@ -1784,7 +1784,7 @@ float Material::sortFromName(const char *name) const
 		{ "underwater", MaterialSort::Underwater }
 	}))
 	{
-		value = atof(name);
+		value = (float)atof(name);
 	}
 
 	return value;

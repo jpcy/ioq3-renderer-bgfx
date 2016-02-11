@@ -340,7 +340,7 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 	bgfx::setTexture(0, matStageUniforms_->diffuseMap.handle, textureCache_->getScratchTextures()[client]->getHandle());
 	matStageUniforms_->color.set(vec4::white);
 	bgfx::setState(BGFX_STATE_RGB_WRITE);
-	const uint8_t viewId = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), vec4(x, y, w, h), PushViewFlags::Sequential);
+	const uint8_t viewId = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), Rect(x, y, w, h), PushViewFlags::Sequential);
 	bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::TextureColor].handle);
 }
 
@@ -389,7 +389,7 @@ void Main::addPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts
 	const size_t firstVertex = scenePolygonVertices_.size();
 	scenePolygonVertices_.insert(scenePolygonVertices_.end(), verts, &verts[nPolys * nVerts]);
 
-	for (size_t i = 0; i < nPolys; i++)
+	for (int i = 0; i < nPolys; i++)
 	{
 		Polygon p;
 		p.material = materialCache_->getMaterial(hShader); 
@@ -398,9 +398,9 @@ void Main::addPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts
 		Bounds bounds;
 		bounds.setupForAddingPoints();
 
-		for (size_t i = 0; i < p.nVertices; i++)
+		for (size_t j = 0; j < p.nVertices; j++)
 		{
-			bounds.addPoint(scenePolygonVertices_[p.firstVertex + i].xyz);
+			bounds.addPoint(scenePolygonVertices_[p.firstVertex + j].xyz);
 		}
 
 		p.fogIndex = world::FindFogIndex(bounds);
@@ -424,7 +424,7 @@ void Main::renderScene(const refdef_t *def)
 	if (def->rdflags & RDF_HYPERSPACE)
 	{
 		const uint8_t c = time_ & 255;
-		const uint8_t viewId = pushView(defaultFb_, 0, mat4::identity, mat4::identity, vec4(x, y, w, h));
+		const uint8_t viewId = pushView(defaultFb_, 0, mat4::identity, mat4::identity, Rect(x, y, w, h));
 		bgfx::setViewClear(viewId, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, (c<<24)|(c<<16)|(c<<8)|0xff);
 		bgfx::touch(viewId);
 	}
@@ -433,7 +433,7 @@ void Main::renderScene(const refdef_t *def)
 		const vec3 scenePosition(def->vieworg);
 		sceneRotation_ = mat3(def->viewaxis);
 		isWorldCamera_ = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world::IsLoaded();
-		renderCamera(mainVisCacheId_, scenePosition, scenePosition, sceneRotation_, vec4(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
+		renderCamera(mainVisCacheId_, scenePosition, scenePosition, sceneRotation_, Rect(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
 
 		if (SETTINGS_SHOW_DEPTH)
 		{
@@ -539,7 +539,7 @@ void Main::onModelCreate(Model *model)
 	}
 }
 
-uint8_t Main::pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, vec4 rect, int flags)
+uint8_t Main::pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags)
 {
 	// Useful for debugging, can be disabled for performance later.
 #if 1
@@ -554,7 +554,7 @@ uint8_t Main::pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, cons
 	}
 
 	bgfx::setViewFrameBuffer(firstFreeViewId_, frameBuffer.handle);
-	bgfx::setViewRect(firstFreeViewId_, uint16_t(rect.x), uint16_t(rect.y), uint16_t(rect.z), uint16_t(rect.w));
+	bgfx::setViewRect(firstFreeViewId_, uint16_t(rect.x), uint16_t(rect.y), uint16_t(rect.w), uint16_t(rect.h));
 	bgfx::setViewSeq(firstFreeViewId_, (flags & PushViewFlags::Sequential) != 0);
 	bgfx::setViewTransform(firstFreeViewId_, viewMatrix.get(), projectionMatrix.get());
 	firstFreeViewId_++;
@@ -582,7 +582,7 @@ void Main::flushStretchPics()
 
 			if (stretchPicViewId_ == UINT8_MAX)
 			{
-				stretchPicViewId_ = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, glConfig.vidWidth, 0, glConfig.vidHeight, -1, 1), vec4(0, 0, glConfig.vidWidth, glConfig.vidHeight), PushViewFlags::Sequential);
+				stretchPicViewId_ = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, (float)glConfig.vidWidth, 0, (float)glConfig.vidHeight, -1, 1), Rect(0, 0, glConfig.vidWidth, glConfig.vidHeight), PushViewFlags::Sequential);
 			}
 
 			for (const MaterialStage &stage : stretchPicMaterial_->stages)
@@ -642,7 +642,7 @@ static void SetDrawCallGeometry(const DrawCall &dc)
 	}
 }
 
-void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, vec4 rect, vec2 fov, const uint8_t *areaMask)
+void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask)
 {
 	assert(areaMask);
 	const float zMin = 4;
@@ -833,14 +833,14 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	// Setup dynamic lights.
 	if (isWorldCamera_)
 	{
-		uniforms_->dynamicLights_Num_TextureWidth.set(vec4(sceneDynamicLights_.size(), dynamicLightTextureSize_, 0, 0));
+		uniforms_->dynamicLights_Num_TextureWidth.set(vec4((float)sceneDynamicLights_.size(), (float)dynamicLightTextureSize_, 0, 0));
 
 		if (sceneDynamicLights_.size() > 0)
 		{
 			const uint32_t size = sceneDynamicLights_.size() * sizeof(DynamicLight);
 			const uint16_t nTexels = uint16_t(size / 4);
 			const uint16_t width = std::min(nTexels, uint16_t(dynamicLightTextureSize_));
-			const uint16_t height = std::ceil(nTexels / (float)dynamicLightTextureSize_);
+			const uint16_t height = (uint16_t)std::ceil(nTexels / (float)dynamicLightTextureSize_);
 			const bgfx::Memory *mem = bgfx::copy(sceneDynamicLights_.data(), size);
 			bgfx::updateTexture2D(dynamicLightsTextures_[visCacheId], 0, 0, 0, width, height, mem);
 		}
@@ -1128,7 +1128,7 @@ void Main::renderFullscreenQuad(const FrameBuffer &frameBuffer, ShaderProgramId:
 	vertices[2].texCoord = vec2(maxu, maxv);
 	bgfx::setVertexBuffer(&vb);
 	bgfx::setState(state);
-	const uint8_t viewId = pushView(frameBuffer, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), vec4(0, 0, glConfig.vidWidth, glConfig.vidHeight));
+	const uint8_t viewId = pushView(frameBuffer, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), Rect(0, 0, glConfig.vidWidth, glConfig.vidHeight));
 	bgfx::submit(viewId, shaderPrograms_[program].handle);
 }
 
@@ -1263,7 +1263,7 @@ void Main::renderLightningEntity(DrawCallList *drawCallList, vec3 viewPosition, 
 
 	for (int i = 0; i < 4; i++)
 	{
-		renderRailCore(drawCallList, start, end, right, length, g_cvars.railCoreWidth->integer, materialCache_->getMaterial(entity->e.customShader), vec4::fromBytes(entity->e.shaderRGBA), entity);
+		renderRailCore(drawCallList, start, end, right, length, g_cvars.railCoreWidth->value, materialCache_->getMaterial(entity->e.customShader), vec4::fromBytes(entity->e.shaderRGBA), entity);
 		right = right.rotatedAroundDirection(dir, 45);
 	}
 }
@@ -1280,7 +1280,7 @@ void Main::renderRailCoreEntity(DrawCallList *drawCallList, vec3 viewPosition, m
 	const vec3 v2 = (end - viewPosition).normal();
 	const vec3 right = vec3::crossProduct(v1, v2).normal();
 
-	renderRailCore(drawCallList, start, end, right, length, g_cvars.railCoreWidth->integer, materialCache_->getMaterial(entity->e.customShader), vec4::fromBytes(entity->e.shaderRGBA), entity);
+	renderRailCore(drawCallList, start, end, right, length, g_cvars.railCoreWidth->value, materialCache_->getMaterial(entity->e.customShader), vec4::fromBytes(entity->e.shaderRGBA), entity);
 }
 
 void Main::renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3 up, float length, float spanWidth, Material *mat, vec4 color, Entity *entity)
@@ -1336,7 +1336,7 @@ void Main::renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity)
 	vec3 right, up;
 	dir.toNormalVectors(&right, &up);
 	dir *= g_cvars.railSegmentLength->value;
-	int nSegments = std::max(1.0f, length / g_cvars.railSegmentLength->value);
+	int nSegments = (int)std::max(1.0f, length / g_cvars.railSegmentLength->value);
 
 	if (nSegments > 1)
 		nSegments--;
@@ -1345,7 +1345,7 @@ void Main::renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity)
 		return;
 
 	const float scale = 0.25f;
-	const int spanWidth = g_cvars.railWidth->integer;
+	const float spanWidth = g_cvars.railWidth->value;
 	vec3 positions[4];
 
 	for (int i = 0; i < 4; i++)
@@ -1415,7 +1415,7 @@ void Main::renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Ent
 	}
 	else
 	{
-		const float ang = M_PI * entity->e.rotation / 180;
+		const float ang = (float)M_PI * entity->e.rotation / 180.0f;
 		const float s = sin(ang);
 		const float c = cos(ang);
 		left = viewRotation[1] * (c * entity->e.radius) + viewRotation[2] * (-s * entity->e.radius);

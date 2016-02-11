@@ -422,7 +422,7 @@ char *ToLowerCase(char *s1)
 	return s1;
 }
 
-char *VarArgs(char *format, ...)
+char *VarArgs(const char *format, ...)
 {
 	va_list		argptr;
 	static char string[2][32000]; // in case va is called by nested functions

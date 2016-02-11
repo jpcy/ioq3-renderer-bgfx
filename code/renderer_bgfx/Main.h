@@ -116,6 +116,12 @@ private:
 		};
 	};
 
+	struct Rect
+	{
+		Rect(int x, int y, int w, int h) : x(x), y(y), w(w), h(h) {}
+		int x, y, w, h;
+	};
+
 	struct PushViewFlags
 	{
 		enum
@@ -124,9 +130,9 @@ private:
 		};
 	};
 
-	uint8_t pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, vec4 rect, int flags = 0);
+	uint8_t pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags = 0);
 	void flushStretchPics();
-	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, vec4 rect, vec2 fov, const uint8_t *areaMask);
+	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask);
 	void renderFullscreenQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, bool originBottomLeft = false, int textureWidth = 0, int textureHeight = 0);
 
 	/// @name Entity rendering

@@ -332,11 +332,11 @@ void MaterialStage::calculateTransformTexMatrix(const MaterialTexModInfo &tmi, f
 void MaterialStage::calculateRotateTexMatrix(float degsPerSecond, float *matrix) const
 {
 	float degs = -degsPerSecond * material->time_;
-	int index = degs * (g_funcTableSize / 360.0f);
+	int index = int(degs * (g_funcTableSize / 360.0f));
 	float sinValue = g_sinTable[index & g_funcTableMask];
 	float cosValue = g_sinTable[(index + g_funcTableSize / 4) & g_funcTableMask];
-	matrix[0] = cosValue; matrix[2] = -sinValue; matrix[4] = 0.5 - 0.5 * cosValue + 0.5 * sinValue;
-	matrix[1] = sinValue; matrix[3] = cosValue;  matrix[5] = 0.5 - 0.5 * sinValue - 0.5 * cosValue;
+	matrix[0] = cosValue; matrix[2] = -sinValue; matrix[4] = 0.5f - 0.5f * cosValue + 0.5f * sinValue;
+	matrix[1] = sinValue; matrix[3] = cosValue;  matrix[5] = 0.5f - 0.5f * sinValue - 0.5f * cosValue;
 }
 
 float MaterialStage::calculateWaveColorSingle(const MaterialWaveForm &wf) const
@@ -487,8 +487,8 @@ void MaterialStage::calculateColors(vec4 *baseColor, vec4 *vertColor) const
 		&& blendDst != BGFX_STATE_BLEND_SRC_COLOR
 		&& blendDst != BGFX_STATE_BLEND_INV_SRC_COLOR)
 	{
-		(*baseColor) = vec4(baseColor->xyz() * g_overbrightFactor, baseColor->a);
-		(*vertColor) = vec4(vertColor->xyz() * g_overbrightFactor, vertColor->a);
+		(*baseColor) = vec4(baseColor->xyz() * (float)g_overbrightFactor, baseColor->a);
+		(*vertColor) = vec4(vertColor->xyz() * (float)g_overbrightFactor, vertColor->a);
 	}
 }
 

@@ -175,7 +175,7 @@ void TextureCache::createBuiltinTextures()
 	// With overbright bits active, we need an image which is some fraction of full color, for default lightmaps, etc.
 	image.width = image.height = defaultSize;
 	image.allocMemory();
-	const uint8_t identityLightByte = 255 * g_identityLight;
+	const uint8_t identityLightByte = uint8_t(255 * g_identityLight);
 
 	for (int x = 0; x < defaultSize * defaultSize; x++)
 	{
