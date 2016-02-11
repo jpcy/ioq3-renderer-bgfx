@@ -308,7 +308,7 @@ void Main::drawStretchPic(float x, float y, float w, float h, float s1, float t1
 	i[3] = firstVertex + 2; i[4] = firstVertex + 0; i[5] = firstVertex + 1;
 }
 
-void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const byte *data, int client, bool dirty)
+void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty)
 {
 	if (!math::IsPowerOfTwo(cols) || !math::IsPowerOfTwo(rows))
 	{
@@ -344,7 +344,7 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 	bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::TextureColor].handle);
 }
 
-void Main::uploadCinematic(int w, int h, int cols, int rows, const byte *data, int client, bool dirty)
+void Main::uploadCinematic(int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty)
 {
 	auto scratch = textureCache_->getScratchTextures()[client];
 	

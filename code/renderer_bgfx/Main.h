@@ -41,12 +41,12 @@ public:
 	int getTime() const { return time_; }
 	bool isMirrorCamera() const { return isMirrorCamera_; }
 
-	void setColor(const vec4 &c) { stretchPicColor_ = c; }
+	void setColor(vec4 c) { stretchPicColor_ = c; }
 	void setSunLight(const SunLight &sunLight) { sunLight_ = sunLight; }
 	void debugPrint(const char *format, ...);
 	void drawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex);
-	void drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const byte *data, int client, bool dirty);
-	void uploadCinematic(int w, int h, int cols, int rows, const byte *data, int client, bool dirty);
+	void drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);
+	void uploadCinematic(int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);
 	void loadWorld(const char *name);
 	void addDynamicLightToScene(DynamicLight light);
 	void addEntityToScene(const refEntity_t *entity);

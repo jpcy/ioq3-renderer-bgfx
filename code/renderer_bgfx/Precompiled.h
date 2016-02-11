@@ -278,17 +278,32 @@ struct IndexBuffer
 
 namespace main
 {
+	void AddDynamicLightToScene(DynamicLight light);
+	void AddEntityToScene(const refEntity_t *entity);
+	void AddPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int nPolys);
+	void DrawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex);
+	void DrawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);
+	void EndFrame();
 	const Entity *GetCurrentEntity();
 	float GetFloatTime();
 	float GetNoise(float x, float y, float z, float t);
+	void Initialize();
 	bool IsMirrorCamera();
-	void SetSunLight(const SunLight &sunLight);
+	void LoadWorld(const char *name); 
 
 	/// @brief Called by the material cache when a material is created.
 	void OnMaterialCreate(Material *material);
 
 	/// @brief Called by the model cache when a model is created.
 	void OnModelCreate(Model *model);
+
+	void RegisterFont(const char *fontName, int pointSize, fontInfo_t *font);
+	void RenderScene(const refdef_t *def);
+	bool SampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
+	void SetColor(vec4 c);
+	void SetSunLight(const SunLight &sunLight); 
+	void Shutdown();
+	void UploadCinematic(int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);
 }
 
 enum class MaterialAdjustColorsForFog
