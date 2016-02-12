@@ -69,15 +69,15 @@ private:
 			Depth,
 			Depth_AlphaTest,
 			Fog,
-			Fullscreen_Blit,
-			Fullscreen_FXAA,
-			Fullscreen_LinearDepth,
-			Fullscreen_ToneMap,
+			FXAA,
 			Generic,
 			Generic_AlphaTest,
 			Generic_AlphaTestSoftSprite,
 			Generic_SoftSprite,
+			LinearDepth,
+			Texture,
 			TextureColor,
+			ToneMap,
 			Num
 		};
 	};
@@ -89,9 +89,8 @@ private:
 			Depth,
 			Depth_AlphaTest,
 			Fog,
-			Fullscreen,
 			Generic,
-			TextureColor,
+			Texture,
 			Num
 		};
 	};
@@ -103,15 +102,15 @@ private:
 			Depth,
 			Depth_AlphaTest,
 			Fog,
-			Fullscreen_Blit,
-			Fullscreen_FXAA,
-			Fullscreen_LinearDepth,
-			Fullscreen_ToneMap,
+			FXAA,
 			Generic,
 			Generic_AlphaTest,
-			Generic_SoftSprite,
 			Generic_AlphaTestSoftSprite,
+			Generic_SoftSprite,
+			LinearDepth,
+			Texture,
 			TextureColor,
+			ToneMap,
 			Num
 		};
 	};
