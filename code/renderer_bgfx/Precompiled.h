@@ -604,6 +604,7 @@ struct MaterialTextureBundleIndex
 		Specularmap,
 		Depth,
 		DynamicLights,
+		Luminance,
 		NumMaterialTextureBundles,
 
 		ColorMap  = 0,
@@ -1121,6 +1122,9 @@ struct Uniforms
 	/// @remarks Only x used.
 	Uniform_vec4 softSprite_Depth_UseAlpha = "u_SoftSprite_Depth_UseAlpha";
 
+	/// @remarks Only x and y used.
+	Uniform_vec4 texelOffsets = { "u_TexelOffsets", 16 };
+
 	Uniform_vec4 viewOrigin = "u_ViewOrigin";
 
 	/// @name Portal clipping
@@ -1203,6 +1207,7 @@ struct Uniforms_MaterialStage
 		textures[MaterialTextureBundleIndex::Specularmap] = &specularmap;
 		textures[MaterialTextureBundleIndex::Depth] = &depthSampler;
 		textures[MaterialTextureBundleIndex::DynamicLights] = &dynamicLightsSampler;
+		textures[MaterialTextureBundleIndex::Luminance] = &luminanceSampler;
 	}
 
 	/// @remarks Only x used.
@@ -1219,6 +1224,7 @@ struct Uniforms_MaterialStage
 	Uniform_int specularmap = "u_SpecularMap";
 	Uniform_int depthSampler = "u_DepthMap";
 	Uniform_int dynamicLightsSampler = "u_DynamicLightsSampler";
+	Uniform_int luminanceSampler = "u_LuminanceSampler";
 	Uniform_int *textures[MaterialTextureBundleIndex::NumMaterialTextureBundles];
 	/// @}
 

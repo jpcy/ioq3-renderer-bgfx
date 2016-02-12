@@ -29,7 +29,8 @@ namespace renderer {
 enum class DebugDraw
 {
 	None,
-	Depth
+	Depth,
+	Luminance
 };
 
 class Main
@@ -81,8 +82,11 @@ private:
 			Generic_AlphaTestSoftSprite,
 			Generic_SoftSprite,
 			LinearDepth,
+			Luminance,
+			LuminanceDownsample,
 			Texture,
 			TextureColor,
+			TextureSingleChannel,
 			ToneMap,
 			Num
 		};
@@ -114,8 +118,11 @@ private:
 			Generic_AlphaTestSoftSprite,
 			Generic_SoftSprite,
 			LinearDepth,
+			Luminance,
+			LuminanceDownsample,
 			Texture,
 			TextureColor,
+			TextureSingleChannel,
 			ToneMap,
 			Num
 		};
@@ -140,6 +147,8 @@ private:
 	void flushStretchPics();
 	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask);
 	void renderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, bool originBottomLeft = false, Rect rect = Rect());
+	void setTexelOffsetsDownsample2x2(int width, int height);
+	void setTexelOffsetsDownsample4x4(int width, int height);
 
 	/// @name Entity rendering
 	/// @{
@@ -205,6 +214,9 @@ private:
 	FrameBuffer sceneFb_;
 	bgfx::TextureHandle sceneFbColor_;
 	bgfx::TextureHandle sceneFbDepth_;
+	static const size_t nLuminanceFrameBuffers_ = 5;
+	FrameBuffer luminanceFrameBuffers_[nLuminanceFrameBuffers_];
+	const int luminanceFrameBufferSizes_[nLuminanceFrameBuffers_] = { 128, 64, 16, 4, 1 };
 	/// @}
 
 	/// @name Game-specific hacks

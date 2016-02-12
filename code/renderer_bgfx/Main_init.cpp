@@ -121,7 +121,8 @@ void ConsoleVariables::initialize()
 	debugDraw = ri.Cvar_Get("r_debugDraw", "", 0);
 	ri.Cvar_SetDescription(debugDraw,
 		"<empty>   None\n"
-		"depth     Linear depth\n");
+		"depth     Linear depth\n"
+		"lum       Average luminance\n");
 	debugDrawSize = ri.Cvar_Get("r_debugDrawSize", "256", CVAR_ARCHIVE);
 	debugText = ri.Cvar_Get("r_debugText", "0", CVAR_CHEAT);
 	maxAnisotropy = ri.Cvar_Get("r_maxAnisotropy", "0", CVAR_ARCHIVE | CVAR_LATCH);
@@ -368,8 +369,11 @@ void Main::initialize()
 	fragMem[FragmentShaderId::Generic_AlphaTestSoftSprite] = MR(Generic_AlphaTestSoftSprite_fragment_##backend); \
 	fragMem[FragmentShaderId::Generic_SoftSprite] = MR(Generic_SoftSprite_fragment_##backend);                   \
 	fragMem[FragmentShaderId::LinearDepth] = MR(LinearDepth_fragment_##backend);                                 \
+	fragMem[FragmentShaderId::Luminance] = MR(Luminance_fragment_##backend);                                     \
+	fragMem[FragmentShaderId::LuminanceDownsample] = MR(LuminanceDownsample_fragment_##backend);                 \
 	fragMem[FragmentShaderId::Texture] = MR(Texture_fragment_##backend);                                         \
 	fragMem[FragmentShaderId::TextureColor] = MR(TextureColor_fragment_##backend);                               \
+	fragMem[FragmentShaderId::TextureSingleChannel] = MR(TextureSingleChannel_fragment_##backend);			     \
 	fragMem[FragmentShaderId::ToneMap] = MR(ToneMap_fragment_##backend);                                         \
 	vertMem[VertexShaderId::Depth] = MR(Depth_vertex_##backend);                                                 \
 	vertMem[VertexShaderId::Depth_AlphaTest] = MR(Depth_AlphaTest_vertex_##backend);                             \
@@ -398,9 +402,12 @@ void Main::initialize()
 	fragMap[ShaderProgramId::Generic_AlphaTest]           = FragmentShaderId::Generic_AlphaTest;
 	fragMap[ShaderProgramId::Generic_AlphaTestSoftSprite] = FragmentShaderId::Generic_AlphaTestSoftSprite;
 	fragMap[ShaderProgramId::Generic_SoftSprite]          = FragmentShaderId::Generic_SoftSprite;
-	fragMap[ShaderProgramId::LinearDepth] = FragmentShaderId::LinearDepth;
-	fragMap[ShaderProgramId::Texture] = FragmentShaderId::Texture;
+	fragMap[ShaderProgramId::LinearDepth]                 = FragmentShaderId::LinearDepth;
+	fragMap[ShaderProgramId::Luminance]                   = FragmentShaderId::Luminance;
+	fragMap[ShaderProgramId::LuminanceDownsample]         = FragmentShaderId::LuminanceDownsample;
+	fragMap[ShaderProgramId::Texture]                     = FragmentShaderId::Texture;
 	fragMap[ShaderProgramId::TextureColor]                = FragmentShaderId::TextureColor;
+	fragMap[ShaderProgramId::TextureSingleChannel]        = FragmentShaderId::TextureSingleChannel;
 	fragMap[ShaderProgramId::ToneMap] = FragmentShaderId::ToneMap;
 	std::array<VertexShaderId::Enum, ShaderProgramId::Num> vertMap;
 	vertMap[ShaderProgramId::Depth]                       = VertexShaderId::Depth;
@@ -412,8 +419,11 @@ void Main::initialize()
 	vertMap[ShaderProgramId::Generic_AlphaTestSoftSprite] = VertexShaderId::Generic;
 	vertMap[ShaderProgramId::Generic_SoftSprite]          = VertexShaderId::Generic;
 	vertMap[ShaderProgramId::LinearDepth]                 = VertexShaderId::Texture;
+	vertMap[ShaderProgramId::Luminance]                   = VertexShaderId::Texture;
+	vertMap[ShaderProgramId::LuminanceDownsample]         = VertexShaderId::Texture;
 	vertMap[ShaderProgramId::Texture]                     = VertexShaderId::Texture;
 	vertMap[ShaderProgramId::TextureColor]                = VertexShaderId::Texture;
+	vertMap[ShaderProgramId::TextureSingleChannel]        = VertexShaderId::Texture;
 	vertMap[ShaderProgramId::ToneMap]                     = VertexShaderId::Texture;
 
 	for (size_t i = 0; i < ShaderProgramId::Num; i++)
@@ -462,6 +472,12 @@ void Main::initialize()
 	sceneFbDepth_ = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
 	bgfx::TextureHandle sceneTextures[] = { sceneFbColor_, sceneFbDepth_ };
 	sceneFb_.handle = bgfx::createFrameBuffer(2, sceneTextures, true);
+
+	// Luminance frame buffers.
+	for (size_t i = 0; i < nLuminanceFrameBuffers_; i++)
+	{
+		luminanceFrameBuffers_[i].handle = bgfx::createFrameBuffer(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i], bgfx::TextureFormat::R16F);
+	}
 
 	// Dynamic lights.
 	// Calculate the smallest square POT texture size to fit the dynamic lights data.

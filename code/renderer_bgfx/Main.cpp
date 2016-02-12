@@ -437,6 +437,27 @@ void Main::renderScene(const refdef_t *def)
 
 		if (isWorldCamera_)
 		{
+			// Luminance.
+			for (size_t i = 0; i < nLuminanceFrameBuffers_; i++)
+			{
+				ShaderProgramId::Enum programId;
+
+				if (i == 0)
+				{
+					programId = ShaderProgramId::Luminance;
+					setTexelOffsetsDownsample2x2(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]);
+					bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
+				}
+				else
+				{
+					programId = ShaderProgramId::LuminanceDownsample;
+					setTexelOffsetsDownsample4x4(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]);
+					bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, luminanceFrameBuffers_[i - 1].handle);
+				}
+
+				renderScreenSpaceQuad(luminanceFrameBuffers_[i], programId, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(0, 0, luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]));
+			}
+
 			// Clamp to sane values.
 			uniforms_->brightnessContrastGammaSaturation.set(vec4
 			(
@@ -446,8 +467,9 @@ void Main::renderScene(const refdef_t *def)
 				Clamped(g_cvars.saturation->value, 0.0f, 3.0f)
 			));
 
-			// Tonemap the scene framebuffer color.
+			// Tonemap.
 			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
+			bgfx::setTexture(MaterialTextureBundleIndex::Luminance, matStageUniforms_->luminanceSampler.handle, luminanceFrameBuffers_[nLuminanceFrameBuffers_ - 1].handle);
 			renderScreenSpaceQuad(aa_ == AntiAliasing::FXAA ? fxaaFb_ : defaultFb_, ShaderProgramId::ToneMap, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 
 			// FXAA.
@@ -474,7 +496,15 @@ void Main::endFrame()
 	if (debugDraw_ == DebugDraw::Depth)
 	{
 		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, linearDepthFb_.handle);
-		renderScreenSpaceQuad(defaultFb_, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(0, 0, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
+		renderScreenSpaceQuad(defaultFb_, ShaderProgramId::TextureSingleChannel, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(0, 0, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
+	}
+	else if (debugDraw_ == DebugDraw::Luminance)
+	{
+		for (int i = 0; i < nLuminanceFrameBuffers_; i++)
+		{
+			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, luminanceFrameBuffers_[i].handle);
+			renderScreenSpaceQuad(defaultFb_, ShaderProgramId::TextureSingleChannel, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize->integer * i, 0, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
+		}
 	}
 
 	bgfx::frame();
@@ -1139,6 +1169,48 @@ void Main::renderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId
 	bgfx::submit(viewId, shaderPrograms_[program].handle);
 }
 
+// From bgfx HDR example setOffsets2x2Lum
+void Main::setTexelOffsetsDownsample2x2(int width, int height)
+{
+	const float du = 1.0f / width;
+	const float dv = 1.0f / height;
+	vec4 offsets[16];
+	uint32_t num = 0;
+
+	for (uint32_t yy = 0; yy < 3; ++yy)
+	{
+		for (uint32_t xx = 0; xx < 3; ++xx)
+		{
+			offsets[num][0] = (xx - halfTexelOffset_) * du;
+			offsets[num][1] = (yy - halfTexelOffset_) * dv;
+			++num;
+		}
+	}
+
+	uniforms_->texelOffsets.set(offsets, num);
+}
+
+// From bgfx HDR example setOffsets4x4Lum
+void Main::setTexelOffsetsDownsample4x4(int width, int height)
+{
+	const float du = 1.0f / width;
+	const float dv = 1.0f / height;
+	vec4 offsets[16];
+	uint32_t num = 0;
+
+	for (uint32_t yy = 0; yy < 4; ++yy)
+	{
+		for (uint32_t xx = 0; xx < 4; ++xx)
+		{
+			offsets[num][0] = (xx - 1.0f - halfTexelOffset_) * du;
+			offsets[num][1] = (yy - 1.0f - halfTexelOffset_) * dv;
+			++num;
+		}
+	}
+
+	uniforms_->texelOffsets.set(offsets, num);
+}
+
 void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity)
 {
 	assert(drawCallList);
@@ -1556,6 +1628,8 @@ DebugDraw DebugDrawFromString(const char *s)
 {
 	if (util::Stricmp(s, "depth") == 0)
 		return DebugDraw::Depth;
+	else if (util::Stricmp(s, "lum") == 0)
+		return DebugDraw::Luminance;
 
 	return DebugDraw::None;
 }
