@@ -54,7 +54,6 @@ using namespace math;
 
 #define BIT(x) (1<<(x))
 
-#define SETTINGS_SHOW_DEPTH (g_cvars.softSprites->integer && g_cvars.showDepth->integer)
 #define SETTINGS_SOFT_SPRITES (g_cvars.softSprites->integer)
 
 namespace renderer {
@@ -96,11 +95,12 @@ struct ConsoleVariables
 	cvar_t *aa;
 	cvar_t *backend;
 	cvar_t *bgfx_stats;
+	cvar_t *debugDraw;
+	cvar_t *debugDrawSize;
 	cvar_t *debugText;
 	cvar_t *maxAnisotropy;
 	cvar_t *picmip;
 	cvar_t *screenshotJpegQuality;
-	cvar_t *showDepth;
 	cvar_t *softSprites;
 	cvar_t *wireframe;
 

@@ -26,6 +26,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 namespace renderer {
 
+enum class DebugDraw
+{
+	None,
+	Depth
+};
+
 class Main
 {
 public:
@@ -117,6 +123,7 @@ private:
 
 	struct Rect
 	{
+		Rect() : x(0), y(0), w(0), h(0) {}
 		Rect(int x, int y, int w, int h) : x(x), y(y), w(w), h(h) {}
 		int x, y, w, h;
 	};
@@ -132,7 +139,7 @@ private:
 	uint8_t pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags = 0);
 	void flushStretchPics();
 	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask);
-	void renderFullscreenQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, bool originBottomLeft = false, int textureWidth = 0, int textureHeight = 0);
+	void renderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, bool originBottomLeft = false, Rect rect = Rect());
 
 	/// @name Entity rendering
 	/// @{
@@ -272,6 +279,7 @@ private:
 
 	AntiAliasing aa_;
 	const Entity *currentEntity_ = nullptr;
+	DebugDraw debugDraw_ = DebugDraw::None;
 	float halfTexelOffset_ = 0;
 	bool isTextureOriginBottomLeft_ = false;
 	uint8_t mainVisCacheId_, portalVisCacheId_;
@@ -280,5 +288,7 @@ private:
 	/// Convert from our coordinate system (looking down X) to OpenGL's coordinate system (looking down -Z)
 	static const mat4 toOpenGlMatrix_;
 };
+
+DebugDraw DebugDrawFromString(const char *s);
 
 } // namespace renderer

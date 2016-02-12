@@ -85,7 +85,9 @@ void WarnOnce(WarnOnceId::Enum id)
 void ConsoleVariables::initialize()
 {
 	aa = ri.Cvar_Get("r_aa", "", CVAR_ARCHIVE | CVAR_LATCH);
-	ri.Cvar_SetDescription(aa, "<empty>   None\nfxaa      Fast Approximate Anti-Aliasing (FXAA v2)\n");
+	ri.Cvar_SetDescription(aa,
+		"<empty>   None\n"
+		"fxaa      Fast Approximate Anti-Aliasing (FXAA v2)\n");
 	backend = ri.Cvar_Get("r_backend", "", CVAR_ARCHIVE | CVAR_LATCH);
 
 	{
@@ -116,13 +118,17 @@ void ConsoleVariables::initialize()
 	}
 
 	bgfx_stats = ri.Cvar_Get("r_bgfx_stats", "0", CVAR_CHEAT);
+	debugDraw = ri.Cvar_Get("r_debugDraw", "", 0);
+	ri.Cvar_SetDescription(debugDraw,
+		"<empty>   None\n"
+		"depth     Linear depth\n");
+	debugDrawSize = ri.Cvar_Get("r_debugDrawSize", "256", CVAR_ARCHIVE);
 	debugText = ri.Cvar_Get("r_debugText", "0", CVAR_CHEAT);
 	maxAnisotropy = ri.Cvar_Get("r_maxAnisotropy", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	picmip = ri.Cvar_Get("r_picmip", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	ri.Cvar_CheckRange(picmip, 0, 16, qtrue);
 	softSprites = ri.Cvar_Get("r_softSprites", "1", CVAR_ARCHIVE);
 	screenshotJpegQuality = ri.Cvar_Get("r_screenshotJpegQuality", "90", CVAR_ARCHIVE);
-	showDepth = ri.Cvar_Get("r_showDepth", "0", CVAR_ARCHIVE | CVAR_CHEAT);
 	wireframe = ri.Cvar_Get("r_wireframe", "0", CVAR_CHEAT);
 
 	// Gamma
@@ -331,6 +337,7 @@ void Main::initialize()
 		ri.Error(ERR_DROP, "MRT not supported.\n");
 	}
 
+	debugDraw_ = DebugDrawFromString(g_cvars.debugDraw->string);
 	halfTexelOffset_ = caps->rendererType == bgfx::RendererType::Direct3D9 ? 0.5f : 0;
 	isTextureOriginBottomLeft_ = caps->rendererType == bgfx::RendererType::OpenGL || caps->rendererType == bgfx::RendererType::OpenGLES;
 	glConfig.deviceSupportsGamma = qtrue;

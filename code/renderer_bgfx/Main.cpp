@@ -435,13 +435,7 @@ void Main::renderScene(const refdef_t *def)
 		isWorldCamera_ = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world::IsLoaded();
 		renderCamera(mainVisCacheId_, scenePosition, scenePosition, sceneRotation_, Rect(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
 
-		if (SETTINGS_SHOW_DEPTH)
-		{
-			// Blit the linear depth framebuffer.
-			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, linearDepthFb_.handle);
-			renderFullscreenQuad(defaultFb_, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
-		}
-		else if (isWorldCamera_)
+		if (isWorldCamera_)
 		{
 			// Clamp to sane values.
 			uniforms_->brightnessContrastGammaSaturation.set(vec4
@@ -454,13 +448,13 @@ void Main::renderScene(const refdef_t *def)
 
 			// Tonemap the scene framebuffer color.
 			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
-			renderFullscreenQuad(aa_ == AntiAliasing::FXAA ? fxaaFb_ : defaultFb_, ShaderProgramId::ToneMap, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+			renderScreenSpaceQuad(aa_ == AntiAliasing::FXAA ? fxaaFb_ : defaultFb_, ShaderProgramId::ToneMap, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 
 			// FXAA.
 			if (aa_ == AntiAliasing::FXAA)
 			{
 				bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, fxaaColor_);
-				renderFullscreenQuad(defaultFb_, ShaderProgramId::FXAA, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+				renderScreenSpaceQuad(defaultFb_, ShaderProgramId::FXAA, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 			}
 		}
 	}
@@ -476,6 +470,13 @@ void Main::endFrame()
 {
 	flushStretchPics();
 	assert(firstFreeViewId_ != 0); // Should always be one active view.
+
+	if (debugDraw_ == DebugDraw::Depth)
+	{
+		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, linearDepthFb_.handle);
+		renderScreenSpaceQuad(defaultFb_, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(0, 0, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
+	}
+
 	bgfx::frame();
 
 	if (g_cvars.wireframe->modified || g_cvars.bgfx_stats->modified || g_cvars.debugText->modified)
@@ -493,6 +494,12 @@ void Main::endFrame()
 
 		bgfx::setDebug(debug);
 		g_cvars.wireframe->modified = g_cvars.bgfx_stats->modified = g_cvars.debugText->modified = qfalse;
+	}
+
+	if (g_cvars.debugDraw->modified)
+	{
+		debugDraw_ = DebugDrawFromString(g_cvars.debugDraw->string);
+		g_cvars.debugDraw->modified = qfalse;
 	}
 
 	if (g_cvars.debugText->integer)
@@ -908,7 +915,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		// Read depth, write linear depth.
 		uniforms_->depthRange.set(vec4(0, 0, zMin, zMax));
 		bgfx::setTexture(MaterialTextureBundleIndex::Depth, matStageUniforms_->depthSampler.handle, sceneFbDepth_);
-		renderFullscreenQuad(linearDepthFb_, ShaderProgramId::LinearDepth, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+		renderScreenSpaceQuad(linearDepthFb_, ShaderProgramId::LinearDepth, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 	}
 
 	uint8_t mainViewId;
@@ -1081,7 +1088,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 }
 
 // From bgfx screenSpaceQuad.
-void Main::renderFullscreenQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, bool originBottomLeft, int textureWidth, int textureHeight)
+void Main::renderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, bool originBottomLeft, Rect rect)
 {
 	if (!bgfx::checkAvailTransientVertexBuffer(3, Vertex::decl))
 	{
@@ -1089,8 +1096,8 @@ void Main::renderFullscreenQuad(const FrameBuffer &frameBuffer, ShaderProgramId:
 		return;
 	}
 
-	textureWidth = textureWidth == 0 ? glConfig.vidWidth : textureWidth;
-	textureHeight = textureHeight == 0 ? glConfig.vidHeight : textureHeight;
+	if (!rect.w) rect.w = glConfig.vidWidth;
+	if (!rect.h) rect.h = glConfig.vidHeight;
 	const float width = 1.0f;
 	const float height = 1.0f;
 	const float zz = 0.0f;
@@ -1098,8 +1105,8 @@ void Main::renderFullscreenQuad(const FrameBuffer &frameBuffer, ShaderProgramId:
 	const float maxx =  width;
 	const float miny = 0.0f;
 	const float maxy = height*2.0f;
-	const float texelHalfW = halfTexelOffset_ / textureWidth;
-	const float texelHalfH = halfTexelOffset_ / textureHeight;
+	const float texelHalfW = halfTexelOffset_ / rect.w;
+	const float texelHalfH = halfTexelOffset_ / rect.h;
 	const float minu = -1.0f + texelHalfW;
 	const float maxu =  1.0f + texelHalfW;
 	float minv = texelHalfH;
@@ -1128,7 +1135,7 @@ void Main::renderFullscreenQuad(const FrameBuffer &frameBuffer, ShaderProgramId:
 	vertices[2].texCoord = vec2(maxu, maxv);
 	bgfx::setVertexBuffer(&vb);
 	bgfx::setState(state);
-	const uint8_t viewId = pushView(frameBuffer, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), Rect(0, 0, glConfig.vidWidth, glConfig.vidHeight));
+	const uint8_t viewId = pushView(frameBuffer, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), rect);
 	bgfx::submit(viewId, shaderPrograms_[program].handle);
 }
 
@@ -1543,6 +1550,14 @@ float Main::calculateExplosionLight(float entityShaderTime, float durationMillis
 		return 1.0f;
 
 	return 1.0f - (light - 0.5f) * 2.0f;
+}
+
+DebugDraw DebugDrawFromString(const char *s)
+{
+	if (util::Stricmp(s, "depth") == 0)
+		return DebugDraw::Depth;
+
+	return DebugDraw::None;
 }
 
 } // namespace renderer
