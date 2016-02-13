@@ -132,6 +132,9 @@ void ConsoleVariables::initialize()
 	screenshotJpegQuality = ri.Cvar_Get("r_screenshotJpegQuality", "90", CVAR_ARCHIVE);
 	wireframe = ri.Cvar_Get("r_wireframe", "0", CVAR_CHEAT);
 
+	// HDR
+	hdr = ri.Cvar_Get("r_hdr", "0", CVAR_ARCHIVE | CVAR_LATCH);
+
 	// Railgun
 	railWidth = ri.Cvar_Get("r_railWidth", "16", CVAR_ARCHIVE);
 	railCoreWidth = ri.Cvar_Get("r_railCoreWidth", "6", CVAR_ARCHIVE);
@@ -471,19 +474,22 @@ void Main::initialize()
 	linearDepthFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::R16F);
 
 	// Scene frame buffer.
-	sceneFbColor_ = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::RGBA16F, BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP);
+	sceneFbColor_ = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, g_cvars.hdr->integer != 0 ? bgfx::TextureFormat::RGBA16F : bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP);
 	sceneFbDepth_ = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
 	bgfx::TextureHandle sceneTextures[] = { sceneFbColor_, sceneFbDepth_ };
 	sceneFb_.handle = bgfx::createFrameBuffer(2, sceneTextures, true);
 
-	// Luminance frame buffers.
-	for (size_t i = 0; i < nLuminanceFrameBuffers_; i++)
+	if (g_cvars.hdr->integer != 0)
 	{
-		luminanceFrameBuffers_[i].handle = bgfx::createFrameBuffer(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i], bgfx::TextureFormat::R16F);
-	}
+		// Luminance frame buffers.
+		for (size_t i = 0; i < nLuminanceFrameBuffers_; i++)
+		{
+			luminanceFrameBuffers_[i].handle = bgfx::createFrameBuffer(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i], bgfx::TextureFormat::R16F);
+		}
 
-	adaptedLuminanceFB_[0].handle = bgfx::createFrameBuffer(1, 1, bgfx::TextureFormat::R16F);
-	adaptedLuminanceFB_[1].handle = bgfx::createFrameBuffer(1, 1, bgfx::TextureFormat::R16F);
+		adaptedLuminanceFB_[0].handle = bgfx::createFrameBuffer(1, 1, bgfx::TextureFormat::R16F);
+		adaptedLuminanceFB_[1].handle = bgfx::createFrameBuffer(1, 1, bgfx::TextureFormat::R16F);
+	}
 
 	// Dynamic lights.
 	// Calculate the smallest square POT texture size to fit the dynamic lights data.

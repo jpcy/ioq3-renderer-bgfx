@@ -435,7 +435,8 @@ void Main::renderScene(const refdef_t *def)
 		isWorldCamera_ = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world::IsLoaded();
 		renderCamera(mainVisCacheId_, scenePosition, scenePosition, sceneRotation_, Rect(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
 
-		if (isWorldCamera_)
+		// HDR.
+		if (g_cvars.hdr->integer && isWorldCamera_)
 		{
 			// Luminance.
 			for (size_t i = 0; i < nLuminanceFrameBuffers_; i++)
@@ -484,13 +485,18 @@ void Main::renderScene(const refdef_t *def)
 			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
 			bgfx::setTexture(MaterialTextureBundleIndex::AdaptedLuminance, matStageUniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[currentAdaptedLuminanceFB_].handle);
 			renderScreenSpaceQuad(aa_ == AntiAliasing::FXAA ? fxaaFb_ : defaultFb_, ShaderProgramId::ToneMap, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+		}
+		else if (isWorldCamera_)
+		{
+			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
+			renderScreenSpaceQuad(aa_ == AntiAliasing::FXAA ? fxaaFb_ : defaultFb_, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+		}
 
-			// FXAA.
-			if (aa_ == AntiAliasing::FXAA)
-			{
-				bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, fxaaColor_);
-				renderScreenSpaceQuad(defaultFb_, ShaderProgramId::FXAA, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
-			}
+		// FXAA.
+		if (aa_ == AntiAliasing::FXAA)
+		{
+			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, fxaaColor_);
+			renderScreenSpaceQuad(defaultFb_, ShaderProgramId::FXAA, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 		}
 	}
 
@@ -510,7 +516,7 @@ void Main::endFrame()
 	{
 		debugDraw(linearDepthFb_);
 	}
-	else if (debugDraw_ == DebugDraw::Luminance)
+	else if (debugDraw_ == DebugDraw::Luminance && g_cvars.hdr->integer)
 	{
 		for (int i = 0; i < nLuminanceFrameBuffers_; i++)
 		{

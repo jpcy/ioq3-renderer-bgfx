@@ -104,6 +104,11 @@ struct ConsoleVariables
 	cvar_t *softSprites;
 	cvar_t *wireframe;
 
+	/// @name HDR
+	/// @{
+	cvar_t *hdr;
+	/// @}
+
 	/// @name Railgun
 	/// @{
 	cvar_t *railWidth;
