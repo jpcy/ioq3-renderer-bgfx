@@ -134,6 +134,7 @@ void ConsoleVariables::initialize()
 
 	// HDR
 	hdr = ri.Cvar_Get("r_hdr", "0", CVAR_ARCHIVE | CVAR_LATCH);
+	hdrKey = ri.Cvar_Get("r_hdrKey", "0.1", CVAR_ARCHIVE);
 
 	// Railgun
 	railWidth = ri.Cvar_Get("r_railWidth", "16", CVAR_ARCHIVE);

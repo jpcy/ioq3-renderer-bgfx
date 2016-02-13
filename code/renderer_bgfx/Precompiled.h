@@ -107,6 +107,7 @@ struct ConsoleVariables
 	/// @name HDR
 	/// @{
 	cvar_t *hdr;
+	cvar_t *hdrKey;
 	/// @}
 
 	/// @name Railgun
@@ -1168,6 +1169,9 @@ struct Uniforms
 	/// @name HDR
 	/// @{
 	Uniform_vec4 brightnessContrastGammaSaturation = "u_BrightnessContrastGammaSaturation";
+
+	/// @remarks Only x used.
+	Uniform_vec4 hdrKey = "u_HdrKey";
 	/// @}
 };
 

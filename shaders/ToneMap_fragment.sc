@@ -12,6 +12,8 @@ uniform vec4 u_BrightnessContrastGammaSaturation;
 #define gamma u_BrightnessContrastGammaSaturation.z
 #define saturation u_BrightnessContrastGammaSaturation.w
 
+uniform vec4 u_HdrKey; // only x used
+
 // https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
 vec3 ACESFilm(vec3 x)
 {
@@ -28,8 +30,8 @@ void main()
 	vec3 color = texture2D(u_DiffuseMap, v_texcoord0).rgb;
 
 	// tone map
-	//color = ToGamma(ACESFilm(ToLinear(color)));
-	color = saturate(color);
+	color *= u_HdrKey.x / (texture2D(u_AdaptedLuminanceSampler, vec2_splat(0.0)).r + 0.001);
+	color = ACESFilm(color);
 
 	// contrast and brightness
 	color = (color - 0.5) * contrast + 0.5 + brightness;

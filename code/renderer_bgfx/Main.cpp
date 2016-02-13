@@ -482,6 +482,7 @@ void Main::renderScene(const refdef_t *def)
 				Clamped(g_cvars.saturation->value, 0.0f, 3.0f)
 			));
 
+			uniforms_->hdrKey.set(vec4(Clamped(g_cvars.hdrKey->value, 0.01f, 0.2f), 0, 0, 0));
 			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
 			bgfx::setTexture(MaterialTextureBundleIndex::AdaptedLuminance, matStageUniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[currentAdaptedLuminanceFB_].handle);
 			renderScreenSpaceQuad(aa_ == AntiAliasing::FXAA ? fxaaFb_ : defaultFb_, ShaderProgramId::ToneMap, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
