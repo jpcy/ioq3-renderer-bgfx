@@ -122,7 +122,7 @@ void ConsoleVariables::initialize()
 	ri.Cvar_SetDescription(debugDraw,
 		"<empty>   None\n"
 		"depth     Linear depth\n"
-		"lum       Average luminance\n");
+		"lum       Average and adapted luminance\n");
 	debugDrawSize = ri.Cvar_Get("r_debugDrawSize", "256", CVAR_ARCHIVE);
 	debugText = ri.Cvar_Get("r_debugText", "0", CVAR_CHEAT);
 	maxAnisotropy = ri.Cvar_Get("r_maxAnisotropy", "0", CVAR_ARCHIVE | CVAR_LATCH);
@@ -132,7 +132,12 @@ void ConsoleVariables::initialize()
 	screenshotJpegQuality = ri.Cvar_Get("r_screenshotJpegQuality", "90", CVAR_ARCHIVE);
 	wireframe = ri.Cvar_Get("r_wireframe", "0", CVAR_CHEAT);
 
-	// Gamma
+	// Railgun
+	railWidth = ri.Cvar_Get("r_railWidth", "16", CVAR_ARCHIVE);
+	railCoreWidth = ri.Cvar_Get("r_railCoreWidth", "6", CVAR_ARCHIVE);
+	railSegmentLength = ri.Cvar_Get("r_railSegmentLength", "32", CVAR_ARCHIVE);
+
+	// Screen
 	brightness = ri.Cvar_Get("r_brightness", "1", CVAR_ARCHIVE);
 	contrast = ri.Cvar_Get("r_contrast", "1", CVAR_ARCHIVE);
 	gamma = ri.Cvar_Get("r_gamma", "1", CVAR_ARCHIVE);
@@ -147,11 +152,6 @@ void ConsoleVariables::initialize()
 	fullscreen = ri.Cvar_Get("r_fullscreen", "1", CVAR_ARCHIVE);
 	mode = ri.Cvar_Get("r_mode", "-2", CVAR_ARCHIVE | CVAR_LATCH);
 	noborder = ri.Cvar_Get("r_noborder", "0", CVAR_ARCHIVE | CVAR_LATCH);
-
-	// Railgun
-	railWidth = ri.Cvar_Get("r_railWidth", "16", CVAR_ARCHIVE);
-	railCoreWidth = ri.Cvar_Get("r_railCoreWidth", "6", CVAR_ARCHIVE);
-	railSegmentLength = ri.Cvar_Get("r_railSegmentLength", "32", CVAR_ARCHIVE);
 }
 
 static void TakeScreenshot(const char *extension)
@@ -360,6 +360,7 @@ void Main::initialize()
 	std::array<const bgfx::Memory *, VertexShaderId::Num> vertMem;
 	#define MR(name) bgfx::makeRef(name, sizeof(name))
 	#define SHADER_MEM(backend) \
+	fragMem[FragmentShaderId::AdaptedLuminance] = MR(AdaptedLuminance_fragment_##backend);                       \
 	fragMem[FragmentShaderId::Depth] = MR(Depth_fragment_##backend);                                             \
 	fragMem[FragmentShaderId::Depth_AlphaTest] = MR(Depth_AlphaTest_fragment_##backend);                         \
 	fragMem[FragmentShaderId::Fog] = MR(Fog_fragment_##backend);                                                 \
@@ -394,6 +395,7 @@ void Main::initialize()
 
 	// Map shader programs to their vertex and fragment shaders.
 	std::array<FragmentShaderId::Enum, ShaderProgramId::Num> fragMap;
+	fragMap[ShaderProgramId::AdaptedLuminance]            = FragmentShaderId::AdaptedLuminance;
 	fragMap[ShaderProgramId::Depth]                       = FragmentShaderId::Depth;
 	fragMap[ShaderProgramId::Depth_AlphaTest]             = FragmentShaderId::Depth_AlphaTest;
 	fragMap[ShaderProgramId::Fog]                         = FragmentShaderId::Fog;
@@ -410,6 +412,7 @@ void Main::initialize()
 	fragMap[ShaderProgramId::TextureSingleChannel]        = FragmentShaderId::TextureSingleChannel;
 	fragMap[ShaderProgramId::ToneMap] = FragmentShaderId::ToneMap;
 	std::array<VertexShaderId::Enum, ShaderProgramId::Num> vertMap;
+	vertMap[ShaderProgramId::AdaptedLuminance]            = VertexShaderId::Texture;
 	vertMap[ShaderProgramId::Depth]                       = VertexShaderId::Depth;
 	vertMap[ShaderProgramId::Depth_AlphaTest]             = VertexShaderId::Depth_AlphaTest;
 	vertMap[ShaderProgramId::Fog]                         = VertexShaderId::Fog;
@@ -478,6 +481,9 @@ void Main::initialize()
 	{
 		luminanceFrameBuffers_[i].handle = bgfx::createFrameBuffer(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i], bgfx::TextureFormat::R16F);
 	}
+
+	adaptedLuminanceFB_[0].handle = bgfx::createFrameBuffer(1, 1, bgfx::TextureFormat::R16F);
+	adaptedLuminanceFB_[1].handle = bgfx::createFrameBuffer(1, 1, bgfx::TextureFormat::R16F);
 
 	// Dynamic lights.
 	// Calculate the smallest square POT texture size to fit the dynamic lights data.

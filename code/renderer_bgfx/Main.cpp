@@ -458,6 +458,20 @@ void Main::renderScene(const refdef_t *def)
 				renderScreenSpaceQuad(luminanceFrameBuffers_[i], programId, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(0, 0, luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]));
 			}
 
+			// Luminance adaptation.
+			if (lastAdaptedLuminanceTime_ <= 0)
+			{
+				lastAdaptedLuminanceTime_ = floatTime_;
+			}
+
+			matUniforms_->time.set(vec4(floatTime_ - lastAdaptedLuminanceTime_, 0, 0, 0));
+			lastAdaptedLuminanceTime_ = floatTime_;
+			bgfx::setTexture(MaterialTextureBundleIndex::Luminance, matStageUniforms_->luminanceSampler.handle, luminanceFrameBuffers_[nLuminanceFrameBuffers_ - 1].handle);
+			bgfx::setTexture(MaterialTextureBundleIndex::AdaptedLuminance, matStageUniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[1 - currentAdaptedLuminanceFB_].handle);
+			renderScreenSpaceQuad(adaptedLuminanceFB_[currentAdaptedLuminanceFB_], ShaderProgramId::AdaptedLuminance, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+			currentAdaptedLuminanceFB_ = 1 - currentAdaptedLuminanceFB_;
+
+			// Tonemap.
 			// Clamp to sane values.
 			uniforms_->brightnessContrastGammaSaturation.set(vec4
 			(
@@ -467,9 +481,8 @@ void Main::renderScene(const refdef_t *def)
 				Clamped(g_cvars.saturation->value, 0.0f, 3.0f)
 			));
 
-			// Tonemap.
 			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
-			bgfx::setTexture(MaterialTextureBundleIndex::Luminance, matStageUniforms_->luminanceSampler.handle, luminanceFrameBuffers_[nLuminanceFrameBuffers_ - 1].handle);
+			bgfx::setTexture(MaterialTextureBundleIndex::AdaptedLuminance, matStageUniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[currentAdaptedLuminanceFB_].handle);
 			renderScreenSpaceQuad(aa_ == AntiAliasing::FXAA ? fxaaFb_ : defaultFb_, ShaderProgramId::ToneMap, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 
 			// FXAA.
@@ -495,16 +508,16 @@ void Main::endFrame()
 
 	if (debugDraw_ == DebugDraw::Depth)
 	{
-		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, linearDepthFb_.handle);
-		renderScreenSpaceQuad(defaultFb_, ShaderProgramId::TextureSingleChannel, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(0, 0, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
+		debugDraw(linearDepthFb_);
 	}
 	else if (debugDraw_ == DebugDraw::Luminance)
 	{
 		for (int i = 0; i < nLuminanceFrameBuffers_; i++)
 		{
-			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, luminanceFrameBuffers_[i].handle);
-			renderScreenSpaceQuad(defaultFb_, ShaderProgramId::TextureSingleChannel, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize->integer * i, 0, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
+			debugDraw(luminanceFrameBuffers_[i], i);
 		}
+
+		debugDraw(adaptedLuminanceFB_[currentAdaptedLuminanceFB_], 0, 1);
 	}
 
 	bgfx::frame();
@@ -574,6 +587,12 @@ void Main::onModelCreate(Model *model)
 	{
 		bfgMissibleModel_ = model;
 	}
+}
+
+void Main::debugDraw(const FrameBuffer &texture, int x, int y, bool singleChannel)
+{
+	bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, texture.handle);
+	renderScreenSpaceQuad(defaultFb_, singleChannel ? ShaderProgramId::TextureSingleChannel : ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize->integer * x, g_cvars.debugDrawSize->integer * y, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
 }
 
 uint8_t Main::pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags)

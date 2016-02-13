@@ -73,6 +73,7 @@ private:
 	{
 		enum Enum
 		{
+			AdaptedLuminance,
 			Depth,
 			Depth_AlphaTest,
 			Fog,
@@ -109,6 +110,7 @@ private:
 	{
 		enum Enum
 		{
+			AdaptedLuminance,
 			Depth,
 			Depth_AlphaTest,
 			Fog,
@@ -143,6 +145,7 @@ private:
 		};
 	};
 
+	void debugDraw(const FrameBuffer &texture, int x = 0, int y = 0, bool singleChannel = true);
 	uint8_t pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags = 0);
 	void flushStretchPics();
 	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask);
@@ -214,9 +217,6 @@ private:
 	FrameBuffer sceneFb_;
 	bgfx::TextureHandle sceneFbColor_;
 	bgfx::TextureHandle sceneFbDepth_;
-	static const size_t nLuminanceFrameBuffers_ = 5;
-	FrameBuffer luminanceFrameBuffers_[nLuminanceFrameBuffers_];
-	const int luminanceFrameBufferSizes_[nLuminanceFrameBuffers_] = { 128, 64, 16, 4, 1 };
 	/// @}
 
 	/// @name Game-specific hacks
@@ -225,6 +225,16 @@ private:
 	Model *bfgMissibleModel_ = nullptr;
 	Material *plasmaBallMaterial_ = nullptr;
 	Material *plasmaExplosionMaterial_ = nullptr;
+	/// @}
+
+	/// @name HDR luminance
+	/// @{
+	static const size_t nLuminanceFrameBuffers_ = 5;
+	FrameBuffer luminanceFrameBuffers_[nLuminanceFrameBuffers_];
+	const int luminanceFrameBufferSizes_[nLuminanceFrameBuffers_] = { 128, 64, 16, 4, 1 };
+	FrameBuffer adaptedLuminanceFB_[2];
+	int currentAdaptedLuminanceFB_ = 0;
+	float lastAdaptedLuminanceTime_ = 0;
 	/// @}
 
 	/// @name Noise

@@ -104,7 +104,14 @@ struct ConsoleVariables
 	cvar_t *softSprites;
 	cvar_t *wireframe;
 
-	/// @name HDR
+	/// @name Railgun
+	/// @{
+	cvar_t *railWidth;
+	cvar_t *railCoreWidth;
+	cvar_t *railSegmentLength;
+	/// @}
+
+	/// @name Screen
 	/// @{
 	cvar_t *brightness;
 	cvar_t *contrast;
@@ -122,13 +129,6 @@ struct ConsoleVariables
 	cvar_t *fullscreen;
 	cvar_t *mode;
 	cvar_t *noborder;
-	/// @}
-
-	/// @name Railgun
-	/// @{
-	cvar_t *railWidth;
-	cvar_t *railCoreWidth;
-	cvar_t *railSegmentLength;
 	/// @}
 };
 
@@ -605,6 +605,7 @@ struct MaterialTextureBundleIndex
 		Depth,
 		DynamicLights,
 		Luminance,
+		AdaptedLuminance,
 		NumMaterialTextureBundles,
 
 		ColorMap  = 0,
@@ -1208,6 +1209,7 @@ struct Uniforms_MaterialStage
 		textures[MaterialTextureBundleIndex::Depth] = &depthSampler;
 		textures[MaterialTextureBundleIndex::DynamicLights] = &dynamicLightsSampler;
 		textures[MaterialTextureBundleIndex::Luminance] = &luminanceSampler;
+		textures[MaterialTextureBundleIndex::AdaptedLuminance] = &adaptedLuminanceSampler;
 	}
 
 	/// @remarks Only x used.
@@ -1225,6 +1227,7 @@ struct Uniforms_MaterialStage
 	Uniform_int depthSampler = "u_DepthMap";
 	Uniform_int dynamicLightsSampler = "u_DynamicLightsSampler";
 	Uniform_int luminanceSampler = "u_LuminanceSampler";
+	Uniform_int adaptedLuminanceSampler = "u_AdaptedLuminanceSampler";
 	Uniform_int *textures[MaterialTextureBundleIndex::NumMaterialTextureBundles];
 	/// @}
 

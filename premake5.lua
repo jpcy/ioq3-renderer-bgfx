@@ -33,6 +33,7 @@ newaction
 		initShaderCompilation()
 		
 		function compileAllShaders()
+			compileShader(BGFX_PATH, "AdaptedLuminance", "fragment")
 			compileShader(BGFX_PATH, "Depth", "fragment")
 			compileShader(BGFX_PATH, "Depth", "fragment", "AlphaTest", "#define USE_ALPHA_TEST")
 			compileShader(BGFX_PATH, "Depth", "vertex")
