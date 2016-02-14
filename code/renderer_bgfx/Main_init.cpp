@@ -463,13 +463,12 @@ void Main::initialize()
 
 	// Dynamic lights.
 	// Calculate the smallest square POT texture size to fit the dynamic lights data.
-	const int sr = (int)ceil(sqrtf(maxDynamicLights_ * sizeof(DynamicLight) / 4.0f));
+	const int pixelSize = sizeof(float) * 4; // RGBA32F
+	const int sr = (int)ceil(sqrtf(maxDynamicLights_ * sizeof(DynamicLight) / pixelSize));
 	dynamicLightTextureSize_ = 1;
 
 	while (dynamicLightTextureSize_ < sr)
 		dynamicLightTextureSize_ *= 2;
-
-	dynamicLightTextureSize_ = (int)pow(dynamicLightTextureSize_, 2);
 
 	for (size_t i = 0; i < maxDynamicLightTextures_; i++)
 	{
