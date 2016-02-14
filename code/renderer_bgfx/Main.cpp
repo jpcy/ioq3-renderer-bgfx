@@ -519,7 +519,7 @@ void Main::endFrame()
 	}
 	else if (debugDraw_ == DebugDraw::DynamicLight)
 	{
-		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, dynamicLightsTextures_[0]);
+		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, dynamicLightsTexture_);
 		renderScreenSpaceQuad(defaultFb_, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(0, 0, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
 	}
 	else if (debugDraw_ == DebugDraw::Luminance && g_cvars.hdr->integer)
@@ -911,7 +911,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			const uint16_t width = std::min(nTexels, uint16_t(dynamicLightTextureSize_));
 			const uint16_t height = (uint16_t)std::ceil(nTexels / (float)dynamicLightTextureSize_);
 			const bgfx::Memory *mem = bgfx::copy(sceneDynamicLights_.data(), size);
-			bgfx::updateTexture2D(dynamicLightsTextures_[visCacheId], 0, 0, 0, width, height, mem);
+			bgfx::updateTexture2D(dynamicLightsTexture_, 0, 0, 0, width, height, mem);
 		}
 	}
 	else
@@ -1117,7 +1117,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 			if (isWorldCamera_)
 			{
-				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, dynamicLightsTextures_[visCacheId]);
+				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, dynamicLightsTexture_);
 			}
 
 			bgfx::setState(state);

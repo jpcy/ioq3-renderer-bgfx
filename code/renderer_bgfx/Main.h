@@ -147,8 +147,7 @@ private:
 	/// @name Dynamic lights
 	/// @{
 	static const size_t maxDynamicLights_ = MAX_DLIGHTS;
-	static const size_t maxDynamicLightTextures_ = 2;
-	bgfx::TextureHandle dynamicLightsTextures_[maxDynamicLightTextures_];
+	bgfx::TextureHandle dynamicLightsTexture_;
 	int dynamicLightTextureSize_;
 	/// @}
 

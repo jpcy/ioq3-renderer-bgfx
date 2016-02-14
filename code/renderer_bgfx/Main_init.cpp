@@ -274,11 +274,7 @@ Main::Main()
 
 Main::~Main()
 {
-	for (size_t i = 0; i < maxDynamicLightTextures_; i++)
-	{
-		bgfx::destroyTexture(dynamicLightsTextures_[i]);
-	}
-
+	bgfx::destroyTexture(dynamicLightsTexture_);
 	ri.Cmd_RemoveCommand("screenshot");
 	ri.Cmd_RemoveCommand("screenshotJPEG");
 	ri.Cmd_RemoveCommand("screenshotPNG");
@@ -471,11 +467,8 @@ void Main::initialize()
 	while (dynamicLightTextureSize_ < sr)
 		dynamicLightTextureSize_ *= 2;
 
-	for (size_t i = 0; i < maxDynamicLightTextures_; i++)
-	{
-		// Clamp and filter are just for debug drawing. Sampling uses texel fetch.
-		dynamicLightsTextures_[i] = bgfx::createTexture2D(dynamicLightTextureSize_, dynamicLightTextureSize_, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
-	}
+	// Clamp and filter are just for debug drawing. Sampling uses texel fetch.
+	dynamicLightsTexture_ = bgfx::createTexture2D(dynamicLightTextureSize_, dynamicLightTextureSize_, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
 }
 
 static int Font_ReadInt(const uint8_t *data, int *offset)
