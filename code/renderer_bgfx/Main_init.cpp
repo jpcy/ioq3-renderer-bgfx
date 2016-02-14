@@ -123,6 +123,7 @@ void ConsoleVariables::initialize()
 	ri.Cvar_SetDescription(debugDraw,
 		"<empty>   None\n"
 		"depth     Linear depth\n"
+		"dlight    Dynamic light data\n"
 		"lum       Average and adapted luminance\n");
 	debugDrawSize = ri.Cvar_Get("r_debugDrawSize", "256", CVAR_ARCHIVE);
 	debugText = ri.Cvar_Get("r_debugText", "0", CVAR_CHEAT);
@@ -463,8 +464,8 @@ void Main::initialize()
 
 	// Dynamic lights.
 	// Calculate the smallest square POT texture size to fit the dynamic lights data.
-	const int pixelSize = sizeof(float) * 4; // RGBA32F
-	const int sr = (int)ceil(sqrtf(maxDynamicLights_ * sizeof(DynamicLight) / pixelSize));
+	const int texelSize = sizeof(float) * 4; // RGBA32F
+	const int sr = (int)ceil(sqrtf(maxDynamicLights_ * sizeof(DynamicLight) / texelSize));
 	dynamicLightTextureSize_ = 1;
 
 	while (dynamicLightTextureSize_ < sr)
@@ -472,7 +473,8 @@ void Main::initialize()
 
 	for (size_t i = 0; i < maxDynamicLightTextures_; i++)
 	{
-		dynamicLightsTextures_[i] = bgfx::createTexture2D(dynamicLightTextureSize_, dynamicLightTextureSize_, 1, bgfx::TextureFormat::RGBA32F);
+		// Clamp and filter are just for debug drawing. Sampling uses texel fetch.
+		dynamicLightsTextures_[i] = bgfx::createTexture2D(dynamicLightTextureSize_, dynamicLightTextureSize_, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
 	}
 }
 

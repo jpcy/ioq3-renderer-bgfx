@@ -517,6 +517,11 @@ void Main::endFrame()
 	{
 		debugDraw(linearDepthFb_);
 	}
+	else if (debugDraw_ == DebugDraw::DynamicLight)
+	{
+		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, dynamicLightsTextures_[0]);
+		renderScreenSpaceQuad(defaultFb_, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(0, 0, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
+	}
 	else if (debugDraw_ == DebugDraw::Luminance && g_cvars.hdr->integer)
 	{
 		for (int i = 0; i < nLuminanceFrameBuffers_; i++)
@@ -901,7 +906,8 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		if (sceneDynamicLights_.size() > 0)
 		{
 			const uint32_t size = sceneDynamicLights_.size() * sizeof(DynamicLight);
-			const uint16_t nTexels = uint16_t(size / 4);
+			const uint32_t texelSize = sizeof(float) * 4; // RGBA32F
+			const uint16_t nTexels = uint16_t(size / texelSize);
 			const uint16_t width = std::min(nTexels, uint16_t(dynamicLightTextureSize_));
 			const uint16_t height = (uint16_t)std::ceil(nTexels / (float)dynamicLightTextureSize_);
 			const bgfx::Memory *mem = bgfx::copy(sceneDynamicLights_.data(), size);
@@ -1654,6 +1660,8 @@ DebugDraw DebugDrawFromString(const char *s)
 {
 	if (util::Stricmp(s, "depth") == 0)
 		return DebugDraw::Depth;
+	else if (util::Stricmp(s, "dlight") == 0)
+		return DebugDraw::DynamicLight;
 	else if (util::Stricmp(s, "lum") == 0)
 		return DebugDraw::Luminance;
 

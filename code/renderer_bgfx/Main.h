@@ -32,6 +32,7 @@ enum class DebugDraw
 {
 	None,
 	Depth,
+	DynamicLight,
 	Luminance
 };
 
