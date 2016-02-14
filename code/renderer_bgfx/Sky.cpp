@@ -218,7 +218,7 @@ static void ClipSkyPolygon(int nump, vec3 *vecs, int stage)
 		d = dists[i] / (dists[i] - dists[i+1]);
 		for (j=0 ; j<3 ; j++)
 		{
-			e = v[j] + d*(v[j+3] - v[j]);
+			e = v[j] + d*(vecs[i + 1][j] - v[j]);
 			newv[0][newc[0]][j] = e;
 			newv[1][newc[1]][j] = e;
 		}
