@@ -1,6 +1,5 @@
 local globalOutputPath = "build/"
 local renderers = nil
-local tempInputFilename = globalOutputPath .. "tempinput"
 local tempOutputFilename = globalOutputPath .. "tempoutput"
 local outputFilename = globalOutputPath .. "Shaders.h"
 
@@ -26,36 +25,6 @@ function compileShader(bgfxPath, input, type, permutation, defines)
 	
 	local inputFilename = "shaders/" .. input .. "_" .. type .. ".sc"
 	
-	-- Handle inserting defines.
-	if defines ~= nil then
-		-- Write the defines and the input file data to a temp file.
-		local inputFile = io.open(inputFilename, "r")
-		local tempFile = io.open(tempInputFilename, "w")
-		local definesInserted = false
-		
-		while true do
-			inputFileLine = inputFile:read()
-			
-			if inputFileLine == nil then
-				break
-			end
-			
-			-- The defines are inserted before the first line that doesn't start with $, since the varyings must be first.
-			if not definesInserted and inputFileLine:find("^$") then
-				tempFile:write(defines .. "\n")
-				definesInserted = true
-			end
-			
-			tempFile:write(inputFileLine .. "\n")
-		end
-		
-		inputFile:close()
-		tempFile:close()
-		
-		-- The temp filename will be used as shaderc input.
-		inputFilename = tempInputFilename
-	end
-	
 	-- Compile the shader for all renderers.
 	for _,renderer in pairs(renderers) do
 		local command = nil
@@ -76,6 +45,10 @@ function compileShader(bgfxPath, input, type, permutation, defines)
 		
 		command = command .. " -i \"shaders;" .. path.join(bgfxPath, "src") .. "\" -f \"" .. inputFilename .. "\" -o \"" .. tempOutputFilename .. "\" --varyingdef shaders/varying.def.sc --bin2c \"" .. variableName .. "\" --type " .. type
 	
+		if defines ~= nil then
+			command = command .. " --define " .. defines
+		end
+		
 		if renderer == "gl" then
 			command = command .. " --platform linux -p 140"
 		elseif renderer == "d3d9" or renderer == "d3d11" then
