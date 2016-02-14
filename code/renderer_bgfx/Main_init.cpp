@@ -22,10 +22,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Precompiled.h"
 #pragma hdrstop
 
-#include "../../build/Shaders.h"
 #include "Main.h"
 
 namespace renderer {
+
+#include "../../build/Shader.cpp" // Pull into the renderer namespace.
 
 struct BackendMap
 {
@@ -359,41 +360,20 @@ void Main::initialize()
 	modelCache_ = std::make_unique<ModelCache>();
 	g_modelCache = modelCache_.get();
 
-	// Map shader ids to shader sources.
+	// Get shader ID to shader source string mappings.
 	std::array<const bgfx::Memory *, FragmentShaderId::Num> fragMem;
 	std::array<const bgfx::Memory *, VertexShaderId::Num> vertMem;
-	#define MR(name) bgfx::makeRef(name, sizeof(name))
-	#define SHADER_MEM(backend) \
-	fragMem[FragmentShaderId::AdaptedLuminance] = MR(AdaptedLuminance_fragment_##backend);                       \
-	fragMem[FragmentShaderId::Depth] = MR(Depth_fragment_##backend);                                             \
-	fragMem[FragmentShaderId::Depth_AlphaTest] = MR(Depth_AlphaTest_fragment_##backend);                         \
-	fragMem[FragmentShaderId::Fog] = MR(Fog_fragment_##backend);                                                 \
-	fragMem[FragmentShaderId::FXAA] = MR(FXAA_fragment_##backend);                                               \
-	fragMem[FragmentShaderId::Generic] = MR(Generic_fragment_##backend);                                         \
-	fragMem[FragmentShaderId::Generic_AlphaTest] = MR(Generic_AlphaTest_fragment_##backend);                     \
-	fragMem[FragmentShaderId::Generic_AlphaTestSoftSprite] = MR(Generic_AlphaTestSoftSprite_fragment_##backend); \
-	fragMem[FragmentShaderId::Generic_SoftSprite] = MR(Generic_SoftSprite_fragment_##backend);                   \
-	fragMem[FragmentShaderId::LinearDepth] = MR(LinearDepth_fragment_##backend);                                 \
-	fragMem[FragmentShaderId::Luminance] = MR(Luminance_fragment_##backend);                                     \
-	fragMem[FragmentShaderId::LuminanceDownsample] = MR(LuminanceDownsample_fragment_##backend);                 \
-	fragMem[FragmentShaderId::Texture] = MR(Texture_fragment_##backend);                                         \
-	fragMem[FragmentShaderId::TextureColor] = MR(TextureColor_fragment_##backend);                               \
-	fragMem[FragmentShaderId::TextureSingleChannel] = MR(TextureSingleChannel_fragment_##backend);			     \
-	fragMem[FragmentShaderId::ToneMap] = MR(ToneMap_fragment_##backend);                                         \
-	vertMem[VertexShaderId::Depth] = MR(Depth_vertex_##backend);                                                 \
-	vertMem[VertexShaderId::Depth_AlphaTest] = MR(Depth_AlphaTest_vertex_##backend);                             \
-	vertMem[VertexShaderId::Fog] = MR(Fog_vertex_##backend);                                                     \
-	vertMem[VertexShaderId::Generic] = MR(Generic_vertex_##backend);                                             \
-	vertMem[VertexShaderId::Texture] = MR(Texture_vertex_##backend);
 
 	if (caps->rendererType == bgfx::RendererType::OpenGL)
 	{
-		SHADER_MEM(gl);
+		fragMem = GetFragmentShaderSourceMap_gl();
+		vertMem = GetVertexShaderSourceMap_gl();
 	}
 #ifdef WIN32
 	else if (caps->rendererType == bgfx::RendererType::Direct3D11)
 	{
-		SHADER_MEM(d3d11)
+		fragMem = GetFragmentShaderSourceMap_d3d11();
+		vertMem = GetVertexShaderSourceMap_d3d11();
 	}
 #endif
 

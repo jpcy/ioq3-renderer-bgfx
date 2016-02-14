@@ -26,6 +26,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 namespace renderer {
 
+#include "../../build/Shader.h" // Pull into the renderer namespace.
+
 enum class DebugDraw
 {
 	None,
@@ -69,43 +71,6 @@ public:
 	void onModelCreate(Model *model);
 
 private:
-	struct FragmentShaderId
-	{
-		enum Enum
-		{
-			AdaptedLuminance,
-			Depth,
-			Depth_AlphaTest,
-			Fog,
-			FXAA,
-			Generic,
-			Generic_AlphaTest,
-			Generic_AlphaTestSoftSprite,
-			Generic_SoftSprite,
-			LinearDepth,
-			Luminance,
-			LuminanceDownsample,
-			Texture,
-			TextureColor,
-			TextureSingleChannel,
-			ToneMap,
-			Num
-		};
-	};
-
-	struct VertexShaderId
-	{
-		enum Enum
-		{
-			Depth,
-			Depth_AlphaTest,
-			Fog,
-			Generic,
-			Texture,
-			Num
-		};
-	};
-
 	struct ShaderProgramId
 	{
 		enum Enum
