@@ -286,6 +286,12 @@ Main::~Main()
 	g_textureCache = nullptr;
 }
 
+struct ShaderProgramIdMap
+{
+	FragmentShaderId::Enum frag;
+	VertexShaderId::Enum vert;
+};
+
 void Main::initialize()
 {
 	// Create a window if we don't have one.
@@ -378,58 +384,41 @@ void Main::initialize()
 #endif
 
 	// Map shader programs to their vertex and fragment shaders.
-	std::array<FragmentShaderId::Enum, ShaderProgramId::Num> fragMap;
-	fragMap[ShaderProgramId::AdaptedLuminance]            = FragmentShaderId::AdaptedLuminance;
-	fragMap[ShaderProgramId::Depth]                       = FragmentShaderId::Depth;
-	fragMap[ShaderProgramId::Depth_AlphaTest]             = FragmentShaderId::Depth_AlphaTest;
-	fragMap[ShaderProgramId::Fog]                         = FragmentShaderId::Fog;
-	fragMap[ShaderProgramId::FXAA]                        = FragmentShaderId::FXAA;
-	fragMap[ShaderProgramId::Generic]                     = FragmentShaderId::Generic;
-	fragMap[ShaderProgramId::Generic_AlphaTest]           = FragmentShaderId::Generic_AlphaTest;
-	fragMap[ShaderProgramId::Generic_AlphaTestSoftSprite] = FragmentShaderId::Generic_AlphaTestSoftSprite;
-	fragMap[ShaderProgramId::Generic_SoftSprite]          = FragmentShaderId::Generic_SoftSprite;
-	fragMap[ShaderProgramId::LinearDepth]                 = FragmentShaderId::LinearDepth;
-	fragMap[ShaderProgramId::Luminance]                   = FragmentShaderId::Luminance;
-	fragMap[ShaderProgramId::LuminanceDownsample]         = FragmentShaderId::LuminanceDownsample;
-	fragMap[ShaderProgramId::Texture]                     = FragmentShaderId::Texture;
-	fragMap[ShaderProgramId::TextureColor]                = FragmentShaderId::TextureColor;
-	fragMap[ShaderProgramId::TextureSingleChannel]        = FragmentShaderId::TextureSingleChannel;
-	fragMap[ShaderProgramId::ToneMap] = FragmentShaderId::ToneMap;
-	std::array<VertexShaderId::Enum, ShaderProgramId::Num> vertMap;
-	vertMap[ShaderProgramId::AdaptedLuminance]            = VertexShaderId::Texture;
-	vertMap[ShaderProgramId::Depth]                       = VertexShaderId::Depth;
-	vertMap[ShaderProgramId::Depth_AlphaTest]             = VertexShaderId::Depth_AlphaTest;
-	vertMap[ShaderProgramId::Fog]                         = VertexShaderId::Fog;
-	vertMap[ShaderProgramId::FXAA]                        = VertexShaderId::Texture;
-	vertMap[ShaderProgramId::Generic]                     = VertexShaderId::Generic;
-	vertMap[ShaderProgramId::Generic_AlphaTest]           = VertexShaderId::Generic;
-	vertMap[ShaderProgramId::Generic_AlphaTestSoftSprite] = VertexShaderId::Generic;
-	vertMap[ShaderProgramId::Generic_SoftSprite]          = VertexShaderId::Generic;
-	vertMap[ShaderProgramId::LinearDepth]                 = VertexShaderId::Texture;
-	vertMap[ShaderProgramId::Luminance]                   = VertexShaderId::Texture;
-	vertMap[ShaderProgramId::LuminanceDownsample]         = VertexShaderId::Texture;
-	vertMap[ShaderProgramId::Texture]                     = VertexShaderId::Texture;
-	vertMap[ShaderProgramId::TextureColor]                = VertexShaderId::Texture;
-	vertMap[ShaderProgramId::TextureSingleChannel]        = VertexShaderId::Texture;
-	vertMap[ShaderProgramId::ToneMap]                     = VertexShaderId::Texture;
+	std::array<ShaderProgramIdMap, ShaderProgramId::Num> programMap;
+	programMap[ShaderProgramId::AdaptedLuminance]            = { FragmentShaderId::AdaptedLuminance, VertexShaderId::Texture };
+	programMap[ShaderProgramId::Depth]                       = { FragmentShaderId::Depth, VertexShaderId::Depth };
+	programMap[ShaderProgramId::Depth_AlphaTest]             = { FragmentShaderId::Depth_AlphaTest, VertexShaderId::Depth_AlphaTest };
+	programMap[ShaderProgramId::Fog]                         = { FragmentShaderId::Fog, VertexShaderId::Fog };
+	programMap[ShaderProgramId::FXAA]                        = { FragmentShaderId::FXAA, VertexShaderId::Texture };
+	programMap[ShaderProgramId::Generic]                     = { FragmentShaderId::Generic, VertexShaderId::Generic };
+	programMap[ShaderProgramId::Generic_AlphaTest]           = { FragmentShaderId::Generic_AlphaTest, VertexShaderId::Generic };
+	programMap[ShaderProgramId::Generic_AlphaTestSoftSprite] = { FragmentShaderId::Generic_AlphaTestSoftSprite, VertexShaderId::Generic };
+	programMap[ShaderProgramId::Generic_SoftSprite]          = { FragmentShaderId::Generic_SoftSprite, VertexShaderId::Generic };
+	programMap[ShaderProgramId::LinearDepth]                 = { FragmentShaderId::LinearDepth, VertexShaderId::Texture };
+	programMap[ShaderProgramId::Luminance]                   = { FragmentShaderId::Luminance, VertexShaderId::Texture };
+	programMap[ShaderProgramId::LuminanceDownsample]         = { FragmentShaderId::LuminanceDownsample, VertexShaderId::Texture };
+	programMap[ShaderProgramId::Texture]                     = { FragmentShaderId::Texture, VertexShaderId::Texture };
+	programMap[ShaderProgramId::TextureColor]                = { FragmentShaderId::TextureColor, VertexShaderId::Texture };
+	programMap[ShaderProgramId::TextureSingleChannel]        = { FragmentShaderId::TextureSingleChannel, VertexShaderId::Texture };
+	programMap[ShaderProgramId::ToneMap]                     = { FragmentShaderId::ToneMap, VertexShaderId::Texture };
 
 	for (size_t i = 0; i < ShaderProgramId::Num; i++)
 	{
-		auto &fragment = fragmentShaders_[fragMap[i]];
+		auto &fragment = fragmentShaders_[programMap[i].frag];
 
 		if (!bgfx::isValid(fragment.handle))
 		{
-			fragment.handle = bgfx::createShader(fragMem[fragMap[i]]);
+			fragment.handle = bgfx::createShader(fragMem[programMap[i].frag]);
 
 			if (!bgfx::isValid(fragment.handle))
 				ri.Error(ERR_DROP, "Error creating fragment shader");
 		}
 
-		auto &vertex = vertexShaders_[vertMap[i]];
+		auto &vertex = vertexShaders_[programMap[i].vert];
 	
 		if (!bgfx::isValid(vertex.handle))
 		{
-			vertex.handle = bgfx::createShader(vertMem[vertMap[i]]);
+			vertex.handle = bgfx::createShader(vertMem[programMap[i].vert]);
 
 			if (!bgfx::isValid(vertex.handle))
 				ri.Error(ERR_DROP, "Error creating vertex shader");
