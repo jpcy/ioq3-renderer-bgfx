@@ -132,6 +132,8 @@ private:
 
 	float calculateExplosionLight(float entityShaderTime, float durationMilliseconds) const;
 
+	static const int nBgfxBufferFrames = 3;
+
 	/// @name Camera
 	/// @{
 	Frustum cameraFrustum_;
@@ -148,6 +150,7 @@ private:
 	/// @{
 	static const size_t maxDynamicLights_ = MAX_DLIGHTS;
 	bgfx::TextureHandle dynamicLightsTexture_;
+	DynamicLight dynamicLightTextureData_[nBgfxBufferFrames][maxDynamicLights_];
 	int dynamicLightTextureSize_;
 	/// @}
 

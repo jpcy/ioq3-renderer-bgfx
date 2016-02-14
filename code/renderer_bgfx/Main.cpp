@@ -906,12 +906,12 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		if (sceneDynamicLights_.size() > 0)
 		{
 			const uint32_t size = sceneDynamicLights_.size() * sizeof(DynamicLight);
+			memcpy(dynamicLightTextureData_[frameNo_ % nBgfxBufferFrames], sceneDynamicLights_.data(), size);
 			const uint32_t texelSize = sizeof(float) * 4; // RGBA32F
 			const uint16_t nTexels = uint16_t(size / texelSize);
 			const uint16_t width = std::min(nTexels, uint16_t(dynamicLightTextureSize_));
 			const uint16_t height = (uint16_t)std::ceil(nTexels / (float)dynamicLightTextureSize_);
-			const bgfx::Memory *mem = bgfx::copy(sceneDynamicLights_.data(), size);
-			bgfx::updateTexture2D(dynamicLightsTexture_, 0, 0, 0, width, height, mem);
+			bgfx::updateTexture2D(dynamicLightsTexture_, 0, 0, 0, width, height, bgfx::makeRef(dynamicLightTextureData_[frameNo_ % nBgfxBufferFrames], size));
 		}
 	}
 	else
