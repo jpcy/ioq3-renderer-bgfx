@@ -36,6 +36,29 @@ enum class DebugDraw
 	Luminance
 };
 
+class DynamicLightManager
+{
+public:
+	DynamicLightManager();
+	~DynamicLightManager();
+	void add(int frameNo, const DynamicLight &light);
+	void clear();
+	void contribute(int frameNo, vec3 position, vec3 *color, vec3 *direction) const;
+	bgfx::TextureHandle getTexture() const { return texture_; }
+
+	/// @brief Update the texture and uniform.
+	/// @param ignore Write 0 to the uniform number of lights.
+	void update(int frameNo, Uniforms *uniforms, bool ignore);
+
+	static const size_t maxLights = MAX_DLIGHTS;
+
+private:
+	DynamicLight lights_[BGFX_NUM_BUFFER_FRAMES][maxLights];
+	size_t nLights_;
+	bgfx::TextureHandle texture_;
+	int textureSize_;
+};
+
 class Main
 {
 public:
@@ -58,7 +81,7 @@ public:
 	void drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);
 	void uploadCinematic(int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);
 	void loadWorld(const char *name);
-	void addDynamicLightToScene(DynamicLight light);
+	void addDynamicLightToScene(const DynamicLight &light);
 	void addEntityToScene(const refEntity_t *entity);
 	void addPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int nPolys);
 	void renderScene(const refdef_t *def);
@@ -112,6 +135,7 @@ private:
 	};
 
 	void debugDraw(const FrameBuffer &texture, int x = 0, int y = 0, bool singleChannel = true);
+	void debugDraw(bgfx::TextureHandle texture, int x = 0, int y = 0, bool singleChannel = true);
 	uint8_t pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags = 0);
 	void flushStretchPics();
 	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask);
@@ -132,8 +156,6 @@ private:
 
 	float calculateExplosionLight(float entityShaderTime, float durationMilliseconds) const;
 
-	static const int nBgfxBufferFrames = 3;
-
 	/// @name Camera
 	/// @{
 	Frustum cameraFrustum_;
@@ -144,14 +166,6 @@ private:
 	bool isWorldCamera_;
 
 	vec4 portalPlane_;
-	/// @}
-
-	/// @name Dynamic lights
-	/// @{
-	static const size_t maxDynamicLights_ = MAX_DLIGHTS;
-	bgfx::TextureHandle dynamicLightsTexture_;
-	DynamicLight dynamicLightTextureData_[nBgfxBufferFrames][maxDynamicLights_];
-	int dynamicLightTextureSize_;
 	/// @}
 
 	/// @name Fonts
@@ -230,7 +244,6 @@ private:
 		size_t firstVertex, nVertices;
 	};
 
-	std::vector<DynamicLight> sceneDynamicLights_;
 	std::vector<Polygon> scenePolygons_;
 	std::vector<Polygon *> sortedScenePolygons_;
 	std::vector<polyVert_t> scenePolygonVertices_;
@@ -270,6 +283,7 @@ private:
 	AntiAliasing aa_;
 	const Entity *currentEntity_ = nullptr;
 	DebugDraw debugDraw_ = DebugDraw::None;
+	std::unique_ptr<DynamicLightManager> dlightManager_;
 	float halfTexelOffset_ = 0;
 	bool isTextureOriginBottomLeft_ = false;
 	uint8_t mainVisCacheId_, portalVisCacheId_;

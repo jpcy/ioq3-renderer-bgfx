@@ -223,6 +223,83 @@ bool DrawCall::operator<(const DrawCall &other) const
 	return false;
 }
 
+DynamicLightManager::DynamicLightManager() : nLights_(0)
+{
+	// Calculate the smallest square POT texture size to fit the dynamic lights data.
+	const int texelSize = sizeof(float) * 4; // RGBA32F
+	const int sr = (int)ceil(sqrtf(maxLights * sizeof(DynamicLight) / texelSize));
+	textureSize_ = 1;
+
+	while (textureSize_ < sr)
+		textureSize_ *= 2;
+
+	// Clamp and filter are just for debug drawing. Sampling uses texel fetch.
+	texture_ = bgfx::createTexture2D(textureSize_, textureSize_, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
+}
+
+DynamicLightManager::~DynamicLightManager()
+{
+	bgfx::destroyTexture(texture_);
+}
+
+void DynamicLightManager::add(int frameNo, const DynamicLight &light)
+{
+	if (nLights_ == maxLights)
+	{
+		ri.Printf(PRINT_WARNING, "Hit maximum dlights\n");
+		return;
+	}
+
+	lights_[frameNo % BGFX_NUM_BUFFER_FRAMES][nLights_++] = light;
+}
+
+void DynamicLightManager::clear()
+{
+	nLights_ = 0;
+}
+
+void DynamicLightManager::contribute(int frameNo, vec3 position, vec3 *color, vec3 *direction) const
+{
+	assert(color);
+	assert(direction);
+	const float DLIGHT_AT_RADIUS = 16; // at the edge of a dlight's influence, this amount of light will be added
+	const float DLIGHT_MINIMUM_RADIUS = 16; // never calculate a range less than this to prevent huge light numbers
+
+	for (size_t i = 0; i < nLights_; i++)
+	{
+		const DynamicLight &dl = lights_[frameNo % BGFX_NUM_BUFFER_FRAMES][i];
+		vec3 dir = dl.position_type.xyz() - position;
+		float d = dir.normalize();
+		float power = std::min(DLIGHT_AT_RADIUS * (dl.color_radius.a * dl.color_radius.a), DLIGHT_MINIMUM_RADIUS);
+		d = power / (d * d);
+		*color += dl.color_radius.rgb() * d;
+		*direction += dir * d;
+	}
+}
+
+void DynamicLightManager::update(int frameNo, Uniforms *uniforms, bool ignore)
+{
+	assert(uniforms);
+
+	if (ignore)
+	{
+		uniforms->dynamicLights_Num_TextureWidth.set(vec4::empty);
+		return;
+	}
+
+	uniforms->dynamicLights_Num_TextureWidth.set(vec4((float)nLights_, (float)textureSize_, 0, 0));
+	
+	if (nLights_ > 0)
+	{
+		const uint32_t size = nLights_ * sizeof(DynamicLight);
+		const uint32_t texelSize = sizeof(float) * 4; // RGBA32F
+		const uint16_t nTexels = uint16_t(size / texelSize);
+		const uint16_t width = std::min(nTexels, uint16_t(textureSize_));
+		const uint16_t height = (uint16_t)std::ceil(nTexels / (float)textureSize_);
+		bgfx::updateTexture2D(texture_, 0, 0, 0, width, height, bgfx::makeRef(lights_[frameNo % BGFX_NUM_BUFFER_FRAMES], size));
+	}
+}
+
 #define NOISE_PERM(a) noisePerm_[(a) & (noiseSize_ - 1)]
 #define NOISE_TABLE(x, y, z, t) noiseTable_[NOISE_PERM(x + NOISE_PERM(y + NOISE_PERM(z + NOISE_PERM(t))))]
 #define NOISE_LERP( a, b, w ) ( ( a ) * ( 1.0f - ( w ) ) + ( b ) * ( w ) )
@@ -374,9 +451,9 @@ void Main::loadWorld(const char *name)
 	portalVisCacheId_ = world::CreateVisCache();
 }
 
-void Main::addDynamicLightToScene(DynamicLight light)
+void Main::addDynamicLightToScene(const DynamicLight &light)
 {
-	sceneDynamicLights_.push_back(light);
+	dlightManager_->add(frameNo_, light);
 }
 
 void Main::addEntityToScene(const refEntity_t *entity)
@@ -501,7 +578,7 @@ void Main::renderScene(const refdef_t *def)
 		}
 	}
 
-	sceneDynamicLights_.clear();
+	dlightManager_->clear();
 	sceneEntities_.clear();
 	scenePolygons_.clear();
 	sortedScenePolygons_.clear();
@@ -519,8 +596,7 @@ void Main::endFrame()
 	}
 	else if (debugDraw_ == DebugDraw::DynamicLight)
 	{
-		bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, dynamicLightsTexture_);
-		renderScreenSpaceQuad(defaultFb_, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(0, 0, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
+		debugDraw(dlightManager_->getTexture(), 0, 0, false);
 	}
 	else if (debugDraw_ == DebugDraw::Luminance && g_cvars.hdr->integer)
 	{
@@ -604,6 +680,12 @@ void Main::onModelCreate(Model *model)
 void Main::debugDraw(const FrameBuffer &texture, int x, int y, bool singleChannel)
 {
 	bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, texture.handle);
+	renderScreenSpaceQuad(defaultFb_, singleChannel ? ShaderProgramId::TextureSingleChannel : ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize->integer * x, g_cvars.debugDrawSize->integer * y, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
+}
+
+void Main::debugDraw(bgfx::TextureHandle texture, int x, int y, bool singleChannel)
+{
+	bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, texture);
 	renderScreenSpaceQuad(defaultFb_, singleChannel ? ShaderProgramId::TextureSingleChannel : ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize->integer * x, g_cvars.debugDrawSize->integer * y, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
 }
 
@@ -899,29 +981,12 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	}
 
 	// Setup dynamic lights.
+	// For non-world scenes, dlight contribution is added to entities in setupEntityLighting, so ignore the update and write 0 to the uniform num dlights.
+	dlightManager_->update(frameNo_, uniforms_.get(), !isWorldCamera_);
+
+	// Render depth.
 	if (isWorldCamera_)
 	{
-		uniforms_->dynamicLights_Num_TextureWidth.set(vec4((float)sceneDynamicLights_.size(), (float)dynamicLightTextureSize_, 0, 0));
-
-		if (sceneDynamicLights_.size() > 0)
-		{
-			const uint32_t size = sceneDynamicLights_.size() * sizeof(DynamicLight);
-			memcpy(dynamicLightTextureData_[frameNo_ % nBgfxBufferFrames], sceneDynamicLights_.data(), size);
-			const uint32_t texelSize = sizeof(float) * 4; // RGBA32F
-			const uint16_t nTexels = uint16_t(size / texelSize);
-			const uint16_t width = std::min(nTexels, uint16_t(dynamicLightTextureSize_));
-			const uint16_t height = (uint16_t)std::ceil(nTexels / (float)dynamicLightTextureSize_);
-			bgfx::updateTexture2D(dynamicLightsTexture_, 0, 0, 0, width, height, bgfx::makeRef(dynamicLightTextureData_[frameNo_ % nBgfxBufferFrames], size));
-		}
-	}
-	else
-	{
-		uniforms_->dynamicLights_Num_TextureWidth.set(vec4(0, 0, 0, 0));
-	}
-
-	if (isWorldCamera_)
-	{
-		// Render depth.
 		const uint8_t viewId = pushView(sceneFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect);
 
 		for (DrawCall &dc : drawCalls_)
@@ -1117,7 +1182,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 			if (isWorldCamera_)
 			{
-				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, dynamicLightsTexture_);
+				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, dlightManager_->getTexture());
 			}
 
 			bgfx::setState(state);
@@ -1623,18 +1688,7 @@ void Main::setupEntityLighting(Entity *entity)
 	// Modify the light by dynamic lights.
 	if (!isWorldCamera_)
 	{
-		const float DLIGHT_AT_RADIUS = 16; // at the edge of a dlight's influence, this amount of light will be added
-		const float DLIGHT_MINIMUM_RADIUS = 16; // never calculate a range less than this to prevent huge light numbers
-
-		for (const auto &dlight : sceneDynamicLights_)
-		{
-			vec3 dir = dlight.position_type.xyz() - lightPosition;
-			float d = dir.normalize();
-			float power = std::min(DLIGHT_AT_RADIUS * (dlight.color_radius.a * dlight.color_radius.a), DLIGHT_MINIMUM_RADIUS);
-			d = power / (d * d);
-			entity->directedLight += dlight.color_radius.rgb() * d;
-			lightDir += dir * d;
-		}
+		dlightManager_->contribute(frameNo_, lightPosition, &entity->directedLight, &lightDir);
 	}
 
 	entity->lightDir = lightDir.normal();

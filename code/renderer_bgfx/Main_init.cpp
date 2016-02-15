@@ -274,7 +274,6 @@ Main::Main()
 
 Main::~Main()
 {
-	bgfx::destroyTexture(dynamicLightsTexture_);
 	ri.Cmd_RemoveCommand("screenshot");
 	ri.Cmd_RemoveCommand("screenshotJPEG");
 	ri.Cmd_RemoveCommand("screenshotPNG");
@@ -459,16 +458,7 @@ void Main::initialize()
 	}
 
 	// Dynamic lights.
-	// Calculate the smallest square POT texture size to fit the dynamic lights data.
-	const int texelSize = sizeof(float) * 4; // RGBA32F
-	const int sr = (int)ceil(sqrtf(maxDynamicLights_ * sizeof(DynamicLight) / texelSize));
-	dynamicLightTextureSize_ = 1;
-
-	while (dynamicLightTextureSize_ < sr)
-		dynamicLightTextureSize_ *= 2;
-
-	// Clamp and filter are just for debug drawing. Sampling uses texel fetch.
-	dynamicLightsTexture_ = bgfx::createTexture2D(dynamicLightTextureSize_, dynamicLightTextureSize_, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
+	dlightManager_ = std::make_unique<DynamicLightManager>();
 }
 
 static int Font_ReadInt(const uint8_t *data, int *offset)
@@ -569,7 +559,7 @@ void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
 
 namespace main {
 
-void AddDynamicLightToScene(DynamicLight light)
+void AddDynamicLightToScene(const DynamicLight &light)
 {
 	s_main->addDynamicLightToScene(light);
 }

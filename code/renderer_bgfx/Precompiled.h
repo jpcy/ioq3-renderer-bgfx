@@ -43,6 +43,8 @@ extern "C"
 #include "bx/fpumath.h"
 #include "bx/string.h"
 
+#define BGFX_NUM_BUFFER_FRAMES 3
+
 #include "../math/Math.h"
 using namespace math;
 #include "Interface.h"
@@ -284,7 +286,7 @@ struct IndexBuffer
 
 namespace main
 {
-	void AddDynamicLightToScene(DynamicLight light);
+	void AddDynamicLightToScene(const DynamicLight &light);
 	void AddEntityToScene(const refEntity_t *entity);
 	void AddPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int nPolys);
 	void DrawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex);
