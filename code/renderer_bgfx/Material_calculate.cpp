@@ -505,7 +505,11 @@ void MaterialStage::setTextureSampler(int sampler, Uniforms_MaterialStage *unifo
 	}
 
 	if (!bundle.textures[0])
+	{
+		// Make sure something is bound to the texture sampler, to silence D3D11 warnings.
+		bgfx::setTexture(sampler, uniforms->textures[sampler]->handle, g_textureCache->getWhiteTexture()->getHandle());
 		return;
+	}
 
 	if (bundle.numImageAnimations <= 1)
 	{

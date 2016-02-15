@@ -747,6 +747,9 @@ void Main::flushStretchPics()
 				// Depth testing and writing should always be off for 2D drawing.
 				state &= ~BGFX_STATE_DEPTH_TEST_MASK;
 				state &= ~BGFX_STATE_DEPTH_WRITE;
+
+				// Silence D3D11 warnings.
+				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, g_textureCache->getWhiteTexture()->getHandle());
 			
 				bgfx::setState(state);
 				bgfx::setVertexBuffer(&tvb);
@@ -1183,6 +1186,11 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (isWorldCamera_)
 			{
 				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, dlightManager_->getTexture());
+			}
+			else
+			{
+				// Silence D3D11 warnings.
+				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, g_textureCache->getWhiteTexture()->getHandle());
 			}
 
 			bgfx::setState(state);
@@ -1692,6 +1700,12 @@ void Main::setupEntityLighting(Entity *entity)
 	}
 
 	entity->lightDir = lightDir.normal();
+
+	// Clamp ambient.
+	for (size_t i = 0; i < 3; i++)
+	{
+		entity->ambientLight[i] = std::min(entity->ambientLight[i], g_identityLight * 255);
+	}
 
 	// Transform the direction to local space.
 	entity->modelLightDir[0] = vec3::dotProduct(entity->lightDir, entity->e.axis[0]);

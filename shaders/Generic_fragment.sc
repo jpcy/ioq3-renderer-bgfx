@@ -6,9 +6,6 @@ $input v_position, v_projPosition, v_texcoord0, v_texcoord1, v_normal, v_color0,
 
 SAMPLER2D(u_DiffuseMap, 0);
 SAMPLER2D(u_LightMap, 1);
-SAMPLER2D(u_NormalMap, 2);
-SAMPLER2D(u_DeluxeMap, 3);
-SAMPLER2D(u_SpecularMap, 4);
 
 #if defined(USE_SOFT_SPRITE)
 SAMPLER2D(u_DepthMap, 5);
@@ -135,7 +132,7 @@ void main()
 
 	if (int(u_LightType.x) == LIGHT_MAP)
 	{
-		diffuseLight = ToLinear(texture2D(u_LightMap, v_texcoord1).rgb * OVERBRIGHT_FACTOR);
+		diffuseLight = ToLinear(texture2D(u_LightMap, v_texcoord1).rgb);
 	}
 	else if (int(u_LightType.x) == LIGHT_VECTOR)
 	{
