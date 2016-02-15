@@ -617,7 +617,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 				if (!lightmap)
 				{
-					lightmap = g_textureCache->getIdentityLightTexture();
+					lightmap = g_textureCache->getWhiteTexture();
 				}
 				
 				stage->bundles[0].textures[0] = lightmap;

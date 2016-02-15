@@ -238,6 +238,7 @@ struct Entity
 	/// Normalized direction towards light, in model space.
 	vec3 modelLightDir;
 
+	/// Color normalized to 0-255.
 	vec3 ambientLight;
 
 	vec3 directedLight;
@@ -1406,7 +1407,7 @@ namespace world
 static const size_t g_funcTableSize = 1024;
 static const size_t g_funcTableSize2 = 10;
 static const size_t g_funcTableMask = g_funcTableSize - 1;
-static const int g_overbrightFactor = OVERBRIGHT_FACTOR;
+static const int g_overbrightFactor = 2;
 static const float g_identityLight = 1.0f / g_overbrightFactor;
 
 extern ConsoleVariables g_cvars;
