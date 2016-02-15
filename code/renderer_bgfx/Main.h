@@ -50,7 +50,7 @@ public:
 	/// @param ignore Write 0 to the uniform number of lights.
 	void update(int frameNo, Uniforms *uniforms, bool ignore);
 
-	static const size_t maxLights = MAX_DLIGHTS;
+	static const size_t maxLights = 256;
 
 private:
 	DynamicLight lights_[BGFX_NUM_BUFFER_FRAMES][maxLights];

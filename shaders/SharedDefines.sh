@@ -37,7 +37,6 @@
 #define GEN_TEXCOORD 2
 
 #define MAX_DEFORMS 3
-#define MAX_DLIGHTS 256
 
 #define TCGEN_NONE               0
 #define TCGEN_ENVIRONMENT_MAPPED 1

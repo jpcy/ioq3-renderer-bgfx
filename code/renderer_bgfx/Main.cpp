@@ -233,6 +233,9 @@ DynamicLightManager::DynamicLightManager() : nLights_(0)
 	while (textureSize_ < sr)
 		textureSize_ *= 2;
 
+	// FIXME: workaround d3d11 flickering texture if smaller than 64x64 and not updated every frame
+	textureSize_ = std::max(64, textureSize_);
+
 	// Clamp and filter are just for debug drawing. Sampling uses texel fetch.
 	texture_ = bgfx::createTexture2D(textureSize_, textureSize_, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
 }
