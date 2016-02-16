@@ -47,8 +47,7 @@ public:
 	bgfx::TextureHandle getTexture() const { return texture_; }
 
 	/// @brief Update the texture and uniform.
-	/// @param ignore Write 0 to the uniform number of lights.
-	void update(int frameNo, Uniforms *uniforms, bool ignore);
+	void update(int frameNo, Uniform_vec4 *uniform);
 
 	static const size_t maxLights = 256;
 

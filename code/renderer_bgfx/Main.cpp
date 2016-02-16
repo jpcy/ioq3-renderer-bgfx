@@ -280,17 +280,10 @@ void DynamicLightManager::contribute(int frameNo, vec3 position, vec3 *color, ve
 	}
 }
 
-void DynamicLightManager::update(int frameNo, Uniforms *uniforms, bool ignore)
+void DynamicLightManager::update(int frameNo, Uniform_vec4 *uniform)
 {
-	assert(uniforms);
-
-	if (ignore)
-	{
-		uniforms->dynamicLights_Num_TextureWidth.set(vec4::empty);
-		return;
-	}
-
-	uniforms->dynamicLights_Num_TextureWidth.set(vec4((float)nLights_, (float)textureSize_, 0, 0));
+	assert(uniform);
+	uniform->set(vec4((float)nLights_, (float)textureSize_, 0, 0));
 	
 	if (nLights_ > 0)
 	{
@@ -1039,8 +1032,15 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	}
 
 	// Setup dynamic lights.
-	// For non-world scenes, dlight contribution is added to entities in setupEntityLighting, so ignore the update and write 0 to the uniform num dlights.
-	dlightManager_->update(frameNo_, uniforms_.get(), !isWorldCamera_);
+	if (isWorldCamera_)
+	{
+		dlightManager_->update(frameNo_, &uniforms_->dynamicLights_Num_TextureWidth);
+	}
+	else
+	{
+		// For non-world scenes, dlight contribution is added to entities in setupEntityLighting, so write 0 to the uniform for num dlights.
+		uniforms_->dynamicLights_Num_TextureWidth.set(vec4::empty);
+	}
 
 	// Render depth.
 	if (isWorldCamera_)
