@@ -462,6 +462,58 @@ void Main::addDynamicLightToScene(const DynamicLight &light)
 void Main::addEntityToScene(const refEntity_t *entity)
 {
 	sceneEntities_.push_back({ *entity });
+
+	// Hack in extra dlights for Quake 3 content.
+	const vec3 bfgColor(0.08f, 1.0f, 0.4f);
+	const vec3 plasmaColor(0.6f, 0.6f, 1.0f);
+	DynamicLight dl;
+	dl.color_radius = vec4::empty;
+	dl.position_type = vec4(entity->origin, DynamicLight::Point);
+
+	// BFG projectile.
+	if (entity->reType == RT_MODEL && bfgMissibleModel_ && entity->hModel == bfgMissibleModel_->getIndex())
+	{
+		dl.color_radius = vec4(bfgColor, 200); // Same radius as rocket.
+	}
+	// BFG explosion.
+	else if (entity->reType == RT_SPRITE && bfgExplosionMaterial_ && entity->customShader == bfgExplosionMaterial_->index)
+	{
+		dl.color_radius = vec4(bfgColor, 300 * calculateExplosionLight(entity->shaderTime, 1000)); // Same radius and duration as rocket explosion.
+	}
+	// Lightning bolt.
+	else if (entity->reType == RT_LIGHTNING)
+	{
+		const float base = 1;
+		const float amplitude = 0.1f;
+		const float phase = 0;
+		const float freq = 10.1f;
+		const float radius = base + g_sinTable[ri.ftol((phase + floatTime_ * freq) * g_funcTableSize) & g_funcTableMask] * amplitude;
+		dl.capsuleEnd = vec3(entity->oldorigin);
+		dl.color_radius = vec4(0.6f, 0.6f, 1, 150 * radius);
+		dl.position_type.w = DynamicLight::Capsule;
+	}
+	// Plasma ball.
+	else if (entity->reType == RT_SPRITE && plasmaBallMaterial_ && entity->customShader == plasmaBallMaterial_->index)
+	{
+		dl.color_radius = vec4(plasmaColor, 100);
+	}
+	// Plasma explosion.
+	else if (entity->reType == RT_MODEL && plasmaExplosionMaterial_ && entity->customShader == plasmaExplosionMaterial_->index)
+	{
+		dl.color_radius = vec4(plasmaColor, 200 * calculateExplosionLight(entity->shaderTime, 600)); // CG_MissileHitWall: 600ms duration.
+	}
+	// Rail core.
+	else if (entity->reType == RT_RAIL_CORE)
+	{
+		dl.capsuleEnd = vec3(entity->oldorigin);
+		dl.color_radius = vec4(vec4::fromBytes(entity->shaderRGBA).xyz(), 150);
+		dl.position_type.w = DynamicLight::Capsule;
+	}
+
+	if (dl.color_radius.a > 0)
+	{
+		addDynamicLightToScene(dl);
+	}
 }
 
 void Main::addPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int nPolys)
@@ -1381,58 +1433,6 @@ void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 view
 
 	default:
 		break;
-	}
-
-	// Hack in extra dlights for Quake 3 content.
-	const vec3 bfgColor(0.08f, 1.0f, 0.4f);
-	const vec3 plasmaColor(0.6f, 0.6f, 1.0f);
-	DynamicLight dl;
-	dl.color_radius = vec4::empty;
-	dl.position_type = vec4(entity->e.origin, DynamicLight::Point);
-
-	// BFG projectile.
-	if (entity->e.reType == RT_MODEL && bfgMissibleModel_ && entity->e.hModel == bfgMissibleModel_->getIndex())
-	{
-		dl.color_radius = vec4(bfgColor, 200); // Same radius as rocket.
-	}
-	// BFG explosion.
-	else if (entity->e.reType == RT_SPRITE && bfgExplosionMaterial_ && entity->e.customShader == bfgExplosionMaterial_->index)
-	{
-		dl.color_radius = vec4(bfgColor, 300 * calculateExplosionLight(entity->e.shaderTime, 1000)); // Same radius and duration as rocket explosion.
-	}
-	// Lightning bolt.
-	else if (entity->e.reType == RT_LIGHTNING)
-	{
-		const float base = 1;
-		const float amplitude = 0.1f;
-		const float phase = 0;
-		const float freq = 10.1f;
-		const float radius = base + g_sinTable[ri.ftol((phase + floatTime_ * freq) * g_funcTableSize) & g_funcTableMask] * amplitude;
-		dl.capsuleEnd = vec3(entity->e.oldorigin);
-		dl.color_radius = vec4(0.6f, 0.6f, 1, 150 * radius);
-		dl.position_type.w = DynamicLight::Capsule;
-	}
-	// Plasma ball.
-	else if (entity->e.reType == RT_SPRITE && plasmaBallMaterial_ && entity->e.customShader == plasmaBallMaterial_->index)
-	{
-		dl.color_radius = vec4(plasmaColor, 100);
-	}
-	// Plasma explosion.
-	else if (entity->e.reType == RT_MODEL && plasmaExplosionMaterial_ && entity->e.customShader == plasmaExplosionMaterial_->index)
-	{
-		dl.color_radius = vec4(plasmaColor, 200 * calculateExplosionLight(entity->e.shaderTime, 600)); // CG_MissileHitWall: 600ms duration.
-	}
-	// Rail core.
-	else if (entity->e.reType == RT_RAIL_CORE)
-	{
-		dl.capsuleEnd = vec3(entity->e.oldorigin);
-		dl.color_radius = vec4(vec4::fromBytes(entity->e.shaderRGBA).xyz(), 150);
-		dl.position_type.w = DynamicLight::Capsule;
-	}
-
-	if (dl.color_radius.a > 0)
-	{
-		addDynamicLightToScene(dl);
 	}
 }
 
