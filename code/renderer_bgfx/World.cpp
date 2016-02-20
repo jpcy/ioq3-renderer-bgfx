@@ -230,7 +230,9 @@ public:
 		for (size_t i = 0; i < nVertices; i++)
 		{
 			Vertex *v = &tempVertices_[ts.firstVertex + i];
-			v->texCoord2 = AtlasTexCoord(v->texCoord2, lightmapIndex, nLightmapTilesPerDimension);
+
+			if (lightmapIndex >= 0)
+				v->texCoord2 = AtlasTexCoord(v->texCoord2, lightmapIndex, nLightmapTilesPerDimension);
 		}
 
 		tempIndices_.resize(tempIndices_.size() + nIndices);
@@ -1926,16 +1928,21 @@ private:
 			{
 				auto &fs = fileSurfaces[md.firstSurface + j];
 				const int type = LittleLong(fs.surfaceType);
-				const int lightmapIndex = LittleLong(fs.lightmapNum);
+				int lightmapIndex = LittleLong(fs.lightmapNum);
 				auto material = findMaterial(LittleLong(fs.shaderNum), lightmapIndex);
+
+				if (!lightmapAtlases_.empty())
+				{
+					lightmapIndex = lightmapIndex % nLightmapsPerAtlas_;
+				}
 
 				if (type == MST_PLANAR || type == MST_TRIANGLE_SOUP)
 				{
-					model->addSurface(j, material, &vertices[LittleLong(fs.firstVert)], LittleLong(fs.numVerts), &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex % nLightmapsPerAtlas_, lightmapAtlasSize_ / lightmapSize_);
+					model->addSurface(j, material, &vertices[LittleLong(fs.firstVert)], LittleLong(fs.numVerts), &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex, lightmapAtlasSize_ / lightmapSize_);
 				}
 				else if (type == MST_PATCH)
 				{
-					model->addPatchSurface(j, material, LittleLong(fs.patchWidth), LittleLong(fs.patchHeight), &vertices[LittleLong(fs.firstVert)], lightmapIndex % nLightmapsPerAtlas_, lightmapAtlasSize_ / lightmapSize_);
+					model->addPatchSurface(j, material, LittleLong(fs.patchWidth), LittleLong(fs.patchHeight), &vertices[LittleLong(fs.firstVert)], lightmapIndex, lightmapAtlasSize_ / lightmapSize_);
 				}
 			}
 
@@ -2048,7 +2055,11 @@ private:
 		for (size_t i = 0; i < nVertices; i++)
 		{
 			Vertex *v = &(*bufferVertices)[startVertex + i];
-			v->texCoord2 = AtlasTexCoord(v->texCoord2, lightmapIndex % nLightmapsPerAtlas_, lightmapAtlasSize_ / lightmapSize_);
+
+			if (lightmapIndex >= 0 && !lightmapAtlases_.empty())
+			{
+				v->texCoord2 = AtlasTexCoord(v->texCoord2, lightmapIndex % nLightmapsPerAtlas_, lightmapAtlasSize_ / lightmapSize_);
+			}
 		}
 
 		// The surface needs to know which vertex buffer to use.
