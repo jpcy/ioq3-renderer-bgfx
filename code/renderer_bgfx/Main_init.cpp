@@ -318,7 +318,7 @@ void Main::initialize()
 			}
 		}
 
-		Window_Initialize(selectedBackend == bgfx::RendererType::OpenGL);
+		Window_Initialize();
 		
 		if (!bgfx::init(selectedBackend, 0, 0, &bgfxCallback))
 		{

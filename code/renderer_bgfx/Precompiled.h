@@ -1398,7 +1398,7 @@ struct WarnOnceId
 };
 
 void WarnOnce(WarnOnceId::Enum id);
-void Window_Initialize(bool gl);
+void Window_Initialize();
 void Window_Shutdown();
 
 namespace world

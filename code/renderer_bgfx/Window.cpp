@@ -89,13 +89,10 @@ static bool GetModeInfo(int *width, int *height, float *windowAspect, int mode)
 	return true;
 }
 
-static SetModeResult SetMode(bool gl, int mode, bool fullscreen, bool noborder)
+static SetModeResult SetMode(int mode, bool fullscreen, bool noborder)
 {
 	ri.Printf(PRINT_ALL, "Initializing display\n");
 	Uint32 flags = SDL_WINDOW_SHOWN;
-
-	if (gl)
-		flags |= SDL_WINDOW_OPENGL;
 
 	if (g_cvars.allowResize->integer != 0)
 		flags |= SDL_WINDOW_RESIZABLE;
@@ -229,7 +226,7 @@ finished:
 	return SetModeResult::OK;
 }
 
-static bool StartDriverAndSetMode(bool gl, int mode, bool fullscreen, bool noborder)
+static bool StartDriverAndSetMode(int mode, bool fullscreen, bool noborder)
 {
 	if (!SDL_WasInit(SDL_INIT_VIDEO))
 	{
@@ -252,7 +249,7 @@ static bool StartDriverAndSetMode(bool gl, int mode, bool fullscreen, bool nobor
 		fullscreen = false;
 	}
 	
-	switch (SetMode(gl, mode, fullscreen, noborder))
+	switch (SetMode(mode, fullscreen, noborder))
 	{
 	case SetModeResult::InvalidFullScreen:
 		ri.Printf(PRINT_ALL, "...WARNING: fullscreen unavailable in this mode\n");
@@ -267,7 +264,7 @@ static bool StartDriverAndSetMode(bool gl, int mode, bool fullscreen, bool nobor
 	return true;
 }
 
-void Window_Initialize(bool gl)
+void Window_Initialize()
 {
 	if (ri.Cvar_VariableIntegerValue("com_abnormalExit"))
 	{
@@ -278,13 +275,13 @@ void Window_Initialize(bool gl)
 	}
 
 	// Create the window and set up the context
-	if (StartDriverAndSetMode(gl, g_cvars.mode->integer, g_cvars.fullscreen->integer != 0, g_cvars.noborder->integer != 0))
+	if (StartDriverAndSetMode(g_cvars.mode->integer, g_cvars.fullscreen->integer != 0, g_cvars.noborder->integer != 0))
 		goto success;
 
 	if (g_cvars.noborder->integer != 0)
 	{
 		// Try again with a window border
-		if (StartDriverAndSetMode(gl, g_cvars.mode->integer, g_cvars.fullscreen->integer != 0, false))
+		if (StartDriverAndSetMode(g_cvars.mode->integer, g_cvars.fullscreen->integer != 0, false))
 			goto success;
 	}
 
@@ -293,7 +290,7 @@ void Window_Initialize(bool gl)
 	{
 		ri.Printf(PRINT_ALL, "Setting r_mode %d failed, falling back on r_mode %d\n", g_cvars.mode->integer, R_MODE_FALLBACK);
 
-		if (StartDriverAndSetMode(gl, R_MODE_FALLBACK, false, false))
+		if (StartDriverAndSetMode(R_MODE_FALLBACK, false, false))
 			goto success;
 	}
 
