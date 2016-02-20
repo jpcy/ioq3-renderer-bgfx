@@ -612,6 +612,8 @@ struct MaterialTextureBundleIndex
 		Deluxemap,
 		Specularmap,
 		Depth,
+		DynamicLightCells,
+		DynamicLightIndices,
 		DynamicLights,
 		Luminance,
 		AdaptedLuminance,
@@ -1086,6 +1088,7 @@ public:
 	/// @return nullptr if it fails, not the default image.
 	Texture *findTexture(const char *name, TextureType type = TextureType::ColorAlpha, int flags = TextureFlags::None);
 
+	const Texture *getBlackTexture() const { return blackTexture_; }
 	const Texture *getDefaultTexture() const { return defaultTexture_; }
 	const Texture *getIdentityLightTexture() const { return identityLightTexture_; }
 	const Texture *getWhiteTexture() const { return whiteTexture_; }
@@ -1099,7 +1102,7 @@ private:
 	static const size_t hashTableSize_ = 1024;
 	Texture *hashTable_[hashTableSize_];
 
-	Texture *defaultTexture_, *identityLightTexture_, *whiteTexture_;
+	Texture *blackTexture_, *defaultTexture_, *identityLightTexture_, *whiteTexture_;
 	std::array<Texture *, 32> scratchTextures_;
 };
 
@@ -1150,8 +1153,20 @@ struct Uniforms
 	/// @name Dynamic lights
 	/// @{
 
+	/// @remarks xyz is cell size in world coordinates, w is the texture size.
+	Uniform_vec4 dynamicLightCellSize = "u_DynamicLightCellSize";
+
+	/// @remarks w not used.
+	Uniform_vec4 dynamicLightGridOffset = "u_DynamicLightGridOffset";
+
+	/// @remarks w not used.
+	Uniform_vec4 dynamicLightGridSize = "u_DynamicLightGridSize";
+
 	/// @remarks x is the number of dynamic lights, y is the texture width.
-	Uniform_vec4 dynamicLights_Num_TextureWidth = "u_DynamicLights_Num_TextureWidth";
+	Uniform_vec4 dynamicLightNum = "u_DynamicLightNum";
+
+	/// @remarks w not used.
+	Uniform_vec4 dynamicLightTextureSizes_Cells_Indices_Lights = "u_DynamicLightTextureSizes_Cells_Indices_Lights";
 
 	/// @}
 
@@ -1219,6 +1234,8 @@ struct Uniforms_MaterialStage
 		textures[MaterialTextureBundleIndex::Deluxemap] = &deluxemap;
 		textures[MaterialTextureBundleIndex::Specularmap] = &specularmap;
 		textures[MaterialTextureBundleIndex::Depth] = &depthSampler;
+		textures[MaterialTextureBundleIndex::DynamicLightCells] = &dynamicLightCellsSampler;
+		textures[MaterialTextureBundleIndex::DynamicLightIndices] = &dynamicLightIndicesSampler;
 		textures[MaterialTextureBundleIndex::DynamicLights] = &dynamicLightsSampler;
 		textures[MaterialTextureBundleIndex::Luminance] = &luminanceSampler;
 		textures[MaterialTextureBundleIndex::AdaptedLuminance] = &adaptedLuminanceSampler;
@@ -1237,6 +1254,8 @@ struct Uniforms_MaterialStage
 	Uniform_int deluxemap = "u_DeluxeMap";
 	Uniform_int specularmap = "u_SpecularMap";
 	Uniform_int depthSampler = "u_DepthMap";
+	Uniform_int dynamicLightCellsSampler = "u_DynamicLightCellsSampler";
+	Uniform_int dynamicLightIndicesSampler = "u_DynamicLightIndicesSampler";
 	Uniform_int dynamicLightsSampler = "u_DynamicLightsSampler";
 	Uniform_int luminanceSampler = "u_LuminanceSampler";
 	Uniform_int adaptedLuminanceSampler = "u_AdaptedLuminanceSampler";
@@ -1309,6 +1328,8 @@ namespace util
 	int Compress(char *data_p);
 
 	/// @}
+
+	uint16_t CalculateSmallestPowerOfTwoTextureSize(int nPixels);
 
 	char *SkipPath(char *pathname);
 	const char *GetExtension(const char *name);
@@ -1394,6 +1415,7 @@ namespace world
 	int FindFogIndex(const Bounds &bounds);
 	void CalculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMatrix, vec3 cameraPosition, vec3 localViewPosition, const mat3 &cameraRotation, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT);
 	int MarkFragments(int numPoints, const vec3 *points, vec3 projection, int maxPoints, vec3 *pointBuffer, int maxFragments, markFragment_t *fragmentBuffer);
+	Bounds GetBounds();
 	Bounds GetBounds(uint8_t visCacheId);
 	size_t GetNumSkies(uint8_t visCacheId);
 	void GetSky(uint8_t visCacheId, size_t index, Material **material, const std::vector<Vertex> **vertices);

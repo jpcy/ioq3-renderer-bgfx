@@ -36,6 +36,17 @@ enum class DebugDraw
 	Luminance
 };
 
+/*
+Cells texture:
+uint16_t offset into indices texture
+
+Indices texture:
+uint8_t num lights
+uint8_t light index (0...n) into lights texture
+
+Lights texture:
+DynamicLight struct (0...n)
+*/
 class DynamicLightManager
 {
 public:
@@ -44,18 +55,40 @@ public:
 	void add(int frameNo, const DynamicLight &light);
 	void clear();
 	void contribute(int frameNo, vec3 position, vec3 *color, vec3 *direction) const;
-	bgfx::TextureHandle getTexture() const { return texture_; }
-
-	/// @brief Update the texture and uniform.
-	void update(int frameNo, Uniform_vec4 *uniform);
+	bgfx::TextureHandle getCellsTexture() const { return cellsTexture_; }
+	bgfx::TextureHandle getIndicesTexture() const { return indicesTexture_; }
+	bgfx::TextureHandle getLightsTexture() const { return lightsTexture_; }
+	void initializeGrid();
+	void updateTextures(int frameNo);
+	void updateUniforms(Uniforms *uniforms);
 
 	static const size_t maxLights = 256;
 
 private:
+	void decodeAssignedLight(uint32_t value, vec3b *cellPosition, uint8_t *lightIndex) const;
+	uint32_t encodeAssignedLight(vec3b cellPosition, uint8_t lightIndex) const;
+
+	size_t cellIndexFromCellPosition(vec3b position) const;
+
+	/// @remarks Result is clamped.
+	vec3b cellPositionFromWorldspacePosition(vec3 position) const;
+
+	bgfx::TextureHandle cellsTexture_;
+	std::vector<uint16_t> cellsTextureData_[BGFX_NUM_BUFFER_FRAMES];
+	uint16_t cellsTextureSize_;
+
+	bgfx::TextureHandle indicesTexture_;
+	std::vector<uint8_t> indicesTextureData_[BGFX_NUM_BUFFER_FRAMES];
+	uint16_t indicesTextureSize_;
+
+	std::vector<uint32_t> assignedLights_;
+	vec3i cellSize_;
+	vec3 gridOffset_;
+	vec3b gridSize_;
 	DynamicLight lights_[BGFX_NUM_BUFFER_FRAMES][maxLights];
-	size_t nLights_;
-	bgfx::TextureHandle texture_;
-	int textureSize_;
+	uint8_t nLights_;
+	bgfx::TextureHandle lightsTexture_;
+	uint16_t lightsTextureSize_;
 };
 
 class Main

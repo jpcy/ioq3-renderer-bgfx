@@ -290,6 +290,17 @@ int Compress(char *data_p)
 	return out - data_p;
 }
 
+uint16_t CalculateSmallestPowerOfTwoTextureSize(int nPixels)
+{
+	const int sr = (int)ceil(sqrtf((float)nPixels));
+	uint16_t textureSize = 1;
+
+	while (textureSize < sr)
+		textureSize *= 2;
+
+	return textureSize;
+}
+
 char *SkipPath(char *pathname)
 {
 	char *last = pathname;

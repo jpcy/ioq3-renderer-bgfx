@@ -340,9 +340,19 @@ void Main::initialize()
 	bgfx::reset(glConfig.vidWidth, glConfig.vidHeight, resetFlags);
 	const bgfx::Caps *caps = bgfx::getCaps();
 
-	if (bgfx::getCaps()->maxFBAttachments < 2)
+	if (caps->maxFBAttachments < 2)
 	{
-		ri.Error(ERR_DROP, "MRT not supported.\n");
+		ri.Error(ERR_DROP, "MRT not supported");
+	}
+
+	if ((caps->formats[bgfx::TextureFormat::R8U] & BGFX_CAPS_FORMAT_TEXTURE_2D) == 0)
+	{
+		ri.Error(ERR_DROP, "R8U texture format not supported");
+	}
+
+	if ((caps->formats[bgfx::TextureFormat::R16U] & BGFX_CAPS_FORMAT_TEXTURE_2D) == 0)
+	{
+		ri.Error(ERR_DROP, "R16U texture format not supported");
 	}
 
 	debugDraw_ = DebugDrawFromString(g_cvars.debugDraw->string);

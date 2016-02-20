@@ -373,6 +373,48 @@ private:
 	vec3 projectOnPlane(const vec3 &normal) const;
 };
 
+class vec3i
+{
+public:
+	vec3i() : x(0), y(0), z(0) {}
+	vec3i(int x, int y, int z) : x(x), y(y), z(z) {}
+
+	int &operator[](size_t index)
+	{
+		assert(index >= 0 && index <= 2);
+		return (&x)[index];
+	}
+
+	const int &operator[](size_t index) const
+	{
+		assert(index >= 0 && index <= 2);
+		return (&x)[index];
+	}
+
+	int x, y, z;
+};
+
+class vec3b
+{
+public:
+	vec3b() : x(0), y(0), z(0) {}
+	vec3b(uint8_t x, uint8_t y, uint8_t z) : x(x), y(y), z(z) {}
+
+	uint8_t &operator[](size_t index)
+	{
+		assert(index >= 0 && index <= 2);
+		return (&x)[index];
+	}
+
+	const uint8_t &operator[](size_t index) const
+	{
+		assert(index >= 0 && index <= 2);
+		return (&x)[index];
+	}
+
+	uint8_t x, y, z;
+};
+
 class vec4
 {
 public:

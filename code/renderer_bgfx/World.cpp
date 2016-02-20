@@ -862,6 +862,11 @@ public:
 		return returnedFragments;
 	}
 
+	Bounds getBounds() const
+	{
+		return modelDefs_[0].bounds;
+	}
+
 	Bounds getBounds(uint8_t visCacheId) const
 	{
 		return visCaches_[visCacheId]->bounds;
@@ -1421,7 +1426,7 @@ private:
 	vec3 lightGridInverseSize_;
 	std::vector<uint8_t> lightGridData_;
 	vec3 lightGridOrigin_;
-	int lightGridBounds_[3];
+	vec3i lightGridBounds_;
 
 	struct MaterialDef
 	{
@@ -2276,6 +2281,12 @@ int MarkFragments(int numPoints, const vec3 *points, vec3 projection, int maxPoi
 {
 	assert(IsLoaded());
 	return s_world->markFragments(numPoints, points, projection, maxPoints, pointBuffer, maxFragments, fragmentBuffer);
+}
+
+Bounds GetBounds()
+{
+	assert(IsLoaded());
+	return s_world->getBounds();
 }
 
 Bounds GetBounds(uint8_t visCacheId)

@@ -227,27 +227,30 @@ DynamicLightManager::DynamicLightManager() : nLights_(0)
 {
 	// Calculate the smallest square POT texture size to fit the dynamic lights data.
 	const int texelSize = sizeof(float) * 4; // RGBA32F
-	const int sr = (int)ceil(sqrtf(maxLights * sizeof(DynamicLight) / texelSize));
-	textureSize_ = 1;
-
-	while (textureSize_ < sr)
-		textureSize_ *= 2;
+	lightsTextureSize_ = util::CalculateSmallestPowerOfTwoTextureSize(maxLights * sizeof(DynamicLight) / texelSize);
 
 	// FIXME: workaround d3d11 flickering texture if smaller than 64x64 and not updated every frame
-	textureSize_ = std::max(64, textureSize_);
+	lightsTextureSize_ = std::max(uint16_t(64), lightsTextureSize_);
+	ri.Printf(PRINT_ALL, "dlight texture size is %ux%u\n", lightsTextureSize_, lightsTextureSize_);
 
 	// Clamp and filter are just for debug drawing. Sampling uses texel fetch.
-	texture_ = bgfx::createTexture2D(textureSize_, textureSize_, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
+	lightsTexture_ = bgfx::createTexture2D(lightsTextureSize_, lightsTextureSize_, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
 }
 
 DynamicLightManager::~DynamicLightManager()
 {
-	bgfx::destroyTexture(texture_);
+	if (gridSize_.x > 0)
+	{
+		bgfx::destroyTexture(cellsTexture_);
+		bgfx::destroyTexture(indicesTexture_);
+	}
+
+	bgfx::destroyTexture(lightsTexture_);
 }
 
 void DynamicLightManager::add(int frameNo, const DynamicLight &light)
 {
-	if (nLights_ == maxLights)
+	if (nLights_ == maxLights - 1)
 	{
 		ri.Printf(PRINT_WARNING, "Hit maximum dlights\n");
 		return;
@@ -268,7 +271,7 @@ void DynamicLightManager::contribute(int frameNo, vec3 position, vec3 *color, ve
 	const float DLIGHT_AT_RADIUS = 16; // at the edge of a dlight's influence, this amount of light will be added
 	const float DLIGHT_MINIMUM_RADIUS = 16; // never calculate a range less than this to prevent huge light numbers
 
-	for (size_t i = 0; i < nLights_; i++)
+	for (uint8_t i = 0; i < nLights_; i++)
 	{
 		const DynamicLight &dl = lights_[frameNo % BGFX_NUM_BUFFER_FRAMES][i];
 		vec3 dir = dl.position_type.xyz() - position;
@@ -280,20 +283,214 @@ void DynamicLightManager::contribute(int frameNo, vec3 position, vec3 *color, ve
 	}
 }
 
-void DynamicLightManager::update(int frameNo, Uniform_vec4 *uniform)
+void DynamicLightManager::initializeGrid()
 {
-	assert(uniform);
-	uniform->set(vec4((float)nLights_, (float)textureSize_, 0, 0));
+	const int minCellSize = 200;
+	const uint8_t maxGridSize = 32;
+	const Bounds worldBounds = world::GetBounds();
+
+	for (size_t i = 0; i < 3; i++)
+	{
+		cellSize_[i] = std::max(minCellSize, (int)ceil(worldBounds.toSize()[i] / gridSize_[i]));
+		gridSize_[i] = std::min(maxGridSize, (uint8_t)ceil(worldBounds.toSize()[i] / cellSize_[i]));
+		cellSize_[i] = int(worldBounds.toSize()[i] / gridSize_[i]);
+	}
+
+	ri.Printf(PRINT_ALL, "dlight grid size is %ux%ux%u\n", gridSize_.x, gridSize_.y, gridSize_.z);
+	gridOffset_ = vec3::empty - worldBounds.min;
+
+	// Cells texture.
+	cellsTextureSize_ = util::CalculateSmallestPowerOfTwoTextureSize((int)gridSize_.x * (int)gridSize_.y * (int)gridSize_.z);
+	ri.Printf(PRINT_ALL, "dlight cells texture size is %ux%u\n", cellsTextureSize_, cellsTextureSize_);
+	cellsTexture_ = bgfx::createTexture2D(cellsTextureSize_, cellsTextureSize_, 1, bgfx::TextureFormat::R16U, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
+
+	for (int i = 0; i < BGFX_NUM_BUFFER_FRAMES; i++)
+	{
+		cellsTextureData_[i].resize(cellsTextureSize_ * cellsTextureSize_);
+	}
+
+	// Indices textures.
+	indicesTextureSize_ = 512;
+	ri.Printf(PRINT_ALL, "dlight indices texture size is %ux%u\n", indicesTextureSize_, indicesTextureSize_);
+	indicesTexture_ = bgfx::createTexture2D(indicesTextureSize_, indicesTextureSize_, 1, bgfx::TextureFormat::R8U, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
+
+	for (int i = 0; i < BGFX_NUM_BUFFER_FRAMES; i++)
+	{
+		indicesTextureData_[i].resize(indicesTextureSize_ * indicesTextureSize_);
+	}
+
+	assignedLights_.reserve(512); // Arbitrary initial size.
+}
+
+void DynamicLightManager::updateTextures(int frameNo)
+{
+	assert(world::IsLoaded());
+	const int buffer = frameNo % BGFX_NUM_BUFFER_FRAMES;
+
+	// Assign lights to cells.
+	assignedLights_.clear();
+
+	for (uint8_t i = 0; i < nLights_; i++)
+	{
+		const DynamicLight &dl = lights_[buffer][i];
+		vec3b min(gridSize_.x, gridSize_.y, gridSize_.z);
+		vec3b max;
+
+		// Get the cell positions at the sphere AABB corners.
+		// The min/max will be the range of cells this light touches.
+		// This is very imprecise, but simple.
+		// For capsules, use the start and end positions.
+		for (int j = 0; j < (dl.position_type.w == DynamicLight::Point ? 1 : 2); j++)
+		{
+			Bounds aabb;
+			
+			if (j == 0)
+			{
+				aabb = Bounds(dl.position_type.xyz(), dl.color_radius.w);
+			}
+			else
+			{
+				assert(dl.position_type.w == DynamicLight::Capsule);
+				aabb = Bounds(dl.capsuleEnd.xyz(), dl.color_radius.w);
+			}
+
+			std::array<vec3, 8> corners = aabb.toVertices();
+
+			for (const vec3 &corner : corners)
+			{
+				const vec3b cellPosition = cellPositionFromWorldspacePosition(corner);
+
+				for (int k = 0; k < 3; k++)
+				{
+					if (cellPosition[k] < min[k])
+						min[k] = cellPosition[k];
+					if (cellPosition[k] > max[k])
+						max[k] = cellPosition[k];
+				}
+			}
+		}
+
+		for (uint8_t x = min.x; x <= max.x; x++)
+		{
+			for (uint8_t y = min.y; y <= max.y; y++)
+			{
+				for (uint8_t z = min.z; z <= max.z; z++)
+				{
+					assignedLights_.push_back(encodeAssignedLight(vec3b(x, y, z), i));
+				}
+			}
+		}
+	}
+
+	// Sort the assigned lights.
+	std::sort(assignedLights_.begin(), assignedLights_.end());
+
+	// Fill cells and indices texture data.
+	// Make sure the first index uses num 0, so all empty cells can use it.
+	memset(cellsTextureData_[buffer].data(), 0, cellsTextureData_[buffer].size() * sizeof(uint16_t));
+	uint16_t indicesOffset = 0;
+	indicesTextureData_[buffer][indicesOffset++] = 0; // Empty cells will point here.
+	size_t currentCellIndex = 0;
+	uint16_t indicesNumLightsOffset = 0;
+
+	for (size_t i = 0; i < assignedLights_.size(); i++)
+	{
+		vec3b cellPosition;
+		uint8_t lightIndex;
+		decodeAssignedLight(assignedLights_[i], &cellPosition, &lightIndex);
+		const size_t cellIndex = cellIndexFromCellPosition(cellPosition);
+
+		// First cell, or cell index has changed?
+		if (i == 0 || cellIndex != currentCellIndex)
+		{
+			currentCellIndex = cellIndex;
+
+			// Point the cell to the indices.
+			cellsTextureData_[buffer][cellIndex] = indicesOffset;
+
+			// Store the offset in the indices texture where we want to write number of lights to.
+			indicesNumLightsOffset = indicesOffset;
+
+			// Initialize num lights to 0.
+			indicesTextureData_[buffer][indicesNumLightsOffset] = 0;
+			indicesOffset++;
+		}
+
+		// Increment num lights.
+		indicesTextureData_[buffer][indicesNumLightsOffset]++;
+
+		// Write the light index.
+		indicesTextureData_[buffer][indicesOffset++] = lightIndex;
+
+		if (indicesOffset > uint16_t(USHRT_MAX - 2))
+		{
+			ri.Printf(PRINT_WARNING, "Too many assigned lights.\n");
+			break;
+		}
+	}
+
+	// Update the cells texture.
+	bgfx::updateTexture2D(cellsTexture_, 0, 0, 0, cellsTextureSize_, cellsTextureSize_, bgfx::makeRef(cellsTextureData_[buffer].data(), cellsTextureData_[buffer].size() * sizeof(uint16_t)));
+
+	// Update the indices texture.
+	if (nLights_ > 0 && indicesOffset > 0)
+	{
+		assert(indicesOffset < indicesTextureSize_ * indicesTextureSize_);
+		const uint16_t width = std::min(indicesOffset, indicesTextureSize_);
+		const uint16_t height = (uint16_t)std::ceil(indicesOffset / (float)indicesTextureSize_);
+		bgfx::updateTexture2D(indicesTexture_, 0, 0, 0, width, height, bgfx::makeRef(indicesTextureData_[buffer].data(), indicesOffset));
+	}
 	
+	// Update the lights texture.
 	if (nLights_ > 0)
 	{
 		const uint32_t size = nLights_ * sizeof(DynamicLight);
 		const uint32_t texelSize = sizeof(float) * 4; // RGBA32F
 		const uint16_t nTexels = uint16_t(size / texelSize);
-		const uint16_t width = std::min(nTexels, uint16_t(textureSize_));
-		const uint16_t height = (uint16_t)std::ceil(nTexels / (float)textureSize_);
-		bgfx::updateTexture2D(texture_, 0, 0, 0, width, height, bgfx::makeRef(lights_[frameNo % BGFX_NUM_BUFFER_FRAMES], size));
+		const uint16_t width = std::min(nTexels, lightsTextureSize_);
+		const uint16_t height = (uint16_t)std::ceil(nTexels / (float)lightsTextureSize_);
+		bgfx::updateTexture2D(lightsTexture_, 0, 0, 0, width, height, bgfx::makeRef(lights_[buffer], size));
 	}
+}
+
+void DynamicLightManager::updateUniforms(Uniforms *uniforms)
+{
+	assert(uniforms);
+	uniforms->dynamicLightCellSize.set(vec4((float)cellSize_.x, (float)cellSize_.y, (float)cellSize_.z, (float)cellsTextureSize_));
+	uniforms->dynamicLightGridOffset.set(gridOffset_);
+	uniforms->dynamicLightGridSize.set(vec4((float)gridSize_.x, (float)gridSize_.y, (float)gridSize_.z, 0));
+	uniforms->dynamicLightNum.set(vec4((float)nLights_, 0, 0, 0));
+	uniforms->dynamicLightTextureSizes_Cells_Indices_Lights.set(vec4((float)cellsTextureSize_, (float)indicesTextureSize_, (float)lightsTextureSize_, 0));
+}
+
+void DynamicLightManager::decodeAssignedLight(uint32_t value, vec3b *cellPosition, uint8_t *lightIndex) const
+{
+	assert(cellPosition);
+	assert(lightIndex);
+	cellPosition->x = (value >> 24) & 0xff;
+	cellPosition->y = (value >> 16) & 0xff;
+	cellPosition->z = (value >> 8) & 0xff;
+	*lightIndex = value & 0xff;
+}
+
+uint32_t DynamicLightManager::encodeAssignedLight(vec3b cellPosition, uint8_t lightIndex) const
+{
+	return (cellPosition.x << 24) + (cellPosition.y << 16) + (cellPosition.z << 8) + lightIndex;
+}
+
+size_t DynamicLightManager::cellIndexFromCellPosition(vec3b position) const
+{
+	return position.x + (position.y * (size_t)gridSize_.x) + (position.z * (size_t)gridSize_.x * (size_t)gridSize_.y);
+}
+
+vec3b DynamicLightManager::cellPositionFromWorldspacePosition(vec3 position) const
+{
+	const vec3 local = gridOffset_ + position;
+	vec3b cellPosition;
+	cellPosition.x = std::min(uint8_t(std::max(0.0f, local.x / cellSize_.x)), uint8_t(gridSize_.x - 1));
+	cellPosition.y = std::min(uint8_t(std::max(0.0f, local.y / cellSize_.y)), uint8_t(gridSize_.y - 1));
+	cellPosition.z = std::min(uint8_t(std::max(0.0f, local.z / cellSize_.z)), uint8_t(gridSize_.z - 1));
+	return cellPosition;
 }
 
 #define NOISE_PERM(a) noisePerm_[(a) & (noiseSize_ - 1)]
@@ -445,6 +642,7 @@ void Main::loadWorld(const char *name)
 	world::Load(name);
 	mainVisCacheId_ = world::CreateVisCache();
 	portalVisCacheId_ = world::CreateVisCache();
+	dlightManager_->initializeGrid();
 }
 
 void Main::addDynamicLightToScene(const DynamicLight &light)
@@ -455,58 +653,6 @@ void Main::addDynamicLightToScene(const DynamicLight &light)
 void Main::addEntityToScene(const refEntity_t *entity)
 {
 	sceneEntities_.push_back({ *entity });
-
-	// Hack in extra dlights for Quake 3 content.
-	const vec3 bfgColor(0.08f, 1.0f, 0.4f);
-	const vec3 plasmaColor(0.6f, 0.6f, 1.0f);
-	DynamicLight dl;
-	dl.color_radius = vec4::empty;
-	dl.position_type = vec4(entity->origin, DynamicLight::Point);
-
-	// BFG projectile.
-	if (entity->reType == RT_MODEL && bfgMissibleModel_ && entity->hModel == bfgMissibleModel_->getIndex())
-	{
-		dl.color_radius = vec4(bfgColor, 200); // Same radius as rocket.
-	}
-	// BFG explosion.
-	else if (entity->reType == RT_SPRITE && bfgExplosionMaterial_ && entity->customShader == bfgExplosionMaterial_->index)
-	{
-		dl.color_radius = vec4(bfgColor, 300 * calculateExplosionLight(entity->shaderTime, 1000)); // Same radius and duration as rocket explosion.
-	}
-	// Lightning bolt.
-	else if (entity->reType == RT_LIGHTNING)
-	{
-		const float base = 1;
-		const float amplitude = 0.1f;
-		const float phase = 0;
-		const float freq = 10.1f;
-		const float radius = base + g_sinTable[ri.ftol((phase + floatTime_ * freq) * g_funcTableSize) & g_funcTableMask] * amplitude;
-		dl.capsuleEnd = vec3(entity->oldorigin);
-		dl.color_radius = vec4(0.6f, 0.6f, 1, 150 * radius);
-		dl.position_type.w = DynamicLight::Capsule;
-	}
-	// Plasma ball.
-	else if (entity->reType == RT_SPRITE && plasmaBallMaterial_ && entity->customShader == plasmaBallMaterial_->index)
-	{
-		dl.color_radius = vec4(plasmaColor, 100);
-	}
-	// Plasma explosion.
-	else if (entity->reType == RT_MODEL && plasmaExplosionMaterial_ && entity->customShader == plasmaExplosionMaterial_->index)
-	{
-		dl.color_radius = vec4(plasmaColor, 200 * calculateExplosionLight(entity->shaderTime, 600)); // CG_MissileHitWall: 600ms duration.
-	}
-	// Rail core.
-	else if (entity->reType == RT_RAIL_CORE)
-	{
-		dl.capsuleEnd = vec3(entity->oldorigin);
-		dl.color_radius = vec4(vec4::fromBytes(entity->shaderRGBA).xyz(), 150);
-		dl.position_type.w = DynamicLight::Capsule;
-	}
-
-	if (dl.color_radius.a > 0)
-	{
-		addDynamicLightToScene(dl);
-	}
 }
 
 void Main::addPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int nPolys)
@@ -555,9 +701,76 @@ void Main::renderScene(const refdef_t *def)
 	}
 	else
 	{
+		isWorldCamera_ = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world::IsLoaded();
+
+		// Hack in extra dlights for Quake 3 content.
+		if (isWorldCamera_)
+		{
+			const vec3 bfgColor(0.08f, 1.0f, 0.4f);
+			const vec3 plasmaColor(0.6f, 0.6f, 1.0f);
+
+			for (const Entity &entity : sceneEntities_)
+			{
+				DynamicLight dl;
+				dl.color_radius = vec4::empty;
+				dl.position_type = vec4(entity.e.origin, DynamicLight::Point);
+
+				// BFG projectile.
+				if (entity.e.reType == RT_MODEL && bfgMissibleModel_ && entity.e.hModel == bfgMissibleModel_->getIndex())
+				{
+					dl.color_radius = vec4(bfgColor, 200); // Same radius as rocket.
+				}
+				// BFG explosion.
+				else if (entity.e.reType == RT_SPRITE && bfgExplosionMaterial_ && entity.e.customShader == bfgExplosionMaterial_->index)
+				{
+					dl.color_radius = vec4(bfgColor, 300 * calculateExplosionLight(entity.e.shaderTime, 1000)); // Same radius and duration as rocket explosion.
+				}
+				// Lightning bolt.
+				else if (entity.e.reType == RT_LIGHTNING)
+				{
+					const float base = 1;
+					const float amplitude = 0.1f;
+					const float phase = 0;
+					const float freq = 10.1f;
+					const float radius = base + g_sinTable[ri.ftol((phase + floatTime_ * freq) * g_funcTableSize) & g_funcTableMask] * amplitude;
+					dl.capsuleEnd = vec3(entity.e.oldorigin);
+					dl.color_radius = vec4(0.6f, 0.6f, 1, 150 * radius);
+					dl.position_type.w = DynamicLight::Capsule;
+				}
+				// Plasma ball.
+				else if (entity.e.reType == RT_SPRITE && plasmaBallMaterial_ && entity.e.customShader == plasmaBallMaterial_->index)
+				{
+					dl.color_radius = vec4(plasmaColor, 100);
+				}
+				// Plasma explosion.
+				else if (entity.e.reType == RT_MODEL && plasmaExplosionMaterial_ && entity.e.customShader == plasmaExplosionMaterial_->index)
+				{
+					dl.color_radius = vec4(plasmaColor, 200 * calculateExplosionLight(entity.e.shaderTime, 600)); // CG_MissileHitWall: 600ms duration.
+				}
+				// Rail core.
+				else if (entity.e.reType == RT_RAIL_CORE)
+				{
+					dl.capsuleEnd = vec3(entity.e.oldorigin);
+					dl.color_radius = vec4(vec4::fromBytes(entity.e.shaderRGBA).xyz(), 150);
+					dl.position_type.w = DynamicLight::Capsule;
+				}
+
+				if (dl.color_radius.a > 0)
+				{
+					addDynamicLightToScene(dl);
+				}
+			}
+		}
+
+		// Update scene dynamic lights.
+		if (isWorldCamera_)
+		{
+			dlightManager_->updateTextures(frameNo_);
+		}
+
+		// Render camera(s).
 		const vec3 scenePosition(def->vieworg);
 		sceneRotation_ = mat3(def->viewaxis);
-		isWorldCamera_ = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world::IsLoaded();
 		renderCamera(mainVisCacheId_, scenePosition, scenePosition, sceneRotation_, Rect(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
 
 		// HDR.
@@ -644,7 +857,7 @@ void Main::endFrame()
 	}
 	else if (debugDraw_ == DebugDraw::DynamicLight)
 	{
-		debugDraw(dlightManager_->getTexture(), 0, 0, false);
+		debugDraw(dlightManager_->getLightsTexture(), 0, 0, false);
 	}
 	else if (debugDraw_ == DebugDraw::Luminance && g_cvars.hdr->integer)
 	{
@@ -776,6 +989,7 @@ void Main::flushStretchPics()
 			memcpy(tib.data, &stretchPicIndices_[0], sizeof(uint16_t) * stretchPicIndices_.size());
 			time_ = ri.Milliseconds();
 			floatTime_ = time_ * 0.001f;
+			uniforms_->dynamicLightNum.set(vec4::empty);
 			matUniforms_->time.set(vec4(stretchPicMaterial_->setTime(floatTime_), 0, 0, 0));
 
 			if (stretchPicViewId_ == UINT8_MAX)
@@ -797,7 +1011,9 @@ void Main::flushStretchPics()
 				state &= ~BGFX_STATE_DEPTH_WRITE;
 
 				// Silence D3D11 warnings.
-				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, g_textureCache->getWhiteTexture()->getHandle());
+				//bgfx::setTexture(MaterialTextureBundleIndex::DynamicLightCells, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLightCells]->handle, g_textureCache->getBlackTexture()->getHandle());
+				//bgfx::setTexture(MaterialTextureBundleIndex::DynamicLightIndices, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLightIndices]->handle, g_textureCache->getBlackTexture()->getHandle());
+				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, g_textureCache->getBlackTexture()->getHandle());
 			
 				bgfx::setState(state);
 				bgfx::setVertexBuffer(&tvb);
@@ -1031,17 +1247,6 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		uniforms_->portalClip.set(vec4(0, 0, 0, 0));
 	}
 
-	// Setup dynamic lights.
-	if (isWorldCamera_)
-	{
-		dlightManager_->update(frameNo_, &uniforms_->dynamicLights_Num_TextureWidth);
-	}
-	else
-	{
-		// For non-world scenes, dlight contribution is added to entities in setupEntityLighting, so write 0 to the uniform for num dlights.
-		uniforms_->dynamicLights_Num_TextureWidth.set(vec4::empty);
-	}
-
 	// Render depth.
 	if (isWorldCamera_)
 	{
@@ -1112,6 +1317,16 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	else
 	{
 		mainViewId = pushView(defaultFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect, PushViewFlags::Sequential);
+	}
+
+	if (isWorldCamera_)
+	{
+		dlightManager_->updateUniforms(uniforms_.get());
+	}
+	else
+	{
+		// For non-world scenes, dlight contribution is added to entities in setupEntityLighting, so write 0 to the uniform for num dlights.
+		uniforms_->dynamicLightNum.set(vec4::empty);
 	}
 
 	for (DrawCall &dc : drawCalls_)
@@ -1240,12 +1455,16 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 			if (isWorldCamera_)
 			{
-				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, dlightManager_->getTexture());
+				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLightCells, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLightCells]->handle, dlightManager_->getCellsTexture());
+				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLightIndices, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLightIndices]->handle, dlightManager_->getIndicesTexture());
+				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, dlightManager_->getLightsTexture());
 			}
 			else
 			{
 				// Silence D3D11 warnings.
-				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, g_textureCache->getWhiteTexture()->getHandle());
+				//bgfx::setTexture(MaterialTextureBundleIndex::DynamicLightCells, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLightCells]->handle, g_textureCache->getBlackTexture()->getHandle());
+				//bgfx::setTexture(MaterialTextureBundleIndex::DynamicLightIndices, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLightIndices]->handle, g_textureCache->getBlackTexture()->getHandle());
+				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, g_textureCache->getBlackTexture()->getHandle());
 			}
 
 			bgfx::setState(state);

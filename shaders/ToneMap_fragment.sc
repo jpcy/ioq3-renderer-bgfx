@@ -4,7 +4,7 @@ $input v_texcoord0
 #include "Common.sh"
 
 SAMPLER2D(u_DiffuseMap, 0);
-SAMPLER2D(u_AdaptedLuminanceSampler, 8);
+SAMPLER2D(u_AdaptedLuminanceSampler, 10);
 
 uniform vec4 u_BrightnessContrastGammaSaturation;
 #define brightness u_BrightnessContrastGammaSaturation.x

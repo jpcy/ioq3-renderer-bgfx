@@ -1,3 +1,27 @@
+#if BGFX_SHADER_LANGUAGE_HLSL
+struct BgfxUSampler2D
+{
+	Texture2D<uvec4> m_texture;
+};
+
+#define USAMPLER2D(_name, _reg) \
+	uniform Texture2D<uvec4> _name ## Texture : register(t[_reg]); \
+	static BgfxUSampler2D _name = { _name ## Texture }
+
+vec4 texelFetch(BgfxSampler2D _sampler, ivec2 _coord, int _level)
+{
+	return _sampler.m_texture.Load(ivec3(_coord, _level));
+}
+
+uvec4 texelFetch(BgfxUSampler2D _sampler, ivec2 _coord, int _level)
+{
+	return _sampler.m_texture.Load(ivec3(_coord, _level));
+}
+
+#else
+#define USAMPLER2D(_name, _reg) uniform usampler2D _name
+#endif
+
 vec4 ApplyDepthRange(vec4 v, float offset, float scale)
 {
 	float z = v.z / v.w;
@@ -39,7 +63,7 @@ float ToLinearDepth(float z, float near, float far)
 
 vec3 ToGamma(vec3 v)
 {
-	return pow(v, vec3_splat(1.0/2.2));
+	return pow(abs(v), vec3_splat(1.0/2.2));
 }
 
 vec4 ToGamma(vec4 v)
@@ -49,7 +73,7 @@ vec4 ToGamma(vec4 v)
 
 vec3 ToLinear(vec3 v)
 {
-	return pow(v, vec3_splat(2.2));
+	return pow(abs(v), vec3_splat(2.2));
 }
 
 vec4 ToLinear(vec4 v)

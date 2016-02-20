@@ -166,6 +166,12 @@ void TextureCache::createBuiltinTextures()
 
 	defaultTexture_ = createTexture("*default", image, TextureType::ColorAlpha, TextureFlags::Mipmap);
 
+	// Black texture.
+	image.width = image.height = 8;
+	image.allocMemory();
+	memset(image.memory->data, 0, image.memory->size);
+	blackTexture_ = createTexture("*black", image);
+
 	// White texture.
 	image.width = image.height = 8;
 	image.allocMemory();
