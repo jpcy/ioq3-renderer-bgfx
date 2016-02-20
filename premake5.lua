@@ -28,6 +28,60 @@ newaction
 	description = "Compile shaders",
 	
 	onStart = function()
+		-- No bitwise and in Lua 5.1
+		function isBitSet(a, b)
+			if a == 1 then
+				if b == 1 then return true end
+			elseif a == 2 then
+				if b == 2 then return true end
+			elseif a == 3 then
+				if b == 1 or b == 2 then return true end
+			elseif a == 4 then
+				if b == 4 then return true end
+			end
+			
+			return false
+		end
+		
+		function expandShaderVariants(shaders)
+			local expandedShaders = {}
+			local index = 1
+		
+			for _,shader in pairs(shaders) do
+				expandedShaders[index] = { shader[1] }
+				index = index + 1
+				local variants = shader[2]
+			
+				if variants ~= nil then
+					local n = #variants
+				
+					for i=0,2^n-1 do
+						local concatVariant = ""
+						local concatDefines = ""
+					
+						for vi,variant in ipairs(variants) do
+							if isBitSet(i, vi) then
+								concatVariant = concatVariant .. variant[1]
+								
+								if concatDefines ~= "" then
+									concatDefines = concatDefines .. ";"
+								end
+								
+								concatDefines = concatDefines .. variant[2]
+							end
+						end
+						
+						if concatVariant ~= "" then
+							expandedShaders[index] = { shader[1], concatVariant, concatDefines }
+							index = index + 1
+						end
+					end
+				end
+			end
+			
+			return expandedShaders
+		end
+	
 		local renderers = nil
 		
 		if os.is("windows") then
@@ -39,13 +93,13 @@ newaction
 		local tempOutputFilename = "build/tempoutput"
 		local outputSourceFilename = "build/Shader.cpp"
 		
-		function compileShader(input, type, permutation, defines)
+		function compileShader(input, type, variant, defines)
 			io.write("Compiling " .. input .. "_" .. type)
 			
-			if permutation == nil then
+			if variant == nil then
 				io.write("\n")
 			else
-				io.write(" " .. permutation .. "\n")
+				io.write(" " .. variant .. "\n")
 			end
 			
 			local inputFilename = "shaders/" .. input .. "_" .. type .. ".sc"
@@ -62,8 +116,8 @@ newaction
 				
 				local variableName = input .. "_"
 
-				if permutation ~= nil then
-					variableName = variableName .. permutation .. "_"
+				if variant ~= nil then
+					variableName = variableName .. variant .. "_"
 				end
 
 				variableName = variableName .. type .. "_" .. renderer
@@ -101,8 +155,8 @@ newaction
 				if os.execute(command) ~= 0 then
 					local message = "\n" .. input .. " " .. type
 					
-					if permutation ~= nil then
-						message = message .. " " .. permutation
+					if variant ~= nil then
+						message = message .. " " .. variant
 					end
 					
 					message = message .. " " .. renderer .. "\n" .. command
@@ -120,17 +174,24 @@ newaction
 			end
 		end
 		
+		local depthVariants =
+		{
+			{ "AlphaTest", "USE_ALPHA_TEST" }
+		}
+		
+		local genericFragmentVariants =
+		{
+			{ "AlphaTest", "USE_ALPHA_TEST" },
+			{ "SoftSprite", "USE_SOFT_SPRITE" }
+		}
+		
 		local fragmentShaders =
 		{
 			{ "AdaptedLuminance" },
-			{ "Depth" },
-			{ "Depth", "AlphaTest", "USE_ALPHA_TEST" },
+			{ "Depth", depthVariants },
 			{ "Fog" },
 			{ "FXAA" },
-			{ "Generic" },
-			{ "Generic", "AlphaTest", "USE_ALPHA_TEST" },
-			{ "Generic", "AlphaTestSoftSprite", "USE_ALPHA_TEST;USE_SOFT_SPRITE" },
-			{ "Generic", "SoftSprite", "USE_SOFT_SPRITE" },
+			{ "Generic", genericFragmentVariants },
 			{ "LinearDepth" },
 			{ "Luminance" },
 			{ "LuminanceDownsample" },
@@ -142,20 +203,22 @@ newaction
 		
 		local vertexShaders =
 		{
-			{ "Depth" },
-			{ "Depth", "AlphaTest", "USE_ALPHA_TEST" },
+			{ "Depth", depthVariants },
 			{ "Fog" },
 			{ "Generic" },
 			{ "Texture" }
 		}
 		
+		local expandedFragmentShaders = expandShaderVariants(fragmentShaders)
+		local expandedVertexShaders = expandShaderVariants(vertexShaders)
+		
 		function compileAllShaders()
-			for _,v in pairs(fragmentShaders) do
-				compileShader(v[1], "fragment", v[2], v[3])
+			for _,v in pairs(expandedFragmentShaders) do
+				compileShader(v[1], "fragment", v[2])
 			end
 			
-			for _,v in pairs(vertexShaders) do
-				compileShader(v[1], "vertex", v[2], v[3])
+			for _,v in pairs(expandedVertexShaders) do
+				compileShader(v[1], "vertex", v[2])
 			end
 		end
 		
@@ -197,8 +260,8 @@ newaction
 		
 		local outputHeaderFilename = "build/Shader.h"
 		local outputHeaderFile = io.open(outputHeaderFilename, "w")
-		writeEnum(outputHeaderFile, fragmentShaders, "FragmentShaderId")
-		writeEnum(outputHeaderFile, vertexShaders, "VertexShaderId")
+		writeEnum(outputHeaderFile, expandedFragmentShaders, "FragmentShaderId")
+		writeEnum(outputHeaderFile, expandedVertexShaders, "VertexShaderId")
 		outputHeaderFile:close()
 
 		-- Generate functions to map shader ID enums to source strings, appending them to the output source file.
@@ -225,8 +288,8 @@ newaction
 		local outputSourceFile = io.open(outputSourceFilename, "a")
 		
 		for _,renderer in pairs(renderers) do
-			writeSourceMap(outputSourceFile, fragmentShaders, renderer, "Fragment", "fragment")
-			writeSourceMap(outputSourceFile, vertexShaders, renderer, "Vertex", "vertex")
+			writeSourceMap(outputSourceFile, expandedFragmentShaders, renderer, "Fragment", "fragment")
+			writeSourceMap(outputSourceFile, expandedVertexShaders, renderer, "Vertex", "vertex")
 		end
 		
 		outputSourceFile:close()
