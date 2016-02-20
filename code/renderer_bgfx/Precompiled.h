@@ -54,8 +54,6 @@ using namespace math;
 #undef minor
 #undef None
 
-#define BIT(x) (1<<(x))
-
 #define SETTINGS_SOFT_SPRITES (g_cvars.softSprites->integer)
 
 namespace renderer {
@@ -265,9 +263,9 @@ struct Image
 	{
 		enum
 		{
-			GenerateMipmaps    = BIT(0),
-			Picmip             = BIT(1),
-			PremultipliedAlpha = BIT(2)
+			GenerateMipmaps    = 1<<0,
+			Picmip             = 1<<1,
+			PremultipliedAlpha = 1<<2
 		};
 	};
 
@@ -628,9 +626,9 @@ struct MaterialStageSetUniformsFlags
 {
 	enum
 	{
-		ColorGen = BIT(0),
-		TexGen   = BIT(1),
-		All      = BIT(2) - 1
+		ColorGen = 1<<0,
+		TexGen   = 1<<1,
+		All      = (1<<2) - 1
 	};
 };
 
@@ -1040,15 +1038,15 @@ struct TextureFlags
 	enum
 	{
 		None               = 0,
-		Mipmap             = BIT(0),
-		Picmip             = BIT(1),
-		Cubemap            = BIT(2),
-		NoCompression      = BIT(3),
-		NoLightScale       = BIT(4),
-		ClampToEdge        = BIT(5),
-		SRGB               = BIT(6),
-		GenNormalMap       = BIT(7),
-		PremultipliedAlpha = BIT(8)
+		Mipmap             = 1<<0,
+		Picmip             = 1<<1,
+		Cubemap            = 1<<2,
+		NoCompression      = 1<<3,
+		NoLightScale       = 1<<4,
+		ClampToEdge        = 1<<5,
+		SRGB               = 1<<6,
+		GenNormalMap       = 1<<7,
+		PremultipliedAlpha = 1<<8
 	};
 };
 

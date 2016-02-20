@@ -162,7 +162,7 @@ private:
 	{
 		enum
 		{
-			Sequential = BIT(0)
+			Sequential = 1<<0
 		};
 	};
 
