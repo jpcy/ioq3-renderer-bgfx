@@ -1010,11 +1010,6 @@ void Main::flushStretchPics()
 				state &= ~BGFX_STATE_DEPTH_TEST_MASK;
 				state &= ~BGFX_STATE_DEPTH_WRITE;
 
-				// Silence D3D11 warnings.
-				//bgfx::setTexture(MaterialTextureBundleIndex::DynamicLightCells, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLightCells]->handle, g_textureCache->getBlackTexture()->getHandle());
-				//bgfx::setTexture(MaterialTextureBundleIndex::DynamicLightIndices, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLightIndices]->handle, g_textureCache->getBlackTexture()->getHandle());
-				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, g_textureCache->getBlackTexture()->getHandle());
-			
 				bgfx::setState(state);
 				bgfx::setVertexBuffer(&tvb);
 				bgfx::setIndexBuffer(&tib);
@@ -1444,16 +1439,10 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 			if (isWorldCamera_)
 			{
+				shaderVariant |= GenericShaderProgramVariant::DynamicLights;
 				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLightCells, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLightCells]->handle, dlightManager_->getCellsTexture());
 				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLightIndices, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLightIndices]->handle, dlightManager_->getIndicesTexture());
 				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, dlightManager_->getLightsTexture());
-			}
-			else
-			{
-				// Silence D3D11 warnings.
-				//bgfx::setTexture(MaterialTextureBundleIndex::DynamicLightCells, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLightCells]->handle, g_textureCache->getBlackTexture()->getHandle());
-				//bgfx::setTexture(MaterialTextureBundleIndex::DynamicLightIndices, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLightIndices]->handle, g_textureCache->getBlackTexture()->getHandle());
-				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, g_textureCache->getBlackTexture()->getHandle());
 			}
 
 			bgfx::setState(state);

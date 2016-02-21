@@ -38,6 +38,14 @@ newaction
 				if b == 1 or b == 2 then return true end
 			elseif a == 4 then
 				if b == 4 then return true end
+			elseif a == 5 then
+				if b == 1 or b == 4 then return true end
+			elseif a == 6 then
+				if b == 2 or b == 4 then return true end
+			elseif a == 7 then
+				if b == 1 or b == 2 or b == 4 then return true end
+			elseif a == 8 then
+				if b == 8 then return true end
 			end
 			
 			return false
@@ -66,7 +74,7 @@ newaction
 						local concatDefines = ""
 					
 						for vi,variant in ipairs(variants) do
-							if isBitSet(i, vi) then
+							if isBitSet(i, 2^(vi-1)) then
 								concatVariant = concatVariant .. variant[1]
 								
 								if concatDefines ~= "" then
@@ -187,6 +195,7 @@ newaction
 		local genericFragmentVariants =
 		{
 			{ "AlphaTest", "USE_ALPHA_TEST" },
+			{ "DynamicLights", "USE_DYNAMIC_LIGHTS" },
 			{ "SoftSprite", "USE_SOFT_SPRITE" }
 		}
 		

@@ -1086,7 +1086,6 @@ public:
 	/// @return nullptr if it fails, not the default image.
 	Texture *findTexture(const char *name, TextureType type = TextureType::ColorAlpha, int flags = TextureFlags::None);
 
-	const Texture *getBlackTexture() const { return blackTexture_; }
 	const Texture *getDefaultTexture() const { return defaultTexture_; }
 	const Texture *getIdentityLightTexture() const { return identityLightTexture_; }
 	const Texture *getWhiteTexture() const { return whiteTexture_; }
@@ -1100,7 +1099,7 @@ private:
 	static const size_t hashTableSize_ = 1024;
 	Texture *hashTable_[hashTableSize_];
 
-	Texture *blackTexture_, *defaultTexture_, *identityLightTexture_, *whiteTexture_;
+	Texture *defaultTexture_, *identityLightTexture_, *whiteTexture_;
 	std::array<Texture *, 32> scratchTextures_;
 };
 

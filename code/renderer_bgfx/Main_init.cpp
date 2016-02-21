@@ -396,19 +396,13 @@ void Main::initialize()
 	programMap[ShaderProgramId::Depth_AlphaTest]             = { FragmentShaderId::Depth_AlphaTest, VertexShaderId::Depth_AlphaTest };
 	programMap[ShaderProgramId::Fog]                         = { FragmentShaderId::Fog, VertexShaderId::Fog };
 	programMap[ShaderProgramId::FXAA]                        = { FragmentShaderId::FXAA, VertexShaderId::Texture };
-	programMap[ShaderProgramId::Generic]                     = { FragmentShaderId::Generic, VertexShaderId::Generic };
-	programMap[ShaderProgramId::Generic + GenericShaderProgramVariant::AlphaTest] =
+
+	for (int i = 0; i < GenericShaderProgramVariant::Mask + 1; i++)
 	{
-		FragmentShaderId::Generic_AlphaTest, VertexShaderId::Generic
-	};
-	programMap[ShaderProgramId::Generic + GenericShaderProgramVariant::SoftSprite] =
-	{
-		FragmentShaderId::Generic_SoftSprite, VertexShaderId::Generic
-	};
-	programMap[ShaderProgramId::Generic + (GenericShaderProgramVariant::AlphaTest | GenericShaderProgramVariant::SoftSprite)] =
-	{
-		FragmentShaderId::Generic_AlphaTestSoftSprite, VertexShaderId::Generic
-	};
+		programMap[ShaderProgramId::Generic + i].frag = FragmentShaderId::Enum(FragmentShaderId::Generic + i);
+		programMap[ShaderProgramId::Generic + i].vert = VertexShaderId::Generic;
+	}
+
 	programMap[ShaderProgramId::LinearDepth]                 = { FragmentShaderId::LinearDepth, VertexShaderId::Texture };
 	programMap[ShaderProgramId::Luminance]                   = { FragmentShaderId::Luminance, VertexShaderId::Texture };
 	programMap[ShaderProgramId::LuminanceDownsample]         = { FragmentShaderId::LuminanceDownsample, VertexShaderId::Texture };

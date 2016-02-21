@@ -127,14 +127,16 @@ public:
 	void onModelCreate(Model *model);
 
 private:
+	/// @remarks Sync with build script - order matters.
 	struct GenericShaderProgramVariant
 	{
 		enum
 		{
-			None       = 0,
-			AlphaTest  = 1<<0,
-			SoftSprite = 1<<1,
-			Mask       = (1<<2) - 1
+			None          = 0,
+			AlphaTest     = 1<<0,
+			DynamicLights = 1<<1,
+			SoftSprite    = 1<<2,
+			Mask          = (1<<3) - 1
 		};
 	};
 

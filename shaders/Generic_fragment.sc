@@ -7,6 +7,10 @@ $input v_position, v_projPosition, v_texcoord0, v_texcoord1, v_normal, v_color0,
 SAMPLER2D(u_DiffuseMap, 0);
 SAMPLER2D(u_LightMap, 1);
 
+#if defined(USE_ALPHA_TEST)
+uniform vec4 u_AlphaTest; // only x used
+#endif
+
 #if defined(USE_SOFT_SPRITE)
 SAMPLER2D(u_DepthMap, 5);
 
@@ -14,16 +18,20 @@ uniform vec4 u_DepthRange;
 uniform vec4 u_SoftSprite_Depth_UseAlpha; // only x and y used
 #endif
 
+#if defined(USE_DYNAMIC_LIGHTS)
 USAMPLER2D(u_DynamicLightCellsSampler, 6);
 USAMPLER2D(u_DynamicLightIndicesSampler, 7);
 SAMPLER2D(u_DynamicLightsSampler, 8);
 
+uniform vec4 u_DynamicLightCellSize; // xyz is size
+uniform vec4 u_DynamicLightGridOffset; // w not used
+uniform vec4 u_DynamicLightGridSize; // w not used
+uniform vec4 u_DynamicLightNum; // x is the number of dynamic lights
+uniform vec4 u_DynamicLightTextureSizes_Cells_Indices_Lights; // w not used
+#endif
+
 uniform vec4 u_PortalClip;
 uniform vec4 u_PortalPlane;
-
-#if defined(USE_ALPHA_TEST)
-uniform vec4 u_AlphaTest; // only x used
-#endif
 
 uniform vec4 u_Generators;
 #define u_ColorGen int(u_Generators[GEN_COLOR])
@@ -37,12 +45,7 @@ uniform vec4 u_SpecularScale;
 
 uniform vec4 u_LightType; // only x used
 
-uniform vec4 u_DynamicLightCellSize; // xyz is size
-uniform vec4 u_DynamicLightGridOffset; // w not used
-uniform vec4 u_DynamicLightGridSize; // w not used
-uniform vec4 u_DynamicLightNum; // x is the number of dynamic lights
-uniform vec4 u_DynamicLightTextureSizes_Cells_Indices_Lights; // w not used
-
+#if defined(USE_DYNAMIC_LIGHTS)
 struct DynamicLight
 {
 	vec4 capsuleEnd;
@@ -84,6 +87,7 @@ uint GetDynamicLightIndicesData(uint offset)
 	int v = int(offset) / int(u_DynamicLightTextureSizes_Cells_Indices_Lights.y);
 	return texelFetch(u_DynamicLightIndicesSampler, ivec2(u, v), 0).r;
 }
+#endif // USE_DYNAMIC_LIGHTS
 
 float Lambert(vec3 surfaceNormal, vec3 lightDir)
 {
@@ -179,6 +183,7 @@ void main()
 		diffuseLight = vec3_splat(1.0);
 	}
 
+#if defined(USE_DYNAMIC_LIGHTS)
 	if (int(u_DynamicLightNum.x) > 0 && (int(u_LightType.x) != LIGHT_NONE || u_ColorGen == CGEN_EXACT_VERTEX || u_ColorGen == CGEN_VERTEX))
 	{
 		uint indicesOffset = GetDynamicLightIndicesOffset(v_position);
@@ -232,6 +237,7 @@ void main()
 #endif
 		}
 	}
+#endif // USE_DYNAMIC_LIGHTS
 
 	gl_FragColor.rgb = ToGamma(diffuse.rgb * v_color0.rgb * diffuseLight);
 }
