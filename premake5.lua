@@ -43,6 +43,12 @@ newaction
 			return false
 		end
 		
+		-- { name, { variantName, variantDefines } }
+		-- becomes
+		-- { name, variant1Name, variant1Defines }
+		-- { name, variant2Name, variant2Defines }
+		-- { name, variant1Name .. variant2Name, variant1Defines .. ";" .. variant2Defines }
+		-- etc. for all variant combinations/permutations.
 		function expandShaderVariants(shaders)
 			local expandedShaders = {}
 			local index = 1
@@ -82,18 +88,9 @@ newaction
 			return expandedShaders
 		end
 	
-		local renderers = nil
-		
-		if os.is("windows") then
-			renderers = { "gl", "d3d11" }
-		else
-			renderers = { "gl" }
-		end
-		
-		local tempOutputFilename = "build/tempoutput"
-		local outputSourceFilename = "build/Shader.cpp"
-		
-		function compileShader(input, type, variant, defines)
+		-- Compile an individual shader for each renderer, appending the output to a file.
+		function compileShader(input, type, variant, defines, outputFilename, renderers)
+			local tempOutputFilename = "build/tempoutput"
 			io.write("Compiling " .. input .. "_" .. type)
 			
 			if variant == nil then
@@ -102,7 +99,7 @@ newaction
 				io.write(" " .. variant .. "\n")
 			end
 			
-			local inputFilename = "shaders/" .. input .. "_" .. type .. ".sc"
+			local inputFilename = string.format("shaders/%s_%s.sc", input, type)
 			
 			-- Compile the shader for all renderers.
 			for _,renderer in pairs(renderers) do
@@ -122,7 +119,7 @@ newaction
 
 				variableName = variableName .. type .. "_" .. renderer
 				
-				command = command .. " -i \"shaders;" .. path.join(BGFX_PATH, "src") .. "\" -f \"" .. inputFilename .. "\" -o \"" .. tempOutputFilename .. "\" --varyingdef shaders/varying.def.sc --bin2c \"" .. variableName .. "\" --type " .. type
+				command = command .. string.format(" -i \"shaders;%s\" -f \"%s\" -o \"%s\" --varyingdef shaders/varying.def.sc --bin2c \"%s\" --type %s", path.join(BGFX_PATH, "src"), inputFilename, tempOutputFilename, variableName, type)
 			
 				if defines ~= nil then
 					command = command .. " --define " .. defines
@@ -167,11 +164,19 @@ newaction
 				local tempFile = io.open(tempOutputFilename, "r")
 				local tempContent = tempFile:read("*all")
 				tempFile:close()
-				local outputFile = io.open(outputSourceFilename, "a")
+				local outputFile = io.open(outputFilename, "a")
 				outputFile:write("\n")
 				outputFile:write(tempContent)
 				outputFile:close()
 			end
+		end
+		
+		local renderers = nil
+		
+		if os.is("windows") then
+			renderers = { "gl", "d3d11" }
+		else
+			renderers = { "gl" }
 		end
 		
 		local depthVariants =
@@ -209,27 +214,28 @@ newaction
 			{ "Texture" }
 		}
 		
-		local expandedFragmentShaders = expandShaderVariants(fragmentShaders)
-		local expandedVertexShaders = expandShaderVariants(vertexShaders)
-		
-		function compileAllShaders()
-			for _,v in pairs(expandedFragmentShaders) do
-				compileShader(v[1], "fragment", v[2])
-			end
-			
-			for _,v in pairs(expandedVertexShaders) do
-				compileShader(v[1], "vertex", v[2])
-			end
-		end
+		local outputSourceFilename = "build/Shader.cpp"
 		
 		-- Make sure the build directory exists
 		os.mkdir("build")
 		
 		-- Delete the output file so we can append to it.
 		os.remove(outputSourceFilename)
+		
+		-- Expand shader lists so each variant has a single entry.
+		local expandedFragmentShaders = expandShaderVariants(fragmentShaders)
+		local expandedVertexShaders = expandShaderVariants(vertexShaders)
 
 		-- Compile the shaders.
-		local ok, message = pcall(compileAllShaders)
+		local ok, message = pcall(function()
+			for _,v in pairs(expandedFragmentShaders) do
+				compileShader(v[1], "fragment", v[2], v[3], outputSourceFilename, renderers)
+			end
+			
+			for _,v in pairs(expandedVertexShaders) do
+				compileShader(v[1], "vertex", v[2], v[3], outputSourceFilename, renderers)
+			end
+		end)
 		
 		if not ok then
 			print(message)
@@ -237,7 +243,7 @@ newaction
 		end
 		
 		-- Generate shader ID enums, writing them to the output header file.
-		function writeEnum(of, data, name)
+		function writeShaderIdEnum(of, data, name)
 			of:write("struct " .. name .. "\n")
 			of:write("{\n")
 			of:write("\tenum Enum\n")
@@ -260,8 +266,8 @@ newaction
 		
 		local outputHeaderFilename = "build/Shader.h"
 		local outputHeaderFile = io.open(outputHeaderFilename, "w")
-		writeEnum(outputHeaderFile, expandedFragmentShaders, "FragmentShaderId")
-		writeEnum(outputHeaderFile, expandedVertexShaders, "VertexShaderId")
+		writeShaderIdEnum(outputHeaderFile, expandedFragmentShaders, "FragmentShaderId")
+		writeShaderIdEnum(outputHeaderFile, expandedVertexShaders, "VertexShaderId")
 		outputHeaderFile:close()
 
 		-- Generate functions to map shader ID enums to source strings, appending them to the output source file.
