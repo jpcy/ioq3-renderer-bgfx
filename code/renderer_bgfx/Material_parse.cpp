@@ -463,7 +463,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			else if (!util::Stricmp(token, "const"))
 			{
 				token = util::Parse(text, false);
-				stage->constantColor[3] = uint8_t(255 * atof(token));
+				stage->constantColor.a = (float)atof(token);
 				stage->alphaGen = MaterialAlphaGen::Const;
 			}
 			else if (!util::Stricmp(token, "identity"))
@@ -1023,10 +1023,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 			else if (!util::Stricmp(token, "const"))
 			{
-				auto color = parseVector(text);
-				stage->constantColor[0] = uint8_t(255 * color.r);
-				stage->constantColor[1] = uint8_t(255 * color.g);
-				stage->constantColor[2] = uint8_t(255 * color.b);
+				stage->constantColor = vec4(parseVector(text), stage->constantColor.a);
 				stage->rgbGen = MaterialColorGen::Const;
 			}
 			else if (!util::Stricmp(token, "identity"))

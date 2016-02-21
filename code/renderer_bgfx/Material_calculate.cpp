@@ -380,10 +380,7 @@ void MaterialStage::calculateColors(vec4 *baseColor, vec4 *vertColor) const
 			*vertColor = vec4::white;
 			break;
 		case MaterialColorGen::Const:
-			(*baseColor).r = constantColor[0] / 255.0f;
-			(*baseColor).g = constantColor[1] / 255.0f;
-			(*baseColor).b = constantColor[2] / 255.0f;
-			(*baseColor).a = constantColor[3] / 255.0f;
+			(*baseColor) = constantColor;
 			break;
 		case MaterialColorGen::Vertex:
 			*baseColor = vec4::black;
@@ -442,7 +439,7 @@ void MaterialStage::calculateColors(vec4 *baseColor, vec4 *vertColor) const
 		case MaterialAlphaGen::Skip:
 			break;
 		case MaterialAlphaGen::Const:
-			(*baseColor).a = constantColor[3] / 255.0f;
+			(*baseColor).a = constantColor.a;
 			(*vertColor).a = 0.0f;
 			break;
 		case MaterialAlphaGen::Waveform:

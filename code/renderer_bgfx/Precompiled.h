@@ -636,7 +636,7 @@ struct MaterialStage
 	MaterialWaveForm alphaWave;
 	MaterialAlphaGen alphaGen = MaterialAlphaGen::Identity;
 
-	uint8_t constantColor[4];			// for MaterialColorGen::Const and MaterialAlphaGen::Const
+	vec4 constantColor; // for MaterialColorGen::Const and MaterialAlphaGen::Const
 
 	uint64_t depthTestBits = BGFX_STATE_DEPTH_TEST_LEQUAL;
 
