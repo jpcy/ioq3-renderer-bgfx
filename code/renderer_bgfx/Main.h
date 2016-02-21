@@ -127,6 +127,17 @@ public:
 	void onModelCreate(Model *model);
 
 private:
+	struct GenericShaderProgramVariant
+	{
+		enum
+		{
+			None       = 0,
+			AlphaTest  = 1<<0,
+			SoftSprite = 1<<1,
+			Mask       = (1<<2) - 1
+		};
+	};
+
 	struct ShaderProgramId
 	{
 		enum Enum
@@ -137,10 +148,7 @@ private:
 			Fog,
 			FXAA,
 			Generic,
-			Generic_AlphaTest,
-			Generic_AlphaTestSoftSprite,
-			Generic_SoftSprite,
-			LinearDepth,
+			LinearDepth = Generic + GenericShaderProgramVariant::Mask + 1,
 			Luminance,
 			LuminanceDownsample,
 			Texture,

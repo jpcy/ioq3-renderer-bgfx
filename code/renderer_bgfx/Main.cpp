@@ -1416,20 +1416,17 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			stage.setTextureSamplers(matStageUniforms_.get());
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
-			ShaderProgramId::Enum shaderProgram;
 			uint64_t state = dc.state | stage.getState();
+			int shaderVariant = GenericShaderProgramVariant::None;
+
+			if (stage.alphaTest != MaterialAlphaTest::None)
+			{
+				shaderVariant |= GenericShaderProgramVariant::AlphaTest;
+			}
 
 			if (SETTINGS_SOFT_SPRITES && dc.softSpriteDepth > 0)
 			{
-				if (stage.alphaTest != MaterialAlphaTest::None)
-				{
-					shaderProgram = ShaderProgramId::Generic_AlphaTestSoftSprite;
-				}
-				else
-				{
-					shaderProgram = ShaderProgramId::Generic_SoftSprite;
-				}
-
+				shaderVariant |= GenericShaderProgramVariant::SoftSprite;
 				bgfx::setTexture(MaterialTextureBundleIndex::Depth, matStageUniforms_->textures[MaterialTextureBundleIndex::Depth]->handle, linearDepthFb_.handle);
 				
 				// Change additive blend from (1, 1) to (src alpha, 1) so the soft sprite shader can control alpha.
@@ -1443,14 +1440,6 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				}
 
 				uniforms_->softSprite_Depth_UseAlpha.set(vec4(dc.softSpriteDepth, useAlpha, 0, 0));
-			}
-			else if (stage.alphaTest != MaterialAlphaTest::None)
-			{
-				shaderProgram = ShaderProgramId::Generic_AlphaTest;
-			}
-			else
-			{
-				shaderProgram = ShaderProgramId::Generic;
 			}
 
 			if (isWorldCamera_)
@@ -1468,7 +1457,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			}
 
 			bgfx::setState(state);
-			bgfx::submit(mainViewId, shaderPrograms_[shaderProgram].handle);
+			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Generic + shaderVariant].handle);
 		}
 
 		// Do fog pass.
