@@ -3,8 +3,8 @@ $input v_texcoord0
 #include <bgfx_shader.sh>
 #include "Common.sh"
 
-SAMPLER2D(u_DiffuseMap, 0);
-SAMPLER2D(u_AdaptedLuminanceSampler, 10);
+SAMPLER2D(u_TextureSampler, 0);
+SAMPLER2D(u_AdaptedLuminanceSampler, 1);
 
 uniform vec4 u_BrightnessContrastGammaSaturation;
 #define brightness u_BrightnessContrastGammaSaturation.x
@@ -27,7 +27,7 @@ vec3 ACESFilm(vec3 x)
 
 void main()
 {
-	vec3 color = texture2D(u_DiffuseMap, v_texcoord0).rgb;
+	vec3 color = texture2D(u_TextureSampler, v_texcoord0).rgb;
 
 	// tone map
 	color *= u_HdrKey.x / (texture2D(u_AdaptedLuminanceSampler, vec2_splat(0.0)).r + 0.001);

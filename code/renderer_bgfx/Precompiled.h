@@ -599,7 +599,7 @@ struct MaterialTextureBundle
 };
 
 /// Indices into MaterialStage::bundle
-/// @remarks Sync with shaders.
+/// @remarks Sync with TextureUnit.
 struct MaterialTextureBundleIndex
 {
 	enum
@@ -609,16 +609,7 @@ struct MaterialTextureBundleIndex
 		NormalMap,
 		Deluxemap,
 		Specularmap,
-		Depth,
-		DynamicLightCells,
-		DynamicLightIndices,
-		DynamicLights,
-		Luminance,
-		AdaptedLuminance,
-		NumMaterialTextureBundles,
-
-		ColorMap  = 0,
-		Levelsmap = 1
+		NumMaterialTextureBundles
 	};
 };
 
@@ -1103,6 +1094,24 @@ private:
 	std::array<Texture *, 32> scratchTextures_;
 };
 
+/// Texture units used by the generic shader(s).
+/// @remarks Sync with MaterialTextureBundleIndex and shaders.
+struct TextureUnit
+{
+	enum
+	{
+		Diffuse  = MaterialTextureBundleIndex::DiffuseMap,
+		Light    = MaterialTextureBundleIndex::Lightmap,
+		Normal   = MaterialTextureBundleIndex::NormalMap,
+		Deluxe   = MaterialTextureBundleIndex::Deluxemap,
+		Specular = MaterialTextureBundleIndex::Specularmap,
+		Depth,
+		DynamicLightCells,
+		DynamicLightIndices,
+		DynamicLights
+	};
+};
+
 struct Uniform_int
 {
 	Uniform_int(const char *name, uint16_t num = 1) { handle = bgfx::createUniform(name, bgfx::UniformType::Int1, num); }
@@ -1188,6 +1197,16 @@ struct Uniforms
 	/// @remarks Only x used.
 	Uniform_vec4 hdrKey = "u_HdrKey";
 	/// @}
+
+	/// @name Texture samplers
+	/// @{
+
+	/// General purpose sampler.
+	Uniform_int textureSampler = "u_TextureSampler";
+
+	Uniform_int luminanceSampler = "u_LuminanceSampler";
+	Uniform_int adaptedLuminanceSampler = "u_AdaptedLuminanceSampler";
+	/// @}
 };
 
 /// @brief Uniforms derived from entity state.
@@ -1230,12 +1249,6 @@ struct Uniforms_MaterialStage
 		textures[MaterialTextureBundleIndex::NormalMap] = &normalMap;
 		textures[MaterialTextureBundleIndex::Deluxemap] = &deluxemap;
 		textures[MaterialTextureBundleIndex::Specularmap] = &specularmap;
-		textures[MaterialTextureBundleIndex::Depth] = &depthSampler;
-		textures[MaterialTextureBundleIndex::DynamicLightCells] = &dynamicLightCellsSampler;
-		textures[MaterialTextureBundleIndex::DynamicLightIndices] = &dynamicLightIndicesSampler;
-		textures[MaterialTextureBundleIndex::DynamicLights] = &dynamicLightsSampler;
-		textures[MaterialTextureBundleIndex::Luminance] = &luminanceSampler;
-		textures[MaterialTextureBundleIndex::AdaptedLuminance] = &adaptedLuminanceSampler;
 	}
 
 	/// @remarks Only x used.
@@ -1254,8 +1267,6 @@ struct Uniforms_MaterialStage
 	Uniform_int dynamicLightCellsSampler = "u_DynamicLightCellsSampler";
 	Uniform_int dynamicLightIndicesSampler = "u_DynamicLightIndicesSampler";
 	Uniform_int dynamicLightsSampler = "u_DynamicLightsSampler";
-	Uniform_int luminanceSampler = "u_LuminanceSampler";
-	Uniform_int adaptedLuminanceSampler = "u_AdaptedLuminanceSampler";
 	Uniform_int *textures[MaterialTextureBundleIndex::NumMaterialTextureBundles];
 	/// @}
 

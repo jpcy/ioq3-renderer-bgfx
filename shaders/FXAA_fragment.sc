@@ -2,7 +2,7 @@ $input v_texcoord0
 
 #include <bgfx_shader.sh>
 
-SAMPLER2D(u_DiffuseMap, 0);
+SAMPLER2D(u_TextureSampler, 0);
 
 /**
 Basic FXAA implementation based on the code on geeks3d.com with the
@@ -135,5 +135,5 @@ vec4 apply(sampler2D tex, vec2 fragCoord, vec2 resolution) {
 
 void main()
 {
-	gl_FragColor = apply(u_DiffuseMap, v_texcoord0 * u_viewRect.zw, u_viewRect.zw);
+	gl_FragColor = apply(u_TextureSampler, v_texcoord0 * u_viewRect.zw, u_viewRect.zw);
 }

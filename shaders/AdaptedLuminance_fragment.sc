@@ -2,8 +2,8 @@ $input v_texcoord0
 
 #include <bgfx_shader.sh>
 
-SAMPLER2D(u_LuminanceSampler, 9);
-SAMPLER2D(u_AdaptedLuminanceSampler, 10);
+SAMPLER2D(u_LuminanceSampler, 0);
+SAMPLER2D(u_AdaptedLuminanceSampler, 1);
 
 uniform vec4 u_Time; // only x used
 

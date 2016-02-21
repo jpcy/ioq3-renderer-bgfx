@@ -607,7 +607,7 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 	indices[3] = 2; indices[4] = 3; indices[5] = 0;
 	bgfx::setVertexBuffer(&tvb);
 	bgfx::setIndexBuffer(&tib);
-	bgfx::setTexture(0, matStageUniforms_->diffuseMap.handle, textureCache_->getScratchTextures()[client]->getHandle());
+	bgfx::setTexture(0, uniforms_->textureSampler.handle, textureCache_->getScratchTextures()[client]->getHandle());
 	matStageUniforms_->color.set(vec4::white);
 	bgfx::setState(BGFX_STATE_RGB_WRITE);
 	const uint8_t viewId = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), Rect(x, y, w, h), PushViewFlags::Sequential);
@@ -785,7 +785,7 @@ void Main::renderScene(const refdef_t *def)
 				{
 					programId = ShaderProgramId::Luminance;
 					setTexelOffsetsDownsample2x2(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]);
-					bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
+					bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFbColor_);
 				}
 				else
 				{
@@ -805,8 +805,8 @@ void Main::renderScene(const refdef_t *def)
 
 			matUniforms_->time.set(vec4(floatTime_ - lastAdaptedLuminanceTime_, 0, 0, 0));
 			lastAdaptedLuminanceTime_ = floatTime_;
-			bgfx::setTexture(MaterialTextureBundleIndex::Luminance, matStageUniforms_->luminanceSampler.handle, luminanceFrameBuffers_[nLuminanceFrameBuffers_ - 1].handle);
-			bgfx::setTexture(MaterialTextureBundleIndex::AdaptedLuminance, matStageUniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[1 - currentAdaptedLuminanceFB_].handle);
+			bgfx::setTexture(0, uniforms_->luminanceSampler.handle, luminanceFrameBuffers_[nLuminanceFrameBuffers_ - 1].handle);
+			bgfx::setTexture(1, uniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[1 - currentAdaptedLuminanceFB_].handle);
 			renderScreenSpaceQuad(adaptedLuminanceFB_[currentAdaptedLuminanceFB_], ShaderProgramId::AdaptedLuminance, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 			currentAdaptedLuminanceFB_ = 1 - currentAdaptedLuminanceFB_;
 
@@ -821,20 +821,20 @@ void Main::renderScene(const refdef_t *def)
 			));
 
 			uniforms_->hdrKey.set(vec4(Clamped(g_cvars.hdrKey->value, 0.01f, 0.2f), 0, 0, 0));
-			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
-			bgfx::setTexture(MaterialTextureBundleIndex::AdaptedLuminance, matStageUniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[currentAdaptedLuminanceFB_].handle);
+			bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFbColor_);
+			bgfx::setTexture(1, uniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[currentAdaptedLuminanceFB_].handle);
 			renderScreenSpaceQuad(aa_ == AntiAliasing::FXAA ? fxaaFb_ : defaultFb_, ShaderProgramId::ToneMap, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 		}
 		else if (isWorldCamera_)
 		{
-			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, sceneFbColor_);
+			bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFbColor_);
 			renderScreenSpaceQuad(aa_ == AntiAliasing::FXAA ? fxaaFb_ : defaultFb_, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 		}
 
 		// FXAA.
 		if (aa_ == AntiAliasing::FXAA)
 		{
-			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, fxaaColor_);
+			bgfx::setTexture(0, uniforms_->textureSampler.handle, fxaaColor_);
 			renderScreenSpaceQuad(defaultFb_, ShaderProgramId::FXAA, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 		}
 	}
@@ -940,13 +940,13 @@ void Main::onModelCreate(Model *model)
 
 void Main::debugDraw(const FrameBuffer &texture, int x, int y, bool singleChannel)
 {
-	bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, texture.handle);
+	bgfx::setTexture(0, uniforms_->textureSampler.handle, texture.handle);
 	renderScreenSpaceQuad(defaultFb_, singleChannel ? ShaderProgramId::TextureSingleChannel : ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize->integer * x, g_cvars.debugDrawSize->integer * y, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
 }
 
 void Main::debugDraw(bgfx::TextureHandle texture, int x, int y, bool singleChannel)
 {
-	bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, texture);
+	bgfx::setTexture(0, uniforms_->textureSampler.handle, texture);
 	renderScreenSpaceQuad(defaultFb_, singleChannel ? ShaderProgramId::TextureSingleChannel : ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize->integer * x, g_cvars.debugDrawSize->integer * y, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
 }
 
@@ -1299,7 +1299,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 		// Read depth, write linear depth.
 		uniforms_->depthRange.set(vec4(0, 0, zMin, zMax));
-		bgfx::setTexture(MaterialTextureBundleIndex::Depth, matStageUniforms_->depthSampler.handle, sceneFbDepth_);
+		bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFbDepth_);
 		renderScreenSpaceQuad(linearDepthFb_, ShaderProgramId::LinearDepth, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
 	}
 
@@ -1422,7 +1422,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (SETTINGS_SOFT_SPRITES && dc.softSpriteDepth > 0)
 			{
 				shaderVariant |= GenericShaderProgramVariant::SoftSprite;
-				bgfx::setTexture(MaterialTextureBundleIndex::Depth, matStageUniforms_->textures[MaterialTextureBundleIndex::Depth]->handle, linearDepthFb_.handle);
+				bgfx::setTexture(TextureUnit::Depth, matStageUniforms_->depthSampler.handle, linearDepthFb_.handle);
 				
 				// Change additive blend from (1, 1) to (src alpha, 1) so the soft sprite shader can control alpha.
 				float useAlpha = 1;
@@ -1440,9 +1440,9 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (isWorldCamera_)
 			{
 				shaderVariant |= GenericShaderProgramVariant::DynamicLights;
-				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLightCells, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLightCells]->handle, dlightManager_->getCellsTexture());
-				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLightIndices, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLightIndices]->handle, dlightManager_->getIndicesTexture());
-				bgfx::setTexture(MaterialTextureBundleIndex::DynamicLights, matStageUniforms_->textures[MaterialTextureBundleIndex::DynamicLights]->handle, dlightManager_->getLightsTexture());
+				bgfx::setTexture(TextureUnit::DynamicLightCells, matStageUniforms_->dynamicLightCellsSampler.handle, dlightManager_->getCellsTexture());
+				bgfx::setTexture(TextureUnit::DynamicLightIndices, matStageUniforms_->dynamicLightIndicesSampler.handle, dlightManager_->getIndicesTexture());
+				bgfx::setTexture(TextureUnit::DynamicLights, matStageUniforms_->dynamicLightsSampler.handle, dlightManager_->getLightsTexture());
 			}
 
 			bgfx::setState(state);

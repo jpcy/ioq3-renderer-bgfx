@@ -4,7 +4,7 @@ $input v_position, v_texcoord0
 #include "SharedDefines.sh"
 
 #if defined(USE_ALPHA_TEST)
-SAMPLER2D(u_DiffuseMap, 0);
+SAMPLER2D(u_TextureSampler, 0);
 
 uniform vec4 u_AlphaTest; // only x used
 #endif
@@ -23,7 +23,7 @@ void main()
 	}
 
 #if defined(USE_ALPHA_TEST)
-	float alpha = texture2D(u_DiffuseMap, v_texcoord0).a;
+	float alpha = texture2D(u_TextureSampler, v_texcoord0).a;
 
 	if (int(u_AlphaTest.x) == ATEST_GT_0)
 	{

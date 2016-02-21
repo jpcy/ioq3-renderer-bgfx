@@ -2,9 +2,9 @@ $input v_texcoord0
 
 #include <bgfx_shader.sh>
 
-SAMPLER2D(u_DiffuseMap, 0);
+SAMPLER2D(u_TextureSampler, 0);
 
 void main()
 {
-	gl_FragColor = texture2D(u_DiffuseMap, v_texcoord0);
+	gl_FragColor = texture2D(u_TextureSampler, v_texcoord0);
 }
