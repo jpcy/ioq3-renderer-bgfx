@@ -565,6 +565,76 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			stage->depthWrite = true;
 			depthWriteExplicit = true;
 		}
+		// rgbGen
+		else if (!util::Stricmp(token, "rgbGen"))
+		{
+			token = util::Parse(text, false);
+
+			if (token[0] == 0)
+			{
+				ri.Printf(PRINT_WARNING, "WARNING: missing parameters for rgbGen in shader '%s'\n", name);
+			}
+			else if (!util::Stricmp(token, "wave"))
+			{
+				stage->rgbWave = parseWaveForm(text);
+				stage->rgbGen = MaterialColorGen::Waveform;
+			}
+			else if (!util::Stricmp(token, "const"))
+			{
+				stage->constantColor = vec4(parseVector(text), stage->constantColor.a);
+				stage->rgbGen = MaterialColorGen::Const;
+			}
+			else if (!util::Stricmp(token, "identity"))
+			{
+				stage->rgbGen = MaterialColorGen::Identity;
+			}
+			else if (!util::Stricmp(token, "identityLighting"))
+			{
+				stage->rgbGen = MaterialColorGen::IdentityLighting;
+			}
+			else if (!util::Stricmp(token, "entity"))
+			{
+				stage->rgbGen = MaterialColorGen::Entity;
+			}
+			else if (!util::Stricmp(token, "oneMinusEntity"))
+			{
+				stage->rgbGen = MaterialColorGen::OneMinusEntity;
+			}
+			else if (!util::Stricmp(token, "vertex"))
+			{
+				stage->rgbGen = MaterialColorGen::Vertex;
+
+				if (stage->alphaGen == MaterialAlphaGen::Identity)
+					stage->alphaGen = MaterialAlphaGen::Vertex;
+			}
+			else if (!util::Stricmp(token, "exactVertex"))
+			{
+				stage->rgbGen = MaterialColorGen::ExactVertex;
+			}
+			else if (!util::Stricmp(token, "vertexLit"))
+			{
+				stage->rgbGen = MaterialColorGen::VertexLit;
+
+				if (stage->alphaGen == MaterialAlphaGen::Identity)
+					stage->alphaGen = MaterialAlphaGen::Vertex;
+			}
+			else if (!util::Stricmp(token, "exactVertexLit"))
+			{
+				stage->rgbGen = MaterialColorGen::ExactVertexLit;
+			}
+			else if (!util::Stricmp(token, "lightingDiffuse"))
+			{
+				stage->rgbGen = MaterialColorGen::LightingDiffuse;
+			}
+			else if (!util::Stricmp(token, "oneMinusVertex"))
+			{
+				stage->rgbGen = MaterialColorGen::OneMinusVertex;
+			}
+			else
+			{
+				ri.Printf(PRINT_WARNING, "WARNING: unknown rgbGen parameter '%s' in shader '%s'\n", token, name);
+			}
+		}
 		else
 		{
 			util::SkipRestOfLine(text);
@@ -1010,72 +1080,8 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 		// rgbGen
 		else if (!util::Stricmp(token, "rgbGen"))
 		{
-			token = util::Parse(text, false);
-
-			if (token[0] == 0)
-			{
-				ri.Printf(PRINT_WARNING, "WARNING: missing parameters for rgbGen in shader '%s'\n", name);
-			}
-			else if (!util::Stricmp(token, "wave"))
-			{
-				stage->rgbWave = parseWaveForm(text);
-				stage->rgbGen = MaterialColorGen::Waveform;
-			}
-			else if (!util::Stricmp(token, "const"))
-			{
-				stage->constantColor = vec4(parseVector(text), stage->constantColor.a);
-				stage->rgbGen = MaterialColorGen::Const;
-			}
-			else if (!util::Stricmp(token, "identity"))
-			{
-				stage->rgbGen = MaterialColorGen::Identity;
-			}
-			else if (!util::Stricmp(token, "identityLighting"))
-			{
-				stage->rgbGen = MaterialColorGen::IdentityLighting;
-			}
-			else if (!util::Stricmp(token, "entity"))
-			{
-				stage->rgbGen = MaterialColorGen::Entity;
-			}
-			else if (!util::Stricmp(token, "oneMinusEntity"))
-			{
-				stage->rgbGen = MaterialColorGen::OneMinusEntity;
-			}
-			else if (!util::Stricmp(token, "vertex"))
-			{
-				stage->rgbGen = MaterialColorGen::Vertex;
-
-				if (stage->alphaGen == MaterialAlphaGen::Identity)
-					stage->alphaGen = MaterialAlphaGen::Vertex;
-			}
-			else if (!util::Stricmp(token, "exactVertex"))
-			{
-				stage->rgbGen = MaterialColorGen::ExactVertex;
-			}
-			else if (!util::Stricmp(token, "vertexLit"))
-			{
-				stage->rgbGen = MaterialColorGen::VertexLit;
-
-				if (stage->alphaGen == MaterialAlphaGen::Identity)
-					stage->alphaGen = MaterialAlphaGen::Vertex;
-			}
-			else if (!util::Stricmp(token, "exactVertexLit"))
-			{
-				stage->rgbGen = MaterialColorGen::ExactVertexLit;
-			}
-			else if (!util::Stricmp(token, "lightingDiffuse"))
-			{
-				stage->rgbGen = MaterialColorGen::LightingDiffuse;
-			}
-			else if (!util::Stricmp(token, "oneMinusVertex"))
-			{
-				stage->rgbGen = MaterialColorGen::OneMinusVertex;
-			}
-			else
-			{
-				ri.Printf(PRINT_WARNING, "WARNING: unknown rgbGen parameter '%s' in shader '%s'\n", token, name);
-			}
+			// Pre-parsed above.
+			util::SkipRestOfLine(text);
 		}
 		// alphaGen 
 		else if (!util::Stricmp(token, "alphaGen"))
