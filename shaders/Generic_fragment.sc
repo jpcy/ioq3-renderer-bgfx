@@ -184,7 +184,7 @@ void main()
 	}
 
 #if defined(USE_DYNAMIC_LIGHTS)
-	if (int(u_DynamicLightNum.x) > 0 && (int(u_LightType.x) != LIGHT_NONE || u_ColorGen == CGEN_EXACT_VERTEX || u_ColorGen == CGEN_VERTEX))
+	if (int(u_DynamicLightNum.x) > 0)
 	{
 		uint indicesOffset = GetDynamicLightIndicesOffset(v_position);
 
