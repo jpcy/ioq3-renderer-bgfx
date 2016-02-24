@@ -459,7 +459,7 @@ void DynamicLightManager::updateUniforms(Uniforms *uniforms)
 	uniforms->dynamicLightCellSize.set(vec4((float)cellSize_.x, (float)cellSize_.y, (float)cellSize_.z, (float)cellsTextureSize_));
 	uniforms->dynamicLightGridOffset.set(gridOffset_);
 	uniforms->dynamicLightGridSize.set(vec4((float)gridSize_.x, (float)gridSize_.y, (float)gridSize_.z, 0));
-	uniforms->dynamicLightNum.set(vec4((float)nLights_, 0, 0, 0));
+	uniforms->dynamicLight_Num_Intensity.set(vec4((float)nLights_, g_cvars.dynamicLightIntensity->value, 0, 0));
 	uniforms->dynamicLightTextureSizes_Cells_Indices_Lights.set(vec4((float)cellsTextureSize_, (float)indicesTextureSize_, (float)lightsTextureSize_, 0));
 }
 
@@ -990,7 +990,7 @@ void Main::flushStretchPics()
 			memcpy(tib.data, &stretchPicIndices_[0], sizeof(uint16_t) * stretchPicIndices_.size());
 			time_ = ri.Milliseconds();
 			floatTime_ = time_ * 0.001f;
-			uniforms_->dynamicLightNum.set(vec4::empty);
+			uniforms_->dynamicLight_Num_Intensity.set(vec4::empty);
 			matUniforms_->time.set(vec4(stretchPicMaterial_->setTime(floatTime_), 0, 0, 0));
 
 			if (stretchPicViewId_ == UINT8_MAX)
@@ -1322,7 +1322,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	else
 	{
 		// For non-world scenes, dlight contribution is added to entities in setupEntityLighting, so write 0 to the uniform for num dlights.
-		uniforms_->dynamicLightNum.set(vec4::empty);
+		uniforms_->dynamicLight_Num_Intensity.set(vec4::empty);
 	}
 
 	for (DrawCall &dc : drawCalls_)

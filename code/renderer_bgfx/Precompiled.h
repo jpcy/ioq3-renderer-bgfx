@@ -98,6 +98,7 @@ struct ConsoleVariables
 	cvar_t *debugDraw;
 	cvar_t *debugDrawSize;
 	cvar_t *debugText;
+	cvar_t *dynamicLightIntensity;
 	cvar_t *maxAnisotropy;
 	cvar_t *picmip;
 	cvar_t *screenshotJpegQuality;
@@ -1168,8 +1169,8 @@ struct Uniforms
 	/// @remarks w not used.
 	Uniform_vec4 dynamicLightGridSize = "u_DynamicLightGridSize";
 
-	/// @remarks x is the number of dynamic lights, y is the texture width.
-	Uniform_vec4 dynamicLightNum = "u_DynamicLightNum";
+	/// @remarks x is the number of dynamic lights, y is the intensity scale.
+	Uniform_vec4 dynamicLight_Num_Intensity = "u_DynamicLight_Num_Intensity";
 
 	/// @remarks w not used.
 	Uniform_vec4 dynamicLightTextureSizes_Cells_Indices_Lights = "u_DynamicLightTextureSizes_Cells_Indices_Lights";

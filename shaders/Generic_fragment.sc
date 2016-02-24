@@ -26,7 +26,7 @@ SAMPLER2D(u_DynamicLightsSampler, 8);
 uniform vec4 u_DynamicLightCellSize; // xyz is size
 uniform vec4 u_DynamicLightGridOffset; // w not used
 uniform vec4 u_DynamicLightGridSize; // w not used
-uniform vec4 u_DynamicLightNum; // x is the number of dynamic lights
+uniform vec4 u_DynamicLight_Num_Intensity; // x is the number of dynamic lights, y is the intensity scale
 uniform vec4 u_DynamicLightTextureSizes_Cells_Indices_Lights; // w not used
 #endif
 
@@ -168,7 +168,7 @@ void main()
 #endif
 
 	gl_FragColor.a = alpha;
-	vec3 diffuseLight = vec3_splat(0.0);
+	vec3 diffuseLight = vec3_splat(1.0);
 
 	if (int(u_LightType.x) == LIGHT_MAP)
 	{
@@ -178,13 +178,11 @@ void main()
 	{
 		diffuseLight = u_AmbientLight.xyz + u_DirectedLight.xyz * Lambert(v_normal.xyz, u_LightDirection.xyz);
 	}
-	else // LIGHT_VERTEX or LIGHT_NONE
-	{
-		diffuseLight = vec3_splat(1.0);
-	}
+
+	vec3 dynamicLight = vec3_splat(0.0);
 
 #if defined(USE_DYNAMIC_LIGHTS)
-	if (int(u_DynamicLightNum.x) > 0)
+	if (int(u_DynamicLight_Num_Intensity.x) > 0)
 	{
 		uint indicesOffset = GetDynamicLightIndicesOffset(v_position);
 
@@ -196,23 +194,23 @@ void main()
 			// Heatmap
 			if (numLights == 1u)
 			{
-				diffuseLight = vec3(0.0, 0.0, 1.0);
+				dynamicLight = vec3(0.0, 0.0, 1.0);
 			}
 			else if (numLights == 2u)
 			{
-				diffuseLight = vec3(0.0, 1.0, 1.0);
+				dynamicLight = vec3(0.0, 1.0, 1.0);
 			}
 			else if (numLights == 3u)
 			{
-				diffuseLight = vec3(0.0, 1.0, 0.0);
+				dynamicLight = vec3(0.0, 1.0, 0.0);
 			}
 			else if (numLights == 4u)
 			{
-				diffuseLight = vec3(1.0, 1.0, 0.0);
+				dynamicLight = vec3(1.0, 1.0, 0.0);
 			}
 			else if (numLights >= 5u)
 			{
-				diffuseLight = vec3(1.0, 0.0, 0.0);
+				dynamicLight = vec3(1.0, 0.0, 0.0);
 			}
 #else
 			for (uint i = 0u; i < numLights; i++)
@@ -232,12 +230,12 @@ void main()
 				}
 
 				float attenuation = saturate(1.0 - length(dir) / light.color_radius.w);
-				diffuseLight += light.color_radius.rgb * attenuation * Lambert(v_normal.xyz, normalize(dir));
+				dynamicLight += light.color_radius.rgb * attenuation * Lambert(v_normal.xyz, normalize(dir)) * u_DynamicLight_Num_Intensity.y;
 			}
 #endif
 		}
 	}
 #endif // USE_DYNAMIC_LIGHTS
 
-	gl_FragColor.rgb = ToGamma(diffuse.rgb * v_color0.rgb * diffuseLight);
+	gl_FragColor.rgb = ToGamma((diffuse.rgb * v_color0.rgb * diffuseLight) + (diffuse.rgb * dynamicLight));
 }
