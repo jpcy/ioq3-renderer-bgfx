@@ -166,10 +166,7 @@ struct DrawCall
 		bgfx::VertexBufferHandle staticHandle;
 		bgfx::DynamicVertexBufferHandle dynamicHandle;
 		bgfx::TransientVertexBuffer transientHandle;
-
-		/// @remarks Not used by dynamic buffers.
 		uint32_t firstVertex = 0;
-
 		uint32_t nVertices = 0;
 	};
 

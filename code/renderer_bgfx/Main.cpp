@@ -1034,7 +1034,7 @@ static void SetDrawCallGeometry(const DrawCall &dc)
 	}
 	else if (dc.vb.type == DrawCall::BufferType::Dynamic)
 	{
-		bgfx::setVertexBuffer(dc.vb.dynamicHandle, dc.vb.nVertices);
+		bgfx::setVertexBuffer(dc.vb.dynamicHandle, dc.vb.firstVertex, dc.vb.nVertices);
 	}
 	else if (dc.vb.type == DrawCall::BufferType::Transient)
 	{
