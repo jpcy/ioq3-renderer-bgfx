@@ -198,6 +198,11 @@ newaction
 			{ "DepthRange", "USE_DEPTH_RANGE" }
 		}
 		
+		local fogVertexVariants =
+		{
+			{ "DepthRange", "USE_DEPTH_RANGE" }
+		}
+		
 		local genericFragmentVariants =
 		{
 			{ "AlphaTest", "USE_ALPHA_TEST" },
@@ -229,7 +234,7 @@ newaction
 		local vertexShaders =
 		{
 			{ "Depth", depthVertexVariants },
-			{ "Fog" },
+			{ "Fog", fogVertexVariants },
 			{ "Generic", genericVertexVariants },
 			{ "Texture" }
 		}
@@ -307,6 +312,7 @@ newaction
 		writeShaderIdEnum(outputHeaderFile, expandedVertexShaders, "VertexShaderId")
 		writeShaderVariantEnum(outputHeaderFile, genericFragmentVariants, "GenericFragment")
 		writeShaderVariantEnum(outputHeaderFile, genericVertexVariants, "GenericVertex")
+		writeShaderVariantEnum(outputHeaderFile, fogVertexVariants, "FogVertex")
 		writeShaderVariantEnum(outputHeaderFile, depthFragmentVariants, "DepthFragment")
 		writeShaderVariantEnum(outputHeaderFile, depthVertexVariants, "DepthVertex")
 		outputHeaderFile:close()

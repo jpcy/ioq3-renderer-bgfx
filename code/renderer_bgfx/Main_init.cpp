@@ -414,6 +414,13 @@ void Main::initialize()
 	};
 
 	programMap[ShaderProgramId::Fog]                         = { FragmentShaderId::Fog, VertexShaderId::Fog };
+
+	programMap[ShaderProgramId::Fog + FogShaderProgramVariant::DepthRange] =
+	{
+		FragmentShaderId::Fog,
+		VertexShaderId::Fog_DepthRange
+	};
+
 	programMap[ShaderProgramId::FXAA]                        = { FragmentShaderId::FXAA, VertexShaderId::Texture };
 
 	// Sync with GenericShaderProgramVariant. Order matters - fragment first.

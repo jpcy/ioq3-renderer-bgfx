@@ -1479,7 +1479,14 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			}
 
 			bgfx::setState(state);
-			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Fog].handle);
+			int shaderVariant = FogShaderProgramVariant::None;
+
+			if (dc.zOffset > 0 || dc.zScale > 0)
+			{
+				shaderVariant |= FogShaderProgramVariant::DepthRange;
+			}
+
+			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Fog + shaderVariant].handle);
 		}
 
 		currentEntity_ = nullptr;

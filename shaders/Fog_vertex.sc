@@ -22,6 +22,12 @@ void main()
 		CalculateDeform(v_position, a_normal, a_texcoord0, u_Time.x);
 	}
 
-	gl_Position = ApplyDepthRange(mul(u_viewProj, vec4(v_position, 1.0)), u_DepthRange.x, u_DepthRange.y);
+	vec4 projPosition = mul(u_viewProj, vec4(v_position, 1.0));
+
+#if defined(USE_DEPTH_RANGE)
+	projPosition = ApplyDepthRange(projPosition, u_DepthRange.x, u_DepthRange.y);
+#endif
+
+	gl_Position = projPosition;
 	v_scale = CalcFog(a_position, u_FogDepth, u_FogDistance, u_FogEyeT.x) * u_Color.a * u_Color.a; // NOTE: fog wants modelspace position. Should really deform it too, but the difference isn't enough to matter.
 }

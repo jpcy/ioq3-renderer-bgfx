@@ -138,6 +138,16 @@ private:
 		};
 	};
 
+	struct FogShaderProgramVariant
+	{
+		enum
+		{
+			None       = 0,
+			DepthRange = 1 << 0,
+			Num        = 1 << 1
+		};
+	};
+
 	/// @remarks Sync with generated GenericFragmentShaderVariant and GenericVertexShaderVariant. Order matters - fragment first.
 	struct GenericShaderProgramVariant
 	{
@@ -164,7 +174,7 @@ private:
 			AdaptedLuminance,
 			Depth,
 			Fog = Depth + DepthShaderProgramVariant::Num,
-			FXAA,
+			FXAA = Fog + FogShaderProgramVariant::Num,
 			Generic,
 			LinearDepth = Generic + GenericShaderProgramVariant::Num,
 			Luminance,
