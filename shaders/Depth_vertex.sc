@@ -39,5 +39,11 @@ void main()
 #endif
 
 	v_position = mul(u_model[0], vec4(position, 1.0)).xyz;
-	gl_Position = ApplyDepthRange(mul(u_viewProj, vec4(v_position, 1.0)), u_DepthRange.x, u_DepthRange.y);
+	vec4 projPosition = mul(u_viewProj, vec4(v_position, 1.0));
+
+#if defined(USE_DEPTH_RANGE)
+	projPosition = ApplyDepthRange(projPosition, u_DepthRange.x, u_DepthRange.y);
+#endif
+
+	gl_Position = projPosition;
 }

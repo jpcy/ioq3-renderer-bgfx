@@ -1281,20 +1281,26 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			// Grab the cull state. Doesn't matter which stage, since it's global to the material.
 			state |= mat->stages[0].getState() & BGFX_STATE_CULL_MASK;
 
+			int shaderVariant = DepthShaderProgramVariant::None;
+
 			if (alphaTestStage)
 			{
 				alphaTestStage->setShaderUniforms(matStageUniforms_.get(), MaterialStageSetUniformsFlags::TexGen);
 				alphaTestStage->setTextureSamplers(matStageUniforms_.get());
-				bgfx::setState(state);
-				bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Depth_AlphaTest].handle);
+				shaderVariant |= DepthShaderProgramVariant::AlphaTest;
 			}
 			else
 			{
 				matStageUniforms_->alphaTest.set(vec4::empty);
-				bgfx::setState(state);
-				bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Depth].handle);
 			}
 
+			if (dc.zOffset > 0 || dc.zScale > 0)
+			{
+				shaderVariant |= DepthShaderProgramVariant::DepthRange;
+			}
+
+			bgfx::setState(state);
+			bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Depth + shaderVariant].handle);
 			currentEntity_ = nullptr;
 		}
 
@@ -1347,7 +1353,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
 			bgfx::setState(dc.state);
-			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Generic].handle);
+			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Generic + GenericShaderProgramVariant::DepthRange].handle);
 			continue;
 		}
 
@@ -1362,7 +1368,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 		if (mat->polygonOffset)
 		{
-			uniforms_->depthRange.set(vec4(dc.zOffset + polygonDepthOffset, dc.zScale, zMin, zMax));
+			uniforms_->depthRange.set(vec4(polygonDepthOffset, 1, zMin, zMax));
 		}
 		else
 		{
@@ -1444,6 +1450,11 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				bgfx::setTexture(TextureUnit::DynamicLightCells, matStageUniforms_->dynamicLightCellsSampler.handle, dlightManager_->getCellsTexture());
 				bgfx::setTexture(TextureUnit::DynamicLightIndices, matStageUniforms_->dynamicLightIndicesSampler.handle, dlightManager_->getIndicesTexture());
 				bgfx::setTexture(TextureUnit::DynamicLights, matStageUniforms_->dynamicLightsSampler.handle, dlightManager_->getLightsTexture());
+			}
+
+			if (mat->polygonOffset || dc.zOffset > 0 || dc.zScale > 0)
+			{
+				shaderVariant |= GenericShaderProgramVariant::DepthRange;
 			}
 
 			bgfx::setState(state);

@@ -127,16 +127,33 @@ public:
 	void onModelCreate(Model *model);
 
 private:
-	/// @remarks Sync with build script - order matters.
+	struct DepthShaderProgramVariant
+	{
+		enum
+		{
+			None       = 0,
+			AlphaTest  = 1 << 0,
+			DepthRange = 1 << 1,
+			Num        = 1 << 2
+		};
+	};
+
+	/// @remarks Sync with generated GenericFragmentShaderVariant and GenericVertexShaderVariant. Order matters - fragment first.
 	struct GenericShaderProgramVariant
 	{
 		enum
 		{
 			None          = 0,
-			AlphaTest     = 1<<0,
-			DynamicLights = 1<<1,
-			SoftSprite    = 1<<2,
-			Mask          = (1<<3) - 1
+
+			// Fragment
+			AlphaTest     = 1 << 0,
+			DynamicLights = 1 << 1,
+			SoftSprite    = 1 << 2,
+
+			// Vertex
+			DepthRange    = 1 << 3,
+
+			Num           = 1 << 4
 		};
 	};
 
@@ -146,11 +163,10 @@ private:
 		{
 			AdaptedLuminance,
 			Depth,
-			Depth_AlphaTest,
-			Fog,
+			Fog = Depth + DepthShaderProgramVariant::Num,
 			FXAA,
 			Generic,
-			LinearDepth = Generic + GenericShaderProgramVariant::Mask + 1,
+			LinearDepth = Generic + GenericShaderProgramVariant::Num,
 			Luminance,
 			LuminanceDownsample,
 			Texture,

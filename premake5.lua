@@ -187,9 +187,15 @@ newaction
 			renderers = { "gl" }
 		end
 		
-		local depthVariants =
+		local depthFragmentVariants =
 		{
 			{ "AlphaTest", "USE_ALPHA_TEST" }
+		}
+		
+		local depthVertexVariants =
+		{
+			{ "AlphaTest", "USE_ALPHA_TEST" },
+			{ "DepthRange", "USE_DEPTH_RANGE" }
 		}
 		
 		local genericFragmentVariants =
@@ -199,10 +205,15 @@ newaction
 			{ "SoftSprite", "USE_SOFT_SPRITE" }
 		}
 		
+		local genericVertexVariants =
+		{
+			{ "DepthRange", "USE_DEPTH_RANGE" }
+		}
+		
 		local fragmentShaders =
 		{
 			{ "AdaptedLuminance" },
-			{ "Depth", depthVariants },
+			{ "Depth", depthFragmentVariants },
 			{ "Fog" },
 			{ "FXAA" },
 			{ "Generic", genericFragmentVariants },
@@ -217,9 +228,9 @@ newaction
 		
 		local vertexShaders =
 		{
-			{ "Depth", depthVariants },
+			{ "Depth", depthVertexVariants },
 			{ "Fog" },
-			{ "Generic" },
+			{ "Generic", genericVertexVariants },
 			{ "Texture" }
 		}
 		
@@ -251,7 +262,7 @@ newaction
 			return
 		end
 		
-		-- Generate shader ID enums, writing them to the output header file.
+		-- Generate shader ID and variant enums, writing them to the output header file.
 		function writeShaderIdEnum(of, data, name)
 			of:write("struct " .. name .. "\n")
 			of:write("{\n")
@@ -273,10 +284,31 @@ newaction
 			of:write("};\n\n")
 		end
 		
+		function writeShaderVariantEnum(of, data, name)
+			of:write("struct " .. name .. "ShaderVariant\n")
+			of:write("{\n")
+			of:write("\tenum\n")
+			of:write("\t{\n")
+			local i = 0
+			
+			for _,v in pairs(data) do
+				of:write(string.format("\t\t%s = 1 << %d,\n", v[1], i))
+				i = i + 1
+			end
+			
+			of:write(string.format("\t\tNum = 1 << %d\n", i))
+			of:write("\t};\n")
+			of:write("};\n\n")
+		end
+		
 		local outputHeaderFilename = "build/Shader.h"
 		local outputHeaderFile = io.open(outputHeaderFilename, "w")
 		writeShaderIdEnum(outputHeaderFile, expandedFragmentShaders, "FragmentShaderId")
 		writeShaderIdEnum(outputHeaderFile, expandedVertexShaders, "VertexShaderId")
+		writeShaderVariantEnum(outputHeaderFile, genericFragmentVariants, "GenericFragment")
+		writeShaderVariantEnum(outputHeaderFile, genericVertexVariants, "GenericVertex")
+		writeShaderVariantEnum(outputHeaderFile, depthFragmentVariants, "DepthFragment")
+		writeShaderVariantEnum(outputHeaderFile, depthVertexVariants, "DepthVertex")
 		outputHeaderFile:close()
 
 		-- Generate functions to map shader ID enums to source strings, appending them to the output source file.

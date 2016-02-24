@@ -194,7 +194,7 @@ struct DrawCall
 	uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE;
 	VertexBuffer vb;
 	float zOffset = 0.0f;
-	float zScale = 1.0f;
+	float zScale = 0.0f;
 };
 
 typedef std::vector<DrawCall> DrawCallList;

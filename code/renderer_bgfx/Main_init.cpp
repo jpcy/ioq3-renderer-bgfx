@@ -394,14 +394,37 @@ void Main::initialize()
 	std::array<ShaderProgramIdMap, ShaderProgramId::Num> programMap;
 	programMap[ShaderProgramId::AdaptedLuminance]            = { FragmentShaderId::AdaptedLuminance, VertexShaderId::Texture };
 	programMap[ShaderProgramId::Depth]                       = { FragmentShaderId::Depth, VertexShaderId::Depth };
-	programMap[ShaderProgramId::Depth_AlphaTest]             = { FragmentShaderId::Depth_AlphaTest, VertexShaderId::Depth_AlphaTest };
+
+	programMap[ShaderProgramId::Depth + DepthShaderProgramVariant::AlphaTest] =
+	{
+		FragmentShaderId::Depth_AlphaTest,
+		VertexShaderId::Depth_AlphaTest
+	};
+
+	programMap[ShaderProgramId::Depth + DepthShaderProgramVariant::DepthRange] =
+	{
+		FragmentShaderId::Depth,
+		VertexShaderId::Depth_DepthRange
+	};
+
+	programMap[ShaderProgramId::Depth + (DepthShaderProgramVariant::AlphaTest | DepthShaderProgramVariant::DepthRange)] =
+	{
+		FragmentShaderId::Depth_AlphaTest,
+		VertexShaderId::Depth_AlphaTestDepthRange
+	};
+
 	programMap[ShaderProgramId::Fog]                         = { FragmentShaderId::Fog, VertexShaderId::Fog };
 	programMap[ShaderProgramId::FXAA]                        = { FragmentShaderId::FXAA, VertexShaderId::Texture };
 
-	for (int i = 0; i < GenericShaderProgramVariant::Mask + 1; i++)
+	// Sync with GenericShaderProgramVariant. Order matters - fragment first.
+	for (int y = 0; y < GenericVertexShaderVariant::Num; y++)
 	{
-		programMap[ShaderProgramId::Generic + i].frag = FragmentShaderId::Enum(FragmentShaderId::Generic + i);
-		programMap[ShaderProgramId::Generic + i].vert = VertexShaderId::Generic;
+		for (int x = 0; x < GenericFragmentShaderVariant::Num; x++)
+		{
+			ShaderProgramIdMap &pm = programMap[ShaderProgramId::Generic + x + y * GenericFragmentShaderVariant::Num];
+			pm.frag = FragmentShaderId::Enum(FragmentShaderId::Generic + x);
+			pm.vert = VertexShaderId::Enum(VertexShaderId::Generic + y);
+		}
 	}
 
 	programMap[ShaderProgramId::LinearDepth]                 = { FragmentShaderId::LinearDepth, VertexShaderId::Texture };

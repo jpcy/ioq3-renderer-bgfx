@@ -130,6 +130,11 @@ void main()
 	v_position = mul(u_model[0], vec4(position, 1.0)).xyz;
 	v_normal = mul(u_model[0], vec4(normal, 0.0));
 	v_viewDir = u_ViewOrigin.xyz - v_position;
-	v_projPosition = ApplyDepthRange(mul(u_viewProj, vec4(v_position, 1.0)), u_DepthRange.x, u_DepthRange.y);
+	v_projPosition = mul(u_viewProj, vec4(v_position, 1.0));
+
+#if defined(USE_DEPTH_RANGE)
+	v_projPosition = ApplyDepthRange(v_projPosition, u_DepthRange.x, u_DepthRange.y);
+#endif
+
 	gl_Position = v_projPosition;
 }
