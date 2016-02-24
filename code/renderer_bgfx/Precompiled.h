@@ -216,7 +216,7 @@ struct DynamicLight
 	/// @remarks Only xyz used.
 	vec4 capsuleEnd;
 
-	/// @remarks rgb is color, alpha is radius/intensity.
+	/// @remarks rgb is color (linear space), alpha is radius/intensity.
 	vec4 color_radius;
 
 	/// @remarks w is type.
@@ -1359,6 +1359,11 @@ namespace util
 	char *VarArgs(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
 	int Vsnprintf(char *str, size_t size, const char *format, va_list ap);
+
+	vec3 ToGamma(vec3 color);
+	vec4 ToGamma(vec4 color);
+	vec3 ToLinear(vec3 color);
+	vec4 ToLinear(vec4 color);
 }
 
 struct Vertex
@@ -1367,6 +1372,8 @@ struct Vertex
 	vec3 normal;
 	vec2 texCoord;
 	vec2 texCoord2;
+
+	/// Linear space.
 	vec4 color;
 
 	static void init()

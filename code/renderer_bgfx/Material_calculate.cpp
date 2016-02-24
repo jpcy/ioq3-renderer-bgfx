@@ -90,8 +90,8 @@ void MaterialStage::setShaderUniforms(Uniforms_MaterialStage *uniforms, int flag
 		// rgbGen and alphaGen
 		vec4 baseColor, vertexColor;
 		calculateColors(&baseColor, &vertexColor);
-		uniforms->baseColor.set(baseColor);
-		uniforms->vertexColor.set(vertexColor);
+		uniforms->baseColor.set(util::ToLinear(baseColor));
+		uniforms->vertexColor.set(util::ToLinear(vertexColor));
 
 		if (alphaGen == MaterialAlphaGen::Portal)
 		{

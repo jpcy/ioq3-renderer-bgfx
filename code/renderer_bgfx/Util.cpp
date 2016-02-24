@@ -476,5 +476,27 @@ int Vsnprintf(char *str, size_t size, const char *format, va_list ap)
 #endif
 }
 
+vec3 ToGamma(vec3 color)
+{
+	const float invGamma = 1.0f / 2.2f;
+	return vec3(pow(color.r, invGamma), pow(color.g, invGamma), pow(color.b, invGamma));
+}
+
+vec4 ToGamma(vec4 color)
+{
+	return vec4(ToGamma(color.xyz()), color.a);
+}
+
+vec3 ToLinear(vec3 color)
+{
+	const float gamma = 2.2f;
+	return vec3(pow(color.r, gamma), pow(color.g, gamma), pow(color.b, gamma));
+}
+
+vec4 ToLinear(vec4 color)
+{
+	return vec4(ToLinear(color.xyz()), color.a);
+}
+
 } // namespace util
 } // namespace renderer

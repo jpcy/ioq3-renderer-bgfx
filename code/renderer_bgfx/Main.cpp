@@ -278,7 +278,7 @@ void DynamicLightManager::contribute(int frameNo, vec3 position, vec3 *color, ve
 		float d = dir.normalize();
 		float power = std::min(DLIGHT_AT_RADIUS * (dl.color_radius.a * dl.color_radius.a), DLIGHT_MINIMUM_RADIUS);
 		d = power / (d * d);
-		*color += dl.color_radius.rgb() * d;
+		*color += util::ToGamma(dl.color_radius).rgb() * d;
 		*direction += dir * d;
 	}
 }
@@ -573,7 +573,7 @@ void Main::drawStretchPic(float x, float y, float w, float h, float s1, float t1
 	v[1].texCoord = vec2(s2, t1);
 	v[2].texCoord = vec2(s2, t2);
 	v[3].texCoord = vec2(s1, t2);
-	v[0].color = v[1].color = v[2].color = v[3].color = stretchPicColor_;
+	v[0].color = v[1].color = v[2].color = v[3].color = util::ToLinear(stretchPicColor_);
 	i[0] = firstVertex + 3; i[1] = firstVertex + 0; i[2] = firstVertex + 2;
 	i[3] = firstVertex + 2; i[4] = firstVertex + 0; i[5] = firstVertex + 1;
 }
@@ -706,8 +706,9 @@ void Main::renderScene(const refdef_t *def)
 		// Hack in extra dlights for Quake 3 content.
 		if (isWorldCamera_)
 		{
-			const vec3 bfgColor(0.08f, 1.0f, 0.4f);
-			const vec3 plasmaColor(0.6f, 0.6f, 1.0f);
+			const vec3 bfgColor = util::ToLinear(vec3(0.08f, 1.0f, 0.4f));
+			const vec3 lightningColor = util::ToLinear(vec3(0.6f, 0.6f, 1));
+			const vec3 plasmaColor = util::ToLinear(vec3(0.6f, 0.6f, 1.0f));
 
 			for (const Entity &entity : sceneEntities_)
 			{
@@ -734,7 +735,7 @@ void Main::renderScene(const refdef_t *def)
 					const float freq = 10.1f;
 					const float radius = base + g_sinTable[ri.ftol((phase + floatTime_ * freq) * g_funcTableSize) & g_funcTableMask] * amplitude;
 					dl.capsuleEnd = vec3(entity.e.oldorigin);
-					dl.color_radius = vec4(0.6f, 0.6f, 1, 150 * radius);
+					dl.color_radius = vec4(lightningColor, 150 * radius);
 					dl.position_type.w = DynamicLight::Capsule;
 				}
 				// Plasma ball.
@@ -751,7 +752,7 @@ void Main::renderScene(const refdef_t *def)
 				else if (entity.e.reType == RT_RAIL_CORE)
 				{
 					dl.capsuleEnd = vec3(entity.e.oldorigin);
-					dl.color_radius = vec4(vec4::fromBytes(entity.e.shaderRGBA).xyz(), 150);
+					dl.color_radius = vec4(util::ToLinear(vec4::fromBytes(entity.e.shaderRGBA).xyz()), 150);
 					dl.position_type.w = DynamicLight::Capsule;
 				}
 
@@ -1692,8 +1693,8 @@ void Main::renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3
 	vertices[2].texCoord = vec2(t, 0);
 	vertices[3].texCoord = vec2(t, 1);
 
-	vertices[0].color = vec4(color.xyz() * 0.25f, 1);
-	vertices[1].color = vertices[2].color = vertices[3].color = color;
+	vertices[0].color = util::ToLinear(vec4(color.xyz() * 0.25f, 1));
+	vertices[1].color = vertices[2].color = vertices[3].color = util::ToLinear(color);
 
 	auto indices = (uint16_t *)tib.data;
 	indices[0] = 0; indices[1] = 1; indices[2] = 2;
@@ -1836,7 +1837,7 @@ void Main::renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Ent
 	vertices[3].texCoord = vertices[3].texCoord2 = vec2(0, 1);
 
 	// Constant color all the way around.
-	vertices[0].color = vertices[1].color = vertices[2].color = vertices[3].color = vec4::fromBytes(entity->e.shaderRGBA);
+	vertices[0].color = vertices[1].color = vertices[2].color = vertices[3].color = util::ToLinear(vec4::fromBytes(entity->e.shaderRGBA));
 
 	auto indices = (uint16_t *)tib.data;
 	indices[0] = 0; indices[1] = 1; indices[2] = 3;

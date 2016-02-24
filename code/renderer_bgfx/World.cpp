@@ -1839,7 +1839,7 @@ private:
 
 			uint8_t color[3];
 			overbrightenColor(fv.color, color);
-			v.color = vec4(color[0] / 255.0f, color[1] / 255.0f, color[2] / 255.0f, fv.color[3] / 255.0f);
+			v.color = util::ToLinear(vec4(color[0] / 255.0f, color[1] / 255.0f, color[2] / 255.0f, fv.color[3] / 255.0f));
 		}
 
 		// Indices
