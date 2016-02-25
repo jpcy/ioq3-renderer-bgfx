@@ -99,6 +99,7 @@ struct ConsoleVariables
 	cvar_t *debugDrawSize;
 	cvar_t *debugText;
 	cvar_t *dynamicLightIntensity;
+	cvar_t *dynamicLightScale;
 	cvar_t *maxAnisotropy;
 	cvar_t *picmip;
 	cvar_t *screenshotJpegQuality;

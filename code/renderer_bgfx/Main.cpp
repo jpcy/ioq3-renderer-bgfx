@@ -256,7 +256,9 @@ void DynamicLightManager::add(int frameNo, const DynamicLight &light)
 		return;
 	}
 
-	lights_[frameNo % BGFX_NUM_BUFFER_FRAMES][nLights_++] = light;
+	DynamicLight &l = lights_[frameNo % BGFX_NUM_BUFFER_FRAMES][nLights_++];
+	l = light;
+	l.color_radius.w *= g_cvars.dynamicLightScale->value;
 }
 
 void DynamicLightManager::clear()
@@ -735,13 +737,13 @@ void Main::renderScene(const refdef_t *def)
 					const float freq = 10.1f;
 					const float radius = base + g_sinTable[ri.ftol((phase + floatTime_ * freq) * g_funcTableSize) & g_funcTableMask] * amplitude;
 					dl.capsuleEnd = vec3(entity.e.oldorigin);
-					dl.color_radius = vec4(lightningColor, 150 * radius);
+					dl.color_radius = vec4(lightningColor, 200 * radius);
 					dl.position_type.w = DynamicLight::Capsule;
 				}
 				// Plasma ball.
 				else if (entity.e.reType == RT_SPRITE && plasmaBallMaterial_ && entity.e.customShader == plasmaBallMaterial_->index)
 				{
-					dl.color_radius = vec4(plasmaColor, 100);
+					dl.color_radius = vec4(plasmaColor, 150);
 				}
 				// Plasma explosion.
 				else if (entity.e.reType == RT_MODEL && plasmaExplosionMaterial_ && entity.e.customShader == plasmaExplosionMaterial_->index)
@@ -752,7 +754,7 @@ void Main::renderScene(const refdef_t *def)
 				else if (entity.e.reType == RT_RAIL_CORE)
 				{
 					dl.capsuleEnd = vec3(entity.e.oldorigin);
-					dl.color_radius = vec4(util::ToLinear(vec4::fromBytes(entity.e.shaderRGBA).xyz()), 150);
+					dl.color_radius = vec4(util::ToLinear(vec4::fromBytes(entity.e.shaderRGBA).xyz()), 200);
 					dl.position_type.w = DynamicLight::Capsule;
 				}
 

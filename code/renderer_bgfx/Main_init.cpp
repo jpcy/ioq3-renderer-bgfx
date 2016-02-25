@@ -128,6 +128,7 @@ void ConsoleVariables::initialize()
 	debugDrawSize = ri.Cvar_Get("r_debugDrawSize", "256", CVAR_ARCHIVE);
 	debugText = ri.Cvar_Get("r_debugText", "0", CVAR_CHEAT);
 	dynamicLightIntensity = ri.Cvar_Get("r_dynamicLightIntensity", "5", CVAR_ARCHIVE);
+	dynamicLightScale = ri.Cvar_Get("r_dynamicLightScale", "0.5", CVAR_ARCHIVE);
 	maxAnisotropy = ri.Cvar_Get("r_maxAnisotropy", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	picmip = ri.Cvar_Get("r_picmip", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	ri.Cvar_CheckRange(picmip, 0, 16, qtrue);
