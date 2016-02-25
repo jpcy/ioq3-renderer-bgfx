@@ -33,7 +33,8 @@ enum class DebugDraw
 	None,
 	Depth,
 	DynamicLight,
-	Luminance
+	Luminance,
+	SMAA
 };
 
 /*
@@ -179,6 +180,9 @@ private:
 			LinearDepth = Generic + GenericShaderProgramVariant::Num,
 			Luminance,
 			LuminanceDownsample,
+			SMAABlendingWeightCalculation,
+			SMAAEdgeDetection,
+			SMAANeighborhoodBlending,
 			Texture,
 			TextureColor,
 			TextureSingleChannel,
@@ -207,7 +211,7 @@ private:
 	uint8_t pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags = 0);
 	void flushStretchPics();
 	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask);
-	void renderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, bool originBottomLeft = false, Rect rect = Rect());
+	void renderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, uint16_t clearFlags = BGFX_CLEAR_NONE, bool originBottomLeft = false, Rect rect = Rect());
 	void setTexelOffsetsDownsample2x2(int width, int height);
 	void setTexelOffsetsDownsample4x4(int width, int height);
 
@@ -261,10 +265,9 @@ private:
 	/// @name Framebuffers
 	/// @{
 	static const FrameBuffer defaultFb_;
-	FrameBuffer fxaaFb_;
-	bgfx::TextureHandle fxaaColor_;
 	FrameBuffer linearDepthFb_;
 	FrameBuffer sceneFb_;
+	FrameBuffer sceneTempFb_;
 	bgfx::TextureHandle sceneFbColor_;
 	bgfx::TextureHandle sceneFbDepth_;
 	/// @}
@@ -325,6 +328,12 @@ private:
 	std::array<ShaderProgram, (int)ShaderProgramId::Num> shaderPrograms_;
 	/// @}
 
+	/// @name SMAA
+	/// @{
+	FrameBuffer smaaBlendFb_, smaaEdgesFb_;
+	bgfx::TextureHandle smaaAreaTex_, smaaSearchTex_;
+	/// @}
+
 	/// @name Stretchpic
 	/// @{
 	vec4 stretchPicColor_;
@@ -345,7 +354,8 @@ private:
 	enum class AntiAliasing
 	{
 		None,
-		FXAA
+		FXAA,
+		SMAA
 	};
 
 	AntiAliasing aa_;

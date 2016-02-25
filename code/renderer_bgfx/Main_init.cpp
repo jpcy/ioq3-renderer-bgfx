@@ -26,7 +26,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 namespace renderer {
 
-#include "../../build/Shader.cpp" // Pull into the renderer namespace.
+// Pull into the renderer namespace.
+#include "../smaa/AreaTex.h"
+#include "../smaa/SearchTex.h"
+#include "../../build/Shader.cpp"
 
 struct BackendMap
 {
@@ -88,7 +91,8 @@ void ConsoleVariables::initialize()
 	aa = ri.Cvar_Get("r_aa", "", CVAR_ARCHIVE | CVAR_LATCH);
 	ri.Cvar_SetDescription(aa,
 		"<empty>   None\n"
-		"fxaa      Fast Approximate Anti-Aliasing (FXAA v2)\n");
+		"fxaa      FXAA v2\n"
+		"smaa      SMAA 1x\n");
 	backend = ri.Cvar_Get("r_backend", "", CVAR_ARCHIVE | CVAR_LATCH);
 
 	{
@@ -124,7 +128,8 @@ void ConsoleVariables::initialize()
 		"<empty>   None\n"
 		"depth     Linear depth\n"
 		"dlight    Dynamic light data\n"
-		"lum       Average and adapted luminance\n");
+		"lum       Average and adapted luminance\n"
+		"smaa      SMAA edges and weights\n");
 	debugDrawSize = ri.Cvar_Get("r_debugDrawSize", "256", CVAR_ARCHIVE);
 	debugText = ri.Cvar_Get("r_debugText", "0", CVAR_CHEAT);
 	dynamicLightIntensity = ri.Cvar_Get("r_dynamicLightIntensity", "5", CVAR_ARCHIVE);
@@ -238,6 +243,21 @@ const FrameBuffer Main::defaultFb_;
 Main::Main()
 {
 	g_cvars.initialize();
+
+	// Parse anti-aliasing cvar.
+	if (util::Stricmp(g_cvars.aa->string, "fxaa") == 0)
+	{
+		aa_ = AntiAliasing::FXAA;
+	}
+	else if (util::Stricmp(g_cvars.aa->string, "smaa") == 0)
+	{
+		aa_ = AntiAliasing::SMAA;
+	}
+	else
+	{
+		aa_ = AntiAliasing::None;
+	}
+
 	ri.Cmd_AddCommand("screenshot", Cmd_Screenshot);
 	ri.Cmd_AddCommand("screenshotJPEG", Cmd_ScreenshotJPEG);
 	ri.Cmd_AddCommand("screenshotPNG", Cmd_ScreenshotPNG);
@@ -276,6 +296,12 @@ Main::Main()
 
 Main::~Main()
 {
+	if (aa_ == AntiAliasing::SMAA)
+	{
+		bgfx::destroyTexture(smaaAreaTex_);
+		bgfx::destroyTexture(smaaSearchTex_);
+	}
+
 	ri.Cmd_RemoveCommand("screenshot");
 	ri.Cmd_RemoveCommand("screenshotJPEG");
 	ri.Cmd_RemoveCommand("screenshotPNG");
@@ -393,8 +419,8 @@ void Main::initialize()
 
 	// Map shader programs to their vertex and fragment shaders.
 	std::array<ShaderProgramIdMap, ShaderProgramId::Num> programMap;
-	programMap[ShaderProgramId::AdaptedLuminance]            = { FragmentShaderId::AdaptedLuminance, VertexShaderId::Texture };
-	programMap[ShaderProgramId::Depth]                       = { FragmentShaderId::Depth, VertexShaderId::Depth };
+	programMap[ShaderProgramId::AdaptedLuminance] = { FragmentShaderId::AdaptedLuminance, VertexShaderId::Texture };
+	programMap[ShaderProgramId::Depth]            = { FragmentShaderId::Depth, VertexShaderId::Depth };
 
 	programMap[ShaderProgramId::Depth + DepthShaderProgramVariant::AlphaTest] =
 	{
@@ -414,7 +440,7 @@ void Main::initialize()
 		VertexShaderId::Depth_AlphaTestDepthRange
 	};
 
-	programMap[ShaderProgramId::Fog]                         = { FragmentShaderId::Fog, VertexShaderId::Fog };
+	programMap[ShaderProgramId::Fog] = { FragmentShaderId::Fog, VertexShaderId::Fog };
 
 	programMap[ShaderProgramId::Fog + FogShaderProgramVariant::DepthRange] =
 	{
@@ -422,7 +448,7 @@ void Main::initialize()
 		VertexShaderId::Fog_DepthRange
 	};
 
-	programMap[ShaderProgramId::FXAA]                        = { FragmentShaderId::FXAA, VertexShaderId::Texture };
+	programMap[ShaderProgramId::FXAA] = { FragmentShaderId::FXAA, VertexShaderId::Texture };
 
 	// Sync with GenericShaderProgramVariant. Order matters - fragment first.
 	for (int y = 0; y < GenericVertexShaderVariant::Num; y++)
@@ -435,13 +461,16 @@ void Main::initialize()
 		}
 	}
 
-	programMap[ShaderProgramId::LinearDepth]                 = { FragmentShaderId::LinearDepth, VertexShaderId::Texture };
-	programMap[ShaderProgramId::Luminance]                   = { FragmentShaderId::Luminance, VertexShaderId::Texture };
-	programMap[ShaderProgramId::LuminanceDownsample]         = { FragmentShaderId::LuminanceDownsample, VertexShaderId::Texture };
-	programMap[ShaderProgramId::Texture]                     = { FragmentShaderId::Texture, VertexShaderId::Texture };
-	programMap[ShaderProgramId::TextureColor]                = { FragmentShaderId::TextureColor, VertexShaderId::Texture };
-	programMap[ShaderProgramId::TextureSingleChannel]        = { FragmentShaderId::TextureSingleChannel, VertexShaderId::Texture };
-	programMap[ShaderProgramId::ToneMap]                     = { FragmentShaderId::ToneMap, VertexShaderId::Texture };
+	programMap[ShaderProgramId::LinearDepth]          = { FragmentShaderId::LinearDepth, VertexShaderId::Texture };
+	programMap[ShaderProgramId::Luminance]            = { FragmentShaderId::Luminance, VertexShaderId::Texture };
+	programMap[ShaderProgramId::LuminanceDownsample]  = { FragmentShaderId::LuminanceDownsample, VertexShaderId::Texture };
+	programMap[ShaderProgramId::SMAABlendingWeightCalculation] = { FragmentShaderId::SMAABlendingWeightCalculation, VertexShaderId::SMAABlendingWeightCalculation };
+	programMap[ShaderProgramId::SMAAEdgeDetection]    = { FragmentShaderId::SMAAEdgeDetection, VertexShaderId::SMAAEdgeDetection };
+	programMap[ShaderProgramId::SMAANeighborhoodBlending] = { FragmentShaderId::SMAANeighborhoodBlending, VertexShaderId::SMAANeighborhoodBlending };
+	programMap[ShaderProgramId::Texture]              = { FragmentShaderId::Texture, VertexShaderId::Texture };
+	programMap[ShaderProgramId::TextureColor]         = { FragmentShaderId::TextureColor, VertexShaderId::Texture };
+	programMap[ShaderProgramId::TextureSingleChannel] = { FragmentShaderId::TextureSingleChannel, VertexShaderId::Texture };
+	programMap[ShaderProgramId::ToneMap]              = { FragmentShaderId::ToneMap, VertexShaderId::Texture };
 
 	for (size_t i = 0; i < ShaderProgramId::Num; i++)
 	{
@@ -471,14 +500,19 @@ void Main::initialize()
 			ri.Error(ERR_DROP, "Error creating shader program");
 	}
 
-	// Parse anti-aliasing cvar.
-	aa_ = util::Stricmp(g_cvars.aa->string, "fxaa") == 0 ? AntiAliasing::FXAA : AntiAliasing::None;
-
-	// FXAA frame buffer.
-	if (aa_ == AntiAliasing::FXAA)
+	// AA frame buffers/textures.
+	if (aa_ != AntiAliasing::None && g_cvars.hdr->integer != 0)
 	{
-		fxaaColor_ = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP);
-		fxaaFb_.handle = bgfx::createFrameBuffer(1, &fxaaColor_, true);
+		// HDR needs a temp BGRA8 destination for AA.
+		sceneTempFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP);
+	}
+
+	if (aa_ == AntiAliasing::SMAA)
+	{
+		smaaBlendFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP);
+		smaaEdgesFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::RG8, BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP);
+		smaaAreaTex_ = bgfx::createTexture2D(AREATEX_WIDTH, AREATEX_HEIGHT, 1, bgfx::TextureFormat::RG8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(areaTexBytes, AREATEX_SIZE));
+		smaaSearchTex_ = bgfx::createTexture2D(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, 1, bgfx::TextureFormat::R8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(searchTexBytes, SEARCHTEX_SIZE));
 	}
 
 	// Linear depth frame buffer.

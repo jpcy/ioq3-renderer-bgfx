@@ -776,69 +776,115 @@ void Main::renderScene(const refdef_t *def)
 		sceneRotation_ = mat3(def->viewaxis);
 		renderCamera(mainVisCacheId_, scenePosition, scenePosition, sceneRotation_, Rect(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
 
-		// HDR.
-		if (g_cvars.hdr->integer && isWorldCamera_)
+		if (isWorldCamera_)
 		{
-			// Luminance.
-			for (size_t i = 0; i < nLuminanceFrameBuffers_; i++)
+			// HDR.
+			if (g_cvars.hdr->integer)
 			{
-				ShaderProgramId::Enum programId;
-
-				if (i == 0)
+				// Luminance.
+				for (size_t i = 0; i < nLuminanceFrameBuffers_; i++)
 				{
-					programId = ShaderProgramId::Luminance;
-					setTexelOffsetsDownsample2x2(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]);
-					bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFbColor_);
+					ShaderProgramId::Enum programId;
+
+					if (i == 0)
+					{
+						programId = ShaderProgramId::Luminance;
+						setTexelOffsetsDownsample2x2(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]);
+						bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFbColor_);
+					}
+					else
+					{
+						programId = ShaderProgramId::LuminanceDownsample;
+						setTexelOffsetsDownsample4x4(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]);
+						bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, luminanceFrameBuffers_[i - 1].handle);
+					}
+
+					renderScreenSpaceQuad(luminanceFrameBuffers_[i], programId, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_, Rect(0, 0, luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]));
+				}
+
+				// Luminance adaptation.
+				if (lastAdaptedLuminanceTime_ <= 0)
+				{
+					lastAdaptedLuminanceTime_ = floatTime_;
+				}
+
+				matUniforms_->time.set(vec4(floatTime_ - lastAdaptedLuminanceTime_, 0, 0, 0));
+				lastAdaptedLuminanceTime_ = floatTime_;
+				bgfx::setTexture(0, uniforms_->luminanceSampler.handle, luminanceFrameBuffers_[nLuminanceFrameBuffers_ - 1].handle);
+				bgfx::setTexture(1, uniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[1 - currentAdaptedLuminanceFB_].handle);
+				renderScreenSpaceQuad(adaptedLuminanceFB_[currentAdaptedLuminanceFB_], ShaderProgramId::AdaptedLuminance, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
+				currentAdaptedLuminanceFB_ = 1 - currentAdaptedLuminanceFB_;
+
+				// Tonemap.
+				// Clamp to sane values.
+				uniforms_->brightnessContrastGammaSaturation.set(vec4
+				(
+					Clamped(g_cvars.brightness->value - 1.0f, -0.8f, 0.8f),
+					Clamped(g_cvars.contrast->value, 0.5f, 3.0f),
+					Clamped(g_cvars.gamma->value, 0.5f, 3.0f),
+					Clamped(g_cvars.saturation->value, 0.0f, 3.0f)
+				));
+
+				uniforms_->hdrKey.set(vec4(Clamped(g_cvars.hdrKey->value, 0.01f, 0.2f), 0, 0, 0));
+				bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFbColor_);
+				bgfx::setTexture(1, uniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[currentAdaptedLuminanceFB_].handle);
+				renderScreenSpaceQuad(aa_ == AntiAliasing::None ? defaultFb_ : sceneTempFb_, ShaderProgramId::ToneMap, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
+			}
+
+			if (aa_ == AntiAliasing::FXAA)
+			{
+				if (g_cvars.hdr->integer)
+				{
+					bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneTempFb_.handle);
 				}
 				else
 				{
-					programId = ShaderProgramId::LuminanceDownsample;
-					setTexelOffsetsDownsample4x4(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]);
-					bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, luminanceFrameBuffers_[i - 1].handle);
+					bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFbColor_);
 				}
 
-				renderScreenSpaceQuad(luminanceFrameBuffers_[i], programId, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(0, 0, luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]));
+				renderScreenSpaceQuad(defaultFb_, ShaderProgramId::FXAA, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
 			}
-
-			// Luminance adaptation.
-			if (lastAdaptedLuminanceTime_ <= 0)
+			else if (aa_ == AntiAliasing::SMAA)
 			{
-				lastAdaptedLuminanceTime_ = floatTime_;
+				uniforms_->smaaMetrics.set(vec4(1.0f / w, 1.0f / h, (float)w, (float)h));
+
+				// Edge detection.
+				if (g_cvars.hdr->integer)
+				{
+					bgfx::setTexture(0, uniforms_->smaaColorSampler.handle, sceneTempFb_.handle);
+				}
+				else
+				{
+					bgfx::setTexture(0, uniforms_->smaaColorSampler.handle, sceneFbColor_);
+				}
+
+				renderScreenSpaceQuad(smaaEdgesFb_, ShaderProgramId::SMAAEdgeDetection, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_COLOR, isTextureOriginBottomLeft_);
+
+				// Blending weight calculation.
+				bgfx::setTexture(0, uniforms_->smaaEdgesSampler.handle, smaaEdgesFb_.handle);
+				bgfx::setTexture(1, uniforms_->smaaAreaSampler.handle, smaaAreaTex_);
+				bgfx::setTexture(2, uniforms_->smaaSearchSampler.handle, smaaSearchTex_);
+				renderScreenSpaceQuad(smaaBlendFb_, ShaderProgramId::SMAABlendingWeightCalculation, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE, BGFX_CLEAR_COLOR, isTextureOriginBottomLeft_);
+
+				// Neighborhood blending.
+				if (g_cvars.hdr->integer)
+				{
+					bgfx::setTexture(0, uniforms_->smaaColorSampler.handle, sceneTempFb_.handle);
+				}
+				else
+				{
+					bgfx::setTexture(0, uniforms_->smaaColorSampler.handle, sceneFbColor_);
+				}
+
+				bgfx::setTexture(1, uniforms_->smaaBlendSampler.handle, smaaBlendFb_.handle);
+				renderScreenSpaceQuad(defaultFb_, ShaderProgramId::SMAANeighborhoodBlending, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
 			}
-
-			matUniforms_->time.set(vec4(floatTime_ - lastAdaptedLuminanceTime_, 0, 0, 0));
-			lastAdaptedLuminanceTime_ = floatTime_;
-			bgfx::setTexture(0, uniforms_->luminanceSampler.handle, luminanceFrameBuffers_[nLuminanceFrameBuffers_ - 1].handle);
-			bgfx::setTexture(1, uniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[1 - currentAdaptedLuminanceFB_].handle);
-			renderScreenSpaceQuad(adaptedLuminanceFB_[currentAdaptedLuminanceFB_], ShaderProgramId::AdaptedLuminance, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
-			currentAdaptedLuminanceFB_ = 1 - currentAdaptedLuminanceFB_;
-
-			// Tonemap.
-			// Clamp to sane values.
-			uniforms_->brightnessContrastGammaSaturation.set(vec4
-			(
-				Clamped(g_cvars.brightness->value - 1.0f, -0.8f, 0.8f),
-				Clamped(g_cvars.contrast->value, 0.5f, 3.0f),
-				Clamped(g_cvars.gamma->value, 0.5f, 3.0f),
-				Clamped(g_cvars.saturation->value, 0.0f, 3.0f)
-			));
-
-			uniforms_->hdrKey.set(vec4(Clamped(g_cvars.hdrKey->value, 0.01f, 0.2f), 0, 0, 0));
-			bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFbColor_);
-			bgfx::setTexture(1, uniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[currentAdaptedLuminanceFB_].handle);
-			renderScreenSpaceQuad(aa_ == AntiAliasing::FXAA ? fxaaFb_ : defaultFb_, ShaderProgramId::ToneMap, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
-		}
-		else if (isWorldCamera_)
-		{
-			bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFbColor_);
-			renderScreenSpaceQuad(aa_ == AntiAliasing::FXAA ? fxaaFb_ : defaultFb_, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
-		}
-
-		// FXAA.
-		if (aa_ == AntiAliasing::FXAA)
-		{
-			bgfx::setTexture(0, uniforms_->textureSampler.handle, fxaaColor_);
-			renderScreenSpaceQuad(defaultFb_, ShaderProgramId::FXAA, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+			else
+			{
+				// Blit scene.
+				bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFbColor_);
+				renderScreenSpaceQuad(defaultFb_, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
+			}
 		}
 	}
 
@@ -870,6 +916,11 @@ void Main::endFrame()
 		}
 
 		debugDraw(adaptedLuminanceFB_[currentAdaptedLuminanceFB_], 0, 1);
+	}
+	else if (debugDraw_ == DebugDraw::SMAA && aa_ == AntiAliasing::SMAA)
+	{
+		debugDraw(smaaEdgesFb_, 0, 0, false);
+		debugDraw(smaaBlendFb_, 1, 0, false);
 	}
 
 	bgfx::frame();
@@ -944,13 +995,13 @@ void Main::onModelCreate(Model *model)
 void Main::debugDraw(const FrameBuffer &texture, int x, int y, bool singleChannel)
 {
 	bgfx::setTexture(0, uniforms_->textureSampler.handle, texture.handle);
-	renderScreenSpaceQuad(defaultFb_, singleChannel ? ShaderProgramId::TextureSingleChannel : ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize->integer * x, g_cvars.debugDrawSize->integer * y, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
+	renderScreenSpaceQuad(defaultFb_, singleChannel ? ShaderProgramId::TextureSingleChannel : ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize->integer * x, g_cvars.debugDrawSize->integer * y, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
 }
 
 void Main::debugDraw(bgfx::TextureHandle texture, int x, int y, bool singleChannel)
 {
 	bgfx::setTexture(0, uniforms_->textureSampler.handle, texture);
-	renderScreenSpaceQuad(defaultFb_, singleChannel ? ShaderProgramId::TextureSingleChannel : ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize->integer * x, g_cvars.debugDrawSize->integer * y, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
+	renderScreenSpaceQuad(defaultFb_, singleChannel ? ShaderProgramId::TextureSingleChannel : ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize->integer * x, g_cvars.debugDrawSize->integer * y, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
 }
 
 uint8_t Main::pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags)
@@ -1309,7 +1360,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		// Read depth, write linear depth.
 		uniforms_->depthRange.set(vec4(0, 0, zMin, zMax));
 		bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFbDepth_);
-		renderScreenSpaceQuad(linearDepthFb_, ShaderProgramId::LinearDepth, BGFX_STATE_RGB_WRITE, isTextureOriginBottomLeft_);
+		renderScreenSpaceQuad(linearDepthFb_, ShaderProgramId::LinearDepth, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
 	}
 
 	uint8_t mainViewId;
@@ -1496,7 +1547,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 }
 
 // From bgfx screenSpaceQuad.
-void Main::renderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, bool originBottomLeft, Rect rect)
+void Main::renderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, uint16_t clearFlags, bool originBottomLeft, Rect rect)
 {
 	if (!bgfx::checkAvailTransientVertexBuffer(3, Vertex::decl))
 	{
@@ -1543,7 +1594,7 @@ void Main::renderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId
 	vertices[2].texCoord = vec2(maxu, maxv);
 	bgfx::setVertexBuffer(&vb);
 	bgfx::setState(state);
-	const uint8_t viewId = pushView(frameBuffer, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), rect);
+	const uint8_t viewId = pushView(frameBuffer, clearFlags, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), rect);
 	bgfx::submit(viewId, shaderPrograms_[program].handle);
 }
 
@@ -1953,6 +2004,8 @@ DebugDraw DebugDrawFromString(const char *s)
 		return DebugDraw::DynamicLight;
 	else if (util::Stricmp(s, "lum") == 0)
 		return DebugDraw::Luminance;
+	else if (util::Stricmp(s, "smaa") == 0)
+		return DebugDraw::SMAA;
 
 	return DebugDraw::None;
 }

@@ -1137,6 +1137,9 @@ struct Uniforms
 	/// @remarks Used by entities and the world.
 	Uniform_vec4 localViewOrigin = "u_LocalViewOrigin";
 
+	/// @remarks (1.0 / width, 1.0 / height, width, height)
+	Uniform_vec4 smaaMetrics = "u_SmaaMetrics";
+
 	/// @remarks Only x used.
 	Uniform_vec4 softSprite_Depth_UseAlpha = "u_SoftSprite_Depth_UseAlpha";
 
@@ -1205,6 +1208,12 @@ struct Uniforms
 
 	Uniform_int luminanceSampler = "u_LuminanceSampler";
 	Uniform_int adaptedLuminanceSampler = "u_AdaptedLuminanceSampler";
+
+	Uniform_int smaaColorSampler = "u_SmaaColorSampler";
+	Uniform_int smaaEdgesSampler = "u_SmaaEdgesSampler";
+	Uniform_int smaaAreaSampler = "u_SmaaAreaSampler";
+	Uniform_int smaaSearchSampler = "u_SmaaSearchSampler";
+	Uniform_int smaaBlendSampler = "u_SmaaBlendSampler";
 	/// @}
 };
 

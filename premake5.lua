@@ -225,6 +225,9 @@ newaction
 			{ "LinearDepth" },
 			{ "Luminance" },
 			{ "LuminanceDownsample" },
+			{ "SMAABlendingWeightCalculation" },
+			{ "SMAAEdgeDetection" },
+			{ "SMAANeighborhoodBlending" },
 			{ "Texture" },
 			{ "TextureSingleChannel" },
 			{ "TextureColor" },
@@ -236,6 +239,9 @@ newaction
 			{ "Depth", depthVertexVariants },
 			{ "Fog", fogVertexVariants },
 			{ "Generic", genericVertexVariants },
+			{ "SMAABlendingWeightCalculation" },
+			{ "SMAAEdgeDetection" },
+			{ "SMAANeighborhoodBlending" },
 			{ "Texture" }
 		}
 		
