@@ -264,12 +264,20 @@ private:
 
 	/// @name Framebuffers
 	/// @{
+	struct SceneFrameBufferAttachment
+	{
+		enum
+		{
+			Color,
+			Depth,
+			Num
+		};
+	};
+
 	static const FrameBuffer defaultFb_;
 	FrameBuffer linearDepthFb_;
 	FrameBuffer sceneFb_;
 	FrameBuffer sceneTempFb_;
-	bgfx::TextureHandle sceneFbColor_;
-	bgfx::TextureHandle sceneFbDepth_;
 	/// @}
 
 	/// @name Game-specific hacks

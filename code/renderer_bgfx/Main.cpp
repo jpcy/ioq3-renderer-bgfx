@@ -790,7 +790,7 @@ void Main::renderScene(const refdef_t *def)
 					{
 						programId = ShaderProgramId::Luminance;
 						setTexelOffsetsDownsample2x2(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]);
-						bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFbColor_);
+						bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Color);
 					}
 					else
 					{
@@ -826,7 +826,7 @@ void Main::renderScene(const refdef_t *def)
 				));
 
 				uniforms_->hdrKey.set(vec4(Clamped(g_cvars.hdrKey->value, 0.01f, 0.2f), 0, 0, 0));
-				bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFbColor_);
+				bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Color);
 				bgfx::setTexture(1, uniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[currentAdaptedLuminanceFB_].handle);
 				renderScreenSpaceQuad(aa_ == AntiAliasing::None ? defaultFb_ : sceneTempFb_, ShaderProgramId::ToneMap, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
 			}
@@ -839,7 +839,7 @@ void Main::renderScene(const refdef_t *def)
 				}
 				else
 				{
-					bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFbColor_);
+					bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Color);
 				}
 
 				renderScreenSpaceQuad(defaultFb_, ShaderProgramId::FXAA, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
@@ -855,7 +855,7 @@ void Main::renderScene(const refdef_t *def)
 				}
 				else
 				{
-					bgfx::setTexture(0, uniforms_->smaaColorSampler.handle, sceneFbColor_);
+					bgfx::setTexture(0, uniforms_->smaaColorSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Color);
 				}
 
 				renderScreenSpaceQuad(smaaEdgesFb_, ShaderProgramId::SMAAEdgeDetection, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_COLOR, isTextureOriginBottomLeft_);
@@ -873,7 +873,7 @@ void Main::renderScene(const refdef_t *def)
 				}
 				else
 				{
-					bgfx::setTexture(0, uniforms_->smaaColorSampler.handle, sceneFbColor_);
+					bgfx::setTexture(0, uniforms_->smaaColorSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Color);
 				}
 
 				bgfx::setTexture(1, uniforms_->smaaBlendSampler.handle, smaaBlendFb_.handle);
@@ -882,7 +882,7 @@ void Main::renderScene(const refdef_t *def)
 			else
 			{
 				// Blit scene.
-				bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFbColor_);
+				bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Color);
 				renderScreenSpaceQuad(defaultFb_, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
 			}
 		}
@@ -1359,7 +1359,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 		// Read depth, write linear depth.
 		uniforms_->depthRange.set(vec4(0, 0, zMin, zMax));
-		bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFbDepth_);
+		bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Depth);
 		renderScreenSpaceQuad(linearDepthFb_, ShaderProgramId::LinearDepth, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
 	}
 

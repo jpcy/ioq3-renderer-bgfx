@@ -472,6 +472,7 @@ void Main::initialize()
 	programMap[ShaderProgramId::TextureSingleChannel] = { FragmentShaderId::TextureSingleChannel, VertexShaderId::Texture };
 	programMap[ShaderProgramId::ToneMap]              = { FragmentShaderId::ToneMap, VertexShaderId::Texture };
 
+	// Create shader programs.
 	for (size_t i = 0; i < ShaderProgramId::Num; i++)
 	{
 		auto &fragment = fragmentShaders_[programMap[i].frag];
@@ -500,33 +501,21 @@ void Main::initialize()
 			ri.Error(ERR_DROP, "Error creating shader program");
 	}
 
-	// AA frame buffers/textures.
-	if (aa_ != AntiAliasing::None && g_cvars.hdr->integer != 0)
-	{
-		// HDR needs a temp BGRA8 destination for AA.
-		sceneTempFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP);
-	}
-
-	if (aa_ == AntiAliasing::SMAA)
-	{
-		smaaBlendFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP);
-		smaaEdgesFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::RG8, BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP);
-		smaaAreaTex_ = bgfx::createTexture2D(AREATEX_WIDTH, AREATEX_HEIGHT, 1, bgfx::TextureFormat::RG8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(areaTexBytes, AREATEX_SIZE));
-		smaaSearchTex_ = bgfx::createTexture2D(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, 1, bgfx::TextureFormat::R8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(searchTexBytes, SEARCHTEX_SIZE));
-	}
-
-	// Linear depth frame buffer.
+	// Frame buffers.
+	const uint32_t rtClampFlags = BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP;
 	linearDepthFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::R16F);
-
-	// Scene frame buffer.
-	sceneFbColor_ = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, g_cvars.hdr->integer != 0 ? bgfx::TextureFormat::RGBA16F : bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP);
-	sceneFbDepth_ = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
-	bgfx::TextureHandle sceneTextures[] = { sceneFbColor_, sceneFbDepth_ };
-	sceneFb_.handle = bgfx::createFrameBuffer(2, sceneTextures, true);
+	bgfx::TextureHandle sceneTextures[SceneFrameBufferAttachment::Num];
 
 	if (g_cvars.hdr->integer != 0)
 	{
-		// Luminance frame buffers.
+		if (aa_ != AntiAliasing::None)
+		{
+			// HDR needs a temp BGRA8 destination for AA.
+			sceneTempFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::BGRA8, rtClampFlags);
+		}
+
+		sceneTextures[SceneFrameBufferAttachment::Color] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::RGBA16F, rtClampFlags);
+
 		for (size_t i = 0; i < nLuminanceFrameBuffers_; i++)
 		{
 			luminanceFrameBuffers_[i].handle = bgfx::createFrameBuffer(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i], bgfx::TextureFormat::R16F);
@@ -534,6 +523,21 @@ void Main::initialize()
 
 		adaptedLuminanceFB_[0].handle = bgfx::createFrameBuffer(1, 1, bgfx::TextureFormat::R16F);
 		adaptedLuminanceFB_[1].handle = bgfx::createFrameBuffer(1, 1, bgfx::TextureFormat::R16F);
+	}
+	else
+	{
+		sceneTextures[SceneFrameBufferAttachment::Color] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, rtClampFlags);
+	}
+
+	sceneTextures[SceneFrameBufferAttachment::Depth] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
+	sceneFb_.handle = bgfx::createFrameBuffer(SceneFrameBufferAttachment::Num, sceneTextures, true);
+
+	if (aa_ == AntiAliasing::SMAA)
+	{
+		smaaBlendFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::BGRA8, rtClampFlags);
+		smaaEdgesFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::RG8, rtClampFlags);
+		smaaAreaTex_ = bgfx::createTexture2D(AREATEX_WIDTH, AREATEX_HEIGHT, 1, bgfx::TextureFormat::RG8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(areaTexBytes, AREATEX_SIZE));
+		smaaSearchTex_ = bgfx::createTexture2D(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, 1, bgfx::TextureFormat::R8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(searchTexBytes, SEARCHTEX_SIZE));
 	}
 
 	// Dynamic lights.
