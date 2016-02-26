@@ -480,6 +480,11 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 
 		if ((entity->e.renderfx & RF_DEPTHHACK) != 0)
 		{
+			if (bgfx::getRendererType() == bgfx::RendererType::Direct3D11)
+			{
+				dc.zOffset = 0.2f;
+			}
+
 			dc.zScale = 0.3f;
 		}
 
