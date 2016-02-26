@@ -475,6 +475,16 @@ void Main::initialize()
 	// Create shader programs.
 	for (size_t i = 0; i < ShaderProgramId::Num; i++)
 	{
+		// Don't create shader programs that won't be used.
+		if (aa_ != AntiAliasing::FXAA && i == ShaderProgramId::FXAA)
+			continue;
+
+		if (aa_ != AntiAliasing::SMAA && (i == ShaderProgramId::SMAABlendingWeightCalculation || i == ShaderProgramId::SMAAEdgeDetection || i == ShaderProgramId::SMAANeighborhoodBlending))
+			continue;
+
+		if (g_cvars.hdr->integer == 0 && (i == ShaderProgramId::AdaptedLuminance || i == ShaderProgramId::Luminance || i == ShaderProgramId::LuminanceDownsample || i == ShaderProgramId::ToneMap))
+			continue;
+
 		auto &fragment = fragmentShaders_[programMap[i].frag];
 
 		if (!bgfx::isValid(fragment.handle))
