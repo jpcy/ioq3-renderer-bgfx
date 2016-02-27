@@ -346,7 +346,7 @@ enum class MaterialColorGen
 {
 	Bad,
 	Identity        = CGEN_IDENTITY, // always (1,1,1,1)
-	LightingDiffuse = CGEN_LIGHTING_DIFFUSE,
+	LightingDiffuse,
 	IdentityLighting,	// Main::identityLight
 	Entity,			// grabbed from entity's modulate field
 	OneMinusEntity,	// grabbed from 1 - entity.modulate

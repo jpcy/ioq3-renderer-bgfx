@@ -29,9 +29,6 @@ uniform vec4 u_DiffuseTexMatrix;
 uniform vec4 u_DiffuseTexOffTurb;
 
 // colorgen and alphagen
-uniform vec4 u_AmbientLight;
-uniform vec4 u_DirectedLight;
-uniform vec4 u_ModelLightDir;
 uniform vec4 u_PortalRange;
 
 uniform vec4 u_FogEnabled; // only x used
@@ -66,13 +63,6 @@ vec2 GenTexCoords(vec3 position, vec3 normal, vec2 texCoord1, vec2 texCoord2)
 vec4 CalcColor(vec4 vertColor, vec4 baseColor, vec4 colorAttrib, vec3 position, vec3 normal)
 {
 	vec4 color = vertColor * colorAttrib + baseColor;
-	
-	if (u_ColorGen == CGEN_LIGHTING_DIFFUSE)
-	{
-		float incoming = saturate(dot(normal, u_ModelLightDir.xyz));
-		color.rgb = saturate(u_DirectedLight.xyz * incoming + u_AmbientLight.xyz);
-	}
-	
 	vec3 viewer = u_LocalViewOrigin.xyz - position;
 
 	if (u_AlphaGen == AGEN_LIGHTING_SPECULAR)

@@ -8,7 +8,6 @@
 #define ATEST_GE_128 3
 
 #define CGEN_IDENTITY         1
-#define CGEN_LIGHTING_DIFFUSE 2
 #define CGEN_EXACT_VERTEX     6
 #define CGEN_VERTEX           7
 
