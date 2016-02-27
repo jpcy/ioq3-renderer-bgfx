@@ -75,17 +75,6 @@ float g_triangleTable[g_funcTableSize];
 float g_sawToothTable[g_funcTableSize];
 float g_inverseSawToothTable[g_funcTableSize];
 
-void WarnOnce(WarnOnceId::Enum id)
-{
-	static bool warned[WarnOnceId::Num];
-
-	if (!warned[id])
-	{
-		ri.Printf(PRINT_WARNING, "BGFX transient buffer alloc failed\n");
-		warned[id] = true;
-	}
-}
-
 void ConsoleVariables::initialize()
 {
 	aa = ri.Cvar_Get("r_aa", "", CVAR_ARCHIVE | CVAR_LATCH);
@@ -552,102 +541,6 @@ void Main::initialize()
 
 	// Dynamic lights.
 	dlightManager_ = std::make_unique<DynamicLightManager>();
-}
-
-static int Font_ReadInt(const uint8_t *data, int *offset)
-{
-	assert(data && offset);
-	int i = data[*offset]+(data[*offset+1]<<8)+(data[*offset+2]<<16)+(data[*offset+3]<<24);
-	*offset += 4;
-	return i;
-}
-
-static float Font_ReadFloat(const uint8_t *data, int *offset)
-{
-	assert(data && offset);
-	uint8_t temp[4];
-#if defined Q3_BIG_ENDIAN
-	temp[0] = data[*offset+3];
-	temp[1] = data[*offset+2];
-	temp[2] = data[*offset+1];
-	temp[3] = data[*offset+0];
-#else
-	temp[0] = data[*offset+0];
-	temp[1] = data[*offset+1];
-	temp[2] = data[*offset+2];
-	temp[3] = data[*offset+3];
-#endif
-	*offset += 4;
-	return *((float *)temp);
-}
-
-void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
-{
-	if (!fontName)
-	{
-		ri.Printf(PRINT_ALL, "RE_RegisterFont: called with empty name\n");
-		return;
-	}
-
-	if (pointSize <= 0)
-		pointSize = 12;
-
-	if (nFonts_ >= maxFonts_)
-	{
-		ri.Printf(PRINT_WARNING, "RE_RegisterFont: Too many fonts registered already.\n");
-		return;
-	}
-
-	char name[1024];
-	util::Sprintf(name, sizeof(name), "fonts/fontImage_%i.dat", pointSize);
-
-	for (int i = 0; i < nFonts_; i++)
-	{
-		if (util::Stricmp(name, fonts_[i].name) == 0)
-		{
-			memcpy(font, &fonts_[i], sizeof(fontInfo_t));
-			return;
-		}
-	}
-
-	int len = ri.FS_ReadFile(name, NULL);
-
-	if (len != sizeof(fontInfo_t))
-		return;
-
-	int offset = 0;
-	const uint8_t *data;
-	ri.FS_ReadFile(name, (void **)&data);
-
-	for(int i = 0; i < GLYPHS_PER_FONT; i++)
-	{
-		font->glyphs[i].height		= Font_ReadInt(data, &offset);
-		font->glyphs[i].top			= Font_ReadInt(data, &offset);
-		font->glyphs[i].bottom		= Font_ReadInt(data, &offset);
-		font->glyphs[i].pitch		= Font_ReadInt(data, &offset);
-		font->glyphs[i].xSkip		= Font_ReadInt(data, &offset);
-		font->glyphs[i].imageWidth	= Font_ReadInt(data, &offset);
-		font->glyphs[i].imageHeight = Font_ReadInt(data, &offset);
-		font->glyphs[i].s			= Font_ReadFloat(data, &offset);
-		font->glyphs[i].t			= Font_ReadFloat(data, &offset);
-		font->glyphs[i].s2			= Font_ReadFloat(data, &offset);
-		font->glyphs[i].t2			= Font_ReadFloat(data, &offset);
-		font->glyphs[i].glyph		= Font_ReadInt(data, &offset);
-		util::Strncpyz(font->glyphs[i].shaderName, (const char *)&data[offset], sizeof(font->glyphs[i].shaderName));
-		offset += sizeof(font->glyphs[i].shaderName);
-	}
-
-	font->glyphScale = Font_ReadFloat(data, &offset);
-	util::Strncpyz(font->name, name, sizeof(font->name));
-
-	for (int i = GLYPH_START; i <= GLYPH_END; i++)
-	{
-		auto m = materialCache_->findMaterial(font->glyphs[i].shaderName, MaterialLightmapId::StretchPic, false);
-		font->glyphs[i].glyph = m->defaultShader ? 0 : m->index;
-	}
-
-	memcpy(&fonts_[nFonts_++], font, sizeof(fontInfo_t));
-	ri.FS_FreeFile((void **)data);
 }
 
 namespace main {

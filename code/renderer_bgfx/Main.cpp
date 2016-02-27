@@ -53,6 +53,17 @@ std::array<Vertex *, 4> ExtractQuadCorners(Vertex *vertices, const uint16_t *ind
 	return corners;
 }
 
+void WarnOnce(WarnOnceId::Enum id)
+{
+	static bool warned[WarnOnceId::Num];
+
+	if (!warned[id])
+	{
+		ri.Printf(PRINT_WARNING, "BGFX transient buffer alloc failed\n");
+		warned[id] = true;
+	}
+}
+
 void BgfxCallback::fatal(bgfx::Fatal::Enum _code, const char* _str)
 {
 	if (bgfx::Fatal::DebugCheck == _code)
@@ -223,278 +234,6 @@ bool DrawCall::operator<(const DrawCall &other) const
 	return false;
 }
 
-DynamicLightManager::DynamicLightManager() : nLights_(0)
-{
-	// Calculate the smallest square POT texture size to fit the dynamic lights data.
-	const int texelSize = sizeof(float) * 4; // RGBA32F
-	lightsTextureSize_ = util::CalculateSmallestPowerOfTwoTextureSize(maxLights * sizeof(DynamicLight) / texelSize);
-
-	// FIXME: workaround d3d11 flickering texture if smaller than 64x64 and not updated every frame
-	lightsTextureSize_ = std::max(uint16_t(64), lightsTextureSize_);
-	ri.Printf(PRINT_ALL, "dlight texture size is %ux%u\n", lightsTextureSize_, lightsTextureSize_);
-
-	// Clamp and filter are just for debug drawing. Sampling uses texel fetch.
-	lightsTexture_ = bgfx::createTexture2D(lightsTextureSize_, lightsTextureSize_, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
-}
-
-DynamicLightManager::~DynamicLightManager()
-{
-	if (gridSize_.x > 0)
-	{
-		bgfx::destroyTexture(cellsTexture_);
-		bgfx::destroyTexture(indicesTexture_);
-	}
-
-	bgfx::destroyTexture(lightsTexture_);
-}
-
-void DynamicLightManager::add(int frameNo, const DynamicLight &light)
-{
-	if (nLights_ == maxLights - 1)
-	{
-		ri.Printf(PRINT_WARNING, "Hit maximum dlights\n");
-		return;
-	}
-
-	DynamicLight &l = lights_[frameNo % BGFX_NUM_BUFFER_FRAMES][nLights_++];
-	l = light;
-	l.color_radius.w *= g_cvars.dynamicLightScale->value;
-}
-
-void DynamicLightManager::clear()
-{
-	nLights_ = 0;
-}
-
-void DynamicLightManager::contribute(int frameNo, vec3 position, vec3 *color, vec3 *direction) const
-{
-	assert(color);
-	assert(direction);
-	const float DLIGHT_AT_RADIUS = 16; // at the edge of a dlight's influence, this amount of light will be added
-	const float DLIGHT_MINIMUM_RADIUS = 16; // never calculate a range less than this to prevent huge light numbers
-
-	for (uint8_t i = 0; i < nLights_; i++)
-	{
-		const DynamicLight &dl = lights_[frameNo % BGFX_NUM_BUFFER_FRAMES][i];
-		vec3 dir = dl.position_type.xyz() - position;
-		float d = dir.normalize();
-		float power = std::min(DLIGHT_AT_RADIUS * (dl.color_radius.a * dl.color_radius.a), DLIGHT_MINIMUM_RADIUS);
-		d = power / (d * d);
-		*color += util::ToGamma(dl.color_radius).rgb() * d;
-		*direction += dir * d;
-	}
-}
-
-void DynamicLightManager::initializeGrid()
-{
-	const int minCellSize = 200;
-	const uint8_t maxGridSize = 32;
-	const Bounds worldBounds = world::GetBounds();
-
-	for (size_t i = 0; i < 3; i++)
-	{
-		cellSize_[i] = std::max(minCellSize, (int)ceil(worldBounds.toSize()[i] / gridSize_[i]));
-		gridSize_[i] = std::min(maxGridSize, (uint8_t)ceil(worldBounds.toSize()[i] / cellSize_[i]));
-		cellSize_[i] = int(worldBounds.toSize()[i] / gridSize_[i]);
-	}
-
-	ri.Printf(PRINT_ALL, "dlight grid size is %ux%ux%u\n", gridSize_.x, gridSize_.y, gridSize_.z);
-	gridOffset_ = vec3::empty - worldBounds.min;
-
-	// Cells texture.
-	cellsTextureSize_ = util::CalculateSmallestPowerOfTwoTextureSize((int)gridSize_.x * (int)gridSize_.y * (int)gridSize_.z);
-	ri.Printf(PRINT_ALL, "dlight cells texture size is %ux%u\n", cellsTextureSize_, cellsTextureSize_);
-	cellsTexture_ = bgfx::createTexture2D(cellsTextureSize_, cellsTextureSize_, 1, bgfx::TextureFormat::R16U, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
-
-	for (int i = 0; i < BGFX_NUM_BUFFER_FRAMES; i++)
-	{
-		cellsTextureData_[i].resize(cellsTextureSize_ * cellsTextureSize_);
-	}
-
-	// Indices textures.
-	indicesTextureSize_ = 512;
-	ri.Printf(PRINT_ALL, "dlight indices texture size is %ux%u\n", indicesTextureSize_, indicesTextureSize_);
-	indicesTexture_ = bgfx::createTexture2D(indicesTextureSize_, indicesTextureSize_, 1, bgfx::TextureFormat::R8U, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
-
-	for (int i = 0; i < BGFX_NUM_BUFFER_FRAMES; i++)
-	{
-		indicesTextureData_[i].resize(indicesTextureSize_ * indicesTextureSize_);
-	}
-
-	assignedLights_.reserve(512); // Arbitrary initial size.
-}
-
-void DynamicLightManager::updateTextures(int frameNo)
-{
-	assert(world::IsLoaded());
-	const int buffer = frameNo % BGFX_NUM_BUFFER_FRAMES;
-
-	// Assign lights to cells.
-	assignedLights_.clear();
-
-	for (uint8_t i = 0; i < nLights_; i++)
-	{
-		const DynamicLight &dl = lights_[buffer][i];
-		vec3b min(gridSize_.x, gridSize_.y, gridSize_.z);
-		vec3b max;
-
-		// Get the cell positions at the sphere AABB corners.
-		// The min/max will be the range of cells this light touches.
-		// This is very imprecise, but simple.
-		// For capsules, use the start and end positions.
-		for (int j = 0; j < (dl.position_type.w == DynamicLight::Point ? 1 : 2); j++)
-		{
-			Bounds aabb;
-			
-			if (j == 0)
-			{
-				aabb = Bounds(dl.position_type.xyz(), dl.color_radius.w);
-			}
-			else
-			{
-				assert(dl.position_type.w == DynamicLight::Capsule);
-				aabb = Bounds(dl.capsuleEnd.xyz(), dl.color_radius.w);
-			}
-
-			std::array<vec3, 8> corners = aabb.toVertices();
-
-			for (const vec3 &corner : corners)
-			{
-				const vec3b cellPosition = cellPositionFromWorldspacePosition(corner);
-
-				for (int k = 0; k < 3; k++)
-				{
-					if (cellPosition[k] < min[k])
-						min[k] = cellPosition[k];
-					if (cellPosition[k] > max[k])
-						max[k] = cellPosition[k];
-				}
-			}
-		}
-
-		for (uint8_t x = min.x; x <= max.x; x++)
-		{
-			for (uint8_t y = min.y; y <= max.y; y++)
-			{
-				for (uint8_t z = min.z; z <= max.z; z++)
-				{
-					assignedLights_.push_back(encodeAssignedLight(vec3b(x, y, z), i));
-				}
-			}
-		}
-	}
-
-	// Sort the assigned lights.
-	std::sort(assignedLights_.begin(), assignedLights_.end());
-
-	// Fill cells and indices texture data.
-	// Make sure the first index uses num 0, so all empty cells can use it.
-	memset(cellsTextureData_[buffer].data(), 0, cellsTextureData_[buffer].size() * sizeof(uint16_t));
-	uint16_t indicesOffset = 0;
-	indicesTextureData_[buffer][indicesOffset++] = 0; // Empty cells will point here.
-	size_t currentCellIndex = 0;
-	uint16_t indicesNumLightsOffset = 0;
-
-	for (size_t i = 0; i < assignedLights_.size(); i++)
-	{
-		vec3b cellPosition;
-		uint8_t lightIndex;
-		decodeAssignedLight(assignedLights_[i], &cellPosition, &lightIndex);
-		const size_t cellIndex = cellIndexFromCellPosition(cellPosition);
-
-		// First cell, or cell index has changed?
-		if (i == 0 || cellIndex != currentCellIndex)
-		{
-			currentCellIndex = cellIndex;
-
-			// Point the cell to the indices.
-			cellsTextureData_[buffer][cellIndex] = indicesOffset;
-
-			// Store the offset in the indices texture where we want to write number of lights to.
-			indicesNumLightsOffset = indicesOffset;
-
-			// Initialize num lights to 0.
-			indicesTextureData_[buffer][indicesNumLightsOffset] = 0;
-			indicesOffset++;
-		}
-
-		// Increment num lights.
-		indicesTextureData_[buffer][indicesNumLightsOffset]++;
-
-		// Write the light index.
-		indicesTextureData_[buffer][indicesOffset++] = lightIndex;
-
-		if (indicesOffset > uint16_t(USHRT_MAX - 2))
-		{
-			ri.Printf(PRINT_WARNING, "Too many assigned lights.\n");
-			break;
-		}
-	}
-
-	// Update the cells texture.
-	bgfx::updateTexture2D(cellsTexture_, 0, 0, 0, cellsTextureSize_, cellsTextureSize_, bgfx::makeRef(cellsTextureData_[buffer].data(), cellsTextureData_[buffer].size() * sizeof(uint16_t)));
-
-	// Update the indices texture.
-	if (nLights_ > 0 && indicesOffset > 0)
-	{
-		assert(indicesOffset < indicesTextureSize_ * indicesTextureSize_);
-		const uint16_t width = std::min(indicesOffset, indicesTextureSize_);
-		const uint16_t height = (uint16_t)std::ceil(indicesOffset / (float)indicesTextureSize_);
-		bgfx::updateTexture2D(indicesTexture_, 0, 0, 0, width, height, bgfx::makeRef(indicesTextureData_[buffer].data(), indicesOffset));
-	}
-	
-	// Update the lights texture.
-	if (nLights_ > 0)
-	{
-		const uint32_t size = nLights_ * sizeof(DynamicLight);
-		const uint32_t texelSize = sizeof(float) * 4; // RGBA32F
-		const uint16_t nTexels = uint16_t(size / texelSize);
-		const uint16_t width = std::min(nTexels, lightsTextureSize_);
-		const uint16_t height = (uint16_t)std::ceil(nTexels / (float)lightsTextureSize_);
-		bgfx::updateTexture2D(lightsTexture_, 0, 0, 0, width, height, bgfx::makeRef(lights_[buffer], size));
-	}
-}
-
-void DynamicLightManager::updateUniforms(Uniforms *uniforms)
-{
-	assert(uniforms);
-	uniforms->dynamicLightCellSize.set(vec4((float)cellSize_.x, (float)cellSize_.y, (float)cellSize_.z, (float)cellsTextureSize_));
-	uniforms->dynamicLightGridOffset.set(gridOffset_);
-	uniforms->dynamicLightGridSize.set(vec4((float)gridSize_.x, (float)gridSize_.y, (float)gridSize_.z, 0));
-	uniforms->dynamicLight_Num_Intensity.set(vec4((float)nLights_, g_cvars.dynamicLightIntensity->value, 0, 0));
-	uniforms->dynamicLightTextureSizes_Cells_Indices_Lights.set(vec4((float)cellsTextureSize_, (float)indicesTextureSize_, (float)lightsTextureSize_, 0));
-}
-
-void DynamicLightManager::decodeAssignedLight(uint32_t value, vec3b *cellPosition, uint8_t *lightIndex) const
-{
-	assert(cellPosition);
-	assert(lightIndex);
-	cellPosition->x = (value >> 24) & 0xff;
-	cellPosition->y = (value >> 16) & 0xff;
-	cellPosition->z = (value >> 8) & 0xff;
-	*lightIndex = value & 0xff;
-}
-
-uint32_t DynamicLightManager::encodeAssignedLight(vec3b cellPosition, uint8_t lightIndex) const
-{
-	return (cellPosition.x << 24) + (cellPosition.y << 16) + (cellPosition.z << 8) + lightIndex;
-}
-
-size_t DynamicLightManager::cellIndexFromCellPosition(vec3b position) const
-{
-	return position.x + (position.y * (size_t)gridSize_.x) + (position.z * (size_t)gridSize_.x * (size_t)gridSize_.y);
-}
-
-vec3b DynamicLightManager::cellPositionFromWorldspacePosition(vec3 position) const
-{
-	const vec3 local = gridOffset_ + position;
-	vec3b cellPosition;
-	cellPosition.x = std::min(uint8_t(std::max(0.0f, local.x / cellSize_.x)), uint8_t(gridSize_.x - 1));
-	cellPosition.y = std::min(uint8_t(std::max(0.0f, local.y / cellSize_.y)), uint8_t(gridSize_.y - 1));
-	cellPosition.z = std::min(uint8_t(std::max(0.0f, local.z / cellSize_.z)), uint8_t(gridSize_.z - 1));
-	return cellPosition;
-}
-
 #define NOISE_PERM(a) noisePerm_[(a) & (noiseSize_ - 1)]
 #define NOISE_TABLE(x, y, z, t) noiseTable_[NOISE_PERM(x + NOISE_PERM(y + NOISE_PERM(z + NOISE_PERM(t))))]
 #define NOISE_LERP( a, b, w ) ( ( a ) * ( 1.0f - ( w ) ) + ( b ) * ( w ) )
@@ -538,6 +277,102 @@ float Main::getNoise(float x, float y, float z, float t) const
 	finalvalue = NOISE_LERP(value[0], value[1], ft);
 
 	return finalvalue;
+}
+
+static int Font_ReadInt(const uint8_t *data, int *offset)
+{
+	assert(data && offset);
+	int i = data[*offset] + (data[*offset + 1] << 8) + (data[*offset + 2] << 16) + (data[*offset + 3] << 24);
+	*offset += 4;
+	return i;
+}
+
+static float Font_ReadFloat(const uint8_t *data, int *offset)
+{
+	assert(data && offset);
+	uint8_t temp[4];
+#if defined Q3_BIG_ENDIAN
+	temp[0] = data[*offset + 3];
+	temp[1] = data[*offset + 2];
+	temp[2] = data[*offset + 1];
+	temp[3] = data[*offset + 0];
+#else
+	temp[0] = data[*offset + 0];
+	temp[1] = data[*offset + 1];
+	temp[2] = data[*offset + 2];
+	temp[3] = data[*offset + 3];
+#endif
+	*offset += 4;
+	return *((float *)temp);
+}
+
+void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
+{
+	if (!fontName)
+	{
+		ri.Printf(PRINT_ALL, "RE_RegisterFont: called with empty name\n");
+		return;
+	}
+
+	if (pointSize <= 0)
+		pointSize = 12;
+
+	if (nFonts_ >= maxFonts_)
+	{
+		ri.Printf(PRINT_WARNING, "RE_RegisterFont: Too many fonts registered already.\n");
+		return;
+	}
+
+	char name[1024];
+	util::Sprintf(name, sizeof(name), "fonts/fontImage_%i.dat", pointSize);
+
+	for (int i = 0; i < nFonts_; i++)
+	{
+		if (util::Stricmp(name, fonts_[i].name) == 0)
+		{
+			memcpy(font, &fonts_[i], sizeof(fontInfo_t));
+			return;
+		}
+	}
+
+	int len = ri.FS_ReadFile(name, NULL);
+
+	if (len != sizeof(fontInfo_t))
+		return;
+
+	int offset = 0;
+	const uint8_t *data;
+	ri.FS_ReadFile(name, (void **)&data);
+
+	for (int i = 0; i < GLYPHS_PER_FONT; i++)
+	{
+		font->glyphs[i].height = Font_ReadInt(data, &offset);
+		font->glyphs[i].top = Font_ReadInt(data, &offset);
+		font->glyphs[i].bottom = Font_ReadInt(data, &offset);
+		font->glyphs[i].pitch = Font_ReadInt(data, &offset);
+		font->glyphs[i].xSkip = Font_ReadInt(data, &offset);
+		font->glyphs[i].imageWidth = Font_ReadInt(data, &offset);
+		font->glyphs[i].imageHeight = Font_ReadInt(data, &offset);
+		font->glyphs[i].s = Font_ReadFloat(data, &offset);
+		font->glyphs[i].t = Font_ReadFloat(data, &offset);
+		font->glyphs[i].s2 = Font_ReadFloat(data, &offset);
+		font->glyphs[i].t2 = Font_ReadFloat(data, &offset);
+		font->glyphs[i].glyph = Font_ReadInt(data, &offset);
+		util::Strncpyz(font->glyphs[i].shaderName, (const char *)&data[offset], sizeof(font->glyphs[i].shaderName));
+		offset += sizeof(font->glyphs[i].shaderName);
+	}
+
+	font->glyphScale = Font_ReadFloat(data, &offset);
+	util::Strncpyz(font->name, name, sizeof(font->name));
+
+	for (int i = GLYPH_START; i <= GLYPH_END; i++)
+	{
+		auto m = materialCache_->findMaterial(font->glyphs[i].shaderName, MaterialLightmapId::StretchPic, false);
+		font->glyphs[i].glyph = m->defaultShader ? 0 : m->index;
+	}
+
+	memcpy(&fonts_[nFonts_++], font, sizeof(fontInfo_t));
+	ri.FS_FreeFile((void **)data);
 }
 
 void Main::debugPrint(const char *format, ...)
