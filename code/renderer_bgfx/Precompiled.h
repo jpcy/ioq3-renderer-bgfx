@@ -94,6 +94,7 @@ struct ConsoleVariables
 	void initialize();
 
 	cvar_t *aa;
+	cvar_t *aa_hud;
 	cvar_t *backend;
 	cvar_t *bgfx_stats;
 	cvar_t *debugDraw;

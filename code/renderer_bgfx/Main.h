@@ -28,6 +28,17 @@ namespace renderer {
 
 #include "../../build/Shader.h" // Pull into the renderer namespace.
 
+enum class AntiAliasing
+{
+	None,
+	FXAA,
+	MSAA2x,
+	MSAA4x,
+	MSAA8x,
+	MSAA16x,
+	SMAA
+};
+
 enum class DebugDraw
 {
 	None,
@@ -304,14 +315,7 @@ private:
 	std::unique_ptr<Uniforms_MaterialStage> matStageUniforms_;
 	/// @}
 
-	enum class AntiAliasing
-	{
-		None,
-		FXAA,
-		SMAA
-	};
-
-	AntiAliasing aa_;
+	AntiAliasing aa_, aaHud_;
 	const Entity *currentEntity_ = nullptr;
 	DebugDraw debugDraw_ = DebugDraw::None;
 	std::unique_ptr<DynamicLightManager> dlightManager_;

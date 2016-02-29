@@ -82,6 +82,13 @@ void ConsoleVariables::initialize()
 		"<empty>   None\n"
 		"fxaa      FXAA v2\n"
 		"smaa      SMAA 1x\n");
+	aa_hud = ri.Cvar_Get("r_aa_hud", "", CVAR_ARCHIVE | CVAR_LATCH);
+	ri.Cvar_SetDescription(aa_hud,
+		"<empty>   None\n"
+		"msaa2x    MSAA 2x\n"
+		"msaa4x    MSAA 4x\n"
+		"msaa8x    MSAA 8x\n"
+		"msaa16x   MSAA 16x\n");
 	backend = ri.Cvar_Get("r_backend", "", CVAR_ARCHIVE | CVAR_LATCH);
 
 	{
@@ -229,23 +236,36 @@ static void Cmd_ScreenshotPNG()
 
 const FrameBuffer Main::defaultFb_;
 
+AntiAliasing AntiAliasingFromString(const char *s)
+{
+	if (util::Stricmp(s, "fxaa") == 0)
+		return AntiAliasing::FXAA;
+	else if (util::Stricmp(s, "msaa2x") == 0)
+		return AntiAliasing::MSAA2x;
+	else if (util::Stricmp(s, "msaa4x") == 0)
+		return AntiAliasing::MSAA4x;
+	else if (util::Stricmp(s, "msaa8x") == 0)
+		return AntiAliasing::MSAA8x;
+	else if (util::Stricmp(s, "msaa16x") == 0)
+		return AntiAliasing::MSAA16x;
+	else if (util::Stricmp(s, "smaa") == 0)
+		return AntiAliasing::SMAA;
+
+	return AntiAliasing::None;
+}
+
 Main::Main()
 {
 	g_cvars.initialize();
+	aa_ = AntiAliasingFromString(g_cvars.aa->string);
 
-	// Parse anti-aliasing cvar.
-	if (util::Stricmp(g_cvars.aa->string, "fxaa") == 0)
-	{
-		aa_ = AntiAliasing::FXAA;
-	}
-	else if (util::Stricmp(g_cvars.aa->string, "smaa") == 0)
-	{
-		aa_ = AntiAliasing::SMAA;
-	}
-	else
-	{
+	if (aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x)
 		aa_ = AntiAliasing::None;
-	}
+
+	aaHud_ = AntiAliasingFromString(g_cvars.aa_hud->string);
+
+	if (!(aaHud_ >= AntiAliasing::MSAA2x && aaHud_ <= AntiAliasing::MSAA16x))
+		aaHud_ = AntiAliasing::None;
 
 	ri.Cmd_AddCommand("screenshot", Cmd_Screenshot);
 	ri.Cmd_AddCommand("screenshotJPEG", Cmd_ScreenshotJPEG);
@@ -348,6 +368,11 @@ void Main::initialize()
 	}
 
 	uint32_t resetFlags = 0;
+
+	if (aaHud_ >= AntiAliasing::MSAA2x && aaHud_ <= AntiAliasing::MSAA16x)
+	{
+		resetFlags |= (1 + (int)aaHud_ - (int)AntiAliasing::MSAA2x) << BGFX_RESET_MSAA_SHIFT;
+	}
 
 	if (g_cvars.maxAnisotropy->integer)
 	{

@@ -1339,6 +1339,10 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				bgfx::setTexture(TextureUnit::DynamicLightIndices, matStageUniforms_->dynamicLightIndicesSampler.handle, dlightManager_->getIndicesTexture());
 				bgfx::setTexture(TextureUnit::DynamicLights, matStageUniforms_->dynamicLightsSampler.handle, dlightManager_->getLightsTexture());
 			}
+			else if (aaHud_ >= AntiAliasing::MSAA2x && aaHud_ <= AntiAliasing::MSAA16x)
+			{
+				state |= BGFX_STATE_MSAA;
+			}
 
 			if (mat->polygonOffset || dc.zOffset > 0 || dc.zScale > 0)
 			{
