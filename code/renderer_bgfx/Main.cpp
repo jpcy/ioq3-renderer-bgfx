@@ -1132,7 +1132,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	}
 
 	// Render depth.
-	if (isWorldCamera_)
+	if (isWorldCamera_ && !(aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x))
 	{
 		const uint8_t viewId = pushView(sceneFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect);
 
@@ -1202,7 +1202,12 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	
 	if (isWorldCamera_)
 	{
-		mainViewId = pushView(sceneFb_, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, rect, PushViewFlags::Sequential);
+		uint16_t clearFlags = BGFX_CLEAR_NONE;
+
+		if (aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x)
+			clearFlags |= BGFX_CLEAR_DEPTH;
+
+		mainViewId = pushView(sceneFb_, clearFlags, viewMatrix, projectionMatrix, rect, PushViewFlags::Sequential);
 	}
 	else
 	{
@@ -1314,7 +1319,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				shaderVariant |= GenericShaderProgramVariant::AlphaTest;
 			}
 
-			if (SETTINGS_SOFT_SPRITES && dc.softSpriteDepth > 0)
+			if (softSpritesEnabled_ && dc.softSpriteDepth > 0)
 			{
 				shaderVariant |= GenericShaderProgramVariant::SoftSprite;
 				bgfx::setTexture(TextureUnit::Depth, matStageUniforms_->depthSampler.handle, linearDepthFb_.handle);
@@ -1338,10 +1343,6 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				bgfx::setTexture(TextureUnit::DynamicLightCells, matStageUniforms_->dynamicLightCellsSampler.handle, dlightManager_->getCellsTexture());
 				bgfx::setTexture(TextureUnit::DynamicLightIndices, matStageUniforms_->dynamicLightIndicesSampler.handle, dlightManager_->getIndicesTexture());
 				bgfx::setTexture(TextureUnit::DynamicLights, matStageUniforms_->dynamicLightsSampler.handle, dlightManager_->getLightsTexture());
-			}
-			else if (aaHud_ >= AntiAliasing::MSAA2x && aaHud_ <= AntiAliasing::MSAA16x)
-			{
-				state |= BGFX_STATE_MSAA;
 			}
 
 			if (mat->polygonOffset || dc.zOffset > 0 || dc.zScale > 0)

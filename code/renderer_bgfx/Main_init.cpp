@@ -81,6 +81,10 @@ void ConsoleVariables::initialize()
 	ri.Cvar_SetDescription(aa,
 		"<empty>   None\n"
 		"fxaa      FXAA v2\n"
+		"msaa2x    MSAA 2x\n"
+		"msaa4x    MSAA 4x\n"
+		"msaa8x    MSAA 8x\n"
+		"msaa16x   MSAA 16x\n"
 		"smaa      SMAA 1x\n");
 	aa_hud = ri.Cvar_Get("r_aa_hud", "", CVAR_ARCHIVE | CVAR_LATCH);
 	ri.Cvar_SetDescription(aa_hud,
@@ -259,13 +263,17 @@ Main::Main()
 	g_cvars.initialize();
 	aa_ = AntiAliasingFromString(g_cvars.aa->string);
 
-	if (aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x)
+	// Don't allow MSAA if HDR is enabled.
+	if (g_cvars.hdr->integer && aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x)
 		aa_ = AntiAliasing::None;
 
 	aaHud_ = AntiAliasingFromString(g_cvars.aa_hud->string);
 
+	// Non-world/HUD scenes can only use MSAA.
 	if (!(aaHud_ >= AntiAliasing::MSAA2x && aaHud_ <= AntiAliasing::MSAA16x))
 		aaHud_ = AntiAliasing::None;
+
+	softSpritesEnabled_ = g_cvars.softSprites->integer && !(aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x);
 
 	ri.Cmd_AddCommand("screenshot", Cmd_Screenshot);
 	ri.Cmd_AddCommand("screenshotJPEG", Cmd_ScreenshotJPEG);
@@ -539,6 +547,7 @@ void Main::initialize()
 		}
 
 		sceneTextures[SceneFrameBufferAttachment::Color] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::RGBA16F, rtClampFlags);
+		sceneTextures[SceneFrameBufferAttachment::Depth] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
 
 		for (size_t i = 0; i < nLuminanceFrameBuffers_; i++)
 		{
@@ -550,10 +559,17 @@ void Main::initialize()
 	}
 	else
 	{
-		sceneTextures[SceneFrameBufferAttachment::Color] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, rtClampFlags);
+		uint32_t aaFlags = 0;
+
+		if (aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x)
+		{
+			aaFlags |= (1 + (int)aa_ - (int)AntiAliasing::MSAA2x) << BGFX_TEXTURE_RT_MSAA_SHIFT;
+		}
+
+		sceneTextures[SceneFrameBufferAttachment::Color] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
+		sceneTextures[SceneFrameBufferAttachment::Depth] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT | aaFlags);
 	}
 
-	sceneTextures[SceneFrameBufferAttachment::Depth] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
 	sceneFb_.handle = bgfx::createFrameBuffer(SceneFrameBufferAttachment::Num, sceneTextures, true);
 
 	if (aa_ == AntiAliasing::SMAA)

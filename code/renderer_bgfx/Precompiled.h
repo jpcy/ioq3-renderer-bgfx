@@ -54,8 +54,6 @@ using namespace math;
 #undef minor
 #undef None
 
-#define SETTINGS_SOFT_SPRITES (g_cvars.softSprites->integer)
-
 namespace renderer {
 
 extern refimport_t ri;
@@ -191,7 +189,7 @@ struct DrawCall
 	mat4 modelMatrix = mat4::identity;
 	float softSpriteDepth = 0;
 	uint8_t sort = 0;
-	uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE;
+	uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE | BGFX_STATE_MSAA;
 	VertexBuffer vb;
 	float zOffset = 0.0f;
 	float zScale = 0.0f;

@@ -322,6 +322,7 @@ private:
 	float halfTexelOffset_ = 0;
 	bool isTextureOriginBottomLeft_ = false;
 	uint8_t mainVisCacheId_, portalVisCacheId_;
+	bool softSpritesEnabled_ = false;
 	SunLight sunLight_;
 
 	/// Convert from our coordinate system (looking down X) to OpenGL's coordinate system (looking down -Z)
