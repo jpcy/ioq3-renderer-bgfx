@@ -1132,7 +1132,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	}
 
 	// Render depth.
-	if (isWorldCamera_ && !(aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x))
+	if (isWorldCamera_)
 	{
 		const uint8_t viewId = pushView(sceneFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect);
 
@@ -1164,7 +1164,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
-			uint64_t state = BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_DEPTH_WRITE;
+			uint64_t state = BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_DEPTH_WRITE | BGFX_STATE_MSAA;
 
 			// Grab the cull state. Doesn't matter which stage, since it's global to the material.
 			state |= mat->stages[0].getState() & BGFX_STATE_CULL_MASK;
@@ -1202,12 +1202,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	
 	if (isWorldCamera_)
 	{
-		uint16_t clearFlags = BGFX_CLEAR_NONE;
-
-		if (aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x)
-			clearFlags |= BGFX_CLEAR_DEPTH;
-
-		mainViewId = pushView(sceneFb_, clearFlags, viewMatrix, projectionMatrix, rect, PushViewFlags::Sequential);
+		mainViewId = pushView(sceneFb_, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, rect, PushViewFlags::Sequential);
 	}
 	else
 	{
