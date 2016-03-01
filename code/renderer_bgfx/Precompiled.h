@@ -181,6 +181,7 @@ struct DrawCall
 		uint32_t nIndices = 0;
 	};
 
+	bool dynamicLighting = true;
 	const Entity *entity = nullptr;
 	int flags = DrawCallFlags::None;
 	int fogIndex = -1;

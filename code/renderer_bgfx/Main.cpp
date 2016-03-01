@@ -1079,6 +1079,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			}
 
 			DrawCall dc;
+			dc.dynamicLighting = false; // No dynamic lighting on decals.
 			dc.fogIndex = sortedScenePolygons_[batchStart]->fogIndex;
 			dc.material = sortedScenePolygons_[batchStart]->material;
 			dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
@@ -1332,7 +1333,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				uniforms_->softSprite_Depth_UseAlpha.set(vec4(dc.softSpriteDepth, useAlpha, 0, 0));
 			}
 
-			if (isWorldCamera_)
+			if (isWorldCamera_ && dc.dynamicLighting)
 			{
 				shaderVariant |= GenericShaderProgramVariant::DynamicLights;
 				bgfx::setTexture(TextureUnit::DynamicLightCells, matStageUniforms_->dynamicLightCellsSampler.handle, dlightManager_->getCellsTexture());
@@ -1607,6 +1608,7 @@ void Main::renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3
 	indices[3] = 2; indices[4] = 1; indices[5] = 3;
 
 	DrawCall dc;
+	dc.dynamicLighting = false;
 	dc.entity = entity;
 	dc.fogIndex = isWorldCamera_ ? world::FindFogIndex(entity->e.origin, entity->e.radius) : -1;
 	dc.material = mat;
@@ -1681,6 +1683,7 @@ void Main::renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity)
 	}
 
 	DrawCall dc;
+	dc.dynamicLighting = false;
 	dc.entity = entity;
 	dc.fogIndex = isWorldCamera_ ? world::FindFogIndex(entity->e.origin, entity->e.radius) : -1;
 	dc.material = materialCache_->getMaterial(entity->e.customShader);
@@ -1750,6 +1753,7 @@ void Main::renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Ent
 	indices[3] = 3; indices[4] = 1; indices[5] = 2;
 
 	DrawCall dc;
+	dc.dynamicLighting = false;
 	dc.entity = entity;
 	dc.fogIndex = isWorldCamera_ ? world::FindFogIndex(entity->e.origin, entity->e.radius) : -1;
 	dc.material = materialCache_->getMaterial(entity->e.customShader);
