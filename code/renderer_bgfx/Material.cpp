@@ -29,60 +29,6 @@ Material::Material(const char *name)
 	util::Strncpyz(this->name, name, sizeof(this->name));
 }
 
-int Material::getNumGpuDeforms() const
-{
-	int n = 0;
-
-	for (int i = 0; i < numDeforms; i++)
-	{
-		if (isGpuDeform(deforms[i].deformation))
-			n++;
-	}
-
-	return n;
-}
-
-bool Material::hasCpuDeforms() const
-{
-	for (int i = 0; i < numDeforms; i++)
-	{
-		if (isCpuDeform(deforms[i].deformation))
-			return true;
-	}
-
-	return false;
-}
-
-bool Material::hasGpuDeforms() const
-{
-	return getNumGpuDeforms() > 0;
-}
-
-bool Material::isCpuDeform(MaterialDeform deform) const
-{
-	switch (deform)
-	{
-		case MaterialDeform::Autosprite:
-		case MaterialDeform::Autosprite2:
-			return true;
-	}
-
-	return false;
-}
-
-bool Material::isGpuDeform(MaterialDeform deform) const
-{
-	switch (deform)
-	{
-		case MaterialDeform::Wave:
-		case MaterialDeform::Bulge:
-		case MaterialDeform::Move:
-			return true;
-	}
-
-	return false;
-}
-
 void Material::finish()
 {
 	for (size_t i = 0; i < maxStages; i++)

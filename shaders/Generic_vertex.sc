@@ -1,5 +1,27 @@
 $input a_position, a_normal, a_tangent, a_texcoord0, a_texcoord1, a_texcoord2, a_color0
-$output v_position, v_projPosition, v_texcoord0, v_texcoord1, v_normal, v_color0, v_viewDir
+$output v_position, v_projPosition, v_texcoord0, v_texcoord1, v_texcoord2, v_normal, v_color0
+
+/*
+===========================================================================
+Copyright (C) 2010 Robert Beckebans <trebor_7@users.sourceforge.net>
+
+This file is part of XreaL source code.
+
+XreaL source code is free software; you can redistribute it
+and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the License,
+or (at your option) any later version.
+
+XreaL source code is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with XreaL source code; if not, write to the Free Software
+Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+===========================================================================
+*/
 
 #include <bgfx_shader.sh>
 #include "Common.sh"
@@ -12,6 +34,7 @@ uniform vec4 u_BaseColor;
 uniform vec4 u_VertColor;
 uniform vec4 u_LightType; // only x used
 uniform vec4 u_ViewOrigin;
+uniform vec4 u_ViewUp;
 uniform vec4 u_LocalViewOrigin;
 uniform vec4 u_Time; // only x used
 
@@ -87,7 +110,7 @@ void main()
 	vec3 position = a_position;
 	vec3 normal = a_normal;
 
-	if (int(u_NumDeforms.x) > 0)
+	if (int(u_NumDeforms_AutoSprite.x) > 0)
 	{
 		CalculateDeform(position, normal, a_texcoord0, u_Time.x);
 	}
@@ -116,10 +139,24 @@ void main()
 		v_color0 *= vec4_splat(1.0) - u_FogColorMask * sqrt(saturate(CalcFog(position, u_FogDepth, u_FogDistance, u_FogEyeT.x)));
 	}
 
+	vec3 wsPosition = mul(u_model[0], vec4(position, 1.0)).xyz;
+	int autoSprite = int(u_NumDeforms_AutoSprite.y);
+
+	if (autoSprite != 0)
+	{
+		// From Unvanquished vertexSprite_vp.glsl
+		float radius = a_texcoord2.x;
+		vec2 corner = a_texcoord0.xy * 2.0 - 1.0;
+		vec3 viewNormal = normalize(u_ViewOrigin.xyz - wsPosition);
+		vec3 left = normalize(cross(u_ViewUp.xyz, viewNormal));
+		vec3 up = cross(left, viewNormal);
+		wsPosition += left * corner.x * radius + up * corner.y * radius;
+		v_texcoord2.x = radius / 2.0;
+	}
+
 	v_texcoord1 = a_texcoord1;
-	v_position = mul(u_model[0], vec4(position, 1.0)).xyz;
+	v_position = wsPosition;
 	v_normal = mul(u_model[0], vec4(normal, 0.0));
-	v_viewDir = u_ViewOrigin.xyz - v_position;
 	v_projPosition = mul(u_viewProj, vec4(v_position, 1.0));
 
 #if defined(USE_DEPTH_RANGE)

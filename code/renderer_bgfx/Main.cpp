@@ -1100,24 +1100,6 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	if (drawCalls_.empty())
 		return;
 
-	// Do material CPU deforms.
-	for (DrawCall &dc : drawCalls_)
-	{
-		assert(dc.material);
-
-		if (dc.material->hasCpuDeforms())
-		{
-			// Material requires CPU deforms, but geometry isn't available in system memory.
-			if (dc.vb.type != DrawCall::BufferType::Transient || dc.ib.type != DrawCall::BufferType::Transient)
-				continue;
-
-			currentEntity_ = dc.entity;
-			dc.material->setTime(floatTime_);
-			dc.material->doCpuDeforms(&dc, sceneRotation_);
-			currentEntity_ = nullptr;
-		}
-	}
-
 	// Sort draw calls.
 	std::sort(drawCalls_.begin(), drawCalls_.end());
 
@@ -1265,6 +1247,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		}
 
 		uniforms_->viewOrigin.set(position);
+		uniforms_->viewUp.set(rotation[2]);
 		mat->setDeformUniforms(matUniforms_.get());
 		const vec3 localViewPosition = currentEntity_ ? currentEntity_->localViewPosition : position;
 		uniforms_->localViewOrigin.set(localViewPosition);
@@ -1315,7 +1298,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				shaderVariant |= GenericShaderProgramVariant::AlphaTest;
 			}
 
-			if (softSpritesEnabled_ && dc.softSpriteDepth > 0)
+			if (isWorldCamera_ && softSpritesEnabled_ && (dc.softSpriteDepth > 0 || mat->hasAutoSpriteDeform()))
 			{
 				shaderVariant |= GenericShaderProgramVariant::SoftSprite;
 				bgfx::setTexture(TextureUnit::Depth, matStageUniforms_->depthSampler.handle, linearDepthFb_.handle);
@@ -1330,7 +1313,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 					state |= BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE);
 				}
 
-				uniforms_->softSprite_Depth_UseAlpha.set(vec4(dc.softSpriteDepth, useAlpha, 0, 0));
+				uniforms_->softSprite_Depth_UseAlpha_AutoSprite.set(vec4(dc.softSpriteDepth, useAlpha, mat->hasAutoSpriteDeform() ? 1.0f : 0.0f, 0));
 			}
 
 			if (isWorldCamera_ && dc.dynamicLighting)

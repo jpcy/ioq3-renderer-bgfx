@@ -35,6 +35,8 @@ struct ModelSurface
 	std::vector<Material *> materials;
 	uint32_t startIndex;
 	uint32_t nIndices;
+	uint32_t startVertex;
+	uint32_t nVertices;
 };
 
 struct ModelTagName
@@ -49,7 +51,7 @@ struct ModelFrame
 	float radius;
 	std::vector<Transform> tags;
 
-	/// Vertex data in system memory. Used by animated models and static models with CPU deforms.
+	/// Vertex data in system memory. Used by animated models.
 	std::vector<Vertex> vertices;
 };
 
@@ -73,9 +75,6 @@ private:
 
 	/// The number of vertices in all the surfaces of a single frame.
 	uint32_t nVertices_;
-
-	/// Index data in system memory. Used by static models with CPU deforms.
-	std::vector<uint16_t> indices_;
 
 	std::vector<ModelFrame> frames_;
 	std::vector<ModelTagName> tagNames_;
@@ -240,12 +239,6 @@ bool Model_md3::load()
 	uint32_t startIndex = 0, startVertex = 0;
 	fileSurface = (md3Surface_t *)&data[fileHeader->ofsSurfaces];
 
-	if (!isAnimated)
-	{
-		// Store indices in system memory too, so they can be used by CPU deforms.
-		indices_.resize(nIndices);
-	}
-
 	for (int i = 0; i < fileHeader->numSurfaces; i++)
 	{
 		auto &surface = surfaces_[i];
@@ -256,12 +249,6 @@ bool Model_md3::load()
 		for (uint32_t j = 0; j < surface.nIndices; j++)
 		{
 			indices[startIndex + j] = LittleLong(startVertex + fileIndices[j]);
-
-			// Store indices in system memory too, so they can be used by CPU deforms.
-			if (!isAnimated)
-			{
-				indices_[startIndex + j] = indices[startIndex + j];
-			}
 		}
 
 		startIndex += surface.nIndices;
@@ -285,17 +272,16 @@ bool Model_md3::load()
 
 		for (int i = 0; i < fileHeader->numSurfaces; i++)
 		{
+			ModelSurface &surface = surfaces_[i];
 			auto fileTexCoords = (md3St_t *)((uint8_t *)fileSurface + fileSurface->ofsSt);
 			auto fileXyzNormals = (md3XyzNormal_t *)((uint8_t *)fileSurface + fileSurface->ofsXyzNormals);
 
 			for (int j = 0; j < fileSurface->numVerts; j++)
 			{
 				vertices[startVertex + j] = loadVertex(j, fileTexCoords, fileXyzNormals);
-
-				// Store vertices in system memory too, so they can be used by CPU deforms.
-				frames_[0].vertices[startVertex + j] = vertices[startVertex + j];
 			}
 
+			surface.materials[0]->setupAutoSpriteDeform(&vertices[startVertex], fileSurface->numVerts);
 			startVertex += fileSurface->numVerts;
 			fileSurface = (md3Surface_t *)((uint8_t *)fileSurface + fileSurface->ofsEnd);
 		}
@@ -314,6 +300,8 @@ bool Model_md3::load()
 
 		for (int i = 0; i < fileHeader->numSurfaces; i++)
 		{
+			ModelSurface &surface = surfaces_[i];
+
 			// Texture coords are the same for each frame, positions and normals aren't.
 			auto fileTexCoords = (md3St_t *)((uint8_t *)fileSurface + fileSurface->ofsSt);
 
@@ -327,6 +315,8 @@ bool Model_md3::load()
 				}
 			}
 
+			surface.startVertex = startVertex;
+			surface.nVertices = fileSurface->numVerts;
 			startVertex += fileSurface->numVerts;
 			fileSurface = (md3Surface_t *)((uint8_t *)fileSurface + fileSurface->ofsEnd);
 		}
@@ -414,6 +404,7 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 	const auto modelMatrix = mat4::transform(entity->e.axis, entity->e.origin);
 	const bool isAnimated = frames_.size() > 1;
 	bgfx::TransientVertexBuffer tvb;
+	Vertex *vertices = nullptr;
 
 	// Build transient vertex buffer for animated models.
 	if (isAnimated)
@@ -425,7 +416,7 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 		}
 
 		bgfx::allocTransientVertexBuffer(&tvb, nVertices_, Vertex::decl);
-		auto vertices = (Vertex *)tvb.data;
+		vertices = (Vertex *)tvb.data;
 
 		// Lerp vertices.
 		for (size_t i = 0; i < nVertices_; i++)
@@ -472,6 +463,12 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 				mat = customMat;
 		}
 
+		// Apply autosprite deform to lerped vertices.
+		if (isAnimated && mat->hasAutoSpriteDeform())
+		{
+			mat->setupAutoSpriteDeform(&vertices[surface.startVertex], surface.nVertices);
+		}
+
 		DrawCall dc;
 		dc.entity = entity;
 		dc.fogIndex = fogIndex;
@@ -488,45 +485,22 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 			dc.zScale = 0.3f;
 		}
 
-		if (!isAnimated && mat->hasCpuDeforms())
+		if (isAnimated)
 		{
-			bgfx::TransientVertexBuffer stvb;
-			bgfx::TransientIndexBuffer stib;
-
-			if (!bgfx::allocTransientBuffers(&stvb, Vertex::decl, nVertices_, &stib, surface.nIndices))
-			{
-				WarnOnce(WarnOnceId::TransientBuffer);
-				continue;
-			}
-
-			memcpy(stvb.data, frames_[0].vertices.data(), stvb.size);
-			memcpy(stib.data, &indices_[surface.startIndex], stib.size);
-			dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
-			dc.vb.transientHandle = stvb;
-			dc.vb.nVertices = nVertices_;
-			dc.ib.transientHandle = stib;
-			dc.ib.nIndices = surface.nIndices;
+			dc.vb.type = DrawCall::BufferType::Transient;
+			dc.vb.transientHandle = tvb;
 		}
 		else
 		{
-			if (isAnimated)
-			{
-				dc.vb.type = DrawCall::BufferType::Transient;
-				dc.vb.transientHandle = tvb;
-			}
-			else
-			{
-				dc.vb.type = DrawCall::BufferType::Static;
-				dc.vb.staticHandle = vertexBuffer_.handle;
-			}
-		
-			dc.vb.nVertices = nVertices_;
-			dc.ib.type = DrawCall::BufferType::Static;
-			dc.ib.staticHandle = indexBuffer_.handle;
-			dc.ib.firstIndex = surface.startIndex;
-			dc.ib.nIndices = surface.nIndices;
+			dc.vb.type = DrawCall::BufferType::Static;
+			dc.vb.staticHandle = vertexBuffer_.handle;
 		}
-
+		
+		dc.vb.nVertices = nVertices_;
+		dc.ib.type = DrawCall::BufferType::Static;
+		dc.ib.staticHandle = indexBuffer_.handle;
+		dc.ib.firstIndex = surface.startIndex;
+		dc.ib.nIndices = surface.nIndices;
 		drawCallList->push_back(dc);
 	}
 }

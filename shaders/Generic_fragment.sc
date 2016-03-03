@@ -1,4 +1,4 @@
-$input v_position, v_projPosition, v_texcoord0, v_texcoord1, v_normal, v_color0, v_viewDir
+$input v_position, v_projPosition, v_texcoord0, v_texcoord1, v_texcoord2, v_normal, v_color0
 
 #include <bgfx_shader.sh>
 #include "Common.sh"
@@ -15,7 +15,7 @@ uniform vec4 u_AlphaTest; // only x used
 SAMPLER2D(u_DepthMap, 5);
 
 uniform vec4 u_DepthRange;
-uniform vec4 u_SoftSprite_Depth_UseAlpha; // only x and y used
+uniform vec4 u_SoftSprite_Depth_UseAlpha_AutoSprite; // w not used
 #endif
 
 #if defined(USE_DYNAMIC_LIGHTS)
@@ -134,12 +134,19 @@ void main()
 	float fragmentDepth = ToLinearDepth(v_projPosition.z / v_projPosition.w * 0.5 + 0.5, u_DepthRange.z, u_DepthRange.w);
 #endif
 
+	float spriteDepth = u_SoftSprite_Depth_UseAlpha_AutoSprite.x;
+
+	if (int(u_SoftSprite_Depth_UseAlpha_AutoSprite.z) == 1)
+	{
+		spriteDepth = v_texcoord2.x;
+	}
+
 	// Depth change in worldspace.
 	float wsDelta = (sceneDepth - fragmentDepth) * (u_DepthRange.w - u_DepthRange.z);
-	float scale = saturate(wsDelta / u_SoftSprite_Depth_UseAlpha.x);
+	float scale = saturate(wsDelta / spriteDepth);
 
 	// Ignore existing alpha if the blend is additive, otherwise scale it.
-	if (int(u_SoftSprite_Depth_UseAlpha.y) == 1)
+	if (int(u_SoftSprite_Depth_UseAlpha_AutoSprite.y) == 1)
 	{
 		alpha *= scale;
 	}

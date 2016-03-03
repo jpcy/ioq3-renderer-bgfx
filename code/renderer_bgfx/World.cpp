@@ -140,9 +140,6 @@ struct VisCache
 
 	/// Visible portal surface.
 	std::vector<Surface *> portalSurfaces;
-
-	std::vector<Vertex> cpuDeformVertices;
-	std::vector<uint16_t> cpuDeformIndices;
 };
 
 static vec2 AtlasTexCoord(vec2 uv, int index, int nTilesPerDimension)
@@ -1210,10 +1207,6 @@ public:
 				visCache->indices[i].clear();
 			}
 
-			// Clear CPU deform geometry.
-			visCache->cpuDeformIndices.clear();
-			visCache->cpuDeformVertices.clear();
-
 			// Create batched surfaces.
 			visCache->batchedSurfaces.clear();
 			size_t firstSurface = 0;
@@ -1231,82 +1224,20 @@ public:
 					bs.material = surface->material;
 					bs.fogIndex = surface->fogIndex;
 
-					if (bs.material->hasCpuDeforms())
-					{
-						// Grab the geometry for all surfaces in this batch.
-						// It will be copied into a transient buffer and then deformed every render() call.
-						bs.firstIndex = (uint32_t)visCache->cpuDeformIndices.size();
-						bs.nIndices = 0;
-
-						for (size_t j = firstSurface; j <= i; j++)
-						{
-							auto s = visCache->surfaces[j];
-
-							// Making assumptions about the geometry. CPU deforms are only used by autosprite and autosprite2, which assume triangulated quads.
-							if ((s->indices.size() % 6) != 0)
-							{
-								ri.Printf(PRINT_WARNING, "CPU deform geometry for material %s had odd index count %d\n", bs.material->name, (int)s->indices.size());
-							}
-
-							// Make room in destination.
-							const size_t firstDestIndex = visCache->cpuDeformIndices.size();
-							visCache->cpuDeformIndices.resize(visCache->cpuDeformIndices.size() + s->indices.size());
-							const size_t firstDestVertex = visCache->cpuDeformVertices.size();
-							visCache->cpuDeformVertices.resize(visCache->cpuDeformVertices.size() + s->indices.size() / 6 * 4);
-
-							// Iterate triangulated quads.
-							for (size_t quadIndex = 0; quadIndex < s->indices.size() / 6; quadIndex++)
-							{
-								const uint16_t *srcIndices = &s->indices[quadIndex * 6];
-								const Vertex *srcVertices = &vertices_[surface->bufferIndex][0];
-
-								// Vertices may not be contiguous. Grab the unique vertices for this quad.
-								auto quadVertices = ExtractQuadCorners(vertices_[surface->bufferIndex].data(), srcIndices);
-
-								// Need to remap indices.
-								std::array<uint16_t, 6> quadIndices;
-
-								for (size_t l = 0; l < quadIndices.size(); l++)
-								{
-									for (size_t m = 0; m < quadVertices.size(); m++)
-									{
-										if (quadVertices[m] == &srcVertices[srcIndices[l]])
-											quadIndices[l] = uint16_t(m);
-									}
-								}
-
-								// Got a quad. Append it.
-								for (size_t l = 0; l < quadVertices.size(); l++)
-								{
-									visCache->cpuDeformVertices[firstDestVertex + quadIndex * 4 + l] = *quadVertices[l];
-								}
-
-								for (size_t l = 0; l < quadIndices.size(); l++)
-								{
-									visCache->cpuDeformIndices[firstDestIndex + quadIndex * 6 + l] = uint16_t(firstDestVertex + quadIndex * 4 + quadIndices[l]);
-								}
-
-								bs.nIndices += 6;
-							}
-						}
-					}
-					else
-					{
-						// Grab the indices for all surfaces in this batch.
-						// They will be used directly by a dynamic index buffer.
-						bs.bufferIndex = surface->bufferIndex;
-						auto &indices = visCache->indices[bs.bufferIndex];
-						bs.firstIndex = (uint32_t)indices.size();
-						bs.nIndices = 0;
+					// Grab the indices for all surfaces in this batch.
+					// They will be used directly by a dynamic index buffer.
+					bs.bufferIndex = surface->bufferIndex;
+					auto &indices = visCache->indices[bs.bufferIndex];
+					bs.firstIndex = (uint32_t)indices.size();
+					bs.nIndices = 0;
 					
-						for (size_t j = firstSurface; j <= i; j++)
-						{
-							auto s = visCache->surfaces[j];
-							const size_t copyIndex = indices.size();
-							indices.resize(indices.size() + s->indices.size());
-							memcpy(&indices[copyIndex], &s->indices[0], s->indices.size() * sizeof(uint16_t));
-							bs.nIndices += (uint32_t)s->indices.size();
-						}
+					for (size_t j = firstSurface; j <= i; j++)
+					{
+						auto s = visCache->surfaces[j];
+						const size_t copyIndex = indices.size();
+						indices.resize(indices.size() + s->indices.size());
+						memcpy(&indices[copyIndex], &s->indices[0], s->indices.size() * sizeof(uint16_t));
+						bs.nIndices += (uint32_t)s->indices.size();
 					}
 
 					visCache->batchedSurfaces.push_back(bs);
@@ -1347,25 +1278,6 @@ public:
 		assert(drawCallList);
 		auto &visCache = visCaches_[visCacheId];
 
-		// Copy the CPU deform geo to a transient buffer.
-		bgfx::TransientVertexBuffer tvb;
-		bgfx::TransientIndexBuffer tib;
-		bool cpuDeformEnabled = true;
-
-		if (!visCache->cpuDeformVertices.empty() && !visCache->cpuDeformIndices.empty())
-		{
-			if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, visCache->cpuDeformVertices.size(), &tib, visCache->cpuDeformIndices.size()))
-			{
-				WarnOnce(WarnOnceId::TransientBuffer);
-				cpuDeformEnabled = false;
-			}
-			else
-			{
-				memcpy(tib.data, visCache->cpuDeformIndices.data(), visCache->cpuDeformIndices.size() * sizeof(uint16_t));
-				memcpy(tvb.data, visCache->cpuDeformVertices.data(), visCache->cpuDeformVertices.size() * sizeof(Vertex));
-			}
-		}
-
 		for (auto &surface : visCache->batchedSurfaces)
 		{
 			DrawCall dc;
@@ -1373,26 +1285,11 @@ public:
 			dc.material = surface.material;
 			dc.ib.firstIndex = surface.firstIndex;
 			dc.ib.nIndices = surface.nIndices;
-
-			if (surface.material->hasCpuDeforms())
-			{
-				if (!cpuDeformEnabled)
-					continue;
-
-				dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
-				dc.vb.transientHandle = tvb;
-				dc.vb.nVertices = visCache->cpuDeformVertices.size();
-				dc.ib.transientHandle = tib;
-			}
-			else
-			{
-				dc.vb.type = DrawCall::BufferType::Static;
-				dc.vb.staticHandle = vertexBuffers_[surface.bufferIndex].handle;
-				dc.vb.nVertices = (uint32_t)vertices_[surface.bufferIndex].size();
-				dc.ib.type = DrawCall::BufferType::Dynamic;
-				dc.ib.dynamicHandle = visCache->indexBuffers[surface.bufferIndex].handle;
-			}
-
+			dc.vb.type = DrawCall::BufferType::Static;
+			dc.vb.staticHandle = vertexBuffers_[surface.bufferIndex].handle;
+			dc.vb.nVertices = (uint32_t)vertices_[surface.bufferIndex].size();
+			dc.ib.type = DrawCall::BufferType::Dynamic;
+			dc.ib.dynamicHandle = visCache->indexBuffers[surface.bufferIndex].handle;
 			drawCallList->push_back(dc);
 		}
 	}
@@ -1881,6 +1778,7 @@ private:
 				s.type = SurfaceType::Face;
 				const int firstVertex = LittleLong(fs.firstVert);
 				const int nVertices = LittleLong(fs.numVerts);
+				s.material->setupAutoSpriteDeform(&vertices[firstVertex], nVertices);
 				setSurfaceGeometry(&s, &vertices[firstVertex], nVertices, &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex);
 
 				// Setup cullinfo.
@@ -1904,7 +1802,10 @@ private:
 			else if (type == MST_TRIANGLE_SOUP)
 			{
 				s.type = SurfaceType::Mesh;
-				setSurfaceGeometry(&s, &vertices[LittleLong(fs.firstVert)], LittleLong(fs.numVerts), &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex);
+				const int firstVertex = LittleLong(fs.firstVert);
+				const int nVertices = LittleLong(fs.numVerts);
+				s.material->setupAutoSpriteDeform(&vertices[firstVertex], nVertices);
+				setSurfaceGeometry(&s, &vertices[firstVertex], nVertices, &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex);
 			}
 			else if (type == MST_PATCH)
 			{

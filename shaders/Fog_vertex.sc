@@ -17,7 +17,7 @@ void main()
 {
 	v_position = mul(u_model[0], vec4(a_position, 1.0)).xyz;
 
-	if (int(u_NumDeforms.x) > 0)
+	if (int(u_NumDeforms_AutoSprite.x) > 0)
 	{
 		CalculateDeform(v_position, a_normal, a_texcoord0, u_Time.x);
 	}

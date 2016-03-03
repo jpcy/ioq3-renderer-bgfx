@@ -11,10 +11,12 @@
 #define CGEN_EXACT_VERTEX     6
 #define CGEN_VERTEX           7
 
-#define DGEN_NONE  0
-#define DGEN_WAVE  1
-#define DGEN_BULGE 2
-#define DGEN_MOVE  3
+#define DGEN_NONE        0
+#define DGEN_AUTOSPRITE  1
+#define DGEN_AUTOSPRITE2 2
+#define DGEN_BULGE       3
+#define DGEN_MOVE        4
+#define DGEN_WAVE        5
 
 #define DGEN_WAVE_NONE             0
 #define DGEN_WAVE_SIN              1

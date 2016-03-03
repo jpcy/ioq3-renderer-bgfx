@@ -535,216 +535,51 @@ float Material::setTime(float time)
 	return time_;
 }
 
-void Material::doCpuDeforms(DrawCall *dc, const mat3 &sceneRotation) const
+bool Material::hasAutoSpriteDeform() const
 {
-	assert(dc);
+	for (auto &ds : deforms)
+	{
+		if (ds.deformation == MaterialDeform::Autosprite || ds.deformation == MaterialDeform::Autosprite2)
+			return true;
+	}
 
-	if (!hasCpuDeforms() || dc->vb.type != DrawCall::BufferType::Transient || dc->ib.type != DrawCall::BufferType::Transient)
-		return;
+	return false;
+}
 
-	auto vertices = (Vertex *)dc->vb.transientHandle.data;
-	auto indices = (uint16_t *)dc->ib.transientHandle.data;
-	const size_t nIndices = dc->ib.nIndices;
+void Material::setupAutoSpriteDeform(Vertex *vertices, uint32_t nVertices) const
+{
+	assert(vertices);
+	MaterialDeform deform = MaterialDeform::None;
 
 	for (auto &ds : deforms)
 	{
-		if (!isCpuDeform(ds.deformation))
-			continue;
-
 		switch (ds.deformation)
 		{
-		// Assuming the geometry is triangulated quads.
-		// Autosprite will rebuild them as forward facing sprites.
-		// Autosprite2 will pivot a rectangular quad along the center of its long axis.
 		case MaterialDeform::Autosprite:
 		case MaterialDeform::Autosprite2:
-		{
-			if ((nIndices % 6) != 0)
-			{
-				ri.Printf(PRINT_WARNING, "Autosprite material %s had odd index count %d\n", name, (int)nIndices);
-			}
-
-			vec3 forward, leftDir, upDir;
-
-			if (main::GetCurrentEntity())
-			{
-				forward.x = vec3::dotProduct(sceneRotation[0], main::GetCurrentEntity()->e.axis[0]);
-				forward.y = vec3::dotProduct(sceneRotation[0], main::GetCurrentEntity()->e.axis[1]);
-				forward.z = vec3::dotProduct(sceneRotation[0], main::GetCurrentEntity()->e.axis[2]);
-				leftDir.x = vec3::dotProduct(sceneRotation[1], main::GetCurrentEntity()->e.axis[0]);
-				leftDir.y = vec3::dotProduct(sceneRotation[1], main::GetCurrentEntity()->e.axis[1]);
-				leftDir.z = vec3::dotProduct(sceneRotation[1], main::GetCurrentEntity()->e.axis[2]);
-				upDir.x = vec3::dotProduct(sceneRotation[2], main::GetCurrentEntity()->e.axis[0]);
-				upDir.y = vec3::dotProduct(sceneRotation[2], main::GetCurrentEntity()->e.axis[1]);
-				upDir.z = vec3::dotProduct(sceneRotation[2], main::GetCurrentEntity()->e.axis[2]);
-			}
-			else
-			{
-				forward = sceneRotation[0];
-				leftDir = sceneRotation[1];
-				upDir = sceneRotation[2];
-			}
-
-			// Iterate through triangulated quads.
-			for (size_t quadIndex = 0; quadIndex < nIndices / 6; quadIndex++)
-			{
-				const size_t firstIndex = dc->ib.firstIndex + quadIndex * 6;
-
-				// Get the quad corner vertices and their indexes.
-				auto v = ExtractQuadCorners(vertices, &indices[firstIndex]);
-				std::array<uint16_t, 4> vi;
-
-				for (size_t i = 0; i < vi.size(); i++)
-					vi[i] = uint16_t(v[i] - vertices);
-
-				// Find the midpoint.
-				const vec3 midpoint = (v[0]->pos + v[1]->pos + v[2]->pos + v[3]->pos) * 0.25f;
-				const float radius = (v[0]->pos - midpoint).length() * 0.707f; // / sqrt(2)
-
-				if (g_cvars.softSprites->integer)
-				{
-					// Assumes all quads in this drawcall have the same radius.
-					dc->softSpriteDepth = radius / 2.0f;
-				}
-
-				if (ds.deformation == MaterialDeform::Autosprite)
-				{
-					vec3 left(leftDir * radius);
-					vec3 up(upDir * radius);
-
-					if (main::IsMirrorCamera())
-						left = -left;
-
-					// Compensate for scale in the axes if necessary.
-					if (main::GetCurrentEntity() && main::GetCurrentEntity()->e.nonNormalizedAxes)
-					{
-						float axisLength = vec3(main::GetCurrentEntity()->e.axis[0]).length();
-
-						if (!axisLength)
-						{
-							axisLength = 0;
-						}
-						else
-						{
-							axisLength = 1.0f / axisLength;
-						}
-
-						left *= axisLength;
-						up *= axisLength;
-					}
-
-					// Rebuild quad facing the main camera.
-					v[0]->pos = midpoint + left + up;
-					v[1]->pos = midpoint - left + up;
-					v[2]->pos = midpoint - left - up;
-					v[3]->pos = midpoint + left - up;
-
-					// Constant normal all the way around.
-					v[0]->normal = v[1]->normal = v[2]->normal = v[3]->normal = -sceneRotation[0];
-
-					// Standard square texture coordinates.
-					v[0]->texCoord = v[0]->texCoord2 = vec2(0, 0);
-					v[1]->texCoord = v[1]->texCoord2 = vec2(1, 0);
-					v[2]->texCoord = v[2]->texCoord2 = vec2(1, 1);
-					v[3]->texCoord = v[3]->texCoord2 = vec2(0, 1);
-
-					indices[firstIndex + 0] = vi[0];
-					indices[firstIndex + 1] = vi[1];
-					indices[firstIndex + 2] = vi[3];
-					indices[firstIndex + 3] = vi[3];
-					indices[firstIndex + 4] = vi[1];
-					indices[firstIndex + 5] = vi[2];
-				}
-				else if (ds.deformation == MaterialDeform::Autosprite2)
-				{
-					const int edgeVerts[6][2] = { { 0, 1 }, { 0, 2 }, { 0, 3 }, { 1, 2 }, { 1, 3 }, { 2, 3 } };
-					uint16_t smallestIndex = indices[firstIndex];
-
-					for (size_t i = 0; i < vi.size(); i++)
-					{
-						smallestIndex = std::min(smallestIndex, vi[i]);
-					}
-
-					// Identify the two shortest edges.
-					int nums[2] = {};
-					float lengths[2];
-					lengths[0] = lengths[1] = 999999;
-
-					for (int i = 0; i < 6; i++)
-					{
-						const vec3 temp = vec3(v[edgeVerts[i][0]]->pos) - vec3(v[edgeVerts[i][1]]->pos);
-						const float l = vec3::dotProduct(temp, temp);
-
-						if (l < lengths[0])
-						{
-							nums[1] = nums[0];
-							lengths[1] = lengths[0];
-							nums[0] = i;
-							lengths[0] = l;
-						}
-						else if (l < lengths[1])
-						{
-							nums[1] = i;
-							lengths[1] = l;
-						}
-					}
-
-					// Find the midpoints.
-					vec3 midpoints[2];
-
-					for (int i = 0; i < 2 ; i++)
-					{
-						midpoints[i] = (v[edgeVerts[nums[i]][0]]->pos + v[edgeVerts[nums[i]][1]]->pos) * 0.5f;
-					}
-
-					// Find the vector of the major axis.
-					const vec3 major(midpoints[1] - midpoints[0]);
-
-					// Cross this with the view direction to get minor axis.
-					const vec3 minor(vec3::crossProduct(major, forward).normal());
-		
-					// Re-project the points.
-					for (int i = 0; i < 2; i++)
-					{
-						// We need to see which direction this edge is used to determine direction of projection.
-						int j;
-
-						for (j = 0 ; j < 5 ; j++)
-						{
-							if (indices[firstIndex + j] == smallestIndex + edgeVerts[nums[i]][0] && indices[firstIndex + j + 1] == smallestIndex + edgeVerts[nums[i]][1])
-								break;
-						}
-
-						const float l = 0.5f * sqrt(lengths[i]);
-						vec3 *v1 = &v[edgeVerts[nums[i]][0]]->pos;
-						vec3 *v2 = &v[edgeVerts[nums[i]][1]]->pos;
-
-						if (j == 5)
-						{
-							*v1 = midpoints[i] + minor * l;
-							*v2 = midpoints[i] + minor * -l;
-						}
-						else
-						{
-							*v1 = midpoints[i] + minor * -l;
-							*v2 = midpoints[i] + minor * l;
-						}
-					}
-				}
-			}
+			deform = ds.deformation;
 			break;
 		}
+	}
 
-		case MaterialDeform::Normals:
-		case MaterialDeform::Text0:
-		case MaterialDeform::Text1:
-		case MaterialDeform::Text2:
-		case MaterialDeform::Text3:
-		case MaterialDeform::Text4:
-		case MaterialDeform::Text5:
-		case MaterialDeform::Text6:
-		case MaterialDeform::Text7:
-			break;
+	if (deform == MaterialDeform::None)
+		return;
+
+	if ((nVertices % 4) != 0)
+	{
+		ri.Printf(PRINT_WARNING, "Autosprite material %s had odd vertex count %i\n", name, nVertices);
+	}
+
+	for (uint32_t quadIndex = 0; quadIndex < nVertices / 4; quadIndex++)
+	{
+		Vertex *v = &vertices[quadIndex * 4];
+		const vec3 midpoint = (v[0].pos + v[1].pos + v[2].pos + v[3].pos) * 0.25f;
+		const float radius = (v[0].pos - midpoint).length() * 0.707f; // / sqrt(2)
+
+		for (int i = 0; i < 4; i++)
+		{
+			v[i].pos = midpoint;
+			v[i].autoSprite = vec4(radius, 0, 0, 0);
 		}
 	}
 }
@@ -752,52 +587,53 @@ void Material::doCpuDeforms(DrawCall *dc, const mat3 &sceneRotation) const
 void Material::setDeformUniforms(Uniforms_Material *uniforms) const
 {
 	assert(uniforms);
-
-	if (!hasGpuDeforms())
-	{
-		uniforms->nDeforms.set(vec4::empty);
-		return;
-	}
-
+	MaterialDeform autoSprite = MaterialDeform::None;
 	vec4 moveDirs[maxDeforms];
 	vec4 gen_Wave_Base_Amplitude[maxDeforms];
 	vec4 frequency_Phase_Spread[maxDeforms];
-	uint16_t i = 0;
+	uint16_t nDeforms = 0;
 
 	for (auto &ds : deforms)
 	{
-		if (!isGpuDeform(ds.deformation))
-			continue;
-
 		switch (ds.deformation)
 		{
+		case MaterialDeform::Autosprite:
+		case MaterialDeform::Autosprite2:
+			autoSprite = ds.deformation;
+			break;
+
 		case MaterialDeform::Wave:
-			gen_Wave_Base_Amplitude[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, ds.deformationWave.base, ds.deformationWave.amplitude);
-			frequency_Phase_Spread[i] = vec4(ds.deformationWave.frequency, ds.deformationWave.phase, ds.deformationSpread, 0);
+			gen_Wave_Base_Amplitude[nDeforms] = vec4((float)ds.deformation, (float)ds.deformationWave.func, ds.deformationWave.base, ds.deformationWave.amplitude);
+			frequency_Phase_Spread[nDeforms] = vec4(ds.deformationWave.frequency, ds.deformationWave.phase, ds.deformationSpread, 0);
+			nDeforms++;
 			break;
 
 		case MaterialDeform::Bulge:
-			gen_Wave_Base_Amplitude[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, 0, ds.bulgeHeight);
-			frequency_Phase_Spread[i] = vec4(ds.bulgeSpeed, ds.bulgeWidth, 0, 0);
+			gen_Wave_Base_Amplitude[nDeforms] = vec4((float)ds.deformation, (float)ds.deformationWave.func, 0, ds.bulgeHeight);
+			frequency_Phase_Spread[nDeforms] = vec4(ds.bulgeSpeed, ds.bulgeWidth, 0, 0);
+			nDeforms++;
 			break;
 
 		case MaterialDeform::Move:
-			gen_Wave_Base_Amplitude[i] = vec4((float)ds.deformation, (float)ds.deformationWave.func, ds.deformationWave.base, ds.deformationWave.amplitude);
-			frequency_Phase_Spread[i] = vec4(ds.deformationWave.frequency, ds.deformationWave.phase, 0, 0);
-			moveDirs[i] = ds.moveVector;
+			gen_Wave_Base_Amplitude[nDeforms] = vec4((float)ds.deformation, (float)ds.deformationWave.func, ds.deformationWave.base, ds.deformationWave.amplitude);
+			frequency_Phase_Spread[nDeforms] = vec4(ds.deformationWave.frequency, ds.deformationWave.phase, 0, 0);
+			moveDirs[nDeforms] = ds.moveVector;
+			nDeforms++;
 			break;
 
 		default:
 			break;
 		}
-
-		i++;
 	}
 
-	uniforms->nDeforms.set(vec4(i, 0, 0, 0));
-	uniforms->deformMoveDirs.set(moveDirs, i);
-	uniforms->deform_Gen_Wave_Base_Amplitude.set(gen_Wave_Base_Amplitude, i);
-	uniforms->deform_Frequency_Phase_Spread.set(frequency_Phase_Spread, i);
+	uniforms->nDeforms_AutoSprite.set(vec4(nDeforms, (float)autoSprite, 0, 0));
+
+	if (nDeforms > 0)
+	{
+		uniforms->deformMoveDirs.set(moveDirs, nDeforms);
+		uniforms->deform_Gen_Wave_Base_Amplitude.set(gen_Wave_Base_Amplitude, nDeforms);
+		uniforms->deform_Frequency_Phase_Spread.set(frequency_Phase_Spread, nDeforms);
+	}
 }
 
 } // namespace renderer

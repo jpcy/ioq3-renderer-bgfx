@@ -20,7 +20,7 @@ void main()
 {
 	vec3 position = a_position;
 
-	if (int(u_NumDeforms.x) > 0)
+	if (int(u_NumDeforms_AutoSprite.x) > 0)
 	{
 		CalculateDeform(position, a_normal, a_texcoord0, u_Time.x);
 	}
