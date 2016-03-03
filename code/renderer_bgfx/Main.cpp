@@ -879,6 +879,7 @@ void Main::flushStretchPics()
 			time_ = ri.Milliseconds();
 			floatTime_ = time_ * 0.001f;
 			uniforms_->dynamicLight_Num_Intensity.set(vec4::empty);
+			matUniforms_->nDeforms_AutoSprite.set(vec4(0, 0, 0, 0));
 			matUniforms_->time.set(vec4(stretchPicMaterial_->setTime(floatTime_), 0, 0, 0));
 
 			if (stretchPicViewId_ == UINT8_MAX)
@@ -1213,6 +1214,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		if (dc.flags >= DrawCallFlags::SkyboxSideFirst && dc.flags <= DrawCallFlags::SkyboxSideLast)
 		{
 			uniforms_->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
+			matUniforms_->nDeforms_AutoSprite.set(vec4(0, 0, 0, 0));
 			matStageUniforms_->alphaTest.set(vec4::empty);
 			matStageUniforms_->baseColor.set(vec4::white);
 			matStageUniforms_->generators.set(vec4::empty);
