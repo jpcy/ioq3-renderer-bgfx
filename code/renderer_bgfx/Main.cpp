@@ -724,6 +724,7 @@ void Main::renderScene(const refdef_t *def)
 	}
 
 	dlightManager_->clear();
+	sceneDebugAxis_.clear();
 	sceneEntities_.clear();
 	scenePolygons_.clear();
 	sortedScenePolygons_.clear();
@@ -1365,6 +1366,29 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 		currentEntity_ = nullptr;
 	}
+
+	// Draws x/y/z lines from the origin for orientation debugging
+	if (!sceneDebugAxis_.empty())
+	{
+		bgfx::TransientVertexBuffer tvb;
+		bgfx::allocTransientVertexBuffer(&tvb, 6, Vertex::decl);
+		auto vertices = (Vertex *)tvb.data;
+		const float l = 16;
+		vertices[0].pos = { 0, 0, 0 }; vertices[0].color = vec4::red;
+		vertices[1].pos = { l, 0, 0 }; vertices[1].color = vec4::red;
+		vertices[2].pos = { 0, 0, 0 }; vertices[2].color = vec4::green;
+		vertices[3].pos = { 0, l, 0 }; vertices[3].color = vec4::green;
+		vertices[4].pos = { 0, 0, 0 }; vertices[4].color = vec4::blue;
+		vertices[5].pos = { 0, 0, l }; vertices[5].color = vec4::blue;
+
+		for (vec3 debugAxisPosition : sceneDebugAxis_)
+		{
+			bgfx::setState(BGFX_STATE_DEPTH_TEST_LEQUAL | BGFX_STATE_PT_LINES | BGFX_STATE_RGB_WRITE);
+			bgfx::setTransform(mat4::translate(debugAxisPosition).get());
+			bgfx::setVertexBuffer(&tvb);
+			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Color].handle);
+		}
+	}
 }
 
 // From bgfx screenSpaceQuad.
@@ -1495,6 +1519,11 @@ void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 view
 		break;
 
 	case RT_MODEL:
+		if (entity->e.hModel == 0)
+		{
+			sceneDebugAxis_.push_back(entity->e.origin);
+		}
+		else
 		{
 			auto model = modelCache_->getModel(entity->e.hModel);
 

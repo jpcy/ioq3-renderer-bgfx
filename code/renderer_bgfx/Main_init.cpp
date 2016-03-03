@@ -442,6 +442,7 @@ void Main::initialize()
 	// Map shader programs to their vertex and fragment shaders.
 	std::array<ShaderProgramIdMap, ShaderProgramId::Num> programMap;
 	programMap[ShaderProgramId::AdaptedLuminance] = { FragmentShaderId::AdaptedLuminance, VertexShaderId::Texture };
+	programMap[ShaderProgramId::Color]            = { FragmentShaderId::Color, VertexShaderId::Color };
 	programMap[ShaderProgramId::Depth]            = { FragmentShaderId::Depth, VertexShaderId::Depth };
 
 	programMap[ShaderProgramId::Depth + DepthShaderProgramVariant::AlphaTest] =

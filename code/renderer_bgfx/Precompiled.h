@@ -927,7 +927,7 @@ public:
 	ModelCache();
 	Model *findModel(const char *name);
 	Model *addModel(std::unique_ptr<Model> model);
-	Model *getModel(int handle) { return models_[handle].get(); }
+	Model *getModel(int handle) { return handle <= 0 ? nullptr : models_[handle - 1].get(); }
 
 private:
 	size_t generateHash(const char *fname, size_t size);

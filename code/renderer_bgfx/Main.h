@@ -129,6 +129,7 @@ private:
 		enum Enum
 		{
 			AdaptedLuminance,
+			Color,
 			Depth,
 			Fog = Depth + DepthShaderProgramVariant::Num,
 			FXAA = Fog + FogShaderProgramVariant::Num,
@@ -270,6 +271,7 @@ private:
 
 	/// @name Scene
 	/// @{
+	std::vector<vec3> sceneDebugAxis_;
 	std::vector<Entity> sceneEntities_;
 
 	struct Polygon

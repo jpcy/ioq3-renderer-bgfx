@@ -218,6 +218,7 @@ newaction
 		local fragmentShaders =
 		{
 			{ "AdaptedLuminance" },
+			{ "Color" },
 			{ "Depth", depthFragmentVariants },
 			{ "Fog" },
 			{ "FXAA" },
@@ -236,6 +237,7 @@ newaction
 		
 		local vertexShaders =
 		{
+			{ "Color" },
 			{ "Depth", depthVertexVariants },
 			{ "Fog", fogVertexVariants },
 			{ "Generic", genericVertexVariants },
