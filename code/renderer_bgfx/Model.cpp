@@ -349,17 +349,16 @@ bool Model_md3::isCulled(Entity *entity, const Frustum &cameraFrustum) const
 	assert(entity);
 
 	// It is possible to have a bad frame while changing models.
-	if (entity->e.frame >= (int)frames_.size() || entity->e.oldframe >= (int)frames_.size())
-		return true;
-
-	const auto &frame = frames_[entity->e.frame];
-	const auto &oldFrame = frames_[entity->e.oldframe];
+	const int frameIndex = Clamped(entity->e.frame, 0, (int)frames_.size() - 1);
+	const int oldFrameIndex = Clamped(entity->e.oldframe, 0, (int)frames_.size() - 1);
+	const auto &frame = frames_[frameIndex];
+	const auto &oldFrame = frames_[oldFrameIndex];
 	const auto modelMatrix = mat4::transform(entity->e.axis, entity->e.origin);
 
 	// Cull bounding sphere ONLY if this is not an upscaled entity.
 	if (!entity->e.nonNormalizedAxes)
 	{
-		if (entity->e.frame == entity->e.oldframe)
+		if (frameIndex == oldFrameIndex)
 		{
 			switch (cameraFrustum.clipSphere(modelMatrix.transform(frame.position), frame.radius))
 			{
@@ -393,14 +392,14 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 	assert(drawCallList);
 	assert(entity);
 
+
 	// Can't render models with no geometry.
 	if (!bgfx::isValid(indexBuffer_.handle))
 		return;
 
 	// It is possible to have a bad frame while changing models.
-	if (entity->e.frame >= (int)frames_.size() || entity->e.oldframe >= (int)frames_.size())
-		return;
-
+	const int frameIndex = Clamped(entity->e.frame, 0, (int)frames_.size() - 1);
+	const int oldFrameIndex = Clamped(entity->e.oldframe, 0, (int)frames_.size() - 1);
 	const auto modelMatrix = mat4::transform(entity->e.axis, entity->e.origin);
 	const bool isAnimated = frames_.size() > 1;
 	bgfx::TransientVertexBuffer tvb;
@@ -421,8 +420,8 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 		// Lerp vertices.
 		for (size_t i = 0; i < nVertices_; i++)
 		{
-			auto &fromVertex = frames_[entity->e.oldframe].vertices[i];
-			auto &toVertex = frames_[entity->e.frame].vertices[i];
+			auto &fromVertex = frames_[oldFrameIndex].vertices[i];
+			auto &toVertex = frames_[frameIndex].vertices[i];
 
 			const float fraction = 1.0f - entity->e.backlerp;
 			vertices[i].pos = vec3::lerp(fromVertex.pos, toVertex.pos, fraction);
@@ -438,7 +437,7 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 	{
 		if (isAnimated)
 		{
-			const auto &frame = frames_[entity->e.oldframe];
+			const auto &frame = frames_[oldFrameIndex];
 			fogIndex = world::FindFogIndex(vec3(entity->e.origin) + frame.position, frame.radius);
 		}
 		else
