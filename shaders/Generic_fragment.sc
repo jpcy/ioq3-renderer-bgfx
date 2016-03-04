@@ -120,7 +120,7 @@ void main()
 			discard;
 	}
 
-	vec4 diffuse = ToLinear(texture2D(u_DiffuseMap, v_texcoord0));
+	vec4 diffuse = texture2D(u_DiffuseMap, v_texcoord0);
 	float alpha = diffuse.a * v_color0.a;
 
 #if defined(USE_SOFT_SPRITE)
@@ -179,7 +179,7 @@ void main()
 
 	if (int(u_LightType.x) == LIGHT_MAP)
 	{
-		diffuseLight = ToLinear(texture2D(u_LightMap, v_texcoord1).rgb);
+		diffuseLight = texture2D(u_LightMap, v_texcoord1).rgb;
 	}
 	else if (int(u_LightType.x) == LIGHT_VECTOR)
 	{
@@ -244,5 +244,5 @@ void main()
 	}
 #endif // USE_DYNAMIC_LIGHTS
 
-	gl_FragColor.rgb = ToGamma((diffuse.rgb * v_color0.rgb * diffuseLight) + (diffuse.rgb * dynamicLight));
+	gl_FragColor.rgb = (diffuse.rgb * v_color0.rgb * diffuseLight) + (diffuse.rgb * dynamicLight);
 }
