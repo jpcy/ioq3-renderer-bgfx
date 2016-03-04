@@ -143,7 +143,7 @@ void main()
 
 	// Depth change in worldspace.
 	float wsDelta = (sceneDepth - fragmentDepth) * (u_DepthRange.w - u_DepthRange.z);
-	float scale = saturate(wsDelta / spriteDepth);
+	float scale = saturate(abs(wsDelta / spriteDepth));
 
 	// Ignore existing alpha if the blend is additive, otherwise scale it.
 	if (int(u_SoftSprite_Depth_UseAlpha_AutoSprite.y) == 1)

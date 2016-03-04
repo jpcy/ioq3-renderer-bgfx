@@ -19,6 +19,28 @@ along with Quake III Arena source code; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
 */
+/*
+===========================================================================
+Copyright (C) 1999-2005 Id Software, Inc.
+Copyright (C) 2006-2008 Robert Beckebans <trebor_7@users.sourceforge.net>
+
+This file is part of Daemon source code.
+
+Daemon source code is free software; you can redistribute it
+and/or modify it under the terms of the GNU General Public License as
+published by the Free Software Foundation; either version 2 of the License,
+or (at your option) any later version.
+
+Daemon source code is distributed in the hope that it will be
+useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Daemon source code; if not, write to the Free Software
+Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+===========================================================================
+*/
 #include "Precompiled.h"
 #pragma hdrstop
 
@@ -574,12 +596,88 @@ void Material::setupAutoSpriteDeform(Vertex *vertices, uint32_t nVertices) const
 	{
 		Vertex *v = &vertices[quadIndex * 4];
 		const vec3 midpoint = (v[0].pos + v[1].pos + v[2].pos + v[3].pos) * 0.25f;
-		const float radius = (v[0].pos - midpoint).length() * 0.707f; // / sqrt(2)
 
-		for (int i = 0; i < 4; i++)
+		if (deform == MaterialDeform::Autosprite)
 		{
-			v[i].pos = midpoint;
-			v[i].autoSprite = vec4(radius, 0, 0, 0);
+			const float radius = (v[0].pos - midpoint).length() * 0.707f; // / sqrt(2)
+
+			for (int i = 0; i < 4; i++)
+			{
+				v[i].pos = midpoint;
+				v[i].autoSprite = vec4(0, 0, 0, radius);
+			}
+		}
+		else if (deform == MaterialDeform::Autosprite2)
+		{
+			const int edgeVerts[6][2] = { { 0, 1 },{ 0, 2 },{ 0, 3 },{ 1, 2 },{ 1, 3 },{ 2, 3 } };
+
+			// Identify the two shortest edges.
+			int nums[2] = {};
+			float lengths[2];
+			lengths[0] = lengths[1] = 999999;
+
+			for (int i = 0; i < 6; i++)
+			{
+				const vec3 temp = vec3(v[edgeVerts[i][0]].pos) - vec3(v[edgeVerts[i][1]].pos);
+				const float l = vec3::dotProduct(temp, temp);
+
+				if (l < lengths[0])
+				{
+					nums[1] = nums[0];
+					lengths[1] = lengths[0];
+					nums[0] = i;
+					lengths[0] = l;
+				}
+				else if (l < lengths[1])
+				{
+					nums[1] = i;
+					lengths[1] = l;
+				}
+			}
+
+			// Find the midpoints.
+			vec3 midpoints[2];
+
+			for (int i = 0; i < 2; i++)
+			{
+				midpoints[i] = (v[edgeVerts[nums[i]][0]].pos + v[edgeVerts[nums[i]][1]].pos) * 0.5f;
+			}
+
+			// Find the vector of the major axis.
+			const vec3 major(midpoints[1] - midpoints[0]);
+
+			// Cross this with the view direction to get minor axis.
+			const vec3 cross(vec3::crossProduct(major, v[0].normal).normal());
+
+			// From Unvanquished Autosprite2Deform
+			// update the vertices
+			for (int j = 0; j < 4; j++)
+			{
+				lengths[0] = vec3::distance(midpoints[0], v[j].pos);
+				lengths[1] = vec3::distance(midpoints[1], v[j].pos);
+
+				// pick the closer midpoint
+				int k;
+
+				if (lengths[0] <= lengths[1])
+					k = 0;
+				else
+					k = 1;
+
+				vec3 minor = v[j].pos - midpoints[k];
+
+				if (vec3::dotProduct(cross, minor) * (k ? -1.0f : 1.0f) < 0.0f)
+				{
+					v[j].autoSprite = vec4(-major, 0);
+				}
+				else
+				{
+					v[j].autoSprite = vec4(major, 0);
+				}
+
+				v[j].autoSprite.w = -lengths[k];
+				v[j].pos = midpoints[k];
+			}
 		}
 	}
 }

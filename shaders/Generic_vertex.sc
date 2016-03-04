@@ -145,12 +145,24 @@ void main()
 	if (autoSprite != 0)
 	{
 		// From Unvanquished vertexSprite_vp.glsl
-		float radius = a_texcoord2.x;
+		float radius = a_texcoord2.w;
 		vec2 corner = a_texcoord0.xy * 2.0 - 1.0;
 		vec3 viewNormal = normalize(u_ViewOrigin.xyz - wsPosition);
-		vec3 left = normalize(cross(u_ViewUp.xyz, viewNormal));
-		vec3 up = cross(left, viewNormal);
-		wsPosition += left * corner.x * radius + up * corner.y * radius;
+
+		if (autoSprite == DGEN_AUTOSPRITE)
+		{
+			vec3 left = normalize(cross(u_ViewUp.xyz, viewNormal));
+			vec3 up = cross(left, viewNormal);
+			wsPosition += left * corner.x * radius + up * corner.y * radius;
+		}
+		else if (autoSprite == DGEN_AUTOSPRITE2)
+		{
+			vec3 up = a_texcoord2.xyz;
+			vec3 left = normalize(cross(up, viewNormal));
+			wsPosition += left * corner.y * radius;
+		}
+
+		// Pass soft sprite depth to fragment shader.
 		v_texcoord2.x = radius / 2.0;
 	}
 
