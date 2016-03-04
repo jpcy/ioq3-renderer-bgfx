@@ -105,20 +105,6 @@ static void FinalizeImage(Image *image, uint8_t *data, int flags)
 	assert(image);
 	assert(data);
 
-	if ((flags & Image::Flags::PremultipliedAlpha) && image->nComponents == 4)
-	{
-		uint8_t *rgba = data;
-
-		for (int i = 0; i < image->width * image->height; i++)
-		{
-			const float alpha = rgba[3] / 255.0f;
-			rgba[0] = uint8_t(rgba[0] * alpha);
-			rgba[1] = uint8_t(rgba[1] * alpha);
-			rgba[2] = uint8_t(rgba[2] * alpha);
-			rgba += image->nComponents;
-		}
-	}
-
 	if (flags & Image::Flags::GenerateMipmaps)
 	{
 		if ((flags & Image::Flags::Picmip) && g_cvars.picmip->integer > 0)

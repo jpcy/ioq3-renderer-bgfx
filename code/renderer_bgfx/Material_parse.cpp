@@ -430,228 +430,6 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 	bool depthWriteExplicit = false;
 	stage->active = true;
 
-	// Pre-parse the stage to figure out if premultiplied alpha can be used. It's a texture flag, so this needs to be determined before textures are loaded in the main parsing step.
-	char *startText = *text;
-
-	for (;;)
-	{
-		auto token = util::Parse(text, true);
-
-		if (!token[0])
-		{
-			ri.Printf(PRINT_WARNING, "WARNING: no matching '}' found\n");
-			return false;
-		}
-
-		if (token[0] == '}')
-			break;
-
-		// alphaGen 
-		if (!util::Stricmp(token, "alphaGen"))
-		{
-			token = util::Parse(text, false);
-
-			if (token[0] == 0)
-			{
-				ri.Printf(PRINT_WARNING, "WARNING: missing parameters for alphaGen in shader '%s'\n", name);
-			}
-			else if (!util::Stricmp(token, "wave"))
-			{
-				stage->alphaWave = parseWaveForm(text);
-				stage->alphaGen = MaterialAlphaGen::Waveform;
-			}
-			else if (!util::Stricmp(token, "const"))
-			{
-				token = util::Parse(text, false);
-				stage->constantColor.a = (float)atof(token);
-				stage->alphaGen = MaterialAlphaGen::Const;
-			}
-			else if (!util::Stricmp(token, "identity"))
-			{
-				stage->alphaGen = MaterialAlphaGen::Identity;
-			}
-			else if (!util::Stricmp(token, "entity"))
-			{
-				stage->alphaGen = MaterialAlphaGen::Entity;
-			}
-			else if (!util::Stricmp(token, "oneMinusEntity"))
-			{
-				stage->alphaGen = MaterialAlphaGen::OneMinusEntity;
-			}
-			else if (!util::Stricmp(token, "vertex"))
-			{
-				stage->alphaGen = MaterialAlphaGen::Vertex;
-			}
-			else if (!util::Stricmp(token, "lightingSpecular"))
-			{
-				stage->alphaGen = MaterialAlphaGen::LightingSpecular;
-			}
-			else if (!util::Stricmp(token, "oneMinusVertex"))
-			{
-				stage->alphaGen = MaterialAlphaGen::OneMinusVertex;
-			}
-			else if (!util::Stricmp(token, "portal"))
-			{
-				stage->alphaGen = MaterialAlphaGen::Portal;
-				token = util::Parse(text, false);
-
-				if (token[0] == 0)
-				{
-					ri.Printf(PRINT_WARNING, "WARNING: missing range parameter for alphaGen portal in shader '%s', defaulting to %g\n", name, portalRange);
-				}
-				else
-				{
-					portalRange = (float)atof(token);
-				}
-			}
-			else
-			{
-				ri.Printf(PRINT_WARNING, "WARNING: unknown alphaGen parameter '%s' in shader '%s'\n", token, name);
-				continue;
-			}
-		}
-		// blendfunc <srcFactor> <dstFactor> or blendfunc <add|filter|blend>
-		else if (!util::Stricmp(token, "blendfunc"))
-		{
-			token = util::Parse(text, false);
-
-			if (token[0] == 0)
-			{
-				ri.Printf(PRINT_WARNING, "WARNING: missing parm for blendFunc in shader '%s'\n", name);
-				continue;
-			}
-
-			// check for "simple" blends first
-			if (!util::Stricmp(token, "add"))
-			{
-				stage->blendSrc = BGFX_STATE_BLEND_ONE;
-				stage->blendDst = BGFX_STATE_BLEND_ONE;
-			}
-			else if (!util::Stricmp(token, "filter"))
-			{
-				stage->blendSrc = BGFX_STATE_BLEND_DST_COLOR;
-				stage->blendDst = BGFX_STATE_BLEND_ZERO;
-			}
-			else if (!util::Stricmp(token, "blend"))
-			{
-				stage->blendSrc = BGFX_STATE_BLEND_SRC_ALPHA;
-				stage->blendDst = BGFX_STATE_BLEND_INV_SRC_ALPHA;
-			}
-			else
-			{
-				// complex double blends
-				stage->blendSrc = srcBlendModeFromName(token);
-
-				token = util::Parse(text, false);
-
-				if (token[0] == 0)
-				{
-					ri.Printf(PRINT_WARNING, "WARNING: missing parm for blendFunc in shader '%s'\n", name);
-					continue;
-				}
-
-				stage->blendDst = dstBlendModeFromName(token);
-			}
-
-			// clear depth write for blended surfaces
-			if (!depthWriteExplicit)
-			{
-				stage->depthWrite = false;
-			}
-		}
-		// depthmask
-		else if (!util::Stricmp(token, "depthwrite"))
-		{
-			stage->depthWrite = true;
-			depthWriteExplicit = true;
-		}
-		// rgbGen
-		else if (!util::Stricmp(token, "rgbGen"))
-		{
-			token = util::Parse(text, false);
-
-			if (token[0] == 0)
-			{
-				ri.Printf(PRINT_WARNING, "WARNING: missing parameters for rgbGen in shader '%s'\n", name);
-			}
-			else if (!util::Stricmp(token, "wave"))
-			{
-				stage->rgbWave = parseWaveForm(text);
-				stage->rgbGen = MaterialColorGen::Waveform;
-			}
-			else if (!util::Stricmp(token, "const"))
-			{
-				stage->constantColor = vec4(parseVector(text), stage->constantColor.a);
-				stage->rgbGen = MaterialColorGen::Const;
-			}
-			else if (!util::Stricmp(token, "identity"))
-			{
-				stage->rgbGen = MaterialColorGen::Identity;
-			}
-			else if (!util::Stricmp(token, "identityLighting"))
-			{
-				stage->rgbGen = MaterialColorGen::IdentityLighting;
-			}
-			else if (!util::Stricmp(token, "entity"))
-			{
-				stage->rgbGen = MaterialColorGen::Entity;
-			}
-			else if (!util::Stricmp(token, "oneMinusEntity"))
-			{
-				stage->rgbGen = MaterialColorGen::OneMinusEntity;
-			}
-			else if (!util::Stricmp(token, "vertex"))
-			{
-				stage->rgbGen = MaterialColorGen::Vertex;
-
-				if (stage->alphaGen == MaterialAlphaGen::Identity)
-					stage->alphaGen = MaterialAlphaGen::Vertex;
-			}
-			else if (!util::Stricmp(token, "exactVertex"))
-			{
-				stage->rgbGen = MaterialColorGen::ExactVertex;
-			}
-			else if (!util::Stricmp(token, "vertexLit"))
-			{
-				stage->rgbGen = MaterialColorGen::VertexLit;
-
-				if (stage->alphaGen == MaterialAlphaGen::Identity)
-					stage->alphaGen = MaterialAlphaGen::Vertex;
-			}
-			else if (!util::Stricmp(token, "exactVertexLit"))
-			{
-				stage->rgbGen = MaterialColorGen::ExactVertexLit;
-			}
-			else if (!util::Stricmp(token, "lightingDiffuse"))
-			{
-				stage->rgbGen = MaterialColorGen::LightingDiffuse;
-			}
-			else if (!util::Stricmp(token, "oneMinusVertex"))
-			{
-				stage->rgbGen = MaterialColorGen::OneMinusVertex;
-			}
-			else
-			{
-				ri.Printf(PRINT_WARNING, "WARNING: unknown rgbGen parameter '%s' in shader '%s'\n", token, name);
-			}
-		}
-		else
-		{
-			util::SkipRestOfLine(text);
-		}
-	}
-
-	bool usePremultipliedAlpha = false;
-
-	if (stage->blendSrc == BGFX_STATE_BLEND_SRC_ALPHA && stage->blendDst == BGFX_STATE_BLEND_INV_SRC_ALPHA && stage->alphaGen == MaterialAlphaGen::Identity)
-	{
-		usePremultipliedAlpha = true;
-		stage->blendSrc = BGFX_STATE_BLEND_ONE;
-	}
-
-	// Normal parsing.
-	text = &startText;
-
 	for (;;)
 	{
 		auto token = util::Parse(text, true);
@@ -723,9 +501,6 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				if (!noPicMip)
 					flags |= TextureFlags::Picmip;
 
-				if (usePremultipliedAlpha)
-					flags |= TextureFlags::PremultipliedAlpha;
-
 				if (stage->type == MaterialStageType::NormalMap || stage->type == MaterialStageType::NormalParallaxMap)
 				{
 					type = TextureType::Normal;
@@ -767,9 +542,6 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (!noPicMip)
 				flags |= TextureFlags::Picmip;
-
-			if (usePremultipliedAlpha)
-				flags |= TextureFlags::PremultipliedAlpha;
 
 			if (stage->type == MaterialStageType::NormalMap || stage->type == MaterialStageType::NormalParallaxMap)
 			{
@@ -825,9 +597,6 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 					if (!noPicMip)
 						flags |= TextureFlags::Picmip;
-
-					if (usePremultipliedAlpha)
-						flags |= TextureFlags::PremultipliedAlpha;
 
 					stage->bundles[0].textures[num] = g_textureCache->findTexture(token, TextureType::ColorAlpha, flags);
 
@@ -905,8 +674,51 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 		// blendfunc <srcFactor> <dstFactor> or blendfunc <add|filter|blend>
 		else if (!util::Stricmp(token, "blendfunc"))
 		{
-			// Pre-parsed above.
-			util::SkipRestOfLine(text);
+			token = util::Parse(text, false);
+
+			if (token[0] == 0)
+			{
+				ri.Printf(PRINT_WARNING, "WARNING: missing parm for blendFunc in shader '%s'\n", name);
+				continue;
+			}
+
+			// check for "simple" blends first
+			if (!util::Stricmp(token, "add"))
+			{
+				stage->blendSrc = BGFX_STATE_BLEND_ONE;
+				stage->blendDst = BGFX_STATE_BLEND_ONE;
+			}
+			else if (!util::Stricmp(token, "filter"))
+			{
+				stage->blendSrc = BGFX_STATE_BLEND_DST_COLOR;
+				stage->blendDst = BGFX_STATE_BLEND_ZERO;
+			}
+			else if (!util::Stricmp(token, "blend"))
+			{
+				stage->blendSrc = BGFX_STATE_BLEND_SRC_ALPHA;
+				stage->blendDst = BGFX_STATE_BLEND_INV_SRC_ALPHA;
+			}
+			else
+			{
+				// complex double blends
+				stage->blendSrc = srcBlendModeFromName(token);
+
+				token = util::Parse(text, false);
+
+				if (token[0] == 0)
+				{
+					ri.Printf(PRINT_WARNING, "WARNING: missing parm for blendFunc in shader '%s'\n", name);
+					continue;
+				}
+
+				stage->blendDst = dstBlendModeFromName(token);
+			}
+
+			// clear depth write for blended surfaces
+			if (!depthWriteExplicit)
+			{
+				stage->depthWrite = false;
+			}
 		}
 		// stage <type>
 		else if (!util::Stricmp(token, "stage"))
@@ -1080,14 +892,136 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 		// rgbGen
 		else if (!util::Stricmp(token, "rgbGen"))
 		{
-			// Pre-parsed above.
-			util::SkipRestOfLine(text);
+			token = util::Parse(text, false);
+
+			if (token[0] == 0)
+			{
+				ri.Printf(PRINT_WARNING, "WARNING: missing parameters for rgbGen in shader '%s'\n", name);
+			}
+			else if (!util::Stricmp(token, "wave"))
+			{
+				stage->rgbWave = parseWaveForm(text);
+				stage->rgbGen = MaterialColorGen::Waveform;
+			}
+			else if (!util::Stricmp(token, "const"))
+			{
+				stage->constantColor = vec4(parseVector(text), stage->constantColor.a);
+				stage->rgbGen = MaterialColorGen::Const;
+			}
+			else if (!util::Stricmp(token, "identity"))
+			{
+				stage->rgbGen = MaterialColorGen::Identity;
+			}
+			else if (!util::Stricmp(token, "identityLighting"))
+			{
+				stage->rgbGen = MaterialColorGen::IdentityLighting;
+			}
+			else if (!util::Stricmp(token, "entity"))
+			{
+				stage->rgbGen = MaterialColorGen::Entity;
+			}
+			else if (!util::Stricmp(token, "oneMinusEntity"))
+			{
+				stage->rgbGen = MaterialColorGen::OneMinusEntity;
+			}
+			else if (!util::Stricmp(token, "vertex"))
+			{
+				stage->rgbGen = MaterialColorGen::Vertex;
+
+				if (stage->alphaGen == MaterialAlphaGen::Identity)
+					stage->alphaGen = MaterialAlphaGen::Vertex;
+			}
+			else if (!util::Stricmp(token, "exactVertex"))
+			{
+				stage->rgbGen = MaterialColorGen::ExactVertex;
+			}
+			else if (!util::Stricmp(token, "vertexLit"))
+			{
+				stage->rgbGen = MaterialColorGen::VertexLit;
+
+				if (stage->alphaGen == MaterialAlphaGen::Identity)
+					stage->alphaGen = MaterialAlphaGen::Vertex;
+			}
+			else if (!util::Stricmp(token, "exactVertexLit"))
+			{
+				stage->rgbGen = MaterialColorGen::ExactVertexLit;
+			}
+			else if (!util::Stricmp(token, "lightingDiffuse"))
+			{
+				stage->rgbGen = MaterialColorGen::LightingDiffuse;
+			}
+			else if (!util::Stricmp(token, "oneMinusVertex"))
+			{
+				stage->rgbGen = MaterialColorGen::OneMinusVertex;
+			}
+			else
+			{
+				ri.Printf(PRINT_WARNING, "WARNING: unknown rgbGen parameter '%s' in shader '%s'\n", token, name);
+			}
 		}
 		// alphaGen 
 		else if (!util::Stricmp(token, "alphaGen"))
 		{
-			// Pre-parsed above.
-			util::SkipRestOfLine(text);
+			token = util::Parse(text, false);
+
+			if (token[0] == 0)
+			{
+				ri.Printf(PRINT_WARNING, "WARNING: missing parameters for alphaGen in shader '%s'\n", name);
+			}
+			else if (!util::Stricmp(token, "wave"))
+			{
+				stage->alphaWave = parseWaveForm(text);
+				stage->alphaGen = MaterialAlphaGen::Waveform;
+			}
+			else if (!util::Stricmp(token, "const"))
+			{
+				token = util::Parse(text, false);
+				stage->constantColor.a = (float)atof(token);
+				stage->alphaGen = MaterialAlphaGen::Const;
+			}
+			else if (!util::Stricmp(token, "identity"))
+			{
+				stage->alphaGen = MaterialAlphaGen::Identity;
+			}
+			else if (!util::Stricmp(token, "entity"))
+			{
+				stage->alphaGen = MaterialAlphaGen::Entity;
+			}
+			else if (!util::Stricmp(token, "oneMinusEntity"))
+			{
+				stage->alphaGen = MaterialAlphaGen::OneMinusEntity;
+			}
+			else if (!util::Stricmp(token, "vertex"))
+			{
+				stage->alphaGen = MaterialAlphaGen::Vertex;
+			}
+			else if (!util::Stricmp(token, "lightingSpecular"))
+			{
+				stage->alphaGen = MaterialAlphaGen::LightingSpecular;
+			}
+			else if (!util::Stricmp(token, "oneMinusVertex"))
+			{
+				stage->alphaGen = MaterialAlphaGen::OneMinusVertex;
+			}
+			else if (!util::Stricmp(token, "portal"))
+			{
+				stage->alphaGen = MaterialAlphaGen::Portal;
+				token = util::Parse(text, false);
+
+				if (token[0] == 0)
+				{
+					ri.Printf(PRINT_WARNING, "WARNING: missing range parameter for alphaGen portal in shader '%s', defaulting to %g\n", name, portalRange);
+				}
+				else
+				{
+					portalRange = (float)atof(token);
+				}
+			}
+			else
+			{
+				ri.Printf(PRINT_WARNING, "WARNING: unknown alphaGen parameter '%s' in shader '%s'\n", token, name);
+				continue;
+			}
 		}
 		// tcGen <function>
 		else if (!util::Stricmp(token, "texgen") || !util::Stricmp(token, "tcGen")) 
@@ -1149,8 +1083,8 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 		// depthmask
 		else if (!util::Stricmp(token, "depthwrite"))
 		{
-			// Pre-parsed above.
-			util::SkipRestOfLine(text);
+			stage->depthWrite = true;
+			depthWriteExplicit = true;
 		}
 		else
 		{

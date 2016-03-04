@@ -319,8 +319,7 @@ struct Image
 		enum
 		{
 			GenerateMipmaps    = 1<<0,
-			Picmip             = 1<<1,
-			PremultipliedAlpha = 1<<2
+			Picmip             = 1<<1
 		};
 	};
 
@@ -1081,8 +1080,7 @@ struct TextureFlags
 		NoLightScale       = 1<<4,
 		ClampToEdge        = 1<<5,
 		SRGB               = 1<<6,
-		GenNormalMap       = 1<<7,
-		PremultipliedAlpha = 1<<8
+		GenNormalMap       = 1<<7
 	};
 };
 
