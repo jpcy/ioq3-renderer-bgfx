@@ -1260,7 +1260,6 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			entityUniforms_->ambientLight.set(vec4(currentEntity_->ambientLight / 255.0f, 0));
 			entityUniforms_->directedLight.set(vec4(currentEntity_->directedLight / 255.0f, 0));
 			entityUniforms_->lightDirection.set(vec4(currentEntity_->lightDir, 0));
-			entityUniforms_->modelLightDir.set(currentEntity_->modelLightDir);
 		}
 
 		vec4 fogColor, fogDistance, fogDepth;
@@ -1809,8 +1808,6 @@ void Main::setupEntityLighting(Entity *entity)
 		entity->lightDir = sunLight_.direction;
 	}
 
-	vec3 lightDir = entity->lightDir * entity->directedLight.length();
-
 	// Bonus items and view weapons have a fixed minimum add.
 	//if (entity->e.renderfx & RF_MINLIGHT)
 	{
@@ -1821,21 +1818,16 @@ void Main::setupEntityLighting(Entity *entity)
 	// Modify the light by dynamic lights.
 	if (!isWorldCamera_)
 	{
-		dlightManager_->contribute(frameNo_, lightPosition, &entity->directedLight, &lightDir);
+		dlightManager_->contribute(frameNo_, lightPosition, &entity->directedLight, &entity->lightDir);
 	}
 
-	entity->lightDir = lightDir.normal();
+	entity->lightDir.normalize();
 
 	// Clamp ambient.
 	for (size_t i = 0; i < 3; i++)
 	{
 		entity->ambientLight[i] = std::min(entity->ambientLight[i], g_identityLight * 255);
 	}
-
-	// Transform the direction to local space.
-	entity->modelLightDir[0] = vec3::dotProduct(entity->lightDir, entity->e.axis[0]);
-	entity->modelLightDir[1] = vec3::dotProduct(entity->lightDir, entity->e.axis[1]);
-	entity->modelLightDir[2] = vec3::dotProduct(entity->lightDir, entity->e.axis[2]);
 }
 
 float Main::calculateExplosionLight(float entityShaderTime, float durationMilliseconds) const

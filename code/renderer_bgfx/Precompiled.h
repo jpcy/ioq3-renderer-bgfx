@@ -288,9 +288,6 @@ struct Entity
 	/// Normalized direction towards light, in world space.
 	vec3 lightDir;
 
-	/// Normalized direction towards light, in model space.
-	vec3 modelLightDir;
-
 	/// Color normalized to 0-255.
 	vec3 ambientLight;
 
@@ -1268,7 +1265,6 @@ struct Uniforms_Entity
 	Uniform_vec4 ambientLight = "u_AmbientLight";
 	Uniform_vec4 directedLight = "u_DirectedLight";
 	Uniform_vec4 lightDirection = "u_LightDirection";
-	Uniform_vec4 modelLightDir = "u_ModelLightDir";
 };
 
 /// @brief Uniforms derived from material state.

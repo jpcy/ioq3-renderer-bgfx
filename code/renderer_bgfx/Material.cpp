@@ -158,7 +158,24 @@ void Material::finish()
 int Material::collapseStagesToGLSL()
 {
 	int i, j, numStages;
-	
+
+	for (i = 0; i < maxStages; i++)
+	{
+		MaterialStage &stage = stages[i];
+
+		if (!stage.active)
+			continue;
+
+		if (stage.rgbGen == MaterialColorGen::LightingDiffuse)
+		{
+			stage.light = MaterialLight::Vector;
+		}
+		else if (stage.rgbGen == MaterialColorGen::VertexLit || stage.rgbGen == MaterialColorGen::ExactVertexLit)
+		{
+			stage.light = MaterialLight::Vertex;
+		}
+	}
+
 	// if 2+ stages and first stage is lightmap, switch them
 	// this makes it easier for the later bits to process
 	if (stages[0].active && stages[0].bundles[0].tcGen == MaterialTexCoordGen::Lightmap && stages[1].active)
@@ -248,7 +265,7 @@ int Material::collapseStagesToGLSL()
 		{
 			MaterialStage *pStage = &stages[i];
 			MaterialStage *diffuse, *normal, *specular, *lightmap;
-			bool parallax, tcgen, diffuselit, vertexlit;
+			bool parallax;
 
 			if (!pStage->active)
 				continue;
@@ -311,39 +328,10 @@ int Material::collapseStagesToGLSL()
 				}
 			}
 
-			tcgen = false;
-
-			if (diffuse->bundles[0].tcGen == MaterialTexCoordGen::EnvironmentMapped || diffuse->bundles[0].tcGen == MaterialTexCoordGen::Lightmap || diffuse->bundles[0].tcGen == MaterialTexCoordGen::Vector)
-			{
-				tcgen = true;
-			}
-
-			diffuselit = false;
-
-			if (diffuse->rgbGen == MaterialColorGen::LightingDiffuse)
-			{
-				diffuselit = true;
-			}
-
-			vertexlit = false;
-
-			if (diffuse->rgbGen == MaterialColorGen::VertexLit || diffuse->rgbGen == MaterialColorGen::ExactVertexLit)
-			{
-				vertexlit = true;
-			}
-
 			if (lightmap)
 			{
 				diffuse->bundles[MaterialTextureBundleIndex::Lightmap] = lightmap->bundles[0];
 				diffuse->light = MaterialLight::Map;
-			}
-			else if (diffuselit)
-			{
-				diffuse->light = MaterialLight::Vector;
-			}
-			else if (vertexlit)
-			{
-				diffuse->light = MaterialLight::Vertex;
 			}
 		}
 
