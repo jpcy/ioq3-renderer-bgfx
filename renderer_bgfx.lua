@@ -91,9 +91,15 @@ function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sd
 		
 	configuration { "windows", "gmake", "mingw=mingw" }
 		gccprefix "mingw32-"
+		
+	configuration { "windows", "gmake", "mingw=mingw-pc", "x86" }
+		gccprefix "i686-pc-mingw32-"
 	
 	configuration { "windows", "gmake", "mingw=mingw-w64", "x86" }
 		gccprefix "i686-w64-mingw32-"
+		
+	configuration { "windows", "gmake", "mingw=mingw-pc", "x86_64" }
+		gccprefix "x86_64-pc-mingw32-"
 	
 	configuration { "windows", "gmake", "mingw=mingw-w64", "x86_64" }
 		gccprefix "x86_64-w64-mingw32-"
