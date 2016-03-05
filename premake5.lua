@@ -350,7 +350,7 @@ newoption
 	allowed =
 	{
 		{ "mingw", "MinGW or mingw32" },
-		{ "mingw-pc" "MinGW-w64" },
+		{ "mingw-pc", "MinGW-w64" },
 		{ "mingw-w64", "MinGW-w64" }
 	}
 }
