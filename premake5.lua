@@ -1,25 +1,8 @@
 local BGFX_PATH = path.join(path.getabsolute(".."), "bgfx")
 
-if not os.isdir(BGFX_PATH) then
+if _ACTION ~= nil and not os.isdir(BGFX_PATH) then
 	print("bgfx not found at " .. BGFX_PATH)
 	os.exit()
-end
-
-local BX_PATH = path.join(path.getabsolute(".."), "bx")
-
-if not os.isdir(BX_PATH) then
-	print("bx not found at " .. BX_PATH)
-	os.exit()
-end
-
-local IOQ3_PATH = path.join(path.getabsolute(".."), "ioq3")
-local RENDERER_PATH = path.getabsolute(".")
-
-if os.is("windows") then
-	if not os.isdir(IOQ3_PATH) then
-		print("ioquake3 not found at " .. IOQ3_PATH)
-		os.exit()
-	end
 end
 
 newaction
@@ -358,6 +341,43 @@ newaction
 		print("Done.")
     end,
 }
+
+newoption
+{
+	trigger = "mingw",
+	value = "VALUE",
+	description = "MinGW variety",
+	allowed =
+	{
+		{ "mingw", "MinGW or mingw32" },
+		{ "mingw-w64", "MinGW-w64" }
+	}
+}
+
+if _ACTION == nil then
+	return
+end
+
+if not _OPTIONS["mingw"] then
+	_OPTIONS["mingw"] = "mingw-w64"
+end
+
+local BX_PATH = path.join(path.getabsolute(".."), "bx")
+
+if not os.isdir(BX_PATH) then
+	print("bx not found at " .. BX_PATH)
+	os.exit()
+end
+
+local IOQ3_PATH = path.join(path.getabsolute(".."), "ioq3")
+local RENDERER_PATH = path.getabsolute(".")
+
+if os.is("windows") then
+	if not os.isdir(IOQ3_PATH) then
+		print("ioquake3 not found at " .. IOQ3_PATH)
+		os.exit()
+	end
+end
 
 solution "renderer_bgfx"
 	configurations { "Release", "Debug" }

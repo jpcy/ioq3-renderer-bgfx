@@ -24,15 +24,24 @@ cd build
 make
 ```
 
-### MinGW
+### Cygwin/MinGW
 
 Clone [ioquake3](https://github.com/ioquake/ioq3) to the same parent directory as ioq3-renderer-bgfx.
 
+For Cygwin/MinGW-w64/MSYS2:
 ```
 ./premake5.exe shaders
 ./premake5.exe gmake
 cd build
 make
+```
+
+For MinGW/mingw32:
+```
+./premake5.exe shaders
+./premake5.exe --mingw=mingw gmake
+cd build
+mingw32-make
 ```
 
 ### Visual Studio
