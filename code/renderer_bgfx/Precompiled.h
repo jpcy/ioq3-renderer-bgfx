@@ -25,6 +25,16 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <memory>
 #include <vector>
 
+#if !defined(_MSC_VER) && __cplusplus < 201402L
+namespace std {
+template<typename T, typename... Args>
+std::unique_ptr<T> make_unique(Args&&... args)
+{
+	return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+}
+}
+#endif
+
 extern "C"
 {
 #ifdef USE_LOCAL_HEADERS

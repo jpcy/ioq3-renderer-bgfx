@@ -52,13 +52,13 @@ function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sd
 		defines "BGFX_CONFIG_DEBUG=1"
 	
 	configuration "gmake"
-		buildoptions "-std=c++14"
+		buildoptions "-std=c++11"
 		
 	configuration "linux"
 		buildoptions
 		{
 			linuxSdlCflags,
-			"-std=c++14"
+			"-std=c++11"
 		}
 
 		defines(linuxArchDefine)
