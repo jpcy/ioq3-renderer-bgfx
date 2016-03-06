@@ -89,7 +89,7 @@ function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sd
 		
 	configuration { "windows", "gmake" }
 		includedirs(path.join(bxPath, "include/compat/mingw"))
-		linkoptions { "-static-libgcc", "-static-libstdc++" }
+		linkoptions { "-static-libgcc", "-static-libstdc++", "-Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic" }
 		
 	configuration { "windows", "gmake", "mingw=mingw" }
 		gccprefix "mingw32-"
