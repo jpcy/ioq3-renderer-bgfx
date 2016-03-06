@@ -20,3 +20,14 @@ after_build:
 
 artifacts:
   - path: renderer_bgfx_x86.zip
+
+deploy:
+- provider: BinTray
+  username: jpcy
+  api_key:
+    secure: pLpGN6oHk8U7G5p4qUiMKoGgSTOB283MZSIFC30mPUQ4jMA1hGMeeD6tGSKsVJ3d
+  subject: jpcy
+  repo: ioq3-renderer-bgfx
+  package: Windows
+  publish: true
+  override: true
