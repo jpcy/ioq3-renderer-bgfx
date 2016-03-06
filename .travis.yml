@@ -1,0 +1,16 @@
+language: cpp
+compiler: gcc
+
+install:
+  - sudo apt-get install -qq libgl1-mesa-dev libsdl2-dev
+  - git clone https://github.com/bkaradzic/bx ../bx
+  - git clone https://github.com/bkaradzic/bgfx.git ../bgfx
+  - ./premake5 shaders
+  - ./premake5 gmake
+  - cd build
+
+script:
+  make config=release_x86_64
+  
+notifications:
+  email: false
