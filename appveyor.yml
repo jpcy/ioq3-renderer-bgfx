@@ -1,17 +1,16 @@
 version: 1.0.{build}
 
 install:
-  - cmd: >-
-    git clone https://github.com/bkaradzic/bx.git ../bx
-    git clone https://github.com/bkaradzic/bgfx.git ../bgfx
-    git clone https://github.com/ioquake/ioq3.git ../ioq3
-    premake5.exe shaders
-    premake5.exe gmake
-    set PATH=C:\msys64\usr\bin;%PATH%
-    bash -lc ""
-    bash -lc "pacman --noconfirm --needed -Sy bash pacman pacman-mirrors msys2-runtime msys2-runtime-devel"
-    bash -lc "pacman --noconfirm -S make"
-    bash -lc "pacman --noconfirm -S mingw-w64-i686-{gcc,gcc-ada,gcc-fortran,gcc-libgfortran,gcc-objc}"
+  - cmd: git clone https://github.com/bkaradzic/bx.git ../bx
+  - cmd: git clone https://github.com/bkaradzic/bgfx.git ../bgfx
+  - cmd: git clone https://github.com/ioquake/ioq3.git ../ioq3
+  - cmd: premake5.exe shaders
+  - cmd: premake5.exe gmake
+  - cmd: set PATH=C:\msys64\usr\bin;%PATH%
+  - cmd: bash -lc ""
+  - cmd: bash -lc "pacman --noconfirm --needed -Sy bash pacman pacman-mirrors msys2-runtime msys2-runtime-devel"
+  - cmd: bash -lc "pacman --noconfirm -S make"
+  - cmd: bash -lc "pacman --noconfirm -S mingw-w64-i686-{gcc,gcc-ada,gcc-fortran,gcc-libgfortran,gcc-objc}"
 
 build_script:
   - cmd: bash -lc "export PATH=/mingw32/bin:$PATH && cd $APPVEYOR_BUILD_FOLDER && cd build && make config=release_x86"
