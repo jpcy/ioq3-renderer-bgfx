@@ -7,6 +7,8 @@ install:
   - sudo apt-get install -qq libgl1-mesa-dev libsdl2-dev
   - git clone https://github.com/bkaradzic/bx ../bx
   - git clone https://github.com/bkaradzic/bgfx.git ../bgfx
+  - wget https://github.com/premake/premake-core/releases/download/v5.0.0-alpha8/premake-5.0.0-alpha8-linux.tar.gz -O /tmp/premake-5.0.0-alpha8-linux.tar.gz
+  - tar -xvf /tmp/premake-5.0.0-alpha8-linux.tar.gz
   - ./premake5 shaders
   - ./premake5 gmake
   - cd build
