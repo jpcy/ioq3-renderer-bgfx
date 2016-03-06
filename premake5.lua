@@ -113,7 +113,7 @@ newaction
 				command = command .. string.format(" -i \"shaders;%s\" -f \"%s\" -o \"%s\" --varyingdef shaders/varying.def.sc --bin2c \"%s\" --type %s", path.join(BGFX_PATH, "src"), inputFilename, tempOutputFilename, variableName, type)
 			
 				if defines ~= nil then
-					command = command .. " --define " .. defines
+					command = command .. " --define \"" .. defines .. "\""
 				end
 				
 				if renderer == "gl" then

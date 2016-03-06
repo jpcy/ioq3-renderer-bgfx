@@ -225,7 +225,7 @@ void DynamicLightManager::updateTextures(int frameNo)
 		// Write the light index.
 		indicesTextureData_[buffer][indicesOffset++] = lightIndex;
 
-		if (indicesOffset > uint16_t(USHRT_MAX - 2))
+		if (indicesOffset > uint16_t(UINT16_MAX - 2))
 		{
 			ri.Printf(PRINT_WARNING, "Too many assigned lights.\n");
 			break;
