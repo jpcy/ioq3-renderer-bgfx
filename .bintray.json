@@ -1,0 +1,18 @@
+{
+    "package": {
+        "name": "ioq3-renderer-bgfx-linux",
+        "repo": "ioq3-renderer-bgfx",
+        "subject": "jpcy"
+    },
+
+    "version": {
+        "name": "test"
+    },
+
+    "files":
+        [
+        {"includePattern": "renderer_bgfx_x86_64.tar.gz", "uploadPattern": "/$1"}
+        ],
+    "publish": true,
+	"override": true
+}

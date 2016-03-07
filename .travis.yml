@@ -9,19 +9,22 @@ install:
   - export CXX="g++-4.8" CC="gcc-4.8"
   - git clone https://github.com/bkaradzic/bx ../bx
   - git clone https://github.com/bkaradzic/bgfx.git ../bgfx
-  - git clone https://github.com/premake/premake-core.git ../premake-core
-  - cd ../premake-core
-  - git submodule init
-  - git submodule update
-  - make -f Bootstrap.mak linux
-  - chmod +x bin/release/premake5 
   - cd $TRAVIS_BUILD_DIR
-  - ../premake-core/bin/release/premake5 shaders
-  - ../premake-core/bin/release/premake5 gmake
+  - ./premake5 shaders
+  - ./premake5 gmake
   - cd build
 
 script:
   make config=release_x86_64
+  
+before_deploy:
+  tar pczf renderer_bgfx_x86_64.tar.gz /bin_x64/renderer_bgfx_x86_64.so
+  
+deploy:
+  provider: bintray
+  file: ../.bintray.json
+  user: jpcy
+  key: $BINTRAY_API_KEY
   
 notifications:
   email: false
