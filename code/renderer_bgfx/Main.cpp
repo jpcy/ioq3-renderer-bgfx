@@ -1121,7 +1121,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			// Material remapping.
 			auto mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
 
-			if (mat->sort != MaterialSort::Opaque || mat->numUnfoggedPasses == 0)
+			if (mat->sort != MaterialSort::Opaque || (mat->contentFlags & CONTENTS_TRANSLUCENT) || mat->numUnfoggedPasses == 0)
 				continue;
 
 			currentEntity_ = dc.entity;
