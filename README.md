@@ -1,4 +1,9 @@
-A renderer for [ioquake3](https://github.com/ioquake/ioq3) written in C++ and using [bgfx](https://github.com/bkaradzic/bgfx).
+## ioq3-renderer-bgfx
+
+[![Appveyor CI Build Status](https://ci.appveyor.com/api/projects/status/github/jpcy/ioq3-renderer-bgfx?branch=master&svg=true)](https://ci.appveyor.com/project/jpcy/ioq3-renderer-bgfx)
+[![Travis CI Build Status](https://travis-ci.org/jpcy/ioq3-renderer-bgfx.svg?branch=master)](https://travis-ci.org/jpcy/ioq3-renderer-bgfx)
+
+This is a renderer for [ioquake3](https://github.com/ioquake/ioq3) written in C++ and using [bgfx](https://github.com/bkaradzic/bgfx).
 
 Goal: Make Quake 3 Arena and derivitives look slightly better on a modern PC without content replacement. It doesn't need to run at 600fps, trade some of that performance for visuals.
 
@@ -10,12 +15,22 @@ Status: Work in Progress. Not widely tested. Q3A and TA more or less look how th
 * Real dynamic lights
 * Extra dynamic lights for Q3A weapons - BFG, Lightning, Plasma, Railgun
 
+## Binaries
+
+[Windows (x86)](https://dl.bintray.com/jpcy/ioq3-renderer-bgfx/renderer_bgfx_x86.zip)
+
+[Linux (x86_64)](https://dl.bintray.com/jpcy/ioq3-renderer-bgfx/renderer_bgfx_x86_64.tar.gz)
+
+These are updated after every commit.
+
 ## Compiling
 
 ### Prerequisites
 Clone [bgfx](https://github.com/bkaradzic/bgfx) and [bx](https://github.com/bkaradzic/bx) to the same parent directory as ioq3-renderer-bgfx.
 
 ### Linux
+
+Required packages: libgl1-mesa-dev libsdl2-dev
 
 ```
 ./premake5 shaders
@@ -24,24 +39,15 @@ cd build
 make
 ```
 
-### Cygwin/MinGW
+### Cygwin/MinGW-w64/MSYS2
 
 Clone [ioquake3](https://github.com/ioquake/ioq3) to the same parent directory as ioq3-renderer-bgfx.
 
-For Cygwin/MinGW-w64/MSYS2:
 ```
 ./premake5.exe shaders
 ./premake5.exe gmake
 cd build
 make
-```
-
-For MinGW/mingw32:
-```
-./premake5.exe shaders
-./premake5.exe --mingw=mingw gmake
-cd build
-mingw32-make
 ```
 
 ### Visual Studio
