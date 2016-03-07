@@ -375,13 +375,8 @@ void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
 	ri.FS_FreeFile((void **)data);
 }
 
-void Main::debugPrint(const char *format, ...)
+void Main::debugPrint(const char *text)
 {
-	va_list args;
-	va_start(args, format);
-	char text[1024];
-	util::Vsnprintf(text, sizeof(text), format, args);
-	va_end(args);
 	bgfx::dbgTextPrintf(0, debugTextY, 0x4f, text);
 	debugTextY++;
 }
@@ -989,7 +984,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	if (isWorldCamera_)
 	{
 		Sky_Render(&drawCalls_, position, visCacheId, zMax);
-		world::Render(&drawCalls_, visCacheId);
+		world::Render(sceneRotation_, &drawCalls_, visCacheId);
 	}
 
 	for (auto &entity : sceneEntities_)

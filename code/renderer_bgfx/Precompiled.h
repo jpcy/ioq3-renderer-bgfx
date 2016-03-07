@@ -349,6 +349,7 @@ namespace main
 	void AddDynamicLightToScene(const DynamicLight &light);
 	void AddEntityToScene(const refEntity_t *entity);
 	void AddPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int nPolys);
+	void DebugPrint(const char *format, ...);
 	void DrawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex);
 	void DrawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);
 	void EndFrame();
@@ -851,7 +852,9 @@ public:
 	float setTime(float time);
 
 	bool hasAutoSpriteDeform() const;
+	bool hasAutoSprite2Deform() const;
 	void setupAutoSpriteDeform(Vertex *vertices, uint32_t nVertices) const;
+	void doAutoSprite2Deform(const mat3 &sceneRotation, Vertex *vertices, uint32_t nVertices, uint16_t *indices, uint32_t nIndices) const;
 	void setDeformUniforms(Uniforms_Material *uniforms) const;
 
 private:
@@ -1502,7 +1505,7 @@ namespace world
 	bool CalculatePortalCamera(uint8_t visCacheId, size_t portalSurfaceIndex, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, vec4 *portalPlane);
 	uint8_t CreateVisCache();
 	void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *areaMask);
-	void Render(DrawCallList *drawCallList, uint8_t visCacheId);
+	void Render(const mat3 &sceneRotation, DrawCallList *drawCallList, uint8_t visCacheId);
 }
 
 static const size_t g_funcTableSize = 1024;

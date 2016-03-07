@@ -602,6 +602,16 @@ void AddPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int 
 	return s_main->addPolyToScene(hShader, nVerts, verts, nPolys);
 }
 
+void DebugPrint(const char *format, ...)
+{
+	va_list args;
+	va_start(args, format);
+	char text[1024];
+	util::Vsnprintf(text, sizeof(text), format, args);
+	va_end(args);
+	s_main->debugPrint(text);
+}
+
 void DrawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex)
 {
 	s_main->drawStretchPic(x, y, w, h, s1, t1, s2, t2, materialIndex);

@@ -83,6 +83,12 @@ struct Surface
 
 	/// Used at runtime to avoid processing surfaces multiple times when adding a decal.
 	int decalDuplicateId = -1;
+
+	/// @remarks Used by CPU deforms only.
+	uint32_t firstVertex;
+
+	/// @remarks Used by CPU deforms only.
+	uint32_t nVertices;
 };
 
 struct Node
@@ -112,6 +118,12 @@ struct BatchedSurface
 
 	uint32_t firstIndex;
 	uint32_t nIndices;
+
+	/// @remarks Used by CPU deforms only.
+	uint32_t firstVertex;
+
+	/// @remarks Used by CPU deforms only.
+	uint32_t nVertices;
 };
 
 struct VisCache
@@ -140,6 +152,9 @@ struct VisCache
 
 	/// Visible portal surface.
 	std::vector<Surface *> portalSurfaces;
+
+	std::vector<Vertex> cpuDeformVertices;
+	std::vector<uint16_t> cpuDeformIndices;
 };
 
 static vec2 AtlasTexCoord(vec2 uv, int index, int nTilesPerDimension)
@@ -1207,6 +1222,10 @@ public:
 				visCache->indices[i].clear();
 			}
 
+			// Clear CPU deform geometry.
+			visCache->cpuDeformIndices.clear();
+			visCache->cpuDeformVertices.clear();
+
 			// Create batched surfaces.
 			visCache->batchedSurfaces.clear();
 			size_t firstSurface = 0;
@@ -1224,20 +1243,55 @@ public:
 					bs.material = surface->material;
 					bs.fogIndex = surface->fogIndex;
 
-					// Grab the indices for all surfaces in this batch.
-					// They will be used directly by a dynamic index buffer.
-					bs.bufferIndex = surface->bufferIndex;
-					auto &indices = visCache->indices[bs.bufferIndex];
-					bs.firstIndex = (uint32_t)indices.size();
-					bs.nIndices = 0;
-					
-					for (size_t j = firstSurface; j <= i; j++)
+					if (bs.material->hasAutoSprite2Deform())
 					{
-						auto s = visCache->surfaces[j];
-						const size_t copyIndex = indices.size();
-						indices.resize(indices.size() + s->indices.size());
-						memcpy(&indices[copyIndex], &s->indices[0], s->indices.size() * sizeof(uint16_t));
-						bs.nIndices += (uint32_t)s->indices.size();
+						// Grab the geometry for all surfaces in this batch.
+						// It will be copied into a transient buffer and then deformed every render() call.
+						bs.firstIndex = (uint32_t)visCache->cpuDeformIndices.size();
+						bs.nIndices = 0;
+						bs.firstVertex = (uint32_t)visCache->cpuDeformVertices.size();
+						bs.nVertices = 0;
+
+						for (size_t j = firstSurface; j <= i; j++)
+						{
+							auto s = visCache->surfaces[j];
+
+							// Make room in destination.
+							const size_t firstDestIndex = visCache->cpuDeformIndices.size();
+							visCache->cpuDeformIndices.resize(visCache->cpuDeformIndices.size() + s->indices.size());
+							const size_t firstDestVertex = visCache->cpuDeformVertices.size();
+							visCache->cpuDeformVertices.resize(visCache->cpuDeformVertices.size() + s->nVertices);
+
+							// Append geometry.
+							memcpy(&visCache->cpuDeformVertices[firstDestVertex], &vertices_[surface->bufferIndex][s->firstVertex], sizeof(Vertex) * s->nVertices);
+
+							for (size_t k = 0; k < s->indices.size(); k++)
+							{
+								// Make indices relative.
+								visCache->cpuDeformIndices[firstDestIndex + k] = uint16_t(s->indices[k] - s->firstVertex + bs.nVertices);
+							}
+
+							bs.nVertices += s->nVertices;
+							bs.nIndices += s->indices.size();
+						}
+					}
+					else
+					{
+						// Grab the indices for all surfaces in this batch.
+						// They will be used directly by a dynamic index buffer.
+						bs.bufferIndex = surface->bufferIndex;
+						auto &indices = visCache->indices[bs.bufferIndex];
+						bs.firstIndex = (uint32_t)indices.size();
+						bs.nIndices = 0;
+
+						for (size_t j = firstSurface; j <= i; j++)
+						{
+							auto s = visCache->surfaces[j];
+							const size_t copyIndex = indices.size();
+							indices.resize(indices.size() + s->indices.size());
+							memcpy(&indices[copyIndex], &s->indices[0], s->indices.size() * sizeof(uint16_t));
+							bs.nIndices += (uint32_t)s->indices.size();
+						}
 					}
 
 					visCache->batchedSurfaces.push_back(bs);
@@ -1273,7 +1327,7 @@ public:
 		duplicateSurfaceId_++;
 	}
 
-	void render(DrawCallList *drawCallList, uint8_t visCacheId)
+	void render(const mat3 &sceneRotation, DrawCallList *drawCallList, uint8_t visCacheId)
 	{
 		assert(drawCallList);
 		auto &visCache = visCaches_[visCacheId];
@@ -1283,13 +1337,45 @@ public:
 			DrawCall dc;
 			dc.fogIndex = surface.fogIndex;
 			dc.material = surface.material;
-			dc.ib.firstIndex = surface.firstIndex;
-			dc.ib.nIndices = surface.nIndices;
-			dc.vb.type = DrawCall::BufferType::Static;
-			dc.vb.staticHandle = vertexBuffers_[surface.bufferIndex].handle;
-			dc.vb.nVertices = (uint32_t)vertices_[surface.bufferIndex].size();
-			dc.ib.type = DrawCall::BufferType::Dynamic;
-			dc.ib.dynamicHandle = visCache->indexBuffers[surface.bufferIndex].handle;
+
+			if (surface.material->hasAutoSprite2Deform())
+			{
+				assert(!visCache->cpuDeformVertices.empty() && !visCache->cpuDeformIndices.empty());
+				assert(surface.nVertices);
+				assert(surface.nIndices);
+
+				// Copy the CPU deform geo to a transient buffer.
+				bgfx::TransientVertexBuffer tvb;
+				bgfx::TransientIndexBuffer tib;
+
+				if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, surface.nVertices, &tib, surface.nIndices))
+				{
+					WarnOnce(WarnOnceId::TransientBuffer);
+					continue;
+				}
+				
+				memcpy(tib.data, &visCache->cpuDeformIndices[surface.firstIndex], surface.nIndices * sizeof(uint16_t));
+				memcpy(tvb.data, &visCache->cpuDeformVertices[surface.firstVertex], surface.nVertices * sizeof(Vertex));
+				dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
+				dc.vb.transientHandle = tvb;
+				dc.vb.nVertices = surface.nVertices;
+				dc.ib.transientHandle = tib;
+				dc.ib.nIndices = surface.nIndices;
+
+				// Deform the transient buffer contents.
+				surface.material->doAutoSprite2Deform(sceneRotation, (Vertex *)tvb.data, surface.nVertices, (uint16_t *)tib.data, surface.nIndices);
+			}
+			else
+			{
+				dc.vb.type = DrawCall::BufferType::Static;
+				dc.vb.staticHandle = vertexBuffers_[surface.bufferIndex].handle;
+				dc.vb.nVertices = (uint32_t)vertices_[surface.bufferIndex].size();
+				dc.ib.type = DrawCall::BufferType::Dynamic;
+				dc.ib.dynamicHandle = visCache->indexBuffers[surface.bufferIndex].handle;
+				dc.ib.firstIndex = surface.firstIndex;
+				dc.ib.nIndices = surface.nIndices;
+			}
+
 			drawCallList->push_back(dc);
 		}
 	}
@@ -1966,6 +2052,10 @@ private:
 		// The surface needs to know which vertex buffer to use.
 		surface->bufferIndex = currentGeometryBuffer_;
 
+		// CPU deforms need to know which vertices to use.
+		surface->firstVertex = startVertex;
+		surface->nVertices = nVertices;
+
 		// Copy indices into the surface. Relative indices are made absolute.
 		surface->indices.resize(nIndices);
 
@@ -2243,10 +2333,10 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 	s_world->updateVisCache(visCacheId, cameraPosition, areaMask);
 }
 
-void Render(DrawCallList *drawCallList, uint8_t visCacheId)
+void Render(const mat3 &sceneRotation, DrawCallList *drawCallList, uint8_t visCacheId)
 {
 	assert(IsLoaded());
-	s_world->render(drawCallList, visCacheId);
+	s_world->render(sceneRotation, drawCallList, visCacheId);
 }
 
 } // namespace world

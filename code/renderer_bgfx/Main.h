@@ -65,7 +65,7 @@ public:
 	void registerFont(const char *fontName, int pointSize, fontInfo_t *font);
 	void setColor(vec4 c) { stretchPicColor_ = c; }
 	void setSunLight(const SunLight &sunLight) { sunLight_ = sunLight; }
-	void debugPrint(const char *format, ...);
+	void debugPrint(const char *text);
 	void drawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex);
 	void drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);
 	void uploadCinematic(int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);

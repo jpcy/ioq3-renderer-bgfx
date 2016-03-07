@@ -142,26 +142,16 @@ void main()
 	vec3 wsPosition = mul(u_model[0], vec4(position, 1.0)).xyz;
 	int autoSprite = int(u_NumDeforms_AutoSprite.y);
 
-	if (autoSprite != 0)
+	if (autoSprite == DGEN_AUTOSPRITE)
 	{
 		// From Unvanquished vertexSprite_vp.glsl
 		float radius = a_texcoord2.w;
 		vec2 corner = a_texcoord0.xy * 2.0 - 1.0;
 		vec3 viewNormal = normalize(u_ViewOrigin.xyz - wsPosition);
-
-		if (autoSprite == DGEN_AUTOSPRITE)
-		{
-			vec3 left = normalize(cross(u_ViewUp.xyz, viewNormal));
-			vec3 up = cross(left, viewNormal);
-			wsPosition += left * corner.x * radius + up * corner.y * radius;
-		}
-		else if (autoSprite == DGEN_AUTOSPRITE2)
-		{
-			vec3 up = a_texcoord2.xyz;
-			vec3 left = normalize(cross(up, viewNormal));
-			wsPosition += left * corner.y * radius;
-		}
-
+		vec3 left = normalize(cross(u_ViewUp.xyz, viewNormal));
+		vec3 up = cross(left, viewNormal);
+		wsPosition += left * corner.x * radius + up * corner.y * radius;
+	
 		// Pass soft sprite depth to fragment shader.
 		v_texcoord2.x = radius / 2.0;
 	}
