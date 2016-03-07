@@ -1,4 +1,4 @@
-version: 1.0.{build}
+version: test
 
 install:
   - cmd: git clone https://github.com/bkaradzic/bx.git ../bx
@@ -16,9 +16,11 @@ build_script:
   - cmd: bash -lc "export PATH=/mingw32/bin:$PATH && cd $APPVEYOR_BUILD_FOLDER && cd build && make config=release_x86"
 
 after_build:
-  - cmd: 7z a renderer_bgfx_x86-%APPVEYOR_BUILD_VERSION%.zip %APPVEYOR_BUILD_FOLDER%\build\bin_x86\renderer_bgfx_x86.dll
-  - cmd: appveyor PushArtifact renderer_bgfx_x86-%APPVEYOR_BUILD_VERSION%.zip
+  - cmd: 7z a renderer_bgfx_x86.zip %APPVEYOR_BUILD_FOLDER%\build\bin_x86\renderer_bgfx_x86.dll
 
+artifacts:
+  - path: renderer_bgfx_x86.zip
+  
 deploy:
 - provider: BinTray
   username: jpcy
