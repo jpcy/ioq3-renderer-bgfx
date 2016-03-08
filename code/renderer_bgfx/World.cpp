@@ -1802,8 +1802,8 @@ private:
 		for (MaterialDef &m : materials_)
 		{
 			util::Strncpyz(m.name, fileMaterial->shader, sizeof(m.name));
-			m.surfaceFlags = LittleLong(fileMaterial->surfaceFlags );
-			m.contentFlags = LittleLong(fileMaterial->contentFlags );
+			m.surfaceFlags = LittleLong(fileMaterial->surfaceFlags);
+			m.contentFlags = LittleLong(fileMaterial->contentFlags);
 			fileMaterial++;
 		}
 
@@ -1852,10 +1852,11 @@ private:
 				lightmapIndex = MaterialLightmapId::Vertex;
 			}
 
-			s.material = findMaterial(LittleLong(fs.shaderNum), lightmapIndex);
+			const int shaderNum = LittleLong(fs.shaderNum);
+			s.material = findMaterial(shaderNum, lightmapIndex);
 
 			// We may have a nodraw surface, because they might still need to be around for movement clipping.
-			if (s.material->surfaceFlags & SURF_NODRAW)
+			if (s.material->surfaceFlags & SURF_NODRAW || materials_[shaderNum].surfaceFlags & SURF_NODRAW)
 			{
 				s.type = SurfaceType::Ignore;
 			}
