@@ -137,7 +137,7 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 	const int nComponents = 4;
 	const char *extension = util::GetExtension(_filePath);
 	const bool writeAsPng = !util::Stricmp(extension, "png");
-	const size_t outputPitch = writeAsPng ? _pitch : _width * nComponents; // PNG can use any pitch, others can't.
+	const uint32_t outputPitch = writeAsPng ? _pitch : _width * nComponents; // PNG can use any pitch, others can't.
 
 	// Convert from BGRA to RGBA, and flip y if needed.
 	const size_t requiredSize = outputPitch * _height;
@@ -167,7 +167,7 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 
 	if (writeAsPng)
 	{
-		if (!stbi_write_png_to_func(ImageWriteCallback, &buffer, _width, _height, nComponents, screenShotDataBuffer_.data(), outputPitch))
+		if (!stbi_write_png_to_func(ImageWriteCallback, &buffer, _width, _height, nComponents, screenShotDataBuffer_.data(), (int)outputPitch))
 		{
 			ri.Printf(PRINT_ALL, "Screenshot: error writing png file\n");
 			return;
@@ -193,7 +193,7 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 	// Write file buffer to file.
 	if (buffer.bytesWritten > 0)
 	{
-		ri.FS_WriteFile(_filePath, buffer.data->data(), buffer.bytesWritten);
+		ri.FS_WriteFile(_filePath, buffer.data->data(), (int)buffer.bytesWritten);
 	}
 }
 
@@ -496,7 +496,7 @@ void Main::addPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts
 	{
 		Polygon p;
 		p.material = materialCache_->getMaterial(hShader); 
-		p.firstVertex = firstVertex + i * nVerts;
+		p.firstVertex = uint32_t(firstVertex + i * nVerts);
 		p.nVertices = nVerts;
 		Bounds bounds;
 		bounds.setupForAddingPoints();

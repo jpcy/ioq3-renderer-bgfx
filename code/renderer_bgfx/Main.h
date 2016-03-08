@@ -278,7 +278,7 @@ private:
 	{
 		Material *material;
 		int fogIndex;
-		size_t firstVertex, nVertices;
+		uint32_t firstVertex, nVertices;
 	};
 
 	std::vector<Polygon> scenePolygons_;

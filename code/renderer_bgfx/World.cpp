@@ -1272,7 +1272,7 @@ public:
 							}
 
 							bs.nVertices += s->nVertices;
-							bs.nIndices += s->indices.size();
+							bs.nIndices += (uint32_t)s->indices.size();
 						}
 					}
 					else
@@ -2021,7 +2021,7 @@ private:
 		}
 	}
 
-	void setSurfaceGeometry(Surface *surface, const Vertex *vertices, size_t nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex)
+	void setSurfaceGeometry(Surface *surface, const Vertex *vertices, int nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex)
 	{
 		auto *bufferVertices = &vertices_[currentGeometryBuffer_];
 
@@ -2035,11 +2035,11 @@ private:
 		}
 
 		// Append the vertices into the current vertex buffer.
-		auto startVertex = (const uint16_t)bufferVertices->size();
+		auto startVertex = (const uint32_t)bufferVertices->size();
 		bufferVertices->resize(bufferVertices->size() + nVertices);
 		memcpy(&(*bufferVertices)[startVertex], vertices, nVertices * sizeof(Vertex));
 
-		for (size_t i = 0; i < nVertices; i++)
+		for (int i = 0; i < nVertices; i++)
 		{
 			Vertex *v = &(*bufferVertices)[startVertex + i];
 
@@ -2054,7 +2054,7 @@ private:
 
 		// CPU deforms need to know which vertices to use.
 		surface->firstVertex = startVertex;
-		surface->nVertices = nVertices;
+		surface->nVertices = (uint32_t)nVertices;
 
 		// Copy indices into the surface. Relative indices are made absolute.
 		surface->indices.resize(nIndices);

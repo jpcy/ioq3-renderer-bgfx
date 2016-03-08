@@ -233,7 +233,7 @@ void DynamicLightManager::updateTextures(int frameNo)
 	}
 
 	// Update the cells texture.
-	bgfx::updateTexture2D(cellsTexture_, 0, 0, 0, cellsTextureSize_, cellsTextureSize_, bgfx::makeRef(cellsTextureData_[buffer].data(), cellsTextureData_[buffer].size() * sizeof(uint16_t)));
+	bgfx::updateTexture2D(cellsTexture_, 0, 0, 0, cellsTextureSize_, cellsTextureSize_, bgfx::makeRef(cellsTextureData_[buffer].data(), uint32_t(cellsTextureData_[buffer].size() * sizeof(uint16_t))));
 
 	// Update the indices texture.
 	if (nLights_ > 0 && indicesOffset > 0)

@@ -295,7 +295,7 @@ bool Model_md3::load()
 			frames_[i].vertices.resize(nVertices_);
 		}
 
-		size_t startVertex = 0;
+		uint32_t startVertex = 0;
 		auto fileSurface = (md3Surface_t *)&data[fileHeader->ofsSurfaces];
 
 		for (int i = 0; i < fileHeader->numSurfaces; i++)

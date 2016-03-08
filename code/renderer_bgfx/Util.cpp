@@ -287,7 +287,7 @@ int Compress(char *data_p)
 
 		*out = 0;
 	}
-	return out - data_p;
+	return int(out - data_p);
 }
 
 uint16_t CalculateSmallestPowerOfTwoTextureSize(int nPixels)
@@ -327,7 +327,7 @@ void StripExtension(const char *in, char *out, int destsize)
 	const char *dot = strrchr(in, '.'), *slash;
 
 	if (dot && (!(slash = strrchr(in, '/')) || slash < dot))
-		destsize = (destsize < dot - in + 1 ? destsize : dot - in + 1);
+		destsize = (destsize < int(dot - in + 1) ? destsize : int(dot - in + 1));
 
 	if (in == out && destsize > 1)
 		out[destsize - 1] = '\0';
@@ -412,9 +412,7 @@ void Strncpyz(char *dest, const char *src, int destsize)
 
 void Strcat(char *dest, int size, const char *src)
 {
-	int		l1;
-
-	l1 = strlen(dest);
+	auto l1 = (int)strlen(dest);
 	if (l1 >= size) {
 		ri.Error(ERR_FATAL, "util::Strcat: already overflowed");
 	}
@@ -467,7 +465,7 @@ int Vsnprintf(char *str, size_t size, const char *format, va_list ap)
 		// implementation, so we have no choice but to return size.
 
 		str[size - 1] = '\0';
-		return size;
+		return (int)size;
 	}
 
 	return retval;
