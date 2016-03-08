@@ -43,9 +43,9 @@ Model *ModelCache::findModel(const char *name)
 	}
 
 	// Search the currently loaded models
-	auto hash = generateHash(name, hashTableSize_);
+	size_t hash = generateHash(name, hashTableSize_);
 
-	for (auto m = hashTable_[hash]; m; m = m->next_)
+	for (Model *m = hashTable_[hash]; m; m = m->next_)
 	{
 		if (!util::Stricmp(m->name_, name))
 		{
@@ -55,7 +55,7 @@ Model *ModelCache::findModel(const char *name)
 	}
 
 	// Create/load the model
-	auto m = Model::createMD3(name);
+	std::unique_ptr<Model> m = Model::createMD3(name);
 
 	if (!m->load())
 	{
@@ -67,7 +67,7 @@ Model *ModelCache::findModel(const char *name)
 
 Model *ModelCache::addModel(std::unique_ptr<Model> model)
 {
-	auto hash = generateHash(model->getName(), hashTableSize_);
+	size_t hash = generateHash(model->getName(), hashTableSize_);
 	model->index_ = models_.size() + 1; // 0 is reserved for missing model/debug axis.
 	model->next_ = hashTable_[hash];
 	hashTable_[hash] = model.get();

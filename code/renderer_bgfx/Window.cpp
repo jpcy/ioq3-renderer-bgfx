@@ -79,10 +79,10 @@ static bool GetModeInfo(int *width, int *height, float *windowAspect, int mode)
 	}
 	else
 	{
-		auto vm = &r_vidModes[mode];
-		*width  = vm->width;
-		*height = vm->height;
-		pixelAspect = vm->pixelAspect;
+		const VideoMode &vm = r_vidModes[mode];
+		*width  = vm.width;
+		*height = vm.height;
+		pixelAspect = vm.pixelAspect;
 	}
 
 	*windowAspect = *width / (*height * pixelAspect);
@@ -236,7 +236,7 @@ static bool StartDriverAndSetMode(int mode, bool fullscreen, bool noborder)
 			return false;
 		}
 
-		auto driverName = SDL_GetCurrentVideoDriver();
+		const char *driverName = SDL_GetCurrentVideoDriver();
 		ri.Printf(PRINT_ALL, "SDL using driver \"%s\"\n", driverName);
 		ri.Cvar_Set("r_sdlDriver", driverName);
 	}

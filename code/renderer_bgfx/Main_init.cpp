@@ -508,7 +508,7 @@ void Main::initialize()
 		if (g_cvars.hdr->integer == 0 && (i == ShaderProgramId::AdaptedLuminance || i == ShaderProgramId::Luminance || i == ShaderProgramId::LuminanceDownsample || i == ShaderProgramId::ToneMap))
 			continue;
 
-		auto &fragment = fragmentShaders_[programMap[i].frag];
+		Shader &fragment = fragmentShaders_[programMap[i].frag];
 
 		if (!bgfx::isValid(fragment.handle))
 		{
@@ -518,7 +518,7 @@ void Main::initialize()
 				ri.Error(ERR_DROP, "Error creating fragment shader");
 		}
 
-		auto &vertex = vertexShaders_[programMap[i].vert];
+		Shader &vertex = vertexShaders_[programMap[i].vert];
 	
 		if (!bgfx::isValid(vertex.handle))
 		{

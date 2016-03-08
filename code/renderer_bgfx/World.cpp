@@ -199,9 +199,9 @@ public:
 	{
 		assert(drawCallList);
 		assert(entity);
-		const auto modelMatrix = mat4::transform(entity->e.axis, entity->e.origin);
+		const mat4 modelMatrix = mat4::transform(entity->e.axis, entity->e.origin);
 
-		for (auto &surface : surfaces_)
+		for (Surface &surface : surfaces_)
 		{
 			DrawCall dc;
 			dc.entity = entity;
@@ -227,7 +227,7 @@ public:
 	void addSurface(size_t index, Material *material, const Vertex *vertices, size_t nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex, int nLightmapTilesPerDimension)
 	{
 		// Create a temp surface.
-		auto &ts = tempSurfaces_[index];
+		TempSurface &ts = tempSurfaces_[index];
 		ts.material = material;
 		ts.firstVertex = (uint32_t)tempVertices_.size();
 		ts.nVertices = (uint32_t)nVertices;
@@ -257,9 +257,9 @@ public:
 			return;
 
 		// Allocate buffers for the batched geometry.
-		auto verticesMem = bgfx::alloc(uint32_t(sizeof(Vertex) * tempVertices_.size()));
+		const bgfx::Memory *verticesMem = bgfx::alloc(uint32_t(sizeof(Vertex) * tempVertices_.size()));
 		auto vertices = (Vertex *)verticesMem->data;
-		auto indicesMem = bgfx::alloc(uint32_t(sizeof(uint16_t) * tempIndices_.size()));
+		const bgfx::Memory *indicesMem = bgfx::alloc(uint32_t(sizeof(uint16_t) * tempIndices_.size()));
 		auto indices = (uint16_t *)indicesMem->data;
 		uint32_t currentVertex = 0, currentIndex = 0;
 
@@ -268,7 +268,7 @@ public:
 			Material *material = nullptr;
 
 			// Get the material from the first temp surface that hasn't been batched.
-			for (const auto &ts : tempSurfaces_)
+			for (const TempSurface &ts : tempSurfaces_)
 			{
 				if (!ts.material)
 					continue;
@@ -287,7 +287,7 @@ public:
 			// Find a batched surface with the same material.
 			Surface *surface = nullptr;
 
-			for (auto &s : surfaces_)
+			for (Surface &s : surfaces_)
 			{
 				if (s.material == material)
 				{
@@ -308,7 +308,7 @@ public:
 			}
 
 			// Batch all temp surfaces with this material.
-			for (auto &ts : tempSurfaces_)
+			for (TempSurface &ts : tempSurfaces_)
 			{
 				if (!ts.material || ts.material != material)
 					continue;
@@ -643,7 +643,7 @@ public:
 	{
 		for (int i = 0; i < (int)fogs_.size(); i++)
 		{
-			auto &fog = fogs_[i];
+			const Fog &fog = fogs_[i];
 			int j;
 
 			for (j = 0; j < 3; j++)
@@ -676,7 +676,7 @@ public:
 		assert(fogDistance);
 		assert(fogDepth);
 		assert(eyeT);
-		auto &fog = fogs_[fogIndex];
+		const Fog &fog = fogs_[fogIndex];
 
 		if (fogColor)
 		{
@@ -790,7 +790,7 @@ public:
 						To avoid issues when LOD applied to "hollow curves" (like the ones around many jump pads) we now just add a 2 unit offset to the triangle vertices. The offset is added in the vertex normal vector direction so all triangles will still fit together. The 2 unit offset should avoid pretty much all LOD problems.
 						*/
 						numClipPoints = 3;
-						auto dv = surface->patch->verts + m * surface->patch->width + n;
+						Vertex *dv = surface->patch->verts + m * surface->patch->width + n;
 						clipPoints[0][0] = dv[0].pos + dv[0].normal * MARKER_OFFSET;
 						clipPoints[0][1] = dv[surface->patch->width].pos + dv[surface->patch->width].normal * MARKER_OFFSET;
 						clipPoints[0][2] = dv[1].pos + dv[1].normal * MARKER_OFFSET;
@@ -1111,10 +1111,10 @@ public:
 	void updateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *areaMask)
 	{
 		assert(areaMask);
-		auto &visCache = visCaches_[visCacheId];
+		std::unique_ptr<VisCache> &visCache = visCaches_[visCacheId];
 
 		// Get the PVS for the camera leaf cluster.
-		auto cameraLeaf = leafFromPosition(cameraPosition);
+		Node *cameraLeaf = leafFromPosition(cameraPosition);
 
 		// Build a list of visible surfaces.
 		// Don't need to refresh visible surfaces if the camera cluster or the area bitmask haven't changed.
@@ -1137,7 +1137,7 @@ public:
 
 			for (size_t i = firstLeaf_; i < nodes_.size(); i++)
 			{
-				auto &leaf = nodes_[i];
+				Node &leaf = nodes_[i];
 
 				// Check PVS.
 				if (pvs && !(pvs[leaf.cluster >> 3] & (1 << (leaf.cluster & 7))))
@@ -1158,7 +1158,7 @@ public:
 					if (si < 0 || si >= (int)surfaces_.size())
 						continue;
 					
-					auto &surface = surfaces_[si];
+					Surface &surface = surfaces_[si];
 
 					// Don't add duplicates.
 					if (surface.duplicateId == duplicateSurfaceId_)
@@ -1232,9 +1232,9 @@ public:
 
 			for (size_t i = 0; i < visCache->surfaces.size(); i++)
 			{
-				auto surface = visCache->surfaces[i];
+				Surface *surface = visCache->surfaces[i];
 				const bool isLast = i == visCache->surfaces.size() - 1;
-				auto nextSurface = isLast ? nullptr : visCache->surfaces[i + 1];
+				Surface *nextSurface = isLast ? nullptr : visCache->surfaces[i + 1];
 
 				// Create new batch on certain surface state changes.
 				if (!nextSurface || nextSurface->material != surface->material || nextSurface->fogIndex != surface->fogIndex || nextSurface->bufferIndex != surface->bufferIndex)
@@ -1254,7 +1254,7 @@ public:
 
 						for (size_t j = firstSurface; j <= i; j++)
 						{
-							auto s = visCache->surfaces[j];
+							Surface *s = visCache->surfaces[j];
 
 							// Make room in destination.
 							const size_t firstDestIndex = visCache->cpuDeformIndices.size();
@@ -1280,13 +1280,13 @@ public:
 						// Grab the indices for all surfaces in this batch.
 						// They will be used directly by a dynamic index buffer.
 						bs.bufferIndex = surface->bufferIndex;
-						auto &indices = visCache->indices[bs.bufferIndex];
+						std::vector<uint16_t> &indices = visCache->indices[bs.bufferIndex];
 						bs.firstIndex = (uint32_t)indices.size();
 						bs.nIndices = 0;
 
 						for (size_t j = firstSurface; j <= i; j++)
 						{
-							auto s = visCache->surfaces[j];
+							Surface *s = visCache->surfaces[j];
 							const size_t copyIndex = indices.size();
 							indices.resize(indices.size() + s->indices.size());
 							memcpy(&indices[copyIndex], &s->indices[0], s->indices.size() * sizeof(uint16_t));
@@ -1302,13 +1302,13 @@ public:
 			// Update dynamic index buffers.
 			for (size_t i = 0; i < currentGeometryBuffer_ + 1; i++)
 			{
-				auto &ib = visCache->indexBuffers[i];
-				auto &indices = visCache->indices[i];
+				DynamicIndexBuffer &ib = visCache->indexBuffers[i];
+				std::vector<uint16_t> &indices = visCache->indices[i];
 
 				if (indices.empty())
 					continue;
 
-				auto mem = bgfx::copy(indices.data(), uint32_t(indices.size() * sizeof(uint16_t)));
+				const bgfx::Memory *mem = bgfx::copy(indices.data(), uint32_t(indices.size() * sizeof(uint16_t)));
 
 				// Buffer is created on first use.
 				if (!bgfx::isValid(ib.handle))
@@ -1330,9 +1330,9 @@ public:
 	void render(const mat3 &sceneRotation, DrawCallList *drawCallList, uint8_t visCacheId)
 	{
 		assert(drawCallList);
-		auto &visCache = visCaches_[visCacheId];
+		std::unique_ptr<VisCache> &visCache = visCaches_[visCacheId];
 
-		for (auto &surface : visCache->batchedSurfaces)
+		for (const BatchedSurface &surface : visCache->batchedSurfaces)
 		{
 			DrawCall dc;
 			dc.fogIndex = surface.fogIndex;
@@ -1545,7 +1545,7 @@ private:
 
 		for (size_t i = 0; i < HEADER_LUMPS; i++)
 		{
-			auto &l = header->lumps[i];
+			lump_t &l = header->lumps[i];
 			l.fileofs = LittleLong(l.fileofs);
 			l.filelen = LittleLong(l.filelen);
 
@@ -1555,8 +1555,8 @@ private:
 
 		// Entities
 		{
-			auto &lump = header->lumps[LUMP_ENTITIES];
-			char *p = (char *)(&fileData_[lump.fileofs]);
+			lump_t &lump = header->lumps[LUMP_ENTITIES];
+			auto p = (char *)(&fileData_[lump.fileofs]);
 
 			// Store for reference by the cgame.
 			entityString_.resize(lump.filelen + 1);
@@ -1602,7 +1602,7 @@ private:
 		auto filePlane = (const dplane_t *)(fileData_ + header->lumps[LUMP_PLANES].fileofs);
 		planes_.resize(header->lumps[LUMP_PLANES].filelen / sizeof(*filePlane));
 
-		for (auto &p : planes_)
+		for (Plane &p : planes_)
 		{
 			p = Plane(filePlane->normal, filePlane->dist);
 			p.setupFastBoundsTest();
@@ -1619,8 +1619,8 @@ private:
 
 		for (size_t i = 0; i < fogs_.size(); i++)
 		{
-			auto &f = fogs_[i];
-			auto &ff = fileFogs[i];
+			Fog &f = fogs_[i];
+			const dfog_t &ff = fileFogs[i];
 			f.originalBrushNumber = LittleLong(ff.brushNum);
 			
 			if ((unsigned)f.originalBrushNumber >= nBrushes)
@@ -1628,7 +1628,7 @@ private:
 				ri.Error(ERR_DROP, "fog brushNumber out of range");
 			}
 
-			auto &brush = fileBrushes[f.originalBrushNumber];
+			const dbrush_t &brush = fileBrushes[f.originalBrushNumber];
 			const int firstSide = LittleLong(brush.firstSide);
 
 			if ((unsigned)firstSide > nBrushSides - 6)
@@ -1662,7 +1662,7 @@ private:
 			f.bounds[1][2] = planes_[planeNum].distance;
 
 			// Get information from the material for fog parameters.
-			auto material = g_materialCache->findMaterial(ff.shader, MaterialLightmapId::None, true);
+			Material *material = g_materialCache->findMaterial(ff.shader, MaterialLightmapId::None, true);
 			f.parms = material->fogParms;
 			((uint8_t *)&f.colorInt)[0] = uint8_t(f.parms.color[0] * g_identityLight * 255);
 			((uint8_t *)&f.colorInt)[1] = uint8_t(f.parms.color[1] * g_identityLight * 255);
@@ -1751,8 +1751,8 @@ private:
 
 		for (size_t i = 0; i < modelDefs_.size(); i++)
 		{
-			auto &m = modelDefs_[i];
-			auto &fm = fileModels[i];
+			ModelDef &m = modelDefs_[i];
+			const dmodel_t &fm = fileModels[i];
 			m.firstSurface = LittleLong(fm.firstSurface);
 			m.nSurfaces = LittleLong(fm.numSurfaces);
 			m.bounds[0] = vec3(LittleLong(fm.mins[0]), LittleLong(fm.mins[1]), LittleLong(fm.mins[2]));
@@ -1762,7 +1762,7 @@ private:
 		// Light grid. Models must be parsed first.
 		{
 			assert(modelDefs_.size() > 0);
-			auto &lump = header->lumps[LUMP_LIGHTGRID];
+			lump_t &lump = header->lumps[LUMP_LIGHTGRID];
 
 			lightGridInverseSize_.x = 1.0f / lightGridSize_.x;
 			lightGridInverseSize_.y = 1.0f / lightGridSize_.y;
@@ -1799,7 +1799,7 @@ private:
 		auto fileMaterial = (const dshader_t *)(fileData_ + header->lumps[LUMP_SHADERS].fileofs);
 		materials_.resize(header->lumps[LUMP_SHADERS].filelen / sizeof(*fileMaterial));
 
-		for (auto &m : materials_)
+		for (MaterialDef &m : materials_)
 		{
 			util::Strncpyz(m.name, fileMaterial->shader, sizeof(m.name));
 			m.surfaceFlags = LittleLong(fileMaterial->surfaceFlags );
@@ -1813,8 +1813,8 @@ private:
 
 		for (size_t i = 0; i < vertices.size(); i++)
 		{
-			auto &v = vertices[i];
-			const auto &fv = fileDrawVerts[i];
+			Vertex &v = vertices[i];
+			const drawVert_t &fv = fileDrawVerts[i];
 			v.pos = vec3(LittleFloat(fv.xyz[0]), LittleFloat(fv.xyz[1]), LittleFloat(fv.xyz[2]));
 			v.normal = vec3(LittleFloat(fv.normal[0]), LittleFloat(fv.normal[1]), LittleFloat(fv.normal[2]));
 			v.texCoord = vec2(LittleFloat(fv.st[0]), LittleFloat(fv.st[1]));
@@ -1840,8 +1840,8 @@ private:
 
 		for (size_t i = 0; i < surfaces_.size(); i++)
 		{
-			auto &s = surfaces_[i];
-			auto &fs = fileSurfaces[i];
+			Surface &s = surfaces_[i];
+			const dsurface_t &fs = fileSurfaces[i];
 			s.fogIndex = LittleLong(fs.fogNum); // -1 means no fog
 			const int type = LittleLong(fs.surfaceType);
 			int lightmapIndex = LittleLong(fs.lightmapNum);
@@ -1908,15 +1908,15 @@ private:
 		// Model surfaces
 		for (size_t i = 1; i < modelDefs_.size(); i++)
 		{
-			const auto &md = modelDefs_[i];
+			const ModelDef &md = modelDefs_[i];
 			auto model = std::make_unique<WorldModel>((int)i, md.nSurfaces, md.bounds);
 
 			for (size_t j = 0; j < md.nSurfaces; j++)
 			{
-				auto &fs = fileSurfaces[md.firstSurface + j];
+				const dsurface_t &fs = fileSurfaces[md.firstSurface + j];
 				const int type = LittleLong(fs.surfaceType);
 				int lightmapIndex = LittleLong(fs.lightmapNum);
-				auto material = findMaterial(LittleLong(fs.shaderNum), lightmapIndex);
+				Material *material = findMaterial(LittleLong(fs.shaderNum), lightmapIndex);
 
 				if (!lightmapAtlases_.empty())
 				{
@@ -1955,8 +1955,8 @@ private:
 
 		for (size_t i = 0; i < nNodes; i++)
 		{
-			auto &n = nodes_[i];
-			auto &fn = fileNodes[i];
+			Node &n = nodes_[i];
+			const dnode_t &fn = fileNodes[i];
 
 			n.leaf = false;
 			n.bounds[0] = vec3((float)LittleLong(fn.mins[0]), (float)LittleLong(fn.mins[1]), (float)LittleLong(fn.mins[2]));
@@ -1974,8 +1974,8 @@ private:
 
 		for (size_t i = 0; i < nLeaves; i++)
 		{
-			auto &l = nodes_[firstLeaf_ + i];
-			auto &fl = fileLeaves[i];
+			Node &l = nodes_[firstLeaf_ + i];
+			const dleaf_t &fl = fileLeaves[i];
 
 			l.leaf = true;
 			l.bounds[0] = vec3((float)LittleLong(fl.mins[0]), (float)LittleLong(fl.mins[1]), (float)LittleLong(fl.mins[2]));
@@ -1993,7 +1993,7 @@ private:
 		}	
 
 		// Visibility
-		const auto &visLump = header->lumps[LUMP_VISIBILITY];
+		const lump_t &visLump = header->lumps[LUMP_VISIBILITY];
 
 		if (visLump.filelen)
 		{
@@ -2023,7 +2023,7 @@ private:
 
 	void setSurfaceGeometry(Surface *surface, const Vertex *vertices, int nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex)
 	{
-		auto *bufferVertices = &vertices_[currentGeometryBuffer_];
+		std::vector<Vertex> *bufferVertices = &vertices_[currentGeometryBuffer_];
 
 		// Increment the current vertex buffer if the vertices won't fit.
 		if (bufferVertices->size() + nVertices >= UINT16_MAX)
@@ -2067,7 +2067,7 @@ private:
 
 	void appendSkySurfaceGeometry(uint8_t visCacheId, size_t skyIndex, const Surface &surface)
 	{
-		auto &visCache = visCaches_[visCacheId];
+		std::unique_ptr<VisCache> &visCache = visCaches_[visCacheId];
 		const size_t startVertex = visCache->skyVertices[skyIndex].size();
 		visCache->skyVertices[skyIndex].resize(visCache->skyVertices[skyIndex].size() + surface.indices.size());
 
@@ -2089,7 +2089,7 @@ private:
 			lightmapIndex /= nLightmapsPerAtlas_;
 		}
 
-		auto material = g_materialCache->findMaterial(materials_[materialIndex].name, lightmapIndex, true);
+		Material *material = g_materialCache->findMaterial(materials_[materialIndex].name, lightmapIndex, true);
 
 		// If the material had errors, just use default material.
 		if (!material)
@@ -2100,7 +2100,7 @@ private:
 
 	Node *leafFromPosition(vec3 pos)
 	{
-		auto node = &nodes_[0];
+		Node *node = &nodes_[0];
 
 		for (;;)
 		{

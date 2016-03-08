@@ -367,7 +367,7 @@ void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
 
 	for (int i = GLYPH_START; i <= GLYPH_END; i++)
 	{
-		auto m = materialCache_->findMaterial(font->glyphs[i].shaderName, MaterialLightmapId::StretchPic, false);
+		Material *m = materialCache_->findMaterial(font->glyphs[i].shaderName, MaterialLightmapId::StretchPic, false);
 		font->glyphs[i].glyph = m->defaultShader ? 0 : m->index;
 	}
 
@@ -383,7 +383,7 @@ void Main::debugPrint(const char *text)
 
 void Main::drawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex)
 {
-	auto mat = materialCache_->getMaterial(materialIndex);
+	Material *mat = materialCache_->getMaterial(materialIndex);
 
 	if (stretchPicMaterial_ != mat)
 	{
@@ -448,7 +448,7 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 
 void Main::uploadCinematic(int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty)
 {
-	auto scratch = textureCache_->getScratchTextures()[client];
+	Texture *scratch = textureCache_->getScratchTextures()[client];
 	
 	if (cols != scratch->getWidth() || rows != scratch->getHeight())
 	{
@@ -458,7 +458,7 @@ void Main::uploadCinematic(int w, int h, int cols, int rows, const uint8_t *data
 
 	if (dirty)
 	{
-		auto mem = bgfx::alloc(cols * rows * 4);
+		const bgfx::Memory *mem = bgfx::alloc(cols * rows * 4);
 		memcpy(mem->data, data, mem->size);
 		scratch->update(mem, 0, 0, cols, rows);
 	}
@@ -987,7 +987,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		world::Render(sceneRotation_, &drawCalls_, visCacheId);
 	}
 
-	for (auto &entity : sceneEntities_)
+	for (Entity &entity : sceneEntities_)
 	{
 		if (isMainCamera && (entity.e.renderfx & RF_THIRD_PERSON) != 0)
 			continue;
@@ -1001,7 +1001,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	if (!scenePolygons_.empty())
 	{
 		// Sort polygons by material and fogIndex for batching.
-		for (auto &polygon : scenePolygons_)
+		for (Polygon &polygon : scenePolygons_)
 		{
 			sortedScenePolygons_.push_back(&polygon);
 		}
@@ -1060,8 +1060,8 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 				for (size_t j = 0; j < p->nVertices; j++)
 				{
-					auto &v = vertices[currentVertex++];
-					auto &pv = scenePolygonVertices_[p->firstVertex + j];
+					Vertex &v = vertices[currentVertex++];
+					const polyVert_t &pv = scenePolygonVertices_[p->firstVertex + j];
 					v.pos = pv.xyz;
 					v.texCoord = pv.st;
 					v.color = vec4::fromBytes(pv.modulate);
@@ -1119,7 +1119,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		for (DrawCall &dc : drawCalls_)
 		{
 			// Material remapping.
-			auto mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
+			Material *mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
 
 			if (mat->sort != MaterialSort::Opaque || (mat->contentFlags & CONTENTS_TRANSLUCENT) || mat->numUnfoggedPasses == 0)
 				continue;
@@ -1204,7 +1204,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		assert(dc.material);
 
 		// Material remapping.
-		auto mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
+		Material *mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
 
 		// Special case for skybox.
 		if (dc.flags >= DrawCallFlags::SkyboxSideFirst && dc.flags <= DrawCallFlags::SkyboxSideLast)
@@ -1519,7 +1519,7 @@ void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 view
 		}
 		else
 		{
-			auto model = modelCache_->getModel(entity->e.hModel);
+			Model *model = modelCache_->getModel(entity->e.hModel);
 
 			if (model->isCulled(entity, cameraFrustum_))
 				break;

@@ -146,10 +146,10 @@ Skin::Skin(const char *name, qhandle_t handle)
 
 	while (text_p && *text_p)
 	{
-		auto &surface = surfaces_[nSurfaces_];
+		Surface &surface = surfaces_[nSurfaces_];
 
 		// Get surface name.
-		auto token = CommaParse(&text_p);
+		const char *token = CommaParse(&text_p);
 		util::Strncpyz(surface.name, token, sizeof(surface.name));
 
 		if (!token[0])
@@ -189,7 +189,7 @@ Skin::Skin(const char *name, qhandle_t handle, Material *material)
 
 Material *Skin::findMaterial(const char *surfaceName)
 {
-	for (auto &surface : surfaces_)
+	for (Surface &surface : surfaces_)
 	{
 		if (!strcmp(surface.name, surfaceName))
 			return surface.material;
@@ -218,7 +218,7 @@ Material *MaterialCache::createMaterial(const Material &base)
 	m->index = (int)materials_.size();
 	m->sortedIndex = (int)materials_.size();
 
-	auto hash = generateHash(m->name, hashTableSize_);
+	size_t hash = generateHash(m->name, hashTableSize_);
 	m->next = hashTable_[hash];
 	hashTable_[hash] = m.get();
 	materials_.push_back(std::move(m));
@@ -233,10 +233,10 @@ Material *MaterialCache::findMaterial(const char *name, int lightmapIndex, bool 
 
 	char strippedName[MAX_QPATH];
 	util::StripExtension(name, strippedName, sizeof(strippedName));
-	auto hash = generateHash(strippedName, hashTableSize_);
+	size_t hash = generateHash(strippedName, hashTableSize_);
 
 	// see if the shader is already loaded
-	for (auto m = hashTable_[hash]; m; m = m->next)
+	for (Material *m = hashTable_[hash]; m; m = m->next)
 	{
 		// NOTE: if there was no shader or image available with the name strippedName
 		// then a default shader is created with lightmapIndex == MaterialLightmapId::None, so we
@@ -253,7 +253,7 @@ Material *MaterialCache::findMaterial(const char *name, int lightmapIndex, bool 
 	m.lightmapIndex = lightmapIndex;
 
 	// attempt to define shader from an explicit parameter file
-	auto shaderText = findShaderInShaderText(strippedName);
+	char *shaderText = findShaderInShaderText(strippedName);
 
 	if (shaderText)
 	{
@@ -278,7 +278,7 @@ Material *MaterialCache::findMaterial(const char *name, int lightmapIndex, bool 
 		flags |= TextureFlags::ClampToEdge;
 	}
 
-	auto texture = g_textureCache->findTexture(name, TextureType::ColorAlpha, flags);
+	Texture *texture = g_textureCache->findTexture(name, TextureType::ColorAlpha, flags);
 
 	if (!texture)
 	{
@@ -371,9 +371,9 @@ void MaterialCache::remapMaterial(const char *oldName, const char *newName, cons
 	// Remap all the materials with the given name, even though they might have different lightmaps.
 	char strippedName[MAX_QPATH];
 	util::StripExtension(oldName, strippedName, sizeof(strippedName));
-	auto hash = generateHash(strippedName, hashTableSize_);
+	size_t hash = generateHash(strippedName, hashTableSize_);
 
-	for (auto m = hashTable_[hash]; m; m = m->next)
+	for (Material *m = hashTable_[hash]; m; m = m->next)
 	{
 		if (util::Stricmp(m->name, strippedName) == 0)
 		{
@@ -409,7 +409,7 @@ Skin *MaterialCache::findSkin(const char *name)
 	}
 
 	// See if the skin is already loaded.
-	for (auto &skin : skins_)
+	for (std::unique_ptr<Skin> &skin : skins_)
 	{
 		if (!util::Stricmp(skin->getName(), name))
 		{
@@ -427,7 +427,7 @@ Skin *MaterialCache::findSkin(const char *name)
 	if (!skin->hasSurfaces())
 		return nullptr; // Use default skin.
 
-	auto result = skin.get();
+	Skin *result = skin.get();
 	skins_.push_back(std::move(skin));
 	return result;
 }
@@ -464,7 +464,7 @@ void MaterialCache::scanAndLoadShaderFiles()
 {
 	// scan for shader files
 	int numShaderFiles;
-	auto shaderFiles = ri.FS_ListFiles("scripts", ".shader", &numShaderFiles);
+	char **shaderFiles = ri.FS_ListFiles("scripts", ".shader", &numShaderFiles);
 
 	if (!shaderFiles || !numShaderFiles)
 	{
@@ -511,7 +511,7 @@ void MaterialCache::scanAndLoadShaderFiles()
 
 		while(1)
 		{
-			auto token = util::Parse(&p, true);
+			char *token = util::Parse(&p, true);
 			
 			if (!*token)
 				break;
@@ -580,12 +580,12 @@ void MaterialCache::scanAndLoadShaderFiles()
 
 	while (1)
 	{
-		auto token = util::Parse(&p, true);
+		char *token = util::Parse(&p, true);
 
 		if (token[0] == 0)
 			break;
 
-		auto hash = generateHash(token, textHashTableSize_);
+		size_t hash = generateHash(token, textHashTableSize_);
 		textHashTable_Sizes[hash]++;
 		size++;
 		util::SkipBracedSection(&p, 0);
@@ -607,12 +607,12 @@ void MaterialCache::scanAndLoadShaderFiles()
 	while (1)
 	{
 		char *oldp = p;
-		auto token = util::Parse(&p, true);
+		char *token = util::Parse(&p, true);
 
 		if (token[0] == 0)
 			break;
 
-		auto hash = generateHash(token, textHashTableSize_);
+		size_t hash = generateHash(token, textHashTableSize_);
 		textHashTable_[hash][textHashTable_Sizes[hash]++] = oldp;
 		util::SkipBracedSection(&p, 0);
 	}
@@ -624,21 +624,21 @@ void MaterialCache::createExternalShaders()
 
 char *MaterialCache::findShaderInShaderText(const char *name)
 {
-	auto hash = generateHash(name, textHashTableSize_);
+	size_t hash = generateHash(name, textHashTableSize_);
 
 	if (textHashTable_[hash])
 	{
 		for (size_t i = 0; textHashTable_[hash][i]; i++)
 		{
-			auto p = textHashTable_[hash][i];
-			auto token = util::Parse(&p, true);
+			char *p = textHashTable_[hash][i];
+			char *token = util::Parse(&p, true);
 		
 			if (!util::Stricmp(token, name))
 				return p;
 		}
 	}
 
-	auto p = s_shaderText;
+	char *p = s_shaderText;
 
 	if (!p)
 		return NULL;
@@ -646,7 +646,7 @@ char *MaterialCache::findShaderInShaderText(const char *name)
 	// look for label
 	for (;;)
 	{
-		auto token = util::Parse(&p, true);
+		char *token = util::Parse(&p, true);
 
 		if (token[0] == 0)
 			break;

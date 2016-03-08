@@ -87,7 +87,7 @@ Texture *TextureCache::createTexture(const char *name, const Image &image, Textu
 	}
 
 	auto texture = std::make_unique<Texture>(name, image, type, flags, format);
-	auto hash = generateHash(name);
+	size_t hash = generateHash(name);
 	texture->next_ = hashTable_[hash];
 	hashTable_[hash] = texture.get();
 	textures_.push_back(std::move(texture));
@@ -99,7 +99,7 @@ Texture *TextureCache::findTexture(const char *name, TextureType type, int flags
 	if (!name)
 		return nullptr;
 
-	auto hash = generateHash(name);
+	size_t hash = generateHash(name);
 
 	// See if the image is already loaded.
 	for (Texture *t = hashTable_[hash]; t; t = t->next_)

@@ -69,7 +69,7 @@ static uint8_t *Stbi_LoadImage(const char *filename, const uint8_t *fileBuffer, 
 	int width = 0;
 	int height = 0;
 	int nComponents = 0;
-	auto data = stbi_load_from_memory(fileBuffer, (int)fileLength, &width, &height, &nComponents, 4);
+	uint8_t *data = stbi_load_from_memory(fileBuffer, (int)fileLength, &width, &height, &nComponents, 4);
 	nComponents = 4;
 
 	if (data == nullptr)
@@ -160,14 +160,14 @@ Image::Image(const char *filename, int flags)
 	memory = nullptr;
 
 	// Calculate the filename extension to determine which image handler to try first.
-	auto extension = util::GetExtension(filename);
+	const char *extension = util::GetExtension(filename);
 
 	// Try the image handler that corresponds to the filename extension.
 	const ImageHandler *triedHandler = nullptr;
 
 	for (size_t i = 0; i < nImageHandlers; i++)
 	{
-		const auto handler = &imageHandlers[i];
+		const ImageHandler *handler = &imageHandlers[i];
 
 		if (!util::Stricmp(handler->extension, extension))
 		{
@@ -177,7 +177,7 @@ Image::Image(const char *filename, int flags)
 			if (!file.isValid())
 				break;
 
-			auto data = handler->load(filename, file.getData(), file.getLength(), this);
+			uint8_t *data = handler->load(filename, file.getData(), file.getLength(), this);
 
 			if (!data)
 				break;
@@ -193,7 +193,7 @@ Image::Image(const char *filename, int flags)
 
 	for (size_t i = 0; i < nImageHandlers; i++)
 	{
-		const auto handler = &imageHandlers[i];
+		const ImageHandler *handler = &imageHandlers[i];
 
 		// Don't try the image handler that corresponds to the filename extension again.
 		if (handler == triedHandler)
@@ -207,7 +207,7 @@ Image::Image(const char *filename, int flags)
 		if (!file.isValid())
 			continue;
 
-		auto data = handler->load(newFilename, file.getData(), file.getLength(), this);
+		uint8_t *data = handler->load(newFilename, file.getData(), file.getLength(), this);
 			
 		if (!data)
 			continue;

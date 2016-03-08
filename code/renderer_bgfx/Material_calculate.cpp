@@ -238,7 +238,7 @@ void MaterialStage::calculateTexMods(vec4 *outMatrix, vec4 *outOffTurb) const
 	float currentMatrix[6] = { 1, 0, 0, 1, 0, 0 };
 	(*outMatrix) = { 1, 0, 0, 1 };
 	(*outOffTurb) = { 0, 0, 0, 0 };
-	const auto &bundle = bundles[0];
+	const MaterialTextureBundle &bundle = bundles[0];
 
 	for (int tm = 0; tm < bundle.numTexMods; tm++)
 	{
@@ -515,7 +515,7 @@ void MaterialStage::setTextureSampler(int sampler, Uniforms_MaterialStage *unifo
 {
 	assert(uniforms);
 	assert(active);
-	auto &bundle = bundles[sampler];
+	const MaterialTextureBundle &bundle = bundles[sampler];
 
 	if (bundle.isVideoMap)
 	{
@@ -559,7 +559,7 @@ float Material::setTime(float time)
 
 bool Material::hasAutoSpriteDeform() const
 {
-	for (auto &ds : deforms)
+	for (const MaterialDeformStage &ds : deforms)
 	{
 		if (ds.deformation == MaterialDeform::Autosprite)
 			return true;
@@ -570,7 +570,7 @@ bool Material::hasAutoSpriteDeform() const
 
 bool Material::hasAutoSprite2Deform() const
 {
-	for (auto &ds : deforms)
+	for (const MaterialDeformStage &ds : deforms)
 	{
 		if (ds.deformation == MaterialDeform::Autosprite2)
 			return true;
@@ -727,7 +727,7 @@ void Material::setDeformUniforms(Uniforms_Material *uniforms) const
 	vec4 frequency_Phase_Spread[maxDeforms];
 	uint16_t nDeforms = 0;
 
-	for (auto &ds : deforms)
+	for (const MaterialDeformStage &ds : deforms)
 	{
 		switch (ds.deformation)
 		{

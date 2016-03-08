@@ -98,7 +98,7 @@ bool Model_md3::load()
 	if (!file.isValid())
 		return false;
 
-	auto data = file.getData();
+	uint8_t *data = file.getData();
 
 	// Header
 	auto fileHeader = (md3Header_t *)data;
@@ -132,8 +132,8 @@ bool Model_md3::load()
 
 	for (int i = 0; i < fileHeader->numFrames; i++)
 	{
-		auto &frame = frames_[i];
-		auto &fileFrame = fileFrames[i];
+		ModelFrame &frame = frames_[i];
+		const md3Frame_t &fileFrame = fileFrames[i];
 		frame.radius = LittleFloat(fileFrame.radius);
 
 		for (int j = 0; j < 3; j++)
@@ -149,8 +149,8 @@ bool Model_md3::load()
 
 		for (int j = 0; j < fileHeader->numTags; j++)
 		{
-			auto &tag = frame.tags[j];
-			auto &fileTag = fileTags[j + i * fileHeader->numTags];
+			Transform &tag = frame.tags[j];
+			const md3Tag_t &fileTag = fileTags[j + i * fileHeader->numTags];
 			
 			for (int k = 0; k < 3; k++)
 			{
@@ -177,8 +177,8 @@ bool Model_md3::load()
 
 	for (int i = 0; i < fileHeader->numSurfaces; i++)
 	{
-		auto &s = surfaces_[i];
-		auto &fs = *fileSurface; // Just an alias.
+		ModelSurface &s = surfaces_[i];
+		md3Surface_t &fs = *fileSurface; // Just an alias.
 		LL(fs.ident);
 		LL(fs.flags);
 		LL(fs.numFrames);
@@ -195,7 +195,7 @@ bool Model_md3::load()
 		util::ToLowerCase(s.name); // Lowercase the surface name so skin compares are faster.
 
 		// Strip off a trailing _1 or _2. This is a crutch for q3data being a mess.
-		auto n = strlen(s.name);
+		size_t n = strlen(s.name);
 
 		if (n > 2 && s.name[n - 2] == '_')
 		{
@@ -234,14 +234,14 @@ bool Model_md3::load()
 	const bool isAnimated = frames_.size() > 1;
 
 	// Merge all surface indices into one index buffer. For each surface, store the start index and number of indices.
-	auto indicesMem = bgfx::alloc(uint32_t(sizeof(uint16_t) * nIndices));
+	const bgfx::Memory *indicesMem = bgfx::alloc(uint32_t(sizeof(uint16_t) * nIndices));
 	auto indices = (uint16_t *)indicesMem->data;
 	uint32_t startIndex = 0, startVertex = 0;
 	fileSurface = (md3Surface_t *)&data[fileHeader->ofsSurfaces];
 
 	for (int i = 0; i < fileHeader->numSurfaces; i++)
 	{
-		auto &surface = surfaces_[i];
+		ModelSurface &surface = surfaces_[i];
 		surface.startIndex = startIndex;
 		surface.nIndices = fileSurface->numTriangles * 3;
 		auto fileIndices = (int *)((uint8_t *)fileSurface + fileSurface->ofsTriangles);
@@ -264,7 +264,7 @@ bool Model_md3::load()
 	// Animated models (models with more than 1 frame) have their surface vertices merged into a single system memory vertex array for each frame.
 	if (!isAnimated)
 	{
-		auto verticesMem = bgfx::alloc(sizeof(Vertex) * nVertices_);
+		const bgfx::Memory *verticesMem = bgfx::alloc(sizeof(Vertex) * nVertices_);
 		auto vertices = (Vertex *)verticesMem->data;
 		frames_[0].vertices.resize(nVertices_);
 		size_t startVertex = 0;
@@ -351,9 +351,9 @@ bool Model_md3::isCulled(Entity *entity, const Frustum &cameraFrustum) const
 	// It is possible to have a bad frame while changing models.
 	const int frameIndex = Clamped(entity->e.frame, 0, (int)frames_.size() - 1);
 	const int oldFrameIndex = Clamped(entity->e.oldframe, 0, (int)frames_.size() - 1);
-	const auto &frame = frames_[frameIndex];
-	const auto &oldFrame = frames_[oldFrameIndex];
-	const auto modelMatrix = mat4::transform(entity->e.axis, entity->e.origin);
+	const ModelFrame &frame = frames_[frameIndex];
+	const ModelFrame &oldFrame = frames_[oldFrameIndex];
+	const mat4 modelMatrix = mat4::transform(entity->e.axis, entity->e.origin);
 
 	// Cull bounding sphere ONLY if this is not an upscaled entity.
 	if (!entity->e.nonNormalizedAxes)
@@ -400,7 +400,7 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 	// It is possible to have a bad frame while changing models.
 	const int frameIndex = Clamped(entity->e.frame, 0, (int)frames_.size() - 1);
 	const int oldFrameIndex = Clamped(entity->e.oldframe, 0, (int)frames_.size() - 1);
-	const auto modelMatrix = mat4::transform(entity->e.axis, entity->e.origin);
+	const mat4 modelMatrix = mat4::transform(entity->e.axis, entity->e.origin);
 	const bool isAnimated = frames_.size() > 1;
 	bgfx::TransientVertexBuffer tvb;
 	Vertex *vertices = nullptr;
@@ -420,9 +420,8 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 		// Lerp vertices.
 		for (size_t i = 0; i < nVertices_; i++)
 		{
-			auto &fromVertex = frames_[oldFrameIndex].vertices[i];
-			auto &toVertex = frames_[frameIndex].vertices[i];
-
+			Vertex &fromVertex = frames_[oldFrameIndex].vertices[i];
+			Vertex &toVertex = frames_[frameIndex].vertices[i];
 			const float fraction = 1.0f - entity->e.backlerp;
 			vertices[i].pos = vec3::lerp(fromVertex.pos, toVertex.pos, fraction);
 			vertices[i].normal = vec3::lerp(fromVertex.normal, toVertex.normal, fraction).normal();
@@ -437,7 +436,7 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 	{
 		if (isAnimated)
 		{
-			const auto &frame = frames_[oldFrameIndex];
+			const ModelFrame &frame = frames_[oldFrameIndex];
 			fogIndex = world::FindFogIndex(vec3(entity->e.origin) + frame.position, frame.radius);
 		}
 		else
@@ -446,7 +445,7 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 		}
 	}
 
-	for (auto &surface : surfaces_)
+	for (ModelSurface &surface : surfaces_)
 	{
 		Material *mat = surface.materials[0];
 
@@ -456,7 +455,7 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 		}
 		else if (entity->e.customSkin > 0)
 		{
-			auto customMat = g_materialCache->getSkin(entity->e.customSkin)->findMaterial(surface.name);
+			Material *customMat = g_materialCache->getSkin(entity->e.customSkin)->findMaterial(surface.name);
 
 			if (customMat)
 				mat = customMat;
@@ -517,7 +516,7 @@ Vertex Model_md3::loadVertex(size_t index, md3St_t *fileTexCoords, md3XyzNormal_
 	// decode X as cos( lat ) * sin( long )
 	// decode Y as sin( lat ) * sin( long )
 	// decode Z as cos( long )
-	auto normal = LittleShort(fileXyzNormals[index].normal);
+	short normal = LittleShort(fileXyzNormals[index].normal);
 	unsigned lat = (normal >> 8) & 0xff;
 	unsigned lng = (normal & 0xff);
 	lat *= (g_funcTableSize / 256);

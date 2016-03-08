@@ -183,16 +183,16 @@ int Material::collapseStagesToGLSL()
 		if ((stages[1].blendSrc == BGFX_STATE_BLEND_ZERO && stages[1].blendDst == BGFX_STATE_BLEND_SRC_COLOR) ||
 			(stages[1].blendSrc == BGFX_STATE_BLEND_DST_COLOR && stages[1].blendDst == BGFX_STATE_BLEND_ZERO))
 		{
-			const auto depthTestBits0 = stages[0].depthTestBits;
-			const auto depthWrite0 = stages[0].depthWrite;
-			const auto alphaTest0 = stages[0].alphaTest;
-			const auto blendSrc0 = stages[0].blendSrc;
-			const auto blendDst0 = stages[0].blendDst;
-			const auto depthTestBits1 = stages[1].depthTestBits;
-			const auto depthWrite1 = stages[1].depthWrite;
-			const auto alphaTest1 = stages[1].alphaTest;
-			const auto blendSrc1 = stages[1].blendSrc;
-			const auto blendDst1 = stages[1].blendDst;
+			const uint64_t depthTestBits0 = stages[0].depthTestBits;
+			const bool depthWrite0 = stages[0].depthWrite;
+			const MaterialAlphaTest alphaTest0 = stages[0].alphaTest;
+			const uint64_t blendSrc0 = stages[0].blendSrc;
+			const uint64_t blendDst0 = stages[0].blendDst;
+			const uint64_t depthTestBits1 = stages[1].depthTestBits;
+			const bool depthWrite1 = stages[1].depthWrite;
+			const MaterialAlphaTest alphaTest1 = stages[1].alphaTest;
+			const uint64_t blendSrc1 = stages[1].blendSrc;
+			const uint64_t blendDst1 = stages[1].blendDst;
 				
 			MaterialStage swapStage = stages[0];
 			stages[0] = stages[1];

@@ -36,7 +36,7 @@ public:
 
 	bool convert(const char *name, Value *value, std::initializer_list<Pair> pairs)
 	{
-		for (auto &p : pairs)
+		for (const Pair &p : pairs)
 		{
 			if (util::Stricmp(p.name, name) == 0)
 			{
@@ -104,7 +104,7 @@ static infoParm_t infoParms[] =
 
 bool Material::parse(char **text)
 {
-	auto token = util::Parse(text, true);
+	char *token = util::Parse(text, true);
 
 	if (token[0] != '{')
 	{
@@ -378,7 +378,7 @@ vec3 Material::parseVector(char **text, bool *result) const
 	vec3 v;
 
 	// FIXME: spaces are currently required after parens, should change parseext...
-	auto token = util::Parse(text, false);
+	char *token = util::Parse(text, false);
 
 	if (strcmp(token, "("))
 	{
@@ -432,7 +432,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 	for (;;)
 	{
-		auto token = util::Parse(text, true);
+		char *token = util::Parse(text, true);
 
 		if (!token[0])
 		{
@@ -1128,7 +1128,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 MaterialWaveForm Material::parseWaveForm(char **text) const
 {
 	MaterialWaveForm wave;
-	auto token = util::Parse(text, false);
+	char *token = util::Parse(text, false);
 
 	if (token[0] == 0)
 	{
@@ -1182,7 +1182,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 {
 	MaterialTexModInfo tmi;
 	char **text = &buffer;
-	auto token = util::Parse(text, false);
+	char *token = util::Parse(text, false);
 
 	if (!util::Stricmp(token, "turb"))
 	{
@@ -1413,7 +1413,7 @@ deformVertexes text[0-7]
 MaterialDeformStage Material::parseDeform(char **text) const
 {
 	MaterialDeformStage ds;
-	auto token = util::Parse(text, false);
+	char *token = util::Parse(text, false);
 
 	if (token[0] == 0)
 	{
@@ -1549,7 +1549,7 @@ void Material::parseSkyParms(char **text)
 	const int imgFlags = TextureFlags::Mipmap | TextureFlags::Picmip;
 
 	// outerbox
-	auto token = util::Parse(text, false);
+	char *token = util::Parse(text, false);
 
 	if (token[0] == 0)
 	{

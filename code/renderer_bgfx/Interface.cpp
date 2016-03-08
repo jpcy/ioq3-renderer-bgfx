@@ -46,7 +46,7 @@ static void RE_BeginRegistration(glconfig_t *config)
 
 static qhandle_t RE_RegisterModel(const char *name)
 {
-	auto m = g_modelCache->findModel(name);
+	Model *m = g_modelCache->findModel(name);
 
 	if (!m)
 		return 0;
@@ -56,7 +56,7 @@ static qhandle_t RE_RegisterModel(const char *name)
 
 static qhandle_t RE_RegisterSkin(const char *name)
 {
-	auto s = g_materialCache->findSkin(name);
+	Skin *s = g_materialCache->findSkin(name);
 
 	if (!s)
 		return 0;
@@ -66,7 +66,7 @@ static qhandle_t RE_RegisterSkin(const char *name)
 
 static qhandle_t RE_RegisterShader(const char *name)
 {
-	auto m = g_materialCache->findMaterial(name);
+	Material *m = g_materialCache->findMaterial(name);
 
 	if (m->defaultShader)
 		return 0;
@@ -76,7 +76,7 @@ static qhandle_t RE_RegisterShader(const char *name)
 
 static qhandle_t RE_RegisterShaderNoMip(const char *name)
 {
-	auto m = g_materialCache->findMaterial(name, MaterialLightmapId::StretchPic, false);
+	Material *m = g_materialCache->findMaterial(name, MaterialLightmapId::StretchPic, false);
 
 	if (m->defaultShader)
 		return 0;
@@ -184,9 +184,9 @@ static int RE_MarkFragments(int numPoints, const vec3_t *points, const vec3_t pr
 
 static int RE_LerpTag(orientation_t *orientation, qhandle_t handle, int startFrame, int endFrame, float frac, const char *tagName)
 {
-	auto m = g_modelCache->getModel(handle);
-	auto from = m->getTag(tagName, startFrame);
-	auto to = m->getTag(tagName, endFrame);
+	Model *m = g_modelCache->getModel(handle);
+	Transform from = m->getTag(tagName, startFrame);
+	Transform to = m->getTag(tagName, endFrame);
 
 	Transform lerped;
 	lerped.position = vec3::lerp(from.position, to.position, frac);
@@ -203,8 +203,8 @@ static int RE_LerpTag(orientation_t *orientation, qhandle_t handle, int startFra
 
 static void RE_ModelBounds(qhandle_t handle, vec3_t mins, vec3_t maxs)
 {
-	auto m = g_modelCache->getModel(handle);
-	auto bounds = m->getBounds();
+	Model *m = g_modelCache->getModel(handle);
+	Bounds bounds = m->getBounds();
 	memcpy(mins, &bounds.min.x, sizeof(vec3_t));
 	memcpy(maxs, &bounds.max.x, sizeof(vec3_t));
 }
