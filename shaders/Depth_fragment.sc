@@ -1,4 +1,4 @@
-$input v_position, v_texcoord0
+$input v_position, v_texcoord0, v_color0
 
 #include <bgfx_shader.sh>
 #include "SharedDefines.sh"
@@ -23,7 +23,7 @@ void main()
 	}
 
 #if defined(USE_ALPHA_TEST)
-	float alpha = texture2D(u_TextureSampler, v_texcoord0).a;
+	float alpha = texture2D(u_TextureSampler, v_texcoord0).a * v_color0.a;
 
 	if (int(u_AlphaTest.x) == ATEST_GT_0)
 	{
