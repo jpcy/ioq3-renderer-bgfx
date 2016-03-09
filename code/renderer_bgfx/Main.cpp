@@ -156,7 +156,7 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 			colorOut[0] = colorIn[2];
 			colorOut[1] = colorIn[1];
 			colorOut[2] = colorIn[0];
-			colorOut[3] = colorIn[3];
+			colorOut[3] = 255;
 		}
 	}
 
