@@ -27,8 +27,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 namespace renderer {
 
 // Pull into the renderer namespace.
-#include "../smaa/AreaTex.h"
-#include "../smaa/SearchTex.h"
 #include "../../build/Shader.cpp"
 
 struct BackendMap
@@ -311,8 +309,10 @@ Main::~Main()
 {
 	if (aa_ == AntiAliasing::SMAA)
 	{
-		bgfx::destroyTexture(smaaAreaTex_);
-		bgfx::destroyTexture(smaaSearchTex_);
+		if (bgfx::isValid(smaaAreaTex_))
+			bgfx::destroyTexture(smaaAreaTex_);
+		if (bgfx::isValid(smaaSearchTex_))
+			bgfx::destroyTexture(smaaSearchTex_);
 	}
 
 	ri.Cmd_RemoveCommand("screenshot");
@@ -417,6 +417,7 @@ void Main::initialize()
 	g_materialCache = materialCache_.get();
 	modelCache_ = std::make_unique<ModelCache>();
 	g_modelCache = modelCache_.get();
+	dlightManager_ = std::make_unique<DynamicLightManager>();
 
 	// Get shader ID to shader source string mappings.
 	std::array<const bgfx::Memory *, FragmentShaderId::Num> fragMem;
@@ -529,56 +530,6 @@ void Main::initialize()
 		if (!bgfx::isValid(shaderPrograms_[i].handle))
 			ri.Error(ERR_DROP, "Error creating shader program");
 	}
-
-	// Frame buffers.
-	const uint32_t rtClampFlags = BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP;
-	linearDepthFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::R16F);
-	bgfx::TextureHandle sceneTextures[SceneFrameBufferAttachment::Num];
-
-	if (g_cvars.hdr->integer != 0)
-	{
-		if (aa_ != AntiAliasing::None)
-		{
-			// HDR needs a temp BGRA8 destination for AA.
-			sceneTempFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::BGRA8, rtClampFlags);
-		}
-
-		sceneTextures[SceneFrameBufferAttachment::Color] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::RGBA16F, rtClampFlags);
-		sceneTextures[SceneFrameBufferAttachment::Depth] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
-
-		for (size_t i = 0; i < nLuminanceFrameBuffers_; i++)
-		{
-			luminanceFrameBuffers_[i].handle = bgfx::createFrameBuffer(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i], bgfx::TextureFormat::R16F);
-		}
-
-		adaptedLuminanceFB_[0].handle = bgfx::createFrameBuffer(1, 1, bgfx::TextureFormat::R16F);
-		adaptedLuminanceFB_[1].handle = bgfx::createFrameBuffer(1, 1, bgfx::TextureFormat::R16F);
-	}
-	else
-	{
-		uint32_t aaFlags = 0;
-
-		if (aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x)
-		{
-			aaFlags |= (1 + (int)aa_ - (int)AntiAliasing::MSAA2x) << BGFX_TEXTURE_RT_MSAA_SHIFT;
-		}
-
-		sceneTextures[SceneFrameBufferAttachment::Color] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
-		sceneTextures[SceneFrameBufferAttachment::Depth] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT | aaFlags);
-	}
-
-	sceneFb_.handle = bgfx::createFrameBuffer(SceneFrameBufferAttachment::Num, sceneTextures, true);
-
-	if (aa_ == AntiAliasing::SMAA)
-	{
-		smaaBlendFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::BGRA8, rtClampFlags);
-		smaaEdgesFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::RG8, rtClampFlags);
-		smaaAreaTex_ = bgfx::createTexture2D(AREATEX_WIDTH, AREATEX_HEIGHT, 1, bgfx::TextureFormat::RG8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(areaTexBytes, AREATEX_SIZE));
-		smaaSearchTex_ = bgfx::createTexture2D(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, 1, bgfx::TextureFormat::R8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(searchTexBytes, SEARCHTEX_SIZE));
-	}
-
-	// Dynamic lights.
-	dlightManager_ = std::make_unique<DynamicLightManager>();
 }
 
 namespace main {

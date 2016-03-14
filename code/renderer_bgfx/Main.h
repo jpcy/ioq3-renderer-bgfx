@@ -297,7 +297,8 @@ private:
 	/// @name SMAA
 	/// @{
 	FrameBuffer smaaBlendFb_, smaaEdgesFb_;
-	bgfx::TextureHandle smaaAreaTex_, smaaSearchTex_;
+	bgfx::TextureHandle smaaAreaTex_ = BGFX_INVALID_HANDLE;
+	bgfx::TextureHandle smaaSearchTex_ = BGFX_INVALID_HANDLE;
 	/// @}
 
 	/// @name Stretchpic
