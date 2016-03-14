@@ -110,24 +110,16 @@ struct ConsoleVariables
 	cvar_t *debugText;
 	cvar_t *dynamicLightIntensity;
 	cvar_t *dynamicLightScale;
-	cvar_t *maxAnisotropy;
-	cvar_t *picmip;
-	cvar_t *screenshotJpegQuality;
-	cvar_t *softSprites;
-	cvar_t *wireframe;
-
-	/// @name HDR
-	/// @{
 	cvar_t *hdr;
 	cvar_t *hdrKey;
-	/// @}
-
-	/// @name Railgun
-	/// @{
+	cvar_t *maxAnisotropy;
+	cvar_t *picmip;
 	cvar_t *railWidth;
 	cvar_t *railCoreWidth;
 	cvar_t *railSegmentLength;
-	/// @}
+	cvar_t *screenshotJpegQuality;
+	cvar_t *softSprites;
+	cvar_t *wireframe;
 
 	/// @name Screen
 	/// @{
@@ -154,9 +146,12 @@ struct DrawCallFlags
 {
 	enum
 	{
-		None,
-		SkyboxSideFirst,
-		SkyboxSideLast = SkyboxSideFirst + 5
+		None   = 0,
+
+		/// @brief Either world surfaceFlags SURF_SKY (e.g. space maps with no material skyparms) or Material::isSky (everything else)
+		Sky    = 1<<0,
+
+		Skybox = 1<<1,
 	};
 };
 
@@ -198,6 +193,7 @@ struct DrawCall
 	IndexBuffer ib;
 	Material *material = nullptr;
 	mat4 modelMatrix = mat4::identity;
+	int skyboxSide;
 	float softSpriteDepth = 0;
 	uint8_t sort = 0;
 	uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE | BGFX_STATE_MSAA;
@@ -1171,6 +1167,15 @@ struct Uniform_int
 	~Uniform_int() { bgfx::destroyUniform(handle); }
 	void set(int value) { bgfx::setUniform(handle, &value, 1); }
 	void set(const int *values, uint16_t num) { bgfx::setUniform(handle, values, num); }
+	bgfx::UniformHandle handle;
+};
+
+struct Uniform_mat4
+{
+	Uniform_mat4(const char *name, uint16_t num = 1) { handle = bgfx::createUniform(name, bgfx::UniformType::Mat4, num); }
+	~Uniform_mat4() { bgfx::destroyUniform(handle); }
+	void set(const mat4 &value) { bgfx::setUniform(handle, &value, 1); }
+	void set(const mat4 *values, uint16_t num) { bgfx::setUniform(handle, values, num); }
 	bgfx::UniformHandle handle;
 };
 

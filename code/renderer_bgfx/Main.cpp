@@ -737,7 +737,7 @@ void Main::endFrame()
 	}
 	else if (debugDraw_ == DebugDraw::DynamicLight)
 	{
-		debugDraw(dlightManager_->getLightsTexture(), 0, 0, false);
+		debugDraw(dlightManager_->getLightsTexture(), 0, 0, ShaderProgramId::TextureSingleChannel);
 	}
 	else if (debugDraw_ == DebugDraw::Luminance && g_cvars.hdr->integer)
 	{
@@ -750,8 +750,8 @@ void Main::endFrame()
 	}
 	else if (debugDraw_ == DebugDraw::SMAA && aa_ == AntiAliasing::SMAA)
 	{
-		debugDraw(smaaEdgesFb_, 0, 0, false);
-		debugDraw(smaaBlendFb_, 1, 0, false);
+		debugDraw(smaaEdgesFb_, 0, 0, ShaderProgramId::TextureSingleChannel);
+		debugDraw(smaaBlendFb_, 1, 0, ShaderProgramId::TextureSingleChannel);
 	}
 
 	bgfx::frame();
@@ -823,16 +823,16 @@ void Main::onModelCreate(Model *model)
 	}
 }
 
-void Main::debugDraw(const FrameBuffer &texture, int x, int y, bool singleChannel)
+void Main::debugDraw(const FrameBuffer &texture, int x, int y, ShaderProgramId::Enum program)
 {
 	bgfx::setTexture(0, uniforms_->textureSampler.handle, texture.handle);
-	renderScreenSpaceQuad(defaultFb_, singleChannel ? ShaderProgramId::TextureSingleChannel : ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize->integer * x, g_cvars.debugDrawSize->integer * y, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
+	renderScreenSpaceQuad(defaultFb_, program, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize->integer * x, g_cvars.debugDrawSize->integer * y, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
 }
 
-void Main::debugDraw(bgfx::TextureHandle texture, int x, int y, bool singleChannel)
+void Main::debugDraw(bgfx::TextureHandle texture, int x, int y, ShaderProgramId::Enum program)
 {
 	bgfx::setTexture(0, uniforms_->textureSampler.handle, texture);
-	renderScreenSpaceQuad(defaultFb_, singleChannel ? ShaderProgramId::TextureSingleChannel : ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize->integer * x, g_cvars.debugDrawSize->integer * y, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
+	renderScreenSpaceQuad(defaultFb_, program, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize->integer * x, g_cvars.debugDrawSize->integer * y, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
 }
 
 uint8_t Main::pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags)
@@ -1126,7 +1126,6 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 			currentEntity_ = dc.entity;
 			matUniforms_->time.set(vec4(mat->setTime(floatTime_), 0, 0, 0));
-			const mat4 modelViewMatrix(viewMatrix * dc.modelMatrix);
 			uniforms_->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
 			mat->setDeformUniforms(matUniforms_.get());
 
@@ -1207,9 +1206,10 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		Material *mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
 
 		// Special case for skybox.
-		if (dc.flags >= DrawCallFlags::SkyboxSideFirst && dc.flags <= DrawCallFlags::SkyboxSideLast)
+		if (dc.flags & DrawCallFlags::Skybox)
 		{
 			uniforms_->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
+			uniforms_->dynamicLight_Num_Intensity.set(vec4::empty);
 			matUniforms_->nDeforms_AutoSprite.set(vec4(0, 0, 0, 0));
 			matStageUniforms_->alphaTest.set(vec4::empty);
 			matStageUniforms_->baseColor.set(vec4::white);
@@ -1217,8 +1217,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			matStageUniforms_->lightType.set(vec4::empty);
 			matStageUniforms_->vertexColor.set(vec4::black);
 			const int sky_texorder[6] = { 0, 2, 1, 3, 4, 5 };
-			const int side = dc.flags - DrawCallFlags::SkyboxSideFirst;
-			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, mat->sky.outerbox[sky_texorder[side]]->getHandle());
+			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, mat->sky.outerbox[sky_texorder[dc.skyboxSide]]->getHandle());
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
 			bgfx::setState(dc.state);
@@ -1313,7 +1312,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				uniforms_->softSprite_Depth_UseAlpha_AutoSprite.set(vec4(dc.softSpriteDepth, useAlpha, mat->hasAutoSpriteDeform() ? 1.0f : 0.0f, 0));
 			}
 
-			if (isWorldCamera_ && dc.dynamicLighting)
+			if (isWorldCamera_ && dc.dynamicLighting && !(dc.flags & DrawCallFlags::Sky))
 			{
 				shaderVariant |= GenericShaderProgramVariant::DynamicLights;
 				bgfx::setTexture(TextureUnit::DynamicLightCells, matStageUniforms_->dynamicLightCellsSampler.handle, dlightManager_->getCellsTexture());

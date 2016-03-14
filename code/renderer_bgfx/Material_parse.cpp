@@ -168,17 +168,18 @@ bool Material::parse(char **text)
 			
 			token = util::Parse(text, false);
 			sun.light.normalize();
-			sun.light *= (float)atof(token);
+			sun.light = sun.light * (float)atof(token) * (float)g_overbrightFactor / 255.0f;
 
 			token = util::Parse(text, false);
-			const float a = (float)atof(token) / (180.0f * (float)M_PI);
+			float a = (float)atof(token) / 180 * (float)M_PI;
 
 			token = util::Parse(text, false);
-			float b = (float)atof(token) / (180.0f * (float)M_PI);
+			float b = (float)atof(token) / 180 * (float)M_PI;
 
 			sun.direction[0] = cos(a) * cos(b);
 			sun.direction[1] = sin(a) * cos(b);
 			sun.direction[2] = sin(b);
+			sun.direction.normalize();
 
 			if (sun.shadows)
 			{

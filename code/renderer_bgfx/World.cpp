@@ -68,6 +68,7 @@ struct Surface
 	SurfaceType type;
 	Material *material;
 	int fogIndex;
+	int flags = 0; // SURF_*
 	std::vector<uint16_t> indices;
 
 	/// Which geometry buffer to use.
@@ -112,6 +113,7 @@ struct BatchedSurface
 {
 	Material *material;
 	int fogIndex;
+	bool isSky;
 
 	/// @remarks Undefined if the material has CPU deforms.
 	size_t bufferIndex;
@@ -1240,8 +1242,9 @@ public:
 				if (!nextSurface || nextSurface->material != surface->material || nextSurface->fogIndex != surface->fogIndex || nextSurface->bufferIndex != surface->bufferIndex)
 				{
 					BatchedSurface bs;
-					bs.material = surface->material;
 					bs.fogIndex = surface->fogIndex;
+					bs.isSky = (surface->flags & SURF_SKY) != 0;
+					bs.material = surface->material;
 
 					if (bs.material->hasAutoSprite2Deform())
 					{
@@ -1335,6 +1338,7 @@ public:
 		for (const BatchedSurface &surface : visCache->batchedSurfaces)
 		{
 			DrawCall dc;
+			dc.flags = surface.isSky ? DrawCallFlags::Sky : 0;
 			dc.fogIndex = surface.fogIndex;
 			dc.material = surface.material;
 
@@ -1854,6 +1858,7 @@ private:
 
 			const int shaderNum = LittleLong(fs.shaderNum);
 			s.material = findMaterial(shaderNum, lightmapIndex);
+			s.flags = materials_[shaderNum].surfaceFlags;
 
 			// We may have a nodraw surface, because they might still need to be around for movement clipping.
 			if (s.material->surfaceFlags & SURF_NODRAW || materials_[shaderNum].surfaceFlags & SURF_NODRAW)

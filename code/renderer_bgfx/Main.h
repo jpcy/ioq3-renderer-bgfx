@@ -163,8 +163,8 @@ private:
 		};
 	};
 
-	void debugDraw(const FrameBuffer &texture, int x = 0, int y = 0, bool singleChannel = true);
-	void debugDraw(bgfx::TextureHandle texture, int x = 0, int y = 0, bool singleChannel = true);
+	void debugDraw(const FrameBuffer &texture, int x = 0, int y = 0, ShaderProgramId::Enum program = ShaderProgramId::Texture);
+	void debugDraw(bgfx::TextureHandle texture, int x = 0, int y = 0, ShaderProgramId::Enum program = ShaderProgramId::Texture);
 	uint8_t pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags = 0);
 	void flushStretchPics();
 	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask);

@@ -661,8 +661,9 @@ void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, uint8_t visCach
 				dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 				dc.vb.nVertices = nVertices;
 				dc.ib.nIndices = nIndices;
-				dc.flags = DrawCallFlags::SkyboxSideFirst + i;
+				dc.flags = DrawCallFlags::Sky | DrawCallFlags::Skybox;
 				dc.material = mat;
+				dc.skyboxSide = i;
 				dc.state |= BGFX_STATE_DEPTH_TEST_LEQUAL;
 
 				// Write depth as 1.
@@ -689,6 +690,7 @@ void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, uint8_t visCach
 			dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 			dc.vb.nVertices = nVertices;
 			dc.ib.nIndices = nIndices;
+			dc.flags = DrawCallFlags::Sky;
 			dc.material = mat;
 			dc.sort = 1; // Render after the skybox.
 
