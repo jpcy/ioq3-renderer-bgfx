@@ -868,6 +868,7 @@ public:
 	void remapMaterial(const char *oldName, const char *newName, const char *offsetTime);
 	Material *getMaterial(int handle) { return materials_[handle].get(); }
 	Material *getDefaultMaterial() { return defaultMaterial_; }
+	void printMaterials() const;
 
 	Skin *findSkin(const char *name);
 	Skin *getSkin(qhandle_t handle) { return skins_[handle].get(); }

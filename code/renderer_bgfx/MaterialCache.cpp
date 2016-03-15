@@ -394,6 +394,23 @@ void MaterialCache::remapMaterial(const char *oldName, const char *newName, cons
 	}
 }
 
+void MaterialCache::printMaterials() const
+{
+	int nStages[Material::maxStages] = {};
+
+	for (size_t i = 0; i < materials_.size(); i++)
+	{
+		ri.Printf(PRINT_ALL, "%4u: %s\n", i, materials_[i]->name);
+		nStages[materials_[i]->numUnfoggedPasses]++;
+	}
+
+	for (int i = 1; i < Material::maxStages; i++)
+	{
+		if (nStages[i])
+			ri.Printf(PRINT_ALL, "%i materials with %i stage(s)\n", nStages[i], i);
+	}
+}
+
 Skin *MaterialCache::findSkin(const char *name)
 {
 	if (!name || !name[0])

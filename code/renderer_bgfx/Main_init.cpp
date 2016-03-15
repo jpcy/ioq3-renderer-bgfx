@@ -217,6 +217,12 @@ static void TakeScreenshot(const char *extension)
 		ri.Printf(PRINT_ALL, "Wrote %s\n", filename);
 }
 
+static void Cmd_PrintMaterials()
+{
+	if (g_materialCache)
+		g_materialCache->printMaterials();
+}
+
 static void Cmd_Screenshot()
 {
 	TakeScreenshot("tga");
@@ -269,6 +275,7 @@ Main::Main()
 
 	softSpritesEnabled_ = g_cvars.softSprites->integer && !(aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x);
 
+	ri.Cmd_AddCommand("r_printMaterials", Cmd_PrintMaterials);
 	ri.Cmd_AddCommand("screenshot", Cmd_Screenshot);
 	ri.Cmd_AddCommand("screenshotJPEG", Cmd_ScreenshotJPEG);
 	ri.Cmd_AddCommand("screenshotPNG", Cmd_ScreenshotPNG);
