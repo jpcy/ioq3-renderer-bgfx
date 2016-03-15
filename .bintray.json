@@ -9,10 +9,12 @@
         "name": "test"
     },
 
-    "files":
-        [
-        {"includePattern": "renderer_bgfx_x86_64.tar.gz", "uploadPattern": "renderer_bgfx_x86_64.tar.gz"}
-        ],
-    "publish": true,
-	"override": true
+    "files": [
+        {
+			"includePattern": "renderer_bgfx_x86_64.tar.gz",
+			"uploadPattern": "renderer_bgfx_x86_64.tar.gz",
+			"matrixParams": { "override": 1 } 
+		}
+    ],
+    "publish": true
 }
