@@ -26,138 +26,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define LittleLong(x) (x)
 #define LittleShort(x) (x)
 
-#define MAX_VERTS_ON_POLY		64
-
-#define MARKER_OFFSET			0	// 1
-
 namespace renderer {
-
-static const size_t maxWorldGeometryBuffers = 8;
-
-enum class SurfaceType
-{
-	Ignore, /// Ignore this surface when rendering. e.g. material has SURF_NODRAW surfaceFlags 
-	Face,
-	Mesh,
-	Patch,
-	Flare
-};
-
-#define CULLINFO_NONE   0
-#define CULLINFO_BOX    1
-#define CULLINFO_SPHERE 2
-#define CULLINFO_PLANE  4
-
-struct CullInfo
-{
-	int type;
-	Bounds bounds;
-	vec3 localOrigin;
-	float radius;
-	Plane plane;
-};
-
-struct Surface
-{
-	~Surface()
-	{
-		if (patch)
-			Patch_Free(patch);
-	}
-
-	SurfaceType type;
-	Material *material;
-	int fogIndex;
-	int flags = 0; // SURF_*
-	std::vector<uint16_t> indices;
-
-	/// Which geometry buffer to use.
-	size_t bufferIndex;
-
-	CullInfo cullinfo;
-
-	// SurfaceType::Patch
-	Patch *patch = nullptr;
-
-	/// Used at runtime to avoid adding duplicate visible surfaces.
-	int duplicateId = -1;
-
-	/// Used at runtime to avoid processing surfaces multiple times when adding a decal.
-	int decalDuplicateId = -1;
-
-	/// @remarks Used by CPU deforms only.
-	uint32_t firstVertex;
-
-	/// @remarks Used by CPU deforms only.
-	uint32_t nVertices;
-};
-
-struct Node
-{
-	// common with leaf and node
-	bool leaf;
-	Bounds bounds;
-
-	// node specific
-	Plane *plane;
-	Node *children[2];	
-
-	// leaf specific
-	int cluster;
-	int area;
-	int firstSurface; // index into leafSurfaces_
-	int nSurfaces;
-};
-
-struct BatchedSurface
-{
-	Material *material;
-	int fogIndex;
-	bool isSky;
-
-	/// @remarks Undefined if the material has CPU deforms.
-	size_t bufferIndex;
-
-	uint32_t firstIndex;
-	uint32_t nIndices;
-
-	/// @remarks Used by CPU deforms only.
-	uint32_t firstVertex;
-
-	/// @remarks Used by CPU deforms only.
-	uint32_t nVertices;
-};
-
-struct VisCache
-{
-	static const size_t maxSkies = 4;
-	size_t nSkies = 0;
-	Material *skyMaterials[maxSkies];
-	std::vector<Vertex> skyVertices[maxSkies];
-
-	Node *lastCameraLeaf = nullptr;
-	uint8_t lastAreaMask[MAX_MAP_AREA_BYTES];
-
-	/// The merged bounds of all visible leaves.
-	Bounds bounds;
-
-	/// Surfaces visible from the camera leaf cluster.
-	std::vector<Surface *> surfaces;
-
-	/// Visible surfaces batched by material.
-	std::vector<BatchedSurface> batchedSurfaces;
-
-	DynamicIndexBuffer indexBuffers[maxWorldGeometryBuffers];
-
-	/// Temporary index data populated at runtime when surface visibility changes.
-	std::vector<uint16_t> indices[maxWorldGeometryBuffers];
-
-	/// Visible portal surface.
-	std::vector<Surface *> portalSurfaces;
-
-	std::vector<Vertex> cpuDeformVertices;
-	std::vector<uint16_t> cpuDeformIndices;
-};
 
 static vec2 AtlasTexCoord(vec2 uv, int index, int nTilesPerDimension)
 {
@@ -316,7 +185,7 @@ public:
 					continue;
 
 				memcpy(&vertices[currentVertex], &tempVertices_[ts.firstVertex], sizeof(Vertex) * ts.nVertices);
-				
+
 				for (size_t i = 0; i < ts.nIndices; i++)
 				{
 					// Make indices absolute.
@@ -398,6 +267,8 @@ static vec3 MirroredVector(vec3 in, const Transform &surface, const Transform &c
 	return transformed;
 }
 
+static const int MAX_VERTS_ON_POLY = 64;
+
 /*
 =============
 R_ChopPolyBehindPlane
@@ -405,12 +276,11 @@ R_ChopPolyBehindPlane
 Out must have space for two more vertexes than in
 =============
 */
-#define	SIDE_FRONT	0
-#define	SIDE_BACK	1
-#define	SIDE_ON		2
-
 static void R_ChopPolyBehindPlane(int numInPoints, const vec3 *inPoints, int *numOutPoints, vec3 *outPoints, vec3 normal, float dist, float epsilon)
 {
+	const int SIDE_FRONT = 0;
+	const int SIDE_BACK = 1;
+	const int SIDE_ON = 2;
 	float		dists[MAX_VERTS_ON_POLY+4] = { 0 };
 	int			sides[MAX_VERTS_ON_POLY+4] = { 0 };
 	int			counts[3];
@@ -717,6 +587,7 @@ public:
 
 	int markFragments(int numPoints, const vec3 *points, const vec3 projection, int maxPoints, vec3 *pointBuffer, int maxFragments, markFragment_t *fragmentBuffer)
 	{
+		const float MARKER_OFFSET = 0; // 1
 		int				numsurfaces, numPlanes;
 		int				i, j, k, m, n;
 		int				returnedFragments;
@@ -1385,6 +1256,139 @@ public:
 	}
 
 private:
+	static const size_t maxWorldGeometryBuffers_ = 8;
+
+	enum class SurfaceType
+	{
+		Ignore, /// Ignore this surface when rendering. e.g. material has SURF_NODRAW surfaceFlags 
+		Face,
+		Mesh,
+		Patch,
+		Flare
+	};
+
+	struct CullInfoType
+	{
+		enum
+		{
+			None = 0,
+			Box = 1 << 0,
+			Plane = 1 << 1,
+			Sphere = 1 << 2
+		};
+	};
+
+	struct CullInfo
+	{
+		int type;
+		Bounds bounds;
+		vec3 localOrigin;
+		float radius;
+		Plane plane;
+	};
+
+	struct Surface
+	{
+		~Surface()
+		{
+			if (patch)
+				Patch_Free(patch);
+		}
+
+		SurfaceType type;
+		Material *material;
+		int fogIndex;
+		int flags = 0; // SURF_*
+		std::vector<uint16_t> indices;
+
+		/// Which geometry buffer to use.
+		size_t bufferIndex;
+
+		CullInfo cullinfo;
+
+		// SurfaceType::Patch
+		Patch *patch = nullptr;
+
+		/// Used at runtime to avoid adding duplicate visible surfaces.
+		int duplicateId = -1;
+
+		/// Used at runtime to avoid processing surfaces multiple times when adding a decal.
+		int decalDuplicateId = -1;
+
+		/// @remarks Used by CPU deforms only.
+		uint32_t firstVertex;
+
+		/// @remarks Used by CPU deforms only.
+		uint32_t nVertices;
+	};
+
+	struct Node
+	{
+		// common with leaf and node
+		bool leaf;
+		Bounds bounds;
+
+		// node specific
+		Plane *plane;
+		Node *children[2];
+
+		// leaf specific
+		int cluster;
+		int area;
+		int firstSurface; // index into leafSurfaces_
+		int nSurfaces;
+	};
+
+	struct BatchedSurface
+	{
+		Material *material;
+		int fogIndex;
+		bool isSky;
+
+		/// @remarks Undefined if the material has CPU deforms.
+		size_t bufferIndex;
+
+		uint32_t firstIndex;
+		uint32_t nIndices;
+
+		/// @remarks Used by CPU deforms only.
+		uint32_t firstVertex;
+
+		/// @remarks Used by CPU deforms only.
+		uint32_t nVertices;
+	};
+
+	struct VisCache
+	{
+		static const size_t maxSkies = 4;
+		size_t nSkies = 0;
+		Material *skyMaterials[maxSkies];
+		std::vector<Vertex> skyVertices[maxSkies];
+
+		Node *lastCameraLeaf = nullptr;
+		uint8_t lastAreaMask[MAX_MAP_AREA_BYTES];
+
+		/// The merged bounds of all visible leaves.
+		Bounds bounds;
+
+		/// Surfaces visible from the camera leaf cluster.
+		std::vector<Surface *> surfaces;
+
+		/// Visible surfaces batched by material.
+		std::vector<BatchedSurface> batchedSurfaces;
+
+		DynamicIndexBuffer indexBuffers[maxWorldGeometryBuffers_];
+
+		/// Temporary index data populated at runtime when surface visibility changes.
+		std::vector<uint16_t> indices[maxWorldGeometryBuffers_];
+
+		/// Visible portal surface.
+		std::vector<Surface *> portalSurfaces;
+
+		std::vector<Vertex> cpuDeformVertices;
+		std::vector<uint16_t> cpuDeformIndices;
+	};
+
 	uint8_t *fileData_;
 	char name_[MAX_QPATH]; // ie: maps/tim_dm2.bsp
 	char baseName_[MAX_QPATH]; // ie: tim_dm2
@@ -1439,10 +1443,10 @@ private:
 	/// First model surfaces.
 	std::vector<Surface> surfaces_;
 
-	VertexBuffer vertexBuffers_[maxWorldGeometryBuffers];
+	VertexBuffer vertexBuffers_[maxWorldGeometryBuffers_];
 
 	/// Vertex data populated at load time.
-	std::vector<Vertex> vertices_[maxWorldGeometryBuffers];
+	std::vector<Vertex> vertices_[maxWorldGeometryBuffers_];
 	
 	/// Incremented when a surface won't fit in the current geometry buffer (16-bit indices).
 	size_t currentGeometryBuffer_ = 0;
@@ -1874,7 +1878,7 @@ private:
 				setSurfaceGeometry(&s, &vertices[firstVertex], nVertices, &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex);
 
 				// Setup cullinfo.
-				s.cullinfo.type = CULLINFO_PLANE | CULLINFO_BOX;
+				s.cullinfo.type = CullInfoType::Box | CullInfoType::Plane;
 				s.cullinfo.bounds.setupForAddingPoints();
 
 				for (int i = 0; i < nVertices; i++)
@@ -2034,7 +2038,7 @@ private:
 		// Increment the current vertex buffer if the vertices won't fit.
 		if (bufferVertices->size() + nVertices >= UINT16_MAX)
 		{
-			if (++currentGeometryBuffer_ == maxWorldGeometryBuffers)
+			if (++currentGeometryBuffer_ == maxWorldGeometryBuffers_)
 				ri.Error(ERR_DROP, "Not enough world vertex buffers");
 
 			bufferVertices = &vertices_[currentGeometryBuffer_];
@@ -2217,9 +2221,9 @@ private:
 	}
 };
 
-static std::unique_ptr<World> s_world;
-
 namespace world {
+
+static std::unique_ptr<World> s_world;
 
 void Load(const char *name)
 {
