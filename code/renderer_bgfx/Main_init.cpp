@@ -566,6 +566,11 @@ void DebugPrint(const char *format, ...)
 	s_main->debugPrint(text);
 }
 
+void DrawBounds(const Bounds &bounds)
+{
+	s_main->drawBounds(bounds);
+}
+
 void DrawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex)
 {
 	s_main->drawStretchPic(x, y, w, h, s1, t1, s2, t2, materialIndex);

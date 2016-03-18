@@ -289,6 +289,21 @@ bool mat4::equals(const mat4 &m) const
 			e_[3] == m[3] && e_[7] == m[7] && e_[11] == m[11] && e_[15] == m[15]);
 }
 
+Bounds mat4::transform(const Bounds &bounds) const
+{
+	std::array<vec3, 8> v = bounds.toVertices();
+
+	for (int i = 0; i < 8; i++)
+	{
+		v[i] = transform(v[i]);
+	}
+
+	Bounds b;
+	b.setupForAddingPoints();
+	b.addPoints(v.data(), v.size());
+	return b;
+}
+
 vec3 mat4::transform(const vec3 &v) const
 {
 	return vec3(e_[0] * v[0] + e_[4] * v[1] + e_[ 8] * v[2] + e_[12],

@@ -578,6 +578,7 @@ public:
 	mat4(const mat3 &m);
 
 	bool equals(const mat4 &m) const;
+	Bounds transform(const Bounds &bounds) const;
 	vec3 transform(const vec3 &v) const;
 	vec4 transform(const vec4 &v) const;
 	vec3 transformNormal(const vec3 &n) const;

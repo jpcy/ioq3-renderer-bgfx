@@ -385,6 +385,11 @@ void Main::debugPrint(const char *text)
 	debugTextY++;
 }
 
+void Main::drawBounds(const Bounds &bounds)
+{
+	sceneDebugBounds_.push_back(bounds);
+}
+
 void Main::drawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex)
 {
 	Material *mat = materialCache_->getMaterial(materialIndex);
@@ -771,6 +776,7 @@ void Main::renderScene(const refdef_t *def)
 
 	dlightManager_->clear();
 	sceneDebugAxis_.clear();
+	sceneDebugBounds_.clear();
 	sceneEntities_.clear();
 	scenePolygons_.clear();
 	sortedScenePolygons_.clear();
@@ -1425,13 +1431,65 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		vertices[4].pos = { 0, 0, 0 }; vertices[4].color = vec4::blue;
 		vertices[5].pos = { 0, 0, l }; vertices[5].color = vec4::blue;
 
-		for (vec3 debugAxisPosition : sceneDebugAxis_)
+		for (vec3 pos : sceneDebugAxis_)
 		{
 			bgfx::setState(BGFX_STATE_DEPTH_TEST_LEQUAL | BGFX_STATE_PT_LINES | BGFX_STATE_RGB_WRITE);
-			bgfx::setTransform(mat4::translate(debugAxisPosition).get());
+			bgfx::setTransform(mat4::translate(pos).get());
 			bgfx::setVertexBuffer(&tvb);
 			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Color].handle);
 		}
+	}
+
+	// Debug draw bounds.
+	if (!sceneDebugBounds_.empty())
+	{
+		const uint32_t nVertices = 24;
+		const vec4 randomColors[] =
+		{
+			{ 1, 0, 0, 1 },
+			{ 0, 1, 0, 1 },
+			{ 0, 0, 1, 1 },
+			{ 1, 1, 0, 1 },
+			{ 0, 1, 1, 1 },
+			{ 1, 0, 1, 1 }
+		};
+
+		bgfx::TransientVertexBuffer tvb;
+		bgfx::allocTransientVertexBuffer(&tvb, nVertices * (uint32_t)sceneDebugBounds_.size(), Vertex::decl);
+		auto v = (Vertex *)tvb.data;
+
+		for (size_t i = 0; i < sceneDebugBounds_.size(); i++)
+		{
+			const std::array<vec3, 8> corners = sceneDebugBounds_[i].toVertices();
+
+			for (int j = 0; j < nVertices; j++)
+				v[j].color = randomColors[i % BX_COUNTOF(randomColors)];
+
+			// Top.
+			v[0].pos = corners[0]; v[1].pos = corners[1];
+			v[2].pos = corners[1]; v[3].pos = corners[2];
+			v[4].pos = corners[2]; v[5].pos = corners[3];
+			v[6].pos = corners[3]; v[7].pos = corners[0];
+			v += 8;
+
+			// Bottom.
+			v[0].pos = corners[4]; v[1].pos = corners[5];
+			v[2].pos = corners[5]; v[3].pos = corners[6];
+			v[4].pos = corners[6]; v[5].pos = corners[7];
+			v[6].pos = corners[7]; v[7].pos = corners[4];
+			v += 8;
+
+			// Connect bottom and top.
+			v[0].pos = corners[0]; v[1].pos = corners[4];
+			v[2].pos = corners[1]; v[3].pos = corners[7];
+			v[4].pos = corners[2]; v[5].pos = corners[6];
+			v[6].pos = corners[3]; v[7].pos = corners[5];
+			v += 8;
+		}
+
+		bgfx::setState(BGFX_STATE_DEPTH_TEST_LEQUAL | BGFX_STATE_PT_LINES | BGFX_STATE_RGB_WRITE);
+		bgfx::setVertexBuffer(&tvb);
+		bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Color].handle);
 	}
 }
 
