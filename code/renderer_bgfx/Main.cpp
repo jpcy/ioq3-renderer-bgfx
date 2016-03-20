@@ -1245,16 +1245,6 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		mainViewId = pushView(defaultFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect, PushViewFlags::Sequential);
 	}
 
-	if (isWorldCamera_)
-	{
-		dlightManager_->updateUniforms(uniforms_.get());
-	}
-	else
-	{
-		// For non-world scenes, dlight contribution is added to entities in setupEntityLighting, so write 0 to the uniform for num dlights.
-		uniforms_->dynamicLight_Num_Intensity.set(vec4::empty);
-	}
-
 	for (DrawCall &dc : drawCalls_)
 	{
 		assert(dc.material);
@@ -1290,6 +1280,16 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		currentEntity_ = dc.entity;
 		matUniforms_->time.set(vec4(mat->setTime(floatTime_), 0, 0, 0));
 		const mat4 modelViewMatrix(viewMatrix * dc.modelMatrix);
+
+		if (isWorldCamera_)
+		{
+			dlightManager_->updateUniforms(uniforms_.get());
+		}
+		else
+		{
+			// For non-world scenes, dlight contribution is added to entities in setupEntityLighting, so write 0 to the uniform for num dlights.
+			uniforms_->dynamicLight_Num_Intensity.set(vec4::empty);
+		}
 
 		if (mat->polygonOffset)
 		{

@@ -90,17 +90,17 @@ void DynamicLightManager::initializeGrid()
 {
 	const int minCellSize = 200;
 	const uint8_t maxGridSize = 32;
-	const Bounds worldBounds = world::GetBounds();
+	const vec3 worldSize = world::GetBounds().toSize();
 
 	for (size_t i = 0; i < 3; i++)
 	{
-		cellSize_[i] = std::max(minCellSize, (int)ceil(worldBounds.toSize()[i] / gridSize_[i]));
-		gridSize_[i] = std::min(maxGridSize, (uint8_t)ceil(worldBounds.toSize()[i] / cellSize_[i]));
-		cellSize_[i] = int(worldBounds.toSize()[i] / gridSize_[i]);
+		cellSize_[i] = std::max(minCellSize, (int)ceil(worldSize[i] / maxGridSize));
+		gridSize_[i] = std::min(maxGridSize, (uint8_t)ceil(worldSize[i] / cellSize_[i]));
+		cellSize_[i] = int(worldSize[i] / gridSize_[i]);
 	}
 
 	ri.Printf(PRINT_ALL, "dlight grid size is %ux%ux%u\n", gridSize_.x, gridSize_.y, gridSize_.z);
-	gridOffset_ = vec3::empty - worldBounds.min;
+	gridOffset_ = vec3::empty - world::GetBounds().min;
 
 	// Cells texture.
 	cellsTextureSize_ = util::CalculateSmallestPowerOfTwoTextureSize((int)gridSize_.x * (int)gridSize_.y * (int)gridSize_.z);
