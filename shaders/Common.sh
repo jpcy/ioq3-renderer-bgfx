@@ -8,11 +8,6 @@ struct BgfxUSampler2D
 	uniform Texture2D<uvec4> _name ## Texture : register(t[_reg]); \
 	static BgfxUSampler2D _name = { _name ## Texture }
 
-vec4 texelFetch(BgfxSampler2D _sampler, ivec2 _coord, int _level)
-{
-	return _sampler.m_texture.Load(ivec3(_coord, _level));
-}
-
 uvec4 texelFetch(BgfxUSampler2D _sampler, ivec2 _coord, int _level)
 {
 	return _sampler.m_texture.Load(ivec3(_coord, _level));
