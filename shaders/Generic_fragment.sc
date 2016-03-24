@@ -236,7 +236,8 @@ void main()
 					dir = pointOnLine - v_position;
 				}
 
-				float attenuation = saturate(1.0 - length(dir) / light.color_radius.w);
+				float inverseNormalizedDistance = max(1.0 - length(dir) / light.color_radius.w, 0.0); // 1 at center, 0 at edge
+				float attenuation = min(2.0 * inverseNormalizedDistance, 1.0); // 1 at top half, lerp between 1 and 0 at bottom half
 				dynamicLight += light.color_radius.rgb * attenuation * Lambert(v_normal.xyz, normalize(dir)) * u_DynamicLight_Num_Intensity.y;
 			}
 #endif

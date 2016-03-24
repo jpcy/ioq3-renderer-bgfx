@@ -130,8 +130,8 @@ void ConsoleVariables::initialize()
 		"smaa      SMAA edges and weights\n");
 	debugDrawSize = ri.Cvar_Get("r_debugDrawSize", "256", CVAR_ARCHIVE);
 	debugText = ri.Cvar_Get("r_debugText", "0", CVAR_CHEAT);
-	dynamicLightIntensity = ri.Cvar_Get("r_dynamicLightIntensity", "5", CVAR_ARCHIVE);
-	dynamicLightScale = ri.Cvar_Get("r_dynamicLightScale", "0.5", CVAR_ARCHIVE);
+	dynamicLightIntensity = ri.Cvar_Get("r_dynamicLightIntensity", "3", CVAR_ARCHIVE);
+	dynamicLightScale = ri.Cvar_Get("r_dynamicLightScale", "0.7", CVAR_ARCHIVE);
 	hdr = ri.Cvar_Get("r_hdr", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	hdrKey = ri.Cvar_Get("r_hdrKey", "0.1", CVAR_ARCHIVE);
 	maxAnisotropy = ri.Cvar_Get("r_maxAnisotropy", "0", CVAR_ARCHIVE | CVAR_LATCH);
