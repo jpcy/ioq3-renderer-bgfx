@@ -175,6 +175,7 @@ void main()
 #endif
 
 	gl_FragColor.a = alpha;
+	vec3 vertexColor = v_color0.rgb;
 	vec3 diffuseLight = vec3_splat(1.0);
 
 	if (int(u_LightType.x) == LIGHT_MAP)
@@ -186,9 +187,14 @@ void main()
 		diffuseLight = u_AmbientLight.xyz + u_DirectedLight.xyz * Lambert(v_normal.xyz, u_LightDirection.xyz);
 	}
 
-	vec3 dynamicLight = vec3_splat(0.0);
-
 #if defined(USE_DYNAMIC_LIGHTS)
+	// Treat vertex colors as diffuse light so dynamic lighting is applied correctly.
+	if (int(u_LightType.x) == LIGHT_NONE && (u_ColorGen == CGEN_EXACT_VERTEX || u_ColorGen == CGEN_VERTEX))
+	{
+		diffuseLight = vertexColor;
+		vertexColor = vec3_splat(1.0);
+	}
+
 	if (int(u_DynamicLight_Num_Intensity.x) > 0)
 	{
 		uint indicesOffset = GetDynamicLightIndicesOffset(v_position);
@@ -201,23 +207,23 @@ void main()
 			// Heatmap
 			if (numLights == 1u)
 			{
-				dynamicLight = vec3(0.0, 0.0, 1.0);
+				diffuseLight = vec3(0.0, 0.0, 1.0);
 			}
 			else if (numLights == 2u)
 			{
-				dynamicLight = vec3(0.0, 1.0, 1.0);
+				diffuseLight = vec3(0.0, 1.0, 1.0);
 			}
 			else if (numLights == 3u)
 			{
-				dynamicLight = vec3(0.0, 1.0, 0.0);
+				diffuseLight = vec3(0.0, 1.0, 0.0);
 			}
 			else if (numLights == 4u)
 			{
-				dynamicLight = vec3(1.0, 1.0, 0.0);
+				diffuseLight = vec3(1.0, 1.0, 0.0);
 			}
 			else if (numLights >= 5u)
 			{
-				dynamicLight = vec3(1.0, 0.0, 0.0);
+				diffuseLight = vec3(1.0, 0.0, 0.0);
 			}
 #else
 			for (uint i = 0u; i < numLights; i++)
@@ -238,12 +244,12 @@ void main()
 
 				float inverseNormalizedDistance = max(1.0 - length(dir) / light.color_radius.w, 0.0); // 1 at center, 0 at edge
 				float attenuation = min(2.0 * inverseNormalizedDistance, 1.0); // 1 at top half, lerp between 1 and 0 at bottom half
-				dynamicLight += light.color_radius.rgb * attenuation * Lambert(v_normal.xyz, normalize(dir)) * u_DynamicLight_Num_Intensity.y;
+				diffuseLight += light.color_radius.rgb * attenuation * Lambert(v_normal.xyz, normalize(dir)) * u_DynamicLight_Num_Intensity.y;
 			}
 #endif
 		}
 	}
 #endif // USE_DYNAMIC_LIGHTS
 
-	gl_FragColor.rgb = (diffuse.rgb * v_color0.rgb * diffuseLight) + (diffuse.rgb * dynamicLight);
+	gl_FragColor.rgb = diffuse.rgb * vertexColor * diffuseLight;
 }
