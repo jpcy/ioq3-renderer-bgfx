@@ -427,8 +427,8 @@ void Main::initialize()
 	dlightManager_ = std::make_unique<DynamicLightManager>();
 
 	// Get shader ID to shader source string mappings.
-	std::array<const bgfx::Memory *, FragmentShaderId::Num> fragMem;
-	std::array<const bgfx::Memory *, VertexShaderId::Num> vertMem;
+	std::array<ShaderSourceMem, FragmentShaderId::Num> fragMem;
+	std::array<ShaderSourceMem, VertexShaderId::Num> vertMem;
 
 	if (caps->rendererType == bgfx::RendererType::OpenGL)
 	{
@@ -516,7 +516,7 @@ void Main::initialize()
 
 		if (!bgfx::isValid(fragment.handle))
 		{
-			fragment.handle = bgfx::createShader(fragMem[programMap[i].frag]);
+			fragment.handle = bgfx::createShader(bgfx::makeRef(fragMem[programMap[i].frag].mem, fragMem[programMap[i].frag].size));
 
 			if (!bgfx::isValid(fragment.handle))
 				ri.Error(ERR_DROP, "Error creating fragment shader");
@@ -526,7 +526,7 @@ void Main::initialize()
 	
 		if (!bgfx::isValid(vertex.handle))
 		{
-			vertex.handle = bgfx::createShader(vertMem[programMap[i].vert]);
+			vertex.handle = bgfx::createShader(bgfx::makeRef(vertMem[programMap[i].vert].mem, vertMem[programMap[i].vert].size));
 
 			if (!bgfx::isValid(vertex.handle))
 				ri.Error(ERR_DROP, "Error creating vertex shader");

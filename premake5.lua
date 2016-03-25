@@ -310,9 +310,9 @@ newaction
 
 		-- Generate functions to map shader ID enums to source strings, appending them to the output source file.
 		function writeSourceMap(of, data, renderer, name, nameLower)
-			of:write(string.format("\nstatic std::array<const bgfx::Memory *, %sShaderId::Num> Get%sShaderSourceMap_%s()\n", name, name, renderer))
+			of:write(string.format("\nstatic std::array<ShaderSourceMem, %sShaderId::Num> Get%sShaderSourceMap_%s()\n", name, name, renderer))
 			of:write("{\n")
-			of:write(string.format("\tstd::array<const bgfx::Memory *, %sShaderId::Num> mem;\n", name))
+			of:write(string.format("\tstd::array<ShaderSourceMem, %sShaderId::Num> mem;\n", name))
 			
 			for _,v in pairs(data) do
 				local id = v[1]
@@ -322,7 +322,8 @@ newaction
 				end
 			
 				local source = string.format("%s_%s_%s", id, nameLower, renderer)
-				of:write(string.format("\tmem[%sShaderId::%s] = bgfx::makeRef(%s, sizeof(%s));\n", name, id, source, source))
+				of:write(string.format("\tmem[%sShaderId::%s].mem = %s;\n", name, id, source))
+				of:write(string.format("\tmem[%sShaderId::%s].size = sizeof(%s);\n", name, id, source))
 			end
 			
 			of:write("\treturn mem;\n")
@@ -330,6 +331,7 @@ newaction
 		end
 		
 		local outputSourceFile = io.open(outputSourceFilename, "a")
+		outputSourceFile:write("\nstruct ShaderSourceMem { const uint8_t *mem; size_t size; };\n");
 		
 		for _,renderer in pairs(renderers) do
 			writeSourceMap(outputSourceFile, expandedFragmentShaders, renderer, "Fragment", "fragment")
