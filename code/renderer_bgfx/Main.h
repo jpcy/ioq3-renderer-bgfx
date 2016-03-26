@@ -168,14 +168,14 @@ private:
 	void debugDraw(bgfx::TextureHandle texture, int x = 0, int y = 0, ShaderProgramId::Enum program = ShaderProgramId::Texture);
 	uint8_t pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags = 0);
 	void flushStretchPics();
-	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask);
+	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask, bool useStencilTest = false);
 	void renderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, uint16_t clearFlags = BGFX_CLEAR_NONE, bool originBottomLeft = false, Rect rect = Rect());
 	void setTexelOffsetsDownsample2x2(int width, int height);
 	void setTexelOffsetsDownsample4x4(int width, int height);
 
 	/// @name Entity rendering
 	/// @{
-	void renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
+	void renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Frustum cameraFrustum, Entity *entity);
 	void renderLightningEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
 	void renderRailCoreEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
 	void renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3 up, float length, float spanWidth, Material *mat, vec4 color, Entity *entity);
@@ -188,7 +188,6 @@ private:
 
 	/// @name Camera
 	/// @{
-	Frustum cameraFrustum_;
 	DrawCallList drawCalls_;
 	bool isMirrorCamera_ = false;
 

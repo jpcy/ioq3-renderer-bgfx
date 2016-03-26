@@ -499,7 +499,7 @@ void Main::loadWorld(const char *name)
 		}
 
 		sceneTextures[SceneFrameBufferAttachment::Color] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::RGBA16F, rtClampFlags);
-		sceneTextures[SceneFrameBufferAttachment::Depth] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT);
+		sceneTextures[SceneFrameBufferAttachment::Depth] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT);
 
 		for (size_t i = 0; i < nLuminanceFrameBuffers_; i++)
 		{
@@ -519,7 +519,7 @@ void Main::loadWorld(const char *name)
 		}
 
 		sceneTextures[SceneFrameBufferAttachment::Color] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
-		sceneTextures[SceneFrameBufferAttachment::Depth] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24, BGFX_TEXTURE_RT | aaFlags);
+		sceneTextures[SceneFrameBufferAttachment::Depth] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT | aaFlags);
 	}
 
 	sceneFb_.handle = bgfx::createFrameBuffer(SceneFrameBufferAttachment::Num, sceneTextures, true);
@@ -997,13 +997,15 @@ static void SetDrawCallGeometry(const DrawCall &dc)
 	}
 }
 
-void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask)
+void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask, bool useStencilTest)
 {
 	assert(areaMask);
 	const float zMin = 4;
 	float zMax = 2048;
 	const float polygonDepthOffset = -0.001f;
 	const bool isMainCamera = visCacheId == mainVisCacheId_;
+	const uint32_t stencilWrite = BGFX_STENCIL_TEST_ALWAYS | BGFX_STENCIL_FUNC_REF(1) | BGFX_STENCIL_FUNC_RMASK(0xff) | BGFX_STENCIL_OP_FAIL_S_REPLACE | BGFX_STENCIL_OP_FAIL_Z_REPLACE | BGFX_STENCIL_OP_PASS_Z_REPLACE;
+	const uint32_t stencilTest = BGFX_STENCIL_TEST_EQUAL | BGFX_STENCIL_FUNC_REF(1) | BGFX_STENCIL_FUNC_RMASK(1) | BGFX_STENCIL_OP_FAIL_S_KEEP | BGFX_STENCIL_OP_FAIL_Z_KEEP | BGFX_STENCIL_OP_PASS_Z_KEEP;
 
 	if (isWorldCamera_)
 	{
@@ -1016,24 +1018,51 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	const mat4 viewMatrix = toOpenGlMatrix_ * mat4::view(position, rotation);
 	const mat4 projectionMatrix = mat4::perspectiveProjection(fov.x, fov.y, zMin, zMax);
 	const mat4 vpMatrix(projectionMatrix * viewMatrix);
+	const Frustum cameraFrustum(vpMatrix);
 
 	if (isWorldCamera_ && isMainCamera)
 	{
-		for (size_t i = 0; i < world::GetNumPortalSurfaces(visCacheId); i++)
-		{
-			vec3 pvsPosition;
-			Transform portalCamera;
+		vec3 pvsPosition;
+		Transform portalCamera;
+		bool isMirrorCamera = false;
 
-			if (world::CalculatePortalCamera(visCacheId, i, position, rotation, vpMatrix, sceneEntities_, &pvsPosition, &portalCamera, &isMirrorCamera_, &portalPlane_))
+		if (world::CalculatePortalCamera(visCacheId, position, rotation, vpMatrix, sceneEntities_, &pvsPosition, &portalCamera, &isMirrorCamera, &portalPlane_))
+		{
+			// Rendering a portal camera. Write stencil mask first.
+			drawCalls_.clear();
+			world::RenderPortal(visCacheId, &drawCalls_);
+
+			if (!drawCalls_.empty())
 			{
-				renderCamera(portalVisCacheId_, pvsPosition, portalCamera.position, portalCamera.rotation, rect, fov, areaMask);
-				isMirrorCamera_ = false;
-				break;
+				const uint8_t viewId = pushView(sceneFb_, BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, viewMatrix, projectionMatrix, rect);
+				currentEntity_ = nullptr;
+
+				for (DrawCall &dc : drawCalls_)
+				{
+					Material *mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
+					uniforms_->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
+					matUniforms_->time.set(vec4(mat->setTime(floatTime_), 0, 0, 0));
+					mat->setDeformUniforms(matUniforms_.get());
+					matStageUniforms_->alphaTest.set(vec4::empty);
+					SetDrawCallGeometry(dc);
+					bgfx::setTransform(dc.modelMatrix.get());
+					uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_DEPTH_WRITE | BGFX_STATE_MSAA;
+
+					// Grab the cull state. Doesn't matter which stage, since it's global to the material.
+					state |= mat->stages[0].getState() & BGFX_STATE_CULL_MASK;
+
+					bgfx::setState(state);
+					bgfx::setStencil(stencilWrite);
+					bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Depth].handle);
+				}
 			}
+
+			// Render the portal camera with stencil testing.
+			isMirrorCamera_ = isMirrorCamera;
+			renderCamera(portalVisCacheId_, pvsPosition, portalCamera.position, portalCamera.rotation, rect, fov, areaMask, true);
+			isMirrorCamera_ = false;
 		}
 	}
-
-	cameraFrustum_ = Frustum(vpMatrix);
 
 	// Build draw calls. Order doesn't matter.
 	drawCalls_.clear();
@@ -1052,7 +1081,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		if (!isMainCamera && (entity.e.renderfx & RF_FIRST_PERSON) != 0)
 			continue;
 
-		renderEntity(&drawCalls_, position, rotation, &entity);
+		renderEntity(&drawCalls_, position, rotation, cameraFrustum, &entity);
 	}
 
 	if (!scenePolygons_.empty())
@@ -1224,6 +1253,12 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			}
 
 			bgfx::setState(state);
+
+			if (useStencilTest)
+			{
+				bgfx::setStencil(stencilTest);
+			}
+
 			bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Depth + shaderVariant].handle);
 			currentEntity_ = nullptr;
 		}
@@ -1268,6 +1303,12 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
 			bgfx::setState(dc.state);
+
+			if (useStencilTest)
+			{
+				bgfx::setStencil(stencilTest);
+			}
+
 			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Generic + GenericShaderProgramVariant::DepthRange].handle);
 			continue;
 		}
@@ -1383,6 +1424,12 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			}
 
 			bgfx::setState(state);
+
+			if (useStencilTest)
+			{
+				bgfx::setStencil(stencilTest);
+			}
+
 			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Generic + shaderVariant].handle);
 		}
 
@@ -1404,6 +1451,12 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			}
 
 			bgfx::setState(state);
+
+			if (useStencilTest)
+			{
+				bgfx::setStencil(stencilTest);
+			}
+
 			int shaderVariant = FogShaderProgramVariant::None;
 
 			if (dc.zOffset > 0 || dc.zScale > 0)
@@ -1587,7 +1640,7 @@ void Main::setTexelOffsetsDownsample4x4(int width, int height)
 	uniforms_->texelOffsets.set(offsets, num);
 }
 
-void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity)
+void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Frustum cameraFrustum, Entity *entity)
 {
 	assert(drawCallList);
 	assert(entity);
@@ -1629,7 +1682,7 @@ void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 view
 		{
 			Model *model = modelCache_->getModel(entity->e.hModel);
 
-			if (model->isCulled(entity, cameraFrustum_))
+			if (model->isCulled(entity, cameraFrustum))
 				break;
 
 			setupEntityLighting(entity);
@@ -1646,7 +1699,7 @@ void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 view
 		break;
 
 	case RT_SPRITE:
-		if (cameraFrustum_.clipSphere(entity->e.origin, entity->e.radius) == Frustum::ClipResult::Outside)
+		if (cameraFrustum.clipSphere(entity->e.origin, entity->e.radius) == Frustum::ClipResult::Outside)
 			break;
 
 		renderSpriteEntity(drawCallList, viewRotation, entity);

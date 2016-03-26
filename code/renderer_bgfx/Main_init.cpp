@@ -516,7 +516,7 @@ void Main::initialize()
 
 		if (!bgfx::isValid(fragment.handle))
 		{
-			fragment.handle = bgfx::createShader(bgfx::makeRef(fragMem[programMap[i].frag].mem, fragMem[programMap[i].frag].size));
+			fragment.handle = bgfx::createShader(bgfx::makeRef(fragMem[programMap[i].frag].mem, (uint32_t)fragMem[programMap[i].frag].size));
 
 			if (!bgfx::isValid(fragment.handle))
 				ri.Error(ERR_DROP, "Error creating fragment shader");
@@ -526,7 +526,7 @@ void Main::initialize()
 	
 		if (!bgfx::isValid(vertex.handle))
 		{
-			vertex.handle = bgfx::createShader(bgfx::makeRef(vertMem[programMap[i].vert].mem, vertMem[programMap[i].vert].size));
+			vertex.handle = bgfx::createShader(bgfx::makeRef(vertMem[programMap[i].vert].mem, (uint32_t)vertMem[programMap[i].vert].size));
 
 			if (!bgfx::isValid(vertex.handle))
 				ri.Error(ERR_DROP, "Error creating vertex shader");

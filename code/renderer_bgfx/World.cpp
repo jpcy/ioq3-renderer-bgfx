@@ -777,132 +777,145 @@ public:
 		}
 	}
 
-	size_t getNumPortalSurfaces(uint8_t visCacheId) const
-	{
-		return visCaches_[visCacheId]->portalSurfaces.size();
-	}
-
-	bool calculatePortalCamera(uint8_t visCacheId, size_t portalSurfaceIndex, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, vec4 *portalPlane) const
+	bool calculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, vec4 *portalPlane) const
 	{
 		assert(pvsPosition);
 		assert(portalCamera);
 		assert(isMirror);
 		assert(portalPlane);
-		const Surface *portalSurface = visCaches_[visCacheId]->portalSurfaces[portalSurfaceIndex];
-		uint32_t pointOr = 0, pointAnd = (uint32_t)~0;
+		const std::unique_ptr<VisCache> &visCache = visCaches_[visCacheId];
 
-		for (size_t i = 0; i < portalSurface->indices.size(); i++)
+		// Calculate which portal surfaces in the PVS are visible to the camera.
+		visCache->cameraPortalSurfaces.clear();
+
+		for (Surface *portalSurface : visCache->portalSurfaces)
 		{
-			uint32_t pointFlags = 0;
-			const vec4 clip = mvp.transform(vec4(vertices_[portalSurface->bufferIndex][portalSurface->indices[i]].pos, 1));
+			uint32_t pointOr = 0, pointAnd = (uint32_t)~0;
 
-			for (size_t j = 0; j < 3; j++)
+			for (size_t j = 0; j < portalSurface->indices.size(); j++)
 			{
-				if (clip[j] >= clip.w)
+				uint32_t pointFlags = 0;
+				const vec4 clip = mvp.transform(vec4(vertices_[portalSurface->bufferIndex][portalSurface->indices[j]].pos, 1));
+
+				for (size_t k = 0; k < 3; k++)
 				{
-					pointFlags |= (1 << (j * 2));
+					if (clip[k] >= clip.w)
+					{
+						pointFlags |= (1 << (k * 2));
+					}
+					else if (clip[k] <= -clip.w)
+					{
+						pointFlags |= (1 << (k * 2 + 1));
+					}
 				}
-				else if (clip[j] <= -clip.w)
+
+				pointAnd &= pointFlags;
+				pointOr |= pointFlags;
+			}
+
+			// Trivially reject.
+			if (pointAnd)
+				continue;
+
+			// Determine if this surface is backfaced and also determine the distance to the nearest vertex so we can cull based on portal range.
+			// Culling based on vertex distance isn't 100% correct (we should be checking for range to the surface), but it's good enough for the types of portals we have in the game right now.
+			size_t nTriangles = portalSurface->indices.size() / 3;
+			float shortest = 100000000;
+
+			for (size_t i = 0; i < portalSurface->indices.size(); i += 3)
+			{
+				const Vertex &vertex = vertices_[portalSurface->bufferIndex][portalSurface->indices[i]];
+				const vec3 normal = vertex.pos - mainCameraPosition;
+				const float length = normal.lengthSquared(); // lose the sqrt
+
+				if (length < shortest)
 				{
-					pointFlags |= (1 << (j * 2 + 1));
+					shortest = length;
+				}
+
+				if (vec3::dotProduct(normal, vertex.normal) >= 0)
+				{
+					nTriangles--;
 				}
 			}
 
-			pointAnd &= pointFlags;
-			pointOr |= pointFlags;
-		}
+			if (nTriangles == 0)
+				continue;
 
-		// Trivially reject.
-		if (pointAnd)
-			return false;
+			// Calculate surface plane.
+			Plane plane;
 
-		// Determine if this surface is backfaced and also determine the distance to the nearest vertex so we can cull based on portal range.
-		// Culling based on vertex distance isn't 100% correct (we should be checking for range to the surface), but it's good enough for the types of portals we have in the game right now.
-		size_t nTriangles = portalSurface->indices.size() / 3;
-		float shortest = 100000000;
-
-		for (size_t i = 0; i < portalSurface->indices.size(); i += 3)
-		{
-			const Vertex &vertex = vertices_[portalSurface->bufferIndex][portalSurface->indices[i]];
-			const vec3 normal = vertex.pos - mainCameraPosition;
-			const float length = normal.lengthSquared(); // lose the sqrt
-
-			if (length < shortest)
+			if (portalSurface->indices.size() >= 3)
 			{
-				shortest = length;
+				const vec3 v1(vertices_[portalSurface->bufferIndex][portalSurface->indices[0]].pos);
+				const vec3 v2(vertices_[portalSurface->bufferIndex][portalSurface->indices[1]].pos);
+				const vec3 v3(vertices_[portalSurface->bufferIndex][portalSurface->indices[2]].pos);
+				plane.normal = vec3::crossProduct(v3 - v1, v2 - v1).normal();
+				plane.distance = vec3::dotProduct(v1, plane.normal);
+			}
+			else
+			{
+				plane.normal[0] = 1;
 			}
 
-			if (vec3::dotProduct(normal, vertex.normal) >= 0)
+			// Locate the portal entity closest to this plane.
+			// Origin will be the origin of the portal, oldorigin will be the origin of the camera.
+			const Entity *portalEntity = nullptr;
+
+			for (size_t j = 0; j < entities.size(); j++)
 			{
-				nTriangles--;
+				const Entity &entity = entities[j];
+
+				if (entity.e.reType == RT_PORTALSURFACE)
+				{
+					const float d = vec3::dotProduct(entity.e.origin, plane.normal) - plane.distance;
+
+					if (d > 64 || d < -64)
+						continue;
+
+					portalEntity = &entity;
+					break;
+				}
 			}
+
+			// If we didn't locate a portal entity, don't render anything.
+			// We don't want to just treat it as a mirror, because without a portal entity the server won't have communicated a proper entity set in the snapshot
+			// Unfortunately, with local movement prediction it is easily possible to see a surface before the server has communicated the matching portal surface entity.
+			if (!portalEntity)
+				continue;
+
+			// Mirrors don't do a fade over distance (although they could).
+			bool isPortalMirror = (vec3(portalEntity->e.origin) == vec3(portalEntity->e.oldorigin));
+
+			if (!isPortalMirror && shortest > portalSurface->material->portalRange * portalSurface->material->portalRange)
+				continue;
+
+			// Portal surface is visible to the camera.
+			VisCache::Portal portal;
+			portal.entity = portalEntity;
+			portal.isMirror = isPortalMirror;
+			portal.plane = plane;
+			portal.surface = portalSurface;
+			visCache->cameraPortalSurfaces.push_back(portal);
 		}
 
-		if (nTriangles == 0)
+		if (visCache->cameraPortalSurfaces.empty())
 			return false;
 
-		// Calculate surface plane.
-		Plane plane;
-
-		if (portalSurface->indices.size() >= 3)
-		{
-			const vec3 v1(vertices_[portalSurface->bufferIndex][portalSurface->indices[0]].pos);
-			const vec3 v2(vertices_[portalSurface->bufferIndex][portalSurface->indices[1]].pos);
-			const vec3 v3(vertices_[portalSurface->bufferIndex][portalSurface->indices[2]].pos);
-			plane.normal = vec3::crossProduct(v3 - v1, v2 - v1).normal();
-			plane.distance = vec3::dotProduct(v1, plane.normal);
-		}
-		else
-		{
-			plane.normal[0] = 1;	
-		}
-
-		// Locate the portal entity closest to this plane.
-		// Origin will be the origin of the portal, oldorigin will be the origin of the camera.
-		const Entity *portalEntity = nullptr;
-
-		for (size_t i = 0; i < entities.size(); i++) 
-		{
-			const Entity &entity = entities[i];
-			
-			if (entity.e.reType == RT_PORTALSURFACE)
-			{
-				const float d = vec3::dotProduct(entity.e.origin, plane.normal) - plane.distance;
-
-				if (d > 64 || d < -64)
-					continue;
-
-				portalEntity = &entity;
-				break;
-			}
-		}
-
-		// If we didn't locate a portal entity, don't render anything.
-		// We don't want to just treat it as a mirror, because without a portal entity the server won't have communicated a proper entity set in the snapshot
-		// Unfortunately, with local movement prediction it is easily possible to see a surface before the server has communicated the matching portal surface entity.
-		if (!portalEntity)
-			return false;
-
-		// Mirrors don't do a fade over distance (although they could).
-		*isMirror = (vec3(portalEntity->e.origin) == vec3(portalEntity->e.oldorigin));
-		
-		if (!*isMirror && shortest > portalSurface->material->portalRange * portalSurface->material->portalRange)
-			return false;
+		// All visible portal surfaces are required for writing to the stencil buffer, but we only need the first one to figure out the transform.
+		const VisCache::Portal &portal = visCache->cameraPortalSurfaces[0];
 
 		// Portal surface is visible.
 		// Calculate portal camera transform.
 		Transform surfaceTransform, cameraTransform;
-		surfaceTransform.rotation[0] = plane.normal;
+		surfaceTransform.rotation[0] = portal.plane.normal;
 		surfaceTransform.rotation[1] = surfaceTransform.rotation[0].perpendicular();
 		surfaceTransform.rotation[2] = vec3::crossProduct(surfaceTransform.rotation[0], surfaceTransform.rotation[1]);
 
-		// Get the PVS position from the entity.
-		*pvsPosition = portalEntity->e.oldorigin;
-
 		// If the entity is just a mirror, don't use as a camera point.
-		if (*isMirror)
+		if (portal.isMirror)
 		{
-			surfaceTransform.position = plane.normal * plane.distance;
+			surfaceTransform.position = portal.plane.normal * portal.plane.distance;
 			cameraTransform.position = surfaceTransform.position;
 			cameraTransform.rotation[0] = -surfaceTransform.rotation[0];
 			cameraTransform.rotation[1] = surfaceTransform.rotation[1];
@@ -911,37 +924,37 @@ public:
 		else
 		{
 			// Project the origin onto the surface plane to get an origin point we can rotate around.
-			const float d = vec3::dotProduct(portalEntity->e.origin, plane.normal) - plane.distance;
-			surfaceTransform.position = vec3(portalEntity->e.origin) + surfaceTransform.rotation[0] * -d;
+			const float d = vec3::dotProduct(portal.entity->e.origin, portal.plane.normal) - portal.plane.distance;
+			surfaceTransform.position = vec3(portal.entity->e.origin) + surfaceTransform.rotation[0] * -d;
 
 			// Now get the camera position and rotation.
-			cameraTransform.position = portalEntity->e.oldorigin;
-			cameraTransform.rotation[0] = -vec3(portalEntity->e.axis[0]);
-			cameraTransform.rotation[1] = -vec3(portalEntity->e.axis[1]);
-			cameraTransform.rotation[2] = portalEntity->e.axis[2];
+			cameraTransform.position = portal.entity->e.oldorigin;
+			cameraTransform.rotation[0] = -vec3(portal.entity->e.axis[0]);
+			cameraTransform.rotation[1] = -vec3(portal.entity->e.axis[1]);
+			cameraTransform.rotation[2] = portal.entity->e.axis[2];
 
 			// Optionally rotate.
-			if (portalEntity->e.oldframe || portalEntity->e.skinNum)
+			if (portal.entity->e.oldframe || portal.entity->e.skinNum)
 			{
 				float d;
 
-				if (portalEntity->e.oldframe)
+				if (portal.entity->e.oldframe)
 				{
 					// If a speed is specified.
-					if (portalEntity->e.frame)
+					if (portal.entity->e.frame)
 					{
 						// Continuous rotate
-						d = main::GetFloatTime() * portalEntity->e.frame;
+						d = main::GetFloatTime() * portal.entity->e.frame;
 					}
 					else
 					{
 						// Bobbing rotate, with skinNum being the rotation offset.
-						d = portalEntity->e.skinNum + sin(main::GetFloatTime()) * 4;
+						d = portal.entity->e.skinNum + sin(main::GetFloatTime()) * 4;
 					}
 				}
-				else if (portalEntity->e.skinNum)
+				else if (portal.entity->e.skinNum)
 				{
-					d = (float)portalEntity->e.skinNum;
+					d = (float)portal.entity->e.skinNum;
 				}
 
 				cameraTransform.rotation[1] = cameraTransform.rotation[1].rotatedAroundDirection(cameraTransform.rotation[0], d);
@@ -949,12 +962,44 @@ public:
 			}
 		}
 
+		*pvsPosition = portal.entity->e.oldorigin; // Get the PVS position from the entity.
 		portalCamera->position = MirroredPoint(mainCameraPosition, surfaceTransform, cameraTransform);
 		portalCamera->rotation[0] = MirroredVector(mainCameraRotation[0], surfaceTransform, cameraTransform);
 		portalCamera->rotation[1] = MirroredVector(mainCameraRotation[1], surfaceTransform, cameraTransform);
 		portalCamera->rotation[2] = MirroredVector(mainCameraRotation[2], surfaceTransform, cameraTransform);
+		*isMirror = portal.isMirror;
 		*portalPlane = vec4(-cameraTransform.rotation[0], vec3::dotProduct(cameraTransform.position, -cameraTransform.rotation[0]));
 		return true;
+	}
+
+	void renderPortal(uint8_t visCacheId, DrawCallList *drawCallList)
+	{
+		assert(drawCallList);
+		std::unique_ptr<VisCache> &visCache = visCaches_[visCacheId];
+
+		for (const VisCache::Portal &portal : visCache->cameraPortalSurfaces)
+		{
+			bgfx::TransientIndexBuffer tib;
+
+			if (!bgfx::checkAvailTransientIndexBuffer((uint32_t)portal.surface->indices.size()))
+			{
+				WarnOnce(WarnOnceId::TransientBuffer);
+				return;
+			}
+
+			bgfx::allocTransientIndexBuffer(&tib, (uint32_t)portal.surface->indices.size());
+			memcpy(tib.data, portal.surface->indices.data(), (uint32_t)portal.surface->indices.size() * sizeof(uint16_t));
+
+			DrawCall dc;
+			dc.material = portal.surface->material;
+			dc.vb.type = DrawCall::BufferType::Static;
+			dc.vb.staticHandle = vertexBuffers_[portal.surface->bufferIndex].handle;
+			dc.vb.nVertices = (uint32_t)vertices_[portal.surface->bufferIndex].size();
+			dc.ib.type = DrawCall::BufferType::Transient;
+			dc.ib.transientHandle = tib;
+			dc.ib.nIndices = (uint32_t)portal.surface->indices.size();
+			drawCallList->push_back(dc);
+		}
 	}
 
 	void load(const char *name)
@@ -1382,8 +1427,19 @@ private:
 		/// Temporary index data populated at runtime when surface visibility changes.
 		std::vector<uint16_t> indices[maxWorldGeometryBuffers_];
 
-		/// Visible portal surface.
+		/// Portal surface visible to the PVS.
 		std::vector<Surface *> portalSurfaces;
+
+		struct Portal
+		{
+			const Entity *entity;
+			bool isMirror;
+			Plane plane;
+			Surface *surface;
+		};
+
+		/// Portal surface visible to the camera.
+		std::vector<Portal> cameraPortalSurfaces;
 
 		std::vector<Vertex> cpuDeformVertices;
 		std::vector<uint16_t> cpuDeformIndices;
@@ -2319,16 +2375,16 @@ void GetSky(uint8_t visCacheId, size_t index, Material **material, const std::ve
 	s_world->getSky(visCacheId, index, material, vertices);
 }
 
-size_t GetNumPortalSurfaces(uint8_t visCacheId)
+bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, vec4 *portalPlane)
 {
 	assert(IsLoaded());
-	return s_world->getNumPortalSurfaces(visCacheId);
+	return s_world->calculatePortalCamera(visCacheId, mainCameraPosition, mainCameraRotation, mvp, entities, pvsPosition, portalCamera, isMirror, portalPlane);
 }
 
-bool CalculatePortalCamera(uint8_t visCacheId, size_t portalSurfaceIndex, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, vec4 *portalPlane)
+void RenderPortal(uint8_t visCacheId, DrawCallList *drawCallList)
 {
 	assert(IsLoaded());
-	return s_world->calculatePortalCamera(visCacheId, portalSurfaceIndex, mainCameraPosition, mainCameraRotation, mvp, entities, pvsPosition, portalCamera, isMirror, portalPlane);
+	return s_world->renderPortal(visCacheId, drawCallList);
 }
 
 uint8_t CreateVisCache()

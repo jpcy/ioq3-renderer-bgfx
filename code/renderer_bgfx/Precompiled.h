@@ -1508,8 +1508,8 @@ namespace world
 	Bounds GetBounds(uint8_t visCacheId);
 	size_t GetNumSkies(uint8_t visCacheId);
 	void GetSky(uint8_t visCacheId, size_t index, Material **material, const std::vector<Vertex> **vertices);
-	size_t GetNumPortalSurfaces(uint8_t visCacheId);
-	bool CalculatePortalCamera(uint8_t visCacheId, size_t portalSurfaceIndex, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, vec4 *portalPlane);
+	bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, vec4 *portalPlane);
+	void RenderPortal(uint8_t visCacheId, DrawCallList *drawCallList);
 	uint8_t CreateVisCache();
 	void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *areaMask);
 	void Render(const mat3 &sceneRotation, DrawCallList *drawCallList, uint8_t visCacheId);
