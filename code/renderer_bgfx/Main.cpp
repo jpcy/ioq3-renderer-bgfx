@@ -1218,7 +1218,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			matStageUniforms_->alphaTest.set(vec4::empty);
 			matStageUniforms_->baseColor.set(vec4::white);
 			matStageUniforms_->generators.set(vec4::empty);
-			matStageUniforms_->lightType.set(vec4::empty);
+			matStageUniforms_->light_Type_Emissive.set(vec4::empty);
 			matStageUniforms_->vertexColor.set(vec4::black);
 			const int sky_texorder[6] = { 0, 2, 1, 3, 4, 5 };
 			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, mat->sky.outerbox[sky_texorder[dc.skyboxSide]]->getHandle());

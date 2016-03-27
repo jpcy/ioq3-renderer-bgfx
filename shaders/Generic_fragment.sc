@@ -43,7 +43,7 @@ uniform vec4 u_AmbientLight;
 uniform vec4 u_NormalScale;
 uniform vec4 u_SpecularScale;
 
-uniform vec4 u_LightType; // only x used
+uniform vec4 u_Light_Type_Emissive; // only x and y used
 
 #if defined(USE_DYNAMIC_LIGHTS)
 struct DynamicLight
@@ -177,19 +177,20 @@ void main()
 	gl_FragColor.a = alpha;
 	vec3 vertexColor = v_color0.rgb;
 	vec3 diffuseLight = vec3_splat(1.0);
+	int lightType = int(u_Light_Type_Emissive.x);
 
-	if (int(u_LightType.x) == LIGHT_MAP)
+	if (lightType == LIGHT_MAP)
 	{
 		diffuseLight = texture2D(u_LightMap, v_texcoord1).rgb;
 	}
-	else if (int(u_LightType.x) == LIGHT_VECTOR)
+	else if (lightType == LIGHT_VECTOR)
 	{
 		diffuseLight = u_AmbientLight.xyz + u_DirectedLight.xyz * Lambert(v_normal.xyz, u_LightDirection.xyz);
 	}
 
 #if defined(USE_DYNAMIC_LIGHTS)
 	// Treat vertex colors as diffuse light so dynamic lighting is applied correctly.
-	if (int(u_LightType.x) == LIGHT_NONE && (u_ColorGen == CGEN_EXACT_VERTEX || u_ColorGen == CGEN_VERTEX))
+	if (lightType == LIGHT_NONE && (u_ColorGen == CGEN_EXACT_VERTEX || u_ColorGen == CGEN_VERTEX))
 	{
 		diffuseLight = vertexColor;
 		vertexColor = vec3_splat(1.0);
@@ -251,5 +252,5 @@ void main()
 	}
 #endif // USE_DYNAMIC_LIGHTS
 
-	gl_FragColor.rgb = diffuse.rgb * vertexColor * diffuseLight;
+	gl_FragColor.rgb = diffuse.rgb * vertexColor * (diffuseLight + vec3_splat(u_Light_Type_Emissive.y));
 }

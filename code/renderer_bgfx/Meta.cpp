@@ -124,6 +124,28 @@ void OnMaterialCreate(Material *material)
 	{
 		s_meta.plasmaExplosionMaterial = material;
 	}
+
+	for (int i = 0; i < material->numUnfoggedPasses; i++)
+	{
+		MaterialStage &stage = material->stages[i];
+
+		if (!stage.active)
+			break;
+
+		for (int j = 0; j < MaterialTextureBundle::maxImageAnimations; j++)
+		{
+			const Texture *texture = stage.bundles[MaterialTextureBundleIndex::DiffuseMap].textures[j];
+
+			if (!texture)
+				break;
+
+			if (!util::Stricmp(texture->getName(), "textures/sfx/fireswirl2blue.tga"))
+			{
+				stage.emissiveLight = 2;
+				break;
+			}
+		}
+	}
 }
 
 void OnModelCreate(Model *model)

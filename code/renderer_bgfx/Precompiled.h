@@ -705,6 +705,7 @@ struct MaterialStage
 
 	MaterialStageType type = MaterialStageType::ColorMap;
 	MaterialLight light = MaterialLight::None;
+	float emissiveLight = 0;
 
 	vec4 normalScale;
 	vec4 specularScale;
@@ -900,7 +901,6 @@ private:
 namespace meta
 {
 	void Initialize();
-
 	void OnEntityAddedToScene(const Entity &entity, bool isWorldScene);
 
 	/// @brief Called by the material cache when a material is created.
@@ -1106,6 +1106,7 @@ public:
 	void resize(int width, int height);
 	void update(const bgfx::Memory *mem, int x, int y, int width, int height);
 	bgfx::TextureHandle getHandle() const { return handle_; }
+	const char *getName() const { return name_; }
 	int getWidth() const { return width_; }
 	int getHeight() const { return height_; }
 
@@ -1352,8 +1353,8 @@ struct Uniforms_MaterialStage
 	Uniform_vec4 specularScale = "u_SpecularScale";
 	Uniform_vec4 enableTextures = "u_EnableTextures";
 
-	/// @remarks Only x used.
-	Uniform_vec4 lightType = "u_LightType";
+	/// @remarks x is the light type (MaterialLight), y is the material stage emissive light.
+	Uniform_vec4 light_Type_Emissive = "u_Light_Type_Emissive";
 
 	struct Generators
 	{

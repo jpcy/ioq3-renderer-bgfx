@@ -324,6 +324,7 @@ Main::~Main()
 			bgfx::destroyTexture(smaaSearchTex_);
 	}
 
+	ri.Cmd_RemoveCommand("r_printMaterials");
 	ri.Cmd_RemoveCommand("screenshot");
 	ri.Cmd_RemoveCommand("screenshotJPEG");
 	ri.Cmd_RemoveCommand("screenshotPNG");
