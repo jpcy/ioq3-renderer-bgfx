@@ -589,16 +589,16 @@ void Main::renderScene(const refdef_t *def)
 	}
 	else
 	{
-		isWorldCamera_ = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world::IsLoaded();
+		isWorldScene_ = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world::IsLoaded();
 
 		// Need to do this here because Main::addEntityToScene doesn't know if this is a world scene.
 		for (const Entity &entity : sceneEntities_)
 		{
-			meta::OnEntityAddedToScene(entity, isWorldCamera_);
+			meta::OnEntityAddedToScene(entity, isWorldScene_);
 		}
 
 		// Update scene dynamic lights.
-		if (isWorldCamera_)
+		if (isWorldScene_)
 		{
 			dlightManager_->updateTextures(frameNo_);
 		}
@@ -608,7 +608,7 @@ void Main::renderScene(const refdef_t *def)
 		sceneRotation_ = mat3(def->viewaxis);
 		renderCamera(mainVisCacheId_, scenePosition, scenePosition, sceneRotation_, Rect(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
 
-		if (isWorldCamera_)
+		if (isWorldScene_)
 		{
 			// HDR.
 			if (g_cvars.hdr->integer)
@@ -929,7 +929,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	const uint32_t stencilWrite = BGFX_STENCIL_TEST_ALWAYS | BGFX_STENCIL_FUNC_REF(1) | BGFX_STENCIL_FUNC_RMASK(0xff) | BGFX_STENCIL_OP_FAIL_S_REPLACE | BGFX_STENCIL_OP_FAIL_Z_REPLACE | BGFX_STENCIL_OP_PASS_Z_REPLACE;
 	const uint32_t stencilTest = BGFX_STENCIL_TEST_EQUAL | BGFX_STENCIL_FUNC_REF(1) | BGFX_STENCIL_FUNC_RMASK(1) | BGFX_STENCIL_OP_FAIL_S_KEEP | BGFX_STENCIL_OP_FAIL_Z_KEEP | BGFX_STENCIL_OP_PASS_Z_KEEP;
 
-	if (isWorldCamera_)
+	if (isWorldScene_)
 	{
 		world::UpdateVisCache(visCacheId, pvsPosition, areaMask);
 
@@ -942,7 +942,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	const mat4 vpMatrix(projectionMatrix * viewMatrix);
 	const Frustum cameraFrustum(vpMatrix);
 
-	if (isWorldCamera_ && isMainCamera)
+	if (isWorldScene_ && isMainCamera)
 	{
 		vec3 pvsPosition;
 		Transform portalCamera;
@@ -989,7 +989,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	// Build draw calls. Order doesn't matter.
 	drawCalls_.clear();
 
-	if (isWorldCamera_)
+	if (isWorldScene_)
 	{
 		Sky_Render(&drawCalls_, position, visCacheId, zMax);
 		world::Render(sceneRotation_, &drawCalls_, visCacheId);
@@ -1120,7 +1120,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	}
 
 	// Render depth.
-	if (isWorldCamera_)
+	if (isWorldScene_)
 	{
 		const uint8_t viewId = pushView(sceneFb_, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect);
 
@@ -1193,7 +1193,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 	uint8_t mainViewId;
 	
-	if (isWorldCamera_)
+	if (isWorldScene_)
 	{
 		mainViewId = pushView(sceneFb_, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, rect, PushViewFlags::Sequential);
 	}
@@ -1244,7 +1244,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		matUniforms_->time.set(vec4(mat->setTime(floatTime_), 0, 0, 0));
 		const mat4 modelViewMatrix(viewMatrix * dc.modelMatrix);
 
-		if (isWorldCamera_)
+		if (isWorldScene_)
 		{
 			dlightManager_->updateUniforms(uniforms_.get());
 		}
@@ -1314,7 +1314,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				shaderVariant |= GenericShaderProgramVariant::AlphaTest;
 			}
 
-			if (isWorldCamera_ && softSpritesEnabled_ && (dc.softSpriteDepth > 0 || mat->hasAutoSpriteDeform()))
+			if (isWorldScene_ && softSpritesEnabled_ && (dc.softSpriteDepth > 0 || mat->hasAutoSpriteDeform()))
 			{
 				shaderVariant |= GenericShaderProgramVariant::SoftSprite;
 				bgfx::setTexture(TextureUnit::Depth, matStageUniforms_->depthSampler.handle, linearDepthFb_.handle);
@@ -1332,7 +1332,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				uniforms_->softSprite_Depth_UseAlpha_AutoSprite.set(vec4(dc.softSpriteDepth, useAlpha, mat->hasAutoSpriteDeform() ? 1.0f : 0.0f, 0));
 			}
 
-			if (isWorldCamera_ && dc.dynamicLighting && !(dc.flags & DrawCallFlags::Sky))
+			if (isWorldScene_ && dc.dynamicLighting && !(dc.flags & DrawCallFlags::Sky))
 			{
 				shaderVariant |= GenericShaderProgramVariant::DynamicLights;
 				bgfx::setTexture(TextureUnit::DynamicLightCells, matStageUniforms_->dynamicLightCellsSampler.handle, dlightManager_->getCellsTexture());
@@ -1701,7 +1701,7 @@ void Main::renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3
 	DrawCall dc;
 	dc.dynamicLighting = false;
 	dc.entity = entity;
-	dc.fogIndex = isWorldCamera_ ? world::FindFogIndex(entity->e.origin, entity->e.radius) : -1;
+	dc.fogIndex = isWorldScene_ ? world::FindFogIndex(entity->e.origin, entity->e.radius) : -1;
 	dc.material = mat;
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
@@ -1776,7 +1776,7 @@ void Main::renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity)
 	DrawCall dc;
 	dc.dynamicLighting = false;
 	dc.entity = entity;
-	dc.fogIndex = isWorldCamera_ ? world::FindFogIndex(entity->e.origin, entity->e.radius) : -1;
+	dc.fogIndex = isWorldScene_ ? world::FindFogIndex(entity->e.origin, entity->e.radius) : -1;
 	dc.material = materialCache_->getMaterial(entity->e.customShader);
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
@@ -1846,7 +1846,7 @@ void Main::renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Ent
 	DrawCall dc;
 	dc.dynamicLighting = false;
 	dc.entity = entity;
-	dc.fogIndex = isWorldCamera_ ? world::FindFogIndex(entity->e.origin, entity->e.radius) : -1;
+	dc.fogIndex = isWorldScene_ ? world::FindFogIndex(entity->e.origin, entity->e.radius) : -1;
 	dc.material = materialCache_->getMaterial(entity->e.customShader);
 	dc.softSpriteDepth = entity->e.radius / 2.0f;
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
@@ -1874,8 +1874,8 @@ void Main::setupEntityLighting(Entity *entity)
 		lightPosition = entity->e.origin;
 	}
 
-	// If not a world model, only use dynamic lights (menu system, etc.)
-	if (isWorldCamera_ && world::HasLightGrid())
+	// If not a world scene, only use dynamic lights (menu system, etc.)
+	if (isWorldScene_ && world::HasLightGrid())
 	{
 		world::SampleLightGrid(lightPosition, &entity->ambientLight, &entity->directedLight, &entity->lightDir);
 	}
@@ -1894,7 +1894,7 @@ void Main::setupEntityLighting(Entity *entity)
 	}
 
 	// Modify the light by dynamic lights.
-	if (!isWorldCamera_)
+	if (!isWorldScene_)
 	{
 		dlightManager_->contribute(frameNo_, lightPosition, &entity->directedLight, &entity->lightDir);
 	}

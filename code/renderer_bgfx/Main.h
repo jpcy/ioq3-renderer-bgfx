@@ -182,10 +182,6 @@ private:
 	/// @{
 	DrawCallList drawCalls_;
 	bool isMirrorCamera_ = false;
-
-	/// Is the current camera in the world (not RDF_NOWORLDMODEL).
-	bool isWorldCamera_;
-
 	vec4 portalPlane_;
 	/// @}
 
@@ -255,6 +251,10 @@ private:
 
 	/// @name Scene
 	/// @{
+	
+	/// Does the current scene contain the world (not RDF_NOWORLDMODEL).
+	bool isWorldScene_;
+
 	std::vector<vec3> sceneDebugAxis_;
 	std::vector<Bounds> sceneDebugBounds_;
 	std::vector<Entity> sceneEntities_;
