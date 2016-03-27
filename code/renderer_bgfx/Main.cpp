@@ -591,64 +591,10 @@ void Main::renderScene(const refdef_t *def)
 	{
 		isWorldCamera_ = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world::IsLoaded();
 
-		// Hack in extra dlights for Quake 3 content.
-		if (isWorldCamera_)
+		// Need to do this here because Main::addEntityToScene doesn't know if this is a world scene.
+		for (const Entity &entity : sceneEntities_)
 		{
-			const vec3 bfgColor = util::ToLinear(vec3(0.08f, 1.0f, 0.4f));
-			const vec3 lightningColor = util::ToLinear(vec3(0.6f, 0.6f, 1));
-			const vec3 plasmaColor = util::ToLinear(vec3(0.6f, 0.6f, 1.0f));
-
-			for (const Entity &entity : sceneEntities_)
-			{
-				DynamicLight dl;
-				dl.color_radius = vec4::empty;
-				dl.position_type = vec4(entity.e.origin, DynamicLight::Point);
-
-				// BFG projectile.
-				if (entity.e.reType == RT_MODEL && bfgMissibleModel_ && entity.e.hModel == bfgMissibleModel_->getIndex())
-				{
-					dl.color_radius = vec4(bfgColor, 200); // Same radius as rocket.
-				}
-				// BFG explosion.
-				else if (entity.e.reType == RT_SPRITE && bfgExplosionMaterial_ && entity.e.customShader == bfgExplosionMaterial_->index)
-				{
-					dl.color_radius = vec4(bfgColor, 300 * calculateExplosionLight(entity.e.shaderTime, 1000)); // Same radius and duration as rocket explosion.
-				}
-				// Lightning bolt.
-				else if (entity.e.reType == RT_LIGHTNING)
-				{
-					const float base = 1;
-					const float amplitude = 0.1f;
-					const float phase = 0;
-					const float freq = 10.1f;
-					const float radius = base + g_sinTable[ri.ftol((phase + floatTime_ * freq) * g_funcTableSize) & g_funcTableMask] * amplitude;
-					dl.capsuleEnd = vec3(entity.e.oldorigin);
-					dl.color_radius = vec4(lightningColor, 200 * radius);
-					dl.position_type.w = DynamicLight::Capsule;
-				}
-				// Plasma ball.
-				else if (entity.e.reType == RT_SPRITE && plasmaBallMaterial_ && entity.e.customShader == plasmaBallMaterial_->index)
-				{
-					dl.color_radius = vec4(plasmaColor, 150);
-				}
-				// Plasma explosion.
-				else if (entity.e.reType == RT_MODEL && plasmaExplosionMaterial_ && entity.e.customShader == plasmaExplosionMaterial_->index)
-				{
-					dl.color_radius = vec4(plasmaColor, 200 * calculateExplosionLight(entity.e.shaderTime, 600)); // CG_MissileHitWall: 600ms duration.
-				}
-				// Rail core.
-				else if (entity.e.reType == RT_RAIL_CORE)
-				{
-					dl.capsuleEnd = vec3(entity.e.oldorigin);
-					dl.color_radius = vec4(util::ToLinear(vec4::fromBytes(entity.e.shaderRGBA).xyz()), 200);
-					dl.position_type.w = DynamicLight::Capsule;
-				}
-
-				if (dl.color_radius.a > 0)
-				{
-					addDynamicLightToScene(dl);
-				}
-			}
+			meta::OnEntityAddedToScene(entity, isWorldCamera_);
 		}
 
 		// Update scene dynamic lights.
@@ -854,30 +800,6 @@ bool Main::sampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, v
 
 	world::SampleLightGrid(position, ambientLight, directedLight, lightDir);
 	return true;
-}
-
-void Main::onMaterialCreate(Material *material)
-{
-	if (!util::Stricmp(material->name, "bfgExplosion"))
-	{
-		bfgExplosionMaterial_ = material;
-	}
-	else if (!util::Stricmp(material->name, "sprites/plasma1"))
-	{
-		plasmaBallMaterial_ = material;
-	}
-	else if (!util::Stricmp(material->name, "plasmaExplosion"))
-	{
-		plasmaExplosionMaterial_ = material;
-	}
-}
-
-void Main::onModelCreate(Model *model)
-{
-	if (!util::Stricmp(model->getName(), "models/weaphits/bfg.md3"))
-	{
-		bfgMissibleModel_ = model;
-	}
 }
 
 void Main::debugDraw(const FrameBuffer &texture, int x, int y, ShaderProgramId::Enum program)
@@ -1984,17 +1906,6 @@ void Main::setupEntityLighting(Entity *entity)
 	{
 		entity->ambientLight[i] = std::min(entity->ambientLight[i], g_identityLight * 255);
 	}
-}
-
-float Main::calculateExplosionLight(float entityShaderTime, float durationMilliseconds) const
-{
-	// From CG_AddExplosion
-	float light = (floatTime_ - entityShaderTime) / (durationMilliseconds / 1000.0f);
-
-	if (light < 0.5f)
-		return 1.0f;
-
-	return 1.0f - (light - 0.5f) * 2.0f;
 }
 
 DebugDraw DebugDrawFromString(const char *s)

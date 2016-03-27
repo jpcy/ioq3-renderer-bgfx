@@ -356,13 +356,6 @@ namespace main
 	void Initialize();
 	bool IsMirrorCamera();
 	void LoadWorld(const char *name); 
-
-	/// @brief Called by the material cache when a material is created.
-	void OnMaterialCreate(Material *material);
-
-	/// @brief Called by the model cache when a model is created.
-	void OnModelCreate(Model *model);
-
 	void RegisterFont(const char *fontName, int pointSize, fontInfo_t *font);
 	void RenderScene(const refdef_t *def);
 	bool SampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
@@ -903,6 +896,19 @@ private:
 
 	std::vector<std::unique_ptr<Skin>> skins_;
 };
+
+namespace meta
+{
+	void Initialize();
+
+	void OnEntityAddedToScene(const Entity &entity, bool isWorldScene);
+
+	/// @brief Called by the material cache when a material is created.
+	void OnMaterialCreate(Material *material);
+
+	/// @brief Called by the model cache when a model is created.
+	void OnModelCreate(Model *model);
+}
 
 class Model
 {

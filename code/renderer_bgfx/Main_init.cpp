@@ -310,6 +310,8 @@ Main::Main()
 		noiseTable_[i] = (float)(((rand() / (float)RAND_MAX) * 2.0 - 1.0));
 		noisePerm_[i] = (unsigned char)(rand() / (float)RAND_MAX * 255);
 	}
+
+	meta::Initialize();
 }
 
 Main::~Main()
@@ -615,16 +617,6 @@ bool IsMirrorCamera()
 void LoadWorld(const char *name)
 {
 	s_main->loadWorld(name);
-}
-
-void OnMaterialCreate(Material *material)
-{
-	s_main->onMaterialCreate(material);
-}
-
-void OnModelCreate(Model *model)
-{
-	s_main->onModelCreate(model);
 }
 
 void RegisterFont(const char *fontName, int pointSize, fontInfo_t *font)

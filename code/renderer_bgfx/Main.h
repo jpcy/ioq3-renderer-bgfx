@@ -78,12 +78,6 @@ public:
 	void endFrame();
 	bool sampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
 
-	/// @brief Called by the material cache when a material is created.
-	void onMaterialCreate(Material *material);
-
-	/// @brief Called by the model cache when a model is created.
-	void onModelCreate(Model *model);
-
 private:
 	struct DepthShaderProgramVariant
 	{
@@ -184,8 +178,6 @@ private:
 	void setupEntityLighting(Entity *entity);
 	/// @}
 
-	float calculateExplosionLight(float entityShaderTime, float durationMilliseconds) const;
-
 	/// @name Camera
 	/// @{
 	DrawCallList drawCalls_;
@@ -235,14 +227,6 @@ private:
 	FrameBuffer linearDepthFb_;
 	FrameBuffer sceneFb_;
 	FrameBuffer sceneTempFb_;
-	/// @}
-
-	/// @name Game-specific hacks
-	/// @{
-	Material *bfgExplosionMaterial_ = nullptr;
-	Model *bfgMissibleModel_ = nullptr;
-	Material *plasmaBallMaterial_ = nullptr;
-	Material *plasmaExplosionMaterial_ = nullptr;
 	/// @}
 
 	/// @name HDR luminance
