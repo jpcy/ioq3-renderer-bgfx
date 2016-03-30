@@ -131,7 +131,7 @@ void main()
 	}
 
 	vec4 diffuse = texture2D(u_DiffuseMap, texCoord0);
-	float alpha
+	float alpha;
 
 	if (u_AlphaGen == AGEN_WATER)
 	{
