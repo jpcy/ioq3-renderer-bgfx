@@ -80,12 +80,12 @@ uint64_t MaterialStage::getState() const
 
 	if (material->cullType != MaterialCullType::TwoSided)
 	{
-		bool cullFront = (material->cullType == MaterialCullType::FrontSided);
+		bool cullBack = (material->cullType == MaterialCullType::FrontSided);
 
 		if (main::isCameraMirrored())
-			cullFront = !cullFront;
+			cullBack = !cullBack;
 
-		state |= cullFront ? BGFX_STATE_CULL_CCW : BGFX_STATE_CULL_CW;
+		state |= cullBack ? BGFX_STATE_CULL_CCW : BGFX_STATE_CULL_CW;
 	}
 
 	return state;

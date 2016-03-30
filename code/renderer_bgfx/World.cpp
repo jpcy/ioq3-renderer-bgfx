@@ -1041,7 +1041,8 @@ public:
 			memcpy(tib.data, reflective.surface->indices.data(), (uint32_t)reflective.surface->indices.size() * sizeof(uint16_t));
 
 			DrawCall dc;
-			dc.material = reflective.surface->material;
+			dc.material = reflective.surface->material->reflectiveFrontSideMaterial;
+			assert(dc.material);
 			dc.vb.type = DrawCall::BufferType::Static;
 			dc.vb.staticHandle = vertexBuffers_[reflective.surface->bufferIndex].handle;
 			dc.vb.nVertices = (uint32_t)vertices_[reflective.surface->bufferIndex].size();
@@ -1172,7 +1173,7 @@ public:
 					}
 					else
 					{
-						if (surface.material->isReflective)
+						if (surface.material->reflective == MaterialReflective::BackSide)
 						{
 							visCache->reflectiveSurfaces.push_back(&surface);
 						}
@@ -1318,6 +1319,15 @@ public:
 
 			dc.fogIndex = surface.fogIndex;
 			dc.material = surface.material;
+
+			if (g_cvars.waterReflections->integer)
+			{
+				// If this is a back side reflective material, use the front side material if there's any reflective surfaces visible to the camera.
+				if (dc.material->reflective == MaterialReflective::BackSide && !visCache->cameraReflectiveSurfaces.empty())
+				{
+					dc.material = dc.material->reflectiveFrontSideMaterial;
+				}
+			}
 
 			if (surface.material->hasAutoSprite2Deform())
 			{

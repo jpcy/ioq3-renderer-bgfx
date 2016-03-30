@@ -1068,7 +1068,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				continue;
 
 			// Don't render reflective geometry with the reflection camera.
-			if (visCacheId == reflectionVisCacheId_ && mat->isReflective)
+			if (visCacheId == reflectionVisCacheId_ && mat->reflective != MaterialReflective::None)
 				continue;
 
 			currentEntity_ = dc.entity;
@@ -1149,7 +1149,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		Material *mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
 
 		// Don't render reflective geometry with the reflection camera.
-		if (visCacheId == reflectionVisCacheId_ && mat->isReflective)
+		if (visCacheId == reflectionVisCacheId_ && mat->reflective != MaterialReflective::None)
 			continue;
 
 		// Special case for skybox.

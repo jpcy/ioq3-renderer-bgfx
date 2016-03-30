@@ -517,6 +517,13 @@ struct MaterialLightmapId
 	};
 };
 
+enum class MaterialReflective
+{
+	None,
+	FrontSide,
+	BackSide
+};
+
 struct MaterialSkyParms
 {
 	MaterialSkyParms() : outerbox(), innerbox() {}
@@ -749,6 +756,7 @@ class Material
 	friend struct MaterialStage;
 
 public:
+	Material() {}
 	Material(const char *name);
 	size_t getNumStages() const { return numUnfoggedPasses; }
 	int32_t getDepth() const { return (int32_t)sort; }
@@ -781,9 +789,10 @@ public:
 	float portalRange = 256;			// distance to fog out at
 	bool isPortal = false;
 
-	bool isReflective = false;
+	MaterialReflective reflective = MaterialReflective::None;
+	Material *reflectiveFrontSideMaterial = nullptr;
 
-	MaterialCullType cullType = MaterialCullType::FrontSided;				// MaterialCullType::FrontSided, MaterialCullType::BackSided, or MaterialCullType::TwoSided
+	MaterialCullType cullType = MaterialCullType::FrontSided;
 	bool polygonOffset = false;			// set for decals and other items that must be offset
 	bool noMipMaps = false;				// for console fonts, 2D elements, etc.
 	bool noPicMip = false;				// for images that must always be full resolution

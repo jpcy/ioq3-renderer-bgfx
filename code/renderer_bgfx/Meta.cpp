@@ -161,34 +161,28 @@ void OnMaterialCreate(Material *material)
 			if (util::Stricmp(material->name, s_reflectiveMaterialNames[i]) != 0)
 				continue;
 
-			material->isReflective = true;
+			// Use the existing material as the reflective back side, i.e. what you see when under the water plane.
+			material->cullType = MaterialCullType::BackSided;
+			material->reflective = MaterialReflective::BackSide;
 
-#if 1
+			// Create a copy of this material to use for the reflective front side, i.e. what you see when above the water plane - the surface that displays the reflection.
+			// Insert a reflection stage at index 0.
+			Material reflection = *material;
+			util::Strncpyz(reflection.name, util::VarArgs("%s/reflection", material->name), sizeof(reflection.name));
+			reflection.cullType = MaterialCullType::FrontSided;
+			reflection.reflective = MaterialReflective::FrontSide;
+
 			for (int i = Material::maxStages - 1; i > 0; i--)
 			{
-				MaterialStage *stage = &material->stages[i];
-				MaterialStage *prevStage = &material->stages[i - 1];
+				MaterialStage *stage = &reflection.stages[i];
+				MaterialStage *prevStage = &reflection.stages[i - 1];
 
 				if (prevStage->active)
 					*stage = *prevStage;
 			}
 
-			MaterialStage *stage = &material->stages[0];
+			MaterialStage *stage = &reflection.stages[0];
 			*stage = MaterialStage();
-#else
-			MaterialStage *stage = nullptr;
-
-			for (int i = 0; i < Material::maxStages; i++)
-			{
-				if (!material->stages[i].active)
-				{
-					stage = &material->stages[i];
-					break;
-				}
-			}
-
-#endif
-
 			stage->active = true;
 			stage->bundles[0].textures[0] = g_textureCache->findTexture("*reflection");
 			stage->bundles[0].tcGen = MaterialTexCoordGen::Fragment;
@@ -196,6 +190,7 @@ void OnMaterialCreate(Material *material)
 			stage->blendDst = BGFX_STATE_BLEND_INV_SRC_ALPHA;
 			stage->rgbGen = MaterialColorGen::Identity;
 			stage->alphaGen = MaterialAlphaGen::Water;
+			material->reflectiveFrontSideMaterial = g_materialCache->createMaterial(reflection);
 		}
 	}
 }
