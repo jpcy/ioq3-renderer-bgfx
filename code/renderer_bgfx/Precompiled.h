@@ -119,6 +119,7 @@ struct ConsoleVariables
 	cvar_t *railSegmentLength;
 	cvar_t *screenshotJpegQuality;
 	cvar_t *softSprites;
+	cvar_t *waterReflections;
 	cvar_t *wireframe;
 
 	/// @name Screen
@@ -151,7 +152,7 @@ struct DrawCallFlags
 		/// @brief Either world surfaceFlags SURF_SKY (e.g. space maps with no material skyparms) or Material::isSky (everything else)
 		Sky    = 1<<0,
 
-		Skybox = 1<<1,
+		Skybox = 1<<1
 	};
 };
 
@@ -354,7 +355,7 @@ namespace main
 	float GetFloatTime();
 	float GetNoise(float x, float y, float z, float t);
 	void Initialize();
-	bool IsMirrorCamera();
+	bool isCameraMirrored();
 	void LoadWorld(const char *name); 
 	void RegisterFont(const char *fontName, int pointSize, fontInfo_t *font);
 	void RenderScene(const refdef_t *def);
@@ -378,6 +379,7 @@ enum class MaterialAlphaGen
 	Identity         = AGEN_IDENTITY,
 	LightingSpecular = AGEN_LIGHTING_SPECULAR,
 	Portal           = AGEN_PORTAL,
+	Water            = AGEN_WATER,
 	Skip,
 	Entity,
 	OneMinusEntity,
@@ -582,6 +584,7 @@ enum class MaterialTexCoordGen
 	None = TCGEN_NONE,
 	EnvironmentMapped = TCGEN_ENVIRONMENT_MAPPED,
 	Fog = TCGEN_FOG,
+	Fragment = TCGEN_FRAGMENT,
 	Lightmap = TCGEN_LIGHTMAP,
 	Texture = TCGEN_TEXTURE,
 
@@ -777,6 +780,8 @@ public:
 
 	float portalRange = 256;			// distance to fog out at
 	bool isPortal = false;
+
+	bool isReflective = false;
 
 	MaterialCullType cullType = MaterialCullType::FrontSided;				// MaterialCullType::FrontSided, MaterialCullType::BackSided, or MaterialCullType::TwoSided
 	bool polygonOffset = false;			// set for decals and other items that must be offset
@@ -1102,6 +1107,7 @@ class Texture
 {
 public:
 	Texture(const char *name, const Image &image, TextureType type, int flags, bgfx::TextureFormat::Enum format);
+	Texture(const char *name, bgfx::TextureHandle handle);
 	~Texture();
 	void resize(int width, int height);
 	void update(const bgfx::Memory *mem, int x, int y, int width, int height);
@@ -1130,6 +1136,7 @@ class TextureCache
 public:
 	TextureCache();
 	Texture *createTexture(const char *name, const Image &image, TextureType type = TextureType::ColorAlpha, int flags = TextureFlags::None, bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8);
+	Texture *createTexture(const char *name, bgfx::TextureHandle handle);
 
 	/// Finds or loads the given image.
 	/// @return nullptr if it fails, not the default image.
@@ -1141,6 +1148,7 @@ public:
 	std::array<Texture *, 32> &getScratchTextures() { return scratchTextures_; }
 
 private:
+	Texture *addTexture(std::unique_ptr<Texture> &texture);
 	void createBuiltinTextures();
 	static size_t generateHash(const char *name);
 
@@ -1415,6 +1423,9 @@ namespace util
 
 	uint16_t CalculateSmallestPowerOfTwoTextureSize(int nPixels);
 
+	bool IsGeometryOffscreen(const mat4 &mvp, const uint16_t *indices, size_t nIndices, const Vertex *vertices);
+	bool IsGeometryBackfacing(vec3 cameraPosition, const uint16_t *indices, size_t nIndices, const Vertex *vertices, float *shortestVertexDistanceSquared = nullptr);
+
 	char *SkipPath(char *pathname);
 	const char *GetExtension(const char *name);
 	void StripExtension(const char *in, char *out, int destsize);
@@ -1516,10 +1527,12 @@ namespace world
 	size_t GetNumSkies(uint8_t visCacheId);
 	void GetSky(uint8_t visCacheId, size_t index, Material **material, const std::vector<Vertex> **vertices);
 	bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, vec4 *portalPlane);
+	bool CalculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, Transform *camera, vec4 *plane);
 	void RenderPortal(uint8_t visCacheId, DrawCallList *drawCallList);
+	void RenderReflective(uint8_t visCacheId, DrawCallList *drawCallList);
 	uint8_t CreateVisCache();
 	void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *areaMask);
-	void Render(const mat3 &sceneRotation, DrawCallList *drawCallList, uint8_t visCacheId);
+	void Render(uint8_t visCacheId, DrawCallList *drawCallList, const mat3 &sceneRotation);
 }
 
 static const size_t g_funcTableSize = 1024;

@@ -36,6 +36,13 @@ Texture::Texture(const char *name, const Image &image, TextureType type, int fla
 	handle_ = bgfx::createTexture2D(width_, height_, image.nMips, format_, calculateBgfxFlags(), image.memory);
 }
 
+Texture::Texture(const char *name, bgfx::TextureHandle handle)
+{
+	strcpy(name_, name);
+	handle_ = handle;
+	flags_ = 0;
+}
+
 Texture::~Texture()
 {
 	bgfx::destroyTexture(handle_);
@@ -87,11 +94,18 @@ Texture *TextureCache::createTexture(const char *name, const Image &image, Textu
 	}
 
 	auto texture = std::make_unique<Texture>(name, image, type, flags, format);
-	size_t hash = generateHash(name);
-	texture->next_ = hashTable_[hash];
-	hashTable_[hash] = texture.get();
-	textures_.push_back(std::move(texture));
-	return hashTable_[hash];
+	return addTexture(texture);
+}
+
+Texture *TextureCache::createTexture(const char *name, bgfx::TextureHandle handle)
+{
+	if (strlen(name) >= MAX_QPATH)
+	{
+		ri.Error(ERR_DROP, "Texture name \"%s\" is too long", name);
+	}
+
+	auto texture = std::make_unique<Texture>(name, handle);
+	return addTexture(texture);
 }
 
 Texture *TextureCache::findTexture(const char *name, TextureType type, int flags)
@@ -138,6 +152,15 @@ Texture *TextureCache::findTexture(const char *name, TextureType type, int flags
 		return nullptr;
 
 	return createTexture(name, image, type, flags);
+}
+
+Texture *TextureCache::addTexture(std::unique_ptr<Texture> &texture)
+{
+	size_t hash = generateHash(texture->getName());
+	texture->next_ = hashTable_[hash];
+	hashTable_[hash] = texture.get();
+	textures_.push_back(std::move(texture));
+	return hashTable_[hash];
 }
 
 /// The default image will be a box, to allow you to see the mapping coordinates.

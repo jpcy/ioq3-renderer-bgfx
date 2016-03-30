@@ -35,6 +35,13 @@ struct Meta
 
 static Meta s_meta;
 
+static const char *s_reflectiveMaterialNames[] =
+{
+	"textures/liquids/clear_ripple1",
+	"textures/liquids/calm_poollight",
+	"textures/liquids/clear_calm1"
+};
+
 void Initialize()
 {
 	s_meta = Meta();
@@ -125,7 +132,7 @@ void OnMaterialCreate(Material *material)
 		s_meta.plasmaExplosionMaterial = material;
 	}
 
-	for (int i = 0; i < material->numUnfoggedPasses; i++)
+	for (int i = 0; i < Material::maxStages; i++)
 	{
 		MaterialStage &stage = material->stages[i];
 
@@ -144,6 +151,51 @@ void OnMaterialCreate(Material *material)
 				stage.emissiveLight = 2;
 				break;
 			}
+		}
+	}
+
+	if (g_cvars.waterReflections->integer)
+	{
+		for (size_t i = 0; i < BX_COUNTOF(s_reflectiveMaterialNames); i++)
+		{
+			if (util::Stricmp(material->name, s_reflectiveMaterialNames[i]) != 0)
+				continue;
+
+			material->isReflective = true;
+
+#if 1
+			for (int i = Material::maxStages - 1; i > 0; i--)
+			{
+				MaterialStage *stage = &material->stages[i];
+				MaterialStage *prevStage = &material->stages[i - 1];
+
+				if (prevStage->active)
+					*stage = *prevStage;
+			}
+
+			MaterialStage *stage = &material->stages[0];
+			*stage = MaterialStage();
+#else
+			MaterialStage *stage = nullptr;
+
+			for (int i = 0; i < Material::maxStages; i++)
+			{
+				if (!material->stages[i].active)
+				{
+					stage = &material->stages[i];
+					break;
+				}
+			}
+
+#endif
+
+			stage->active = true;
+			stage->bundles[0].textures[0] = g_textureCache->findTexture("*reflection");
+			stage->bundles[0].tcGen = MaterialTexCoordGen::Fragment;
+			stage->blendSrc = BGFX_STATE_BLEND_SRC_ALPHA;
+			stage->blendDst = BGFX_STATE_BLEND_INV_SRC_ALPHA;
+			stage->rgbGen = MaterialColorGen::Identity;
+			stage->alphaGen = MaterialAlphaGen::Water;
 		}
 	}
 }

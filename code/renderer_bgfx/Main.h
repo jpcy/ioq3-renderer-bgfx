@@ -45,6 +45,7 @@ enum class DebugDraw
 	Depth,
 	DynamicLight,
 	Luminance,
+	Reflection,
 	SMAA
 };
 
@@ -60,7 +61,7 @@ public:
 	int getFrameNo() const { return frameNo_; }
 	float getNoise(float x, float y, float z, float t) const;
 	int getTime() const { return time_; }
-	bool isMirrorCamera() const { return isMirrorCamera_; }
+	bool isCameraMirrored() const { return isCameraMirrored_; }
 
 	void registerFont(const char *fontName, int pointSize, fontInfo_t *font);
 	void setColor(vec4 c) { stretchPicColor_ = c; }
@@ -158,31 +159,44 @@ private:
 		};
 	};
 
+	struct RenderCameraFlags
+	{
+		enum
+		{
+			UseClippingPlane = 1<<0,
+			UseStencilTest   = 1<<1
+		};
+	};
+
 	void debugDraw(const FrameBuffer &texture, int x = 0, int y = 0, ShaderProgramId::Enum program = ShaderProgramId::Texture);
 	void debugDraw(bgfx::TextureHandle texture, int x = 0, int y = 0, ShaderProgramId::Enum program = ShaderProgramId::Texture);
 	uint8_t pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags = 0);
 	void flushStretchPics();
-	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask, bool useStencilTest = false);
+	void renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask, vec4 clippingPlane = vec4::empty, int flags = 0);
+	void renderPolygons();
 	void renderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, uint16_t clearFlags = BGFX_CLEAR_NONE, bool originBottomLeft = false, Rect rect = Rect());
+	void renderToStencil(const uint8_t viewId);
 	void setTexelOffsetsDownsample2x2(int width, int height);
 	void setTexelOffsetsDownsample4x4(int width, int height);
 
 	/// @name Entity rendering
 	/// @{
-	void renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Frustum cameraFrustum, Entity *entity);
-	void renderLightningEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
-	void renderRailCoreEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity);
-	void renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3 up, float length, float spanWidth, Material *mat, vec4 color, Entity *entity);
-	void renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity);
-	void renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Entity *entity);
+	void renderEntity(vec3 viewPosition, mat3 viewRotation, Frustum cameraFrustum, Entity *entity);
+	void renderLightningEntity(vec3 viewPosition, mat3 viewRotation, Entity *entity);
+	void renderRailCoreEntity(vec3 viewPosition, mat3 viewRotation, Entity *entity);
+	void renderRailCore(vec3 start, vec3 end, vec3 up, float length, float spanWidth, Material *mat, vec4 color, Entity *entity);
+	void renderRailRingsEntity(Entity *entity);
+	void renderSpriteEntity(mat3 viewRotation, Entity *entity);
 	void setupEntityLighting(Entity *entity);
 	/// @}
 
 	/// @name Camera
 	/// @{
 	DrawCallList drawCalls_;
-	bool isMirrorCamera_ = false;
-	vec4 portalPlane_;
+
+	/// Flip face culling if true.
+	bool isCameraMirrored_ = false;
+
 	/// @}
 
 	/// @name Fonts
@@ -221,6 +235,7 @@ private:
 
 	static const FrameBuffer defaultFb_;
 	FrameBuffer linearDepthFb_;
+	FrameBuffer reflectionFb_;
 	FrameBuffer sceneFb_;
 	FrameBuffer sceneTempFb_;
 	/// @}
@@ -309,7 +324,7 @@ private:
 	std::unique_ptr<DynamicLightManager> dlightManager_;
 	float halfTexelOffset_ = 0;
 	bool isTextureOriginBottomLeft_ = false;
-	uint8_t mainVisCacheId_, portalVisCacheId_;
+	uint8_t mainVisCacheId_, portalVisCacheId_, reflectionVisCacheId_;
 	bool softSpritesEnabled_ = false;
 	SunLight sunLight_;
 

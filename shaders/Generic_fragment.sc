@@ -32,9 +32,12 @@ uniform vec4 u_DynamicLightTextureSizes_Cells_Indices_Lights; // w not used
 
 uniform vec4 u_PortalClip;
 uniform vec4 u_PortalPlane;
+uniform vec4 u_ViewOrigin;
 
 uniform vec4 u_Generators;
+#define u_TexCoordGen int(u_Generators[GEN_TEXCOORD])
 #define u_ColorGen int(u_Generators[GEN_COLOR])
+#define u_AlphaGen int(u_Generators[GEN_ALPHA])
 
 // light vector
 uniform vec4 u_LightDirection;
@@ -120,8 +123,26 @@ void main()
 			discard;
 	}
 
-	vec4 diffuse = texture2D(u_DiffuseMap, v_texcoord0);
-	float alpha = diffuse.a * v_color0.a;
+	vec2 texCoord0 = v_texcoord0;
+
+	if (u_TexCoordGen == TCGEN_FRAGMENT)
+	{
+		texCoord0 = gl_FragCoord.xy * u_viewTexel.xy;
+	}
+
+	vec4 diffuse = texture2D(u_DiffuseMap, texCoord0);
+	float alpha
+
+	if (u_AlphaGen == AGEN_WATER)
+	{
+		const float minReflectivity = 0.1;
+		vec3 viewDir = normalize(u_ViewOrigin.xyz - v_position);
+		alpha = minReflectivity + (1.0 - minReflectivity) * pow(1.0 - dot(v_normal.xyz, viewDir), 5);
+	}
+	else
+	{
+		alpha = diffuse.a * v_color0.a;;
+	}
 
 #if defined(USE_SOFT_SPRITE)
 	// Normalized linear depths.

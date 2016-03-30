@@ -480,18 +480,17 @@ void Main::loadWorld(const char *name)
 		ri.Error(ERR_DROP, "ERROR: attempted to redundantly load world map");
 	}
 
-	world::Load(name);
-	mainVisCacheId_ = world::CreateVisCache();
-	portalVisCacheId_ = world::CreateVisCache();
-	dlightManager_->initializeGrid();
-
-	// Frame buffers.
+	// Create frame buffers first.
 	const uint32_t rtClampFlags = BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP;
 	linearDepthFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::R16F);
+	bgfx::TextureHandle reflectionTexture;
 	bgfx::TextureHandle sceneTextures[SceneFrameBufferAttachment::Num];
 
 	if (g_cvars.hdr->integer != 0)
 	{
+		if (g_cvars.waterReflections->integer)
+			reflectionTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::RGBA16F, rtClampFlags);
+
 		if (aa_ != AntiAliasing::None)
 		{
 			// HDR needs a temp BGRA8 destination for AA.
@@ -518,9 +517,15 @@ void Main::loadWorld(const char *name)
 			aaFlags |= (1 + (int)aa_ - (int)AntiAliasing::MSAA2x) << BGFX_TEXTURE_RT_MSAA_SHIFT;
 		}
 
+		if (g_cvars.waterReflections->integer)
+			reflectionTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
+
 		sceneTextures[SceneFrameBufferAttachment::Color] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
 		sceneTextures[SceneFrameBufferAttachment::Depth] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT | aaFlags);
 	}
+
+	if (g_cvars.waterReflections->integer)
+		reflectionFb_.handle = bgfx::createFrameBuffer(1, &reflectionTexture); // Don't destroy the texture, that will be done by the texture cache.
 
 	sceneFb_.handle = bgfx::createFrameBuffer(SceneFrameBufferAttachment::Num, sceneTextures, true);
 
@@ -531,6 +536,19 @@ void Main::loadWorld(const char *name)
 		smaaAreaTex_ = bgfx::createTexture2D(AREATEX_WIDTH, AREATEX_HEIGHT, 1, bgfx::TextureFormat::RG8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(areaTexBytes, AREATEX_SIZE));
 		smaaSearchTex_ = bgfx::createTexture2D(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, 1, bgfx::TextureFormat::R8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(searchTexBytes, SEARCHTEX_SIZE));
 	}
+
+	if (g_cvars.waterReflections->integer)
+	{
+		// Register the reflection texture so it can accessed by materials.
+		g_textureCache->createTexture("*reflection", reflectionTexture);
+	}
+
+	// Load the world.
+	world::Load(name);
+	mainVisCacheId_ = world::CreateVisCache();
+	portalVisCacheId_ = world::CreateVisCache();
+	reflectionVisCacheId_ = world::CreateVisCache();
+	dlightManager_->initializeGrid();
 }
 
 void Main::addDynamicLightToScene(const DynamicLight &light)
@@ -751,6 +769,10 @@ void Main::endFrame()
 
 		debugDraw(adaptedLuminanceFB_[currentAdaptedLuminanceFB_], 0, 1);
 	}
+	else if (debugDraw_ == DebugDraw::Reflection)
+	{
+		debugDraw(reflectionFb_);
+	}
 	else if (debugDraw_ == DebugDraw::SMAA && aa_ == AntiAliasing::SMAA)
 	{
 		debugDraw(smaaEdgesFb_, 0, 0, ShaderProgramId::TextureSingleChannel);
@@ -919,16 +941,16 @@ static void SetDrawCallGeometry(const DrawCall &dc)
 	}
 }
 
-void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask, bool useStencilTest)
+void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask, vec4 clippingPlane, int flags)
 {
 	assert(areaMask);
 	const float zMin = 4;
 	float zMax = 2048;
 	const float polygonDepthOffset = -0.001f;
 	const bool isMainCamera = visCacheId == mainVisCacheId_;
-	const uint32_t stencilWrite = BGFX_STENCIL_TEST_ALWAYS | BGFX_STENCIL_FUNC_REF(1) | BGFX_STENCIL_FUNC_RMASK(0xff) | BGFX_STENCIL_OP_FAIL_S_REPLACE | BGFX_STENCIL_OP_FAIL_Z_REPLACE | BGFX_STENCIL_OP_PASS_Z_REPLACE;
 	const uint32_t stencilTest = BGFX_STENCIL_TEST_EQUAL | BGFX_STENCIL_FUNC_REF(1) | BGFX_STENCIL_FUNC_RMASK(1) | BGFX_STENCIL_OP_FAIL_S_KEEP | BGFX_STENCIL_OP_FAIL_Z_KEEP | BGFX_STENCIL_OP_PASS_Z_KEEP;
 
+	// Update world vis cache for this PVS position.
 	if (isWorldScene_)
 	{
 		world::UpdateVisCache(visCacheId, pvsPosition, areaMask);
@@ -937,6 +959,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		zMax = world::GetBounds(visCacheId).calculateFarthestCornerDistance(position);
 	}
 
+	// Setup camera transform.
 	const mat4 viewMatrix = toOpenGlMatrix_ * mat4::view(position, rotation);
 	const mat4 projectionMatrix = mat4::perspectiveProjection(fov.x, fov.y, zMin, zMax);
 	const mat4 vpMatrix(projectionMatrix * viewMatrix);
@@ -944,45 +967,51 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 	if (isWorldScene_ && isMainCamera)
 	{
+		// Render a reflection camera if there's a reflecting surface visible.
+		if (g_cvars.waterReflections->integer)
+		{
+			Transform reflectionCamera;
+			vec4 reflectionPlane;
+
+			if (world::CalculateReflectionCamera(visCacheId, position, rotation, vpMatrix, &reflectionCamera, &reflectionPlane))
+			{
+				// Write stencil mask first.
+				drawCalls_.clear();
+				world::RenderReflective(visCacheId, &drawCalls_);
+				assert(!drawCalls_.empty());
+				const uint8_t viewId = pushView(sceneFb_, BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, viewMatrix, projectionMatrix, rect);
+				renderToStencil(viewId);
+
+				// Render to the scene frame buffer with stencil testing.
+				isCameraMirrored_ = true;
+				renderCamera(reflectionVisCacheId_, pvsPosition, reflectionCamera.position, reflectionCamera.rotation, rect, fov, areaMask, reflectionPlane, RenderCameraFlags::UseClippingPlane | RenderCameraFlags::UseStencilTest);
+				isCameraMirrored_ = false;
+
+				// Blit the scene frame buffer to the reflection frame buffer.
+				bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Color);
+				renderScreenSpaceQuad(reflectionFb_, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
+			}
+		}
+
+		// Render a portal camera if there's a portal surface visible.
 		vec3 pvsPosition;
 		Transform portalCamera;
-		bool isMirrorCamera = false;
+		vec4 portalPlane;
+		bool isCameraMirrored;
 
-		if (world::CalculatePortalCamera(visCacheId, position, rotation, vpMatrix, sceneEntities_, &pvsPosition, &portalCamera, &isMirrorCamera, &portalPlane_))
+		if (world::CalculatePortalCamera(visCacheId, position, rotation, vpMatrix, sceneEntities_, &pvsPosition, &portalCamera, &isCameraMirrored, &portalPlane))
 		{
-			// Rendering a portal camera. Write stencil mask first.
+			// Write stencil mask first.
 			drawCalls_.clear();
 			world::RenderPortal(visCacheId, &drawCalls_);
-
-			if (!drawCalls_.empty())
-			{
-				const uint8_t viewId = pushView(sceneFb_, BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, viewMatrix, projectionMatrix, rect);
-				currentEntity_ = nullptr;
-
-				for (DrawCall &dc : drawCalls_)
-				{
-					Material *mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
-					uniforms_->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
-					matUniforms_->time.set(vec4(mat->setTime(floatTime_), 0, 0, 0));
-					mat->setDeformUniforms(matUniforms_.get());
-					matStageUniforms_->alphaTest.set(vec4::empty);
-					SetDrawCallGeometry(dc);
-					bgfx::setTransform(dc.modelMatrix.get());
-					uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_DEPTH_WRITE | BGFX_STATE_MSAA;
-
-					// Grab the cull state. Doesn't matter which stage, since it's global to the material.
-					state |= mat->stages[0].getState() & BGFX_STATE_CULL_MASK;
-
-					bgfx::setState(state);
-					bgfx::setStencil(stencilWrite);
-					bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Depth].handle);
-				}
-			}
+			assert(!drawCalls_.empty());
+			const uint8_t viewId = pushView(sceneFb_, BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, viewMatrix, projectionMatrix, rect);
+			renderToStencil(viewId);
 
 			// Render the portal camera with stencil testing.
-			isMirrorCamera_ = isMirrorCamera;
-			renderCamera(portalVisCacheId_, pvsPosition, portalCamera.position, portalCamera.rotation, rect, fov, areaMask, true);
-			isMirrorCamera_ = false;
+			isCameraMirrored_ = isCameraMirrored;
+			renderCamera(portalVisCacheId_, pvsPosition, portalCamera.position, portalCamera.rotation, rect, fov, areaMask, portalPlane, RenderCameraFlags::UseClippingPlane | RenderCameraFlags::UseStencilTest);
+			isCameraMirrored_ = false;
 		}
 	}
 
@@ -992,7 +1021,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	if (isWorldScene_)
 	{
 		Sky_Render(&drawCalls_, position, visCacheId, zMax);
-		world::Render(sceneRotation_, &drawCalls_, visCacheId);
+		world::Render(visCacheId, &drawCalls_, sceneRotation_);
 	}
 
 	for (Entity &entity : sceneEntities_)
@@ -1003,104 +1032,10 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		if (!isMainCamera && (entity.e.renderfx & RF_FIRST_PERSON) != 0)
 			continue;
 
-		renderEntity(&drawCalls_, position, rotation, cameraFrustum, &entity);
+		renderEntity(position, rotation, cameraFrustum, &entity);
 	}
 
-	if (!scenePolygons_.empty())
-	{
-		// Sort polygons by material and fogIndex for batching.
-		for (Polygon &polygon : scenePolygons_)
-		{
-			sortedScenePolygons_.push_back(&polygon);
-		}
-
-		std::sort(sortedScenePolygons_.begin(), sortedScenePolygons_.end(), [](Polygon *a, Polygon *b)
-		{
-			if (a->material->index < b->material->index)
-				return true;
-			else if (a->material->index == b->material->index)
-			{
-				return a->fogIndex < b->fogIndex;
-			}
-
-			return false;
-		});
-
-		size_t batchStart = 0;
-		
-		for (;;)
-		{
-			uint32_t nVertices = 0, nIndices = 0;
-			size_t batchEnd;
-
-			// Find the last polygon index that matches the current material and fog. Count geo as we go.
-			for (batchEnd = batchStart; batchEnd < sortedScenePolygons_.size(); batchEnd++)
-			{
-				const Polygon *p = sortedScenePolygons_[batchEnd];
-
-				if (p->material != sortedScenePolygons_[batchStart]->material || p->fogIndex != sortedScenePolygons_[batchStart]->fogIndex)
-					break;
-				
-				nVertices += p->nVertices;
-				nIndices += (p->nVertices - 2) * 3;
-			}
-
-			batchEnd = std::max(batchStart, batchEnd - 1);
-
-			// Got a range of polygons to batch. Build a draw call.
-			bgfx::TransientVertexBuffer tvb;
-			bgfx::TransientIndexBuffer tib;
-
-			if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, nVertices, &tib, nIndices) )
-			{
-				WarnOnce(WarnOnceId::TransientBuffer);
-				break;
-			}
-
-			auto vertices = (Vertex *)tvb.data;
-			auto indices = (uint16_t *)tib.data;
-			uint32_t currentVertex = 0, currentIndex = 0;
-
-			for (size_t i = batchStart; i <= batchEnd; i++)
-			{
-				const Polygon *p = sortedScenePolygons_[i];
-				const uint32_t firstVertex = currentVertex;
-
-				for (size_t j = 0; j < p->nVertices; j++)
-				{
-					Vertex &v = vertices[currentVertex++];
-					const polyVert_t &pv = scenePolygonVertices_[p->firstVertex + j];
-					v.pos = pv.xyz;
-					v.texCoord = pv.st;
-					v.color = vec4::fromBytes(pv.modulate);
-				}
-
-				for (size_t j = 0; j < p->nVertices - 2; j++)
-				{
-					indices[currentIndex++] = firstVertex + 0;
-					indices[currentIndex++] = firstVertex + uint16_t(j) + 1;
-					indices[currentIndex++] = firstVertex + uint16_t(j) + 2;
-				}
-			}
-
-			DrawCall dc;
-			dc.dynamicLighting = false; // No dynamic lighting on decals.
-			dc.fogIndex = sortedScenePolygons_[batchStart]->fogIndex;
-			dc.material = sortedScenePolygons_[batchStart]->material;
-			dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
-			dc.vb.transientHandle = tvb;
-			dc.vb.nVertices = nVertices;
-			dc.ib.transientHandle = tib;
-			dc.ib.nIndices = nIndices;
-			drawCalls_.push_back(dc);
-
-			// Iterate.
-			batchStart = batchEnd + 1;
-
-			if (batchStart >= sortedScenePolygons_.size())
-				break;
-		}
-	}
+	renderPolygons();
 
 	if (drawCalls_.empty())
 		return;
@@ -1108,11 +1043,11 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	// Sort draw calls.
 	std::sort(drawCalls_.begin(), drawCalls_.end());
 
-	// Set portal clipping.
-	if (!isMainCamera)
+	// Set plane clipping.
+	if (flags & RenderCameraFlags::UseClippingPlane)
 	{
 		uniforms_->portalClip.set(vec4(1, 0, 0, 0));
-		uniforms_->portalPlane.set(portalPlane_);
+		uniforms_->portalPlane.set(clippingPlane);
 	}
 	else
 	{
@@ -1130,6 +1065,10 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			Material *mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
 
 			if (mat->sort != MaterialSort::Opaque || mat->numUnfoggedPasses == 0)
+				continue;
+
+			// Don't render reflective geometry with the reflection camera.
+			if (visCacheId == reflectionVisCacheId_ && mat->isReflective)
 				continue;
 
 			currentEntity_ = dc.entity;
@@ -1176,7 +1115,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 			bgfx::setState(state);
 
-			if (useStencilTest)
+			if (flags & RenderCameraFlags::UseStencilTest)
 			{
 				bgfx::setStencil(stencilTest);
 			}
@@ -1209,6 +1148,10 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		// Material remapping.
 		Material *mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
 
+		// Don't render reflective geometry with the reflection camera.
+		if (visCacheId == reflectionVisCacheId_ && mat->isReflective)
+			continue;
+
 		// Special case for skybox.
 		if (dc.flags & DrawCallFlags::Skybox)
 		{
@@ -1226,7 +1169,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			bgfx::setTransform(dc.modelMatrix.get());
 			bgfx::setState(dc.state);
 
-			if (useStencilTest)
+			if (flags & RenderCameraFlags::UseStencilTest)
 			{
 				bgfx::setStencil(stencilTest);
 			}
@@ -1347,7 +1290,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 			bgfx::setState(state);
 
-			if (useStencilTest)
+			if (flags & RenderCameraFlags::UseStencilTest)
 			{
 				bgfx::setStencil(stencilTest);
 			}
@@ -1374,7 +1317,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 			bgfx::setState(state);
 
-			if (useStencilTest)
+			if (flags & RenderCameraFlags::UseStencilTest)
 			{
 				bgfx::setStencil(stencilTest);
 			}
@@ -1465,6 +1408,130 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		bgfx::setState(BGFX_STATE_DEPTH_TEST_LEQUAL | BGFX_STATE_PT_LINES | BGFX_STATE_RGB_WRITE);
 		bgfx::setVertexBuffer(&tvb);
 		bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Color].handle);
+	}
+}
+
+void Main::renderPolygons()
+{
+	if (scenePolygons_.empty())
+		return;
+
+	// Sort polygons by material and fogIndex for batching.
+	for (Polygon &polygon : scenePolygons_)
+	{
+		sortedScenePolygons_.push_back(&polygon);
+	}
+
+	std::sort(sortedScenePolygons_.begin(), sortedScenePolygons_.end(), [](Polygon *a, Polygon *b)
+	{
+		if (a->material->index < b->material->index)
+			return true;
+		else if (a->material->index == b->material->index)
+		{
+			return a->fogIndex < b->fogIndex;
+		}
+
+		return false;
+	});
+
+	size_t batchStart = 0;
+
+	for (;;)
+	{
+		uint32_t nVertices = 0, nIndices = 0;
+		size_t batchEnd;
+
+		// Find the last polygon index that matches the current material and fog. Count geo as we go.
+		for (batchEnd = batchStart; batchEnd < sortedScenePolygons_.size(); batchEnd++)
+		{
+			const Polygon *p = sortedScenePolygons_[batchEnd];
+
+			if (p->material != sortedScenePolygons_[batchStart]->material || p->fogIndex != sortedScenePolygons_[batchStart]->fogIndex)
+				break;
+
+			nVertices += p->nVertices;
+			nIndices += (p->nVertices - 2) * 3;
+		}
+
+		batchEnd = std::max(batchStart, batchEnd - 1);
+
+		// Got a range of polygons to batch. Build a draw call.
+		bgfx::TransientVertexBuffer tvb;
+		bgfx::TransientIndexBuffer tib;
+
+		if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, nVertices, &tib, nIndices))
+		{
+			WarnOnce(WarnOnceId::TransientBuffer);
+			break;
+		}
+
+		auto vertices = (Vertex *)tvb.data;
+		auto indices = (uint16_t *)tib.data;
+		uint32_t currentVertex = 0, currentIndex = 0;
+
+		for (size_t i = batchStart; i <= batchEnd; i++)
+		{
+			const Polygon *p = sortedScenePolygons_[i];
+			const uint32_t firstVertex = currentVertex;
+
+			for (size_t j = 0; j < p->nVertices; j++)
+			{
+				Vertex &v = vertices[currentVertex++];
+				const polyVert_t &pv = scenePolygonVertices_[p->firstVertex + j];
+				v.pos = pv.xyz;
+				v.texCoord = pv.st;
+				v.color = vec4::fromBytes(pv.modulate);
+			}
+
+			for (size_t j = 0; j < p->nVertices - 2; j++)
+			{
+				indices[currentIndex++] = firstVertex + 0;
+				indices[currentIndex++] = firstVertex + uint16_t(j) + 1;
+				indices[currentIndex++] = firstVertex + uint16_t(j) + 2;
+			}
+		}
+
+		DrawCall dc;
+		dc.dynamicLighting = false; // No dynamic lighting on decals.
+		dc.fogIndex = sortedScenePolygons_[batchStart]->fogIndex;
+		dc.material = sortedScenePolygons_[batchStart]->material;
+		dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
+		dc.vb.transientHandle = tvb;
+		dc.vb.nVertices = nVertices;
+		dc.ib.transientHandle = tib;
+		dc.ib.nIndices = nIndices;
+		drawCalls_.push_back(dc);
+
+		// Iterate.
+		batchStart = batchEnd + 1;
+
+		if (batchStart >= sortedScenePolygons_.size())
+			break;
+	}
+}
+
+void Main::renderToStencil(const uint8_t viewId)
+{
+	const uint32_t stencilWrite = BGFX_STENCIL_TEST_ALWAYS | BGFX_STENCIL_FUNC_REF(1) | BGFX_STENCIL_FUNC_RMASK(0xff) | BGFX_STENCIL_OP_FAIL_S_REPLACE | BGFX_STENCIL_OP_FAIL_Z_REPLACE | BGFX_STENCIL_OP_PASS_Z_REPLACE;
+	currentEntity_ = nullptr;
+
+	for (DrawCall &dc : drawCalls_)
+	{
+		Material *mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
+		uniforms_->depthRange.set(vec4::empty);
+		matUniforms_->time.set(vec4(mat->setTime(floatTime_), 0, 0, 0));
+		mat->setDeformUniforms(matUniforms_.get());
+		matStageUniforms_->alphaTest.set(vec4::empty);
+		SetDrawCallGeometry(dc);
+		bgfx::setTransform(dc.modelMatrix.get());
+		uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_DEPTH_WRITE | BGFX_STATE_MSAA;
+
+		// Grab the cull state. Doesn't matter which stage, since it's global to the material.
+		state |= mat->stages[0].getState() & BGFX_STATE_CULL_MASK;
+
+		bgfx::setState(state);
+		bgfx::setStencil(stencilWrite);
+		bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::Depth].handle);
 	}
 }
 
@@ -1562,9 +1629,8 @@ void Main::setTexelOffsetsDownsample4x4(int width, int height)
 	uniforms_->texelOffsets.set(offsets, num);
 }
 
-void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Frustum cameraFrustum, Entity *entity)
+void Main::renderEntity(vec3 viewPosition, mat3 viewRotation, Frustum cameraFrustum, Entity *entity)
 {
-	assert(drawCallList);
 	assert(entity);
 
 	// Calculate the viewer origin in the model's space.
@@ -1592,7 +1658,7 @@ void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 view
 		break;
 
 	case RT_LIGHTNING:
-		renderLightningEntity(drawCallList, viewPosition, viewRotation, entity);
+		renderLightningEntity(viewPosition, viewRotation, entity);
 		break;
 
 	case RT_MODEL:
@@ -1608,23 +1674,23 @@ void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 view
 				break;
 
 			setupEntityLighting(entity);
-			model->render(drawCallList, entity);
+			model->render(&drawCalls_, entity);
 		}
 		break;
 	
 	case RT_RAIL_CORE:
-		renderRailCoreEntity(drawCallList, viewPosition, viewRotation, entity);
+		renderRailCoreEntity(viewPosition, viewRotation, entity);
 		break;
 
 	case RT_RAIL_RINGS:
-		renderRailRingsEntity(drawCallList, entity);
+		renderRailRingsEntity(entity);
 		break;
 
 	case RT_SPRITE:
 		if (cameraFrustum.clipSphere(entity->e.origin, entity->e.radius) == Frustum::ClipResult::Outside)
 			break;
 
-		renderSpriteEntity(drawCallList, viewRotation, entity);
+		renderSpriteEntity(viewRotation, entity);
 		break;
 
 	default:
@@ -1632,9 +1698,8 @@ void Main::renderEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 view
 	}
 }
 
-void Main::renderLightningEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity)
+void Main::renderLightningEntity(vec3 viewPosition, mat3 viewRotation, Entity *entity)
 {
-	assert(drawCallList);
 	const vec3 start(entity->e.origin), end(entity->e.oldorigin);
 	vec3 dir = (end - start);
 	const float length = dir.normalize();
@@ -1646,14 +1711,13 @@ void Main::renderLightningEntity(DrawCallList *drawCallList, vec3 viewPosition, 
 
 	for (int i = 0; i < 4; i++)
 	{
-		renderRailCore(drawCallList, start, end, right, length, g_cvars.railCoreWidth->value, materialCache_->getMaterial(entity->e.customShader), vec4::fromBytes(entity->e.shaderRGBA), entity);
+		renderRailCore(start, end, right, length, g_cvars.railCoreWidth->value, materialCache_->getMaterial(entity->e.customShader), vec4::fromBytes(entity->e.shaderRGBA), entity);
 		right = right.rotatedAroundDirection(dir, 45);
 	}
 }
 
-void Main::renderRailCoreEntity(DrawCallList *drawCallList, vec3 viewPosition, mat3 viewRotation, Entity *entity)
+void Main::renderRailCoreEntity(vec3 viewPosition, mat3 viewRotation, Entity *entity)
 {
-	assert(drawCallList);
 	const vec3 start(entity->e.oldorigin), end(entity->e.origin);
 	vec3 dir = (end - start);
 	const float length = dir.normalize();
@@ -1663,12 +1727,11 @@ void Main::renderRailCoreEntity(DrawCallList *drawCallList, vec3 viewPosition, m
 	const vec3 v2 = (end - viewPosition).normal();
 	const vec3 right = vec3::crossProduct(v1, v2).normal();
 
-	renderRailCore(drawCallList, start, end, right, length, g_cvars.railCoreWidth->value, materialCache_->getMaterial(entity->e.customShader), vec4::fromBytes(entity->e.shaderRGBA), entity);
+	renderRailCore(start, end, right, length, g_cvars.railCoreWidth->value, materialCache_->getMaterial(entity->e.customShader), vec4::fromBytes(entity->e.shaderRGBA), entity);
 }
 
-void Main::renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3 up, float length, float spanWidth, Material *mat, vec4 color, Entity *entity)
+void Main::renderRailCore(vec3 start, vec3 end, vec3 up, float length, float spanWidth, Material *mat, vec4 color, Entity *entity)
 {
-	assert(drawCallList);
 	const uint32_t nVertices = 4, nIndices = 6;
 	bgfx::TransientVertexBuffer tvb;
 	bgfx::TransientIndexBuffer tib;
@@ -1708,12 +1771,11 @@ void Main::renderRailCore(DrawCallList *drawCallList, vec3 start, vec3 end, vec3
 	dc.vb.nVertices = nVertices;
 	dc.ib.transientHandle = tib;
 	dc.ib.nIndices = nIndices;
-	drawCallList->push_back(dc);
+	drawCalls_.push_back(dc);
 }
 
-void Main::renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity)
+void Main::renderRailRingsEntity(Entity *entity)
 {
-	assert(drawCallList);
 	const vec3 start(entity->e.oldorigin), end(entity->e.origin);
 	vec3 dir = (end - start);
 	const float length = dir.normalize();
@@ -1783,13 +1845,11 @@ void Main::renderRailRingsEntity(DrawCallList *drawCallList, Entity *entity)
 	dc.vb.nVertices = nVertices;
 	dc.ib.transientHandle = tib;
 	dc.ib.nIndices = nIndices;
-	drawCallList->push_back(dc);
+	drawCalls_.push_back(dc);
 }
 
-void Main::renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Entity *entity)
+void Main::renderSpriteEntity(mat3 viewRotation, Entity *entity)
 {
-	assert(drawCallList);
-
 	// Calculate the positions for the four corners.
 	vec3 left, up;
 
@@ -1807,7 +1867,7 @@ void Main::renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Ent
 		up = viewRotation[2] * (c * entity->e.radius) + viewRotation[1] * (s * entity->e.radius);
 	}
 
-	if (isMirrorCamera_)
+	if (isCameraMirrored_)
 		left = -left;
 
 	const uint32_t nVertices = 4, nIndices = 6;
@@ -1854,7 +1914,7 @@ void Main::renderSpriteEntity(DrawCallList *drawCallList, mat3 viewRotation, Ent
 	dc.vb.nVertices = nVertices;
 	dc.ib.transientHandle = tib;
 	dc.ib.nIndices = nIndices;
-	drawCallList->push_back(dc);
+	drawCalls_.push_back(dc);
 }
 
 void Main::setupEntityLighting(Entity *entity)
@@ -1916,6 +1976,8 @@ DebugDraw DebugDrawFromString(const char *s)
 		return DebugDraw::DynamicLight;
 	else if (util::Stricmp(s, "lum") == 0)
 		return DebugDraw::Luminance;
+	else if (util::Stricmp(s, "reflection") == 0)
+		return DebugDraw::Reflection;
 	else if (util::Stricmp(s, "smaa") == 0)
 		return DebugDraw::SMAA;
 

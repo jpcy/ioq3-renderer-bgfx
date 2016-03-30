@@ -301,6 +301,56 @@ uint16_t CalculateSmallestPowerOfTwoTextureSize(int nPixels)
 	return textureSize;
 }
 
+bool IsGeometryOffscreen(const mat4 &mvp, const uint16_t *indices, size_t nIndices, const Vertex *vertices)
+{
+	uint32_t pointAnd = (uint32_t)~0;
+
+	for (size_t j = 0; j < nIndices; j++)
+	{
+		uint32_t pointFlags = 0;
+		const vec4 clip = mvp.transform(vec4(vertices[indices[j]].pos, 1));
+
+		for (size_t k = 0; k < 3; k++)
+		{
+			if (clip[k] >= clip.w)
+			{
+				pointFlags |= (1 << (k * 2));
+			}
+			else if (clip[k] <= -clip.w)
+			{
+				pointFlags |= (1 << (k * 2 + 1));
+			}
+		}
+
+		pointAnd &= pointFlags;
+	}
+
+	return pointAnd != 0;
+}
+
+bool IsGeometryBackfacing(vec3 cameraPosition, const uint16_t *indices, size_t nIndices, const Vertex *vertices, float *shortestVertexDistanceSquared)
+{
+	size_t nTriangles = nIndices / 3;
+
+	if (shortestVertexDistanceSquared)
+		*shortestVertexDistanceSquared = 100000000;
+
+	for (size_t i = 0; i < nIndices; i += 3)
+	{
+		const Vertex &vertex = vertices[indices[i]];
+		const vec3 normal = vertex.pos - cameraPosition;
+		const float length = normal.lengthSquared(); // lose the sqrt
+
+		if (shortestVertexDistanceSquared)
+			*shortestVertexDistanceSquared = std::min(*shortestVertexDistanceSquared, length);
+
+		if (vec3::dotProduct(normal, vertex.normal) >= 0)
+			nTriangles--;
+	}
+
+	return nTriangles == 0;
+}
+
 char *SkipPath(char *pathname)
 {
 	char *last = pathname;

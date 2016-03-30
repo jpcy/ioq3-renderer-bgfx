@@ -2,6 +2,7 @@
 #define AGEN_IDENTITY          0
 #define AGEN_LIGHTING_SPECULAR 1
 #define AGEN_PORTAL            2
+#define AGEN_WATER             3
 
 #define ATEST_GT_0   1
 #define ATEST_LT_128 2
@@ -42,8 +43,9 @@
 #define TCGEN_NONE               0
 #define TCGEN_ENVIRONMENT_MAPPED 1
 #define TCGEN_FOG                2
-#define TCGEN_LIGHTMAP           3
-#define TCGEN_TEXTURE            4
-#define TCGEN_VECTOR             5
+#define TCGEN_FRAGMENT           3
+#define TCGEN_LIGHTMAP           4
+#define TCGEN_TEXTURE            5
+#define TCGEN_VECTOR             6
 
 #define USE_HALF_LAMBERT

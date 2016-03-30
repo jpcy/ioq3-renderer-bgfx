@@ -123,11 +123,12 @@ void ConsoleVariables::initialize()
 	bgfx_stats = ri.Cvar_Get("r_bgfx_stats", "0", CVAR_CHEAT);
 	debugDraw = ri.Cvar_Get("r_debugDraw", "", 0);
 	ri.Cvar_SetDescription(debugDraw,
-		"<empty>   None\n"
-		"depth     Linear depth\n"
-		"dlight    Dynamic light data\n"
-		"lum       Average and adapted luminance\n"
-		"smaa      SMAA edges and weights\n");
+		"<empty>    None\n"
+		"depth      Linear depth\n"
+		"dlight     Dynamic light data\n"
+		"lum        Average and adapted luminance\n"
+		"reflection Planar reflection\n"
+		"smaa       SMAA edges and weights\n");
 	debugDrawSize = ri.Cvar_Get("r_debugDrawSize", "256", CVAR_ARCHIVE);
 	debugText = ri.Cvar_Get("r_debugText", "0", CVAR_CHEAT);
 	dynamicLightIntensity = ri.Cvar_Get("r_dynamicLightIntensity", "1", CVAR_ARCHIVE);
@@ -142,6 +143,7 @@ void ConsoleVariables::initialize()
 	railSegmentLength = ri.Cvar_Get("r_railSegmentLength", "32", CVAR_ARCHIVE);
 	softSprites = ri.Cvar_Get("r_softSprites", "1", CVAR_ARCHIVE);
 	screenshotJpegQuality = ri.Cvar_Get("r_screenshotJpegQuality", "90", CVAR_ARCHIVE);
+	waterReflections = ri.Cvar_Get("r_waterReflections", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	wireframe = ri.Cvar_Get("r_wireframe", "0", CVAR_CHEAT);
 
 	// Screen
@@ -610,9 +612,9 @@ void Initialize()
 	s_main->initialize();
 }
 
-bool IsMirrorCamera()
+bool isCameraMirrored()
 {
-	return s_main->isMirrorCamera();
+	return s_main->isCameraMirrored();
 }
 
 void LoadWorld(const char *name)

@@ -213,16 +213,14 @@ MaterialCache::MaterialCache() : hashTable_(), textHashTable_()
 Material *MaterialCache::createMaterial(const Material &base)
 {
 	auto m = std::make_unique<Material>(base);
+	meta::OnMaterialCreate(m.get());
 	m->finish();
-
 	m->index = (int)materials_.size();
 	m->sortedIndex = (int)materials_.size();
-
 	size_t hash = generateHash(m->name, hashTableSize_);
 	m->next = hashTable_[hash];
 	hashTable_[hash] = m.get();
 	materials_.push_back(std::move(m));
-	meta::OnMaterialCreate(hashTable_[hash]);
 	return hashTable_[hash];
 }
 

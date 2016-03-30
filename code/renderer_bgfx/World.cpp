@@ -790,56 +790,15 @@ public:
 
 		for (Surface *portalSurface : visCache->portalSurfaces)
 		{
-			uint32_t pointOr = 0, pointAnd = (uint32_t)~0;
-
-			for (size_t j = 0; j < portalSurface->indices.size(); j++)
-			{
-				uint32_t pointFlags = 0;
-				const vec4 clip = mvp.transform(vec4(vertices_[portalSurface->bufferIndex][portalSurface->indices[j]].pos, 1));
-
-				for (size_t k = 0; k < 3; k++)
-				{
-					if (clip[k] >= clip.w)
-					{
-						pointFlags |= (1 << (k * 2));
-					}
-					else if (clip[k] <= -clip.w)
-					{
-						pointFlags |= (1 << (k * 2 + 1));
-					}
-				}
-
-				pointAnd &= pointFlags;
-				pointOr |= pointFlags;
-			}
-
 			// Trivially reject.
-			if (pointAnd)
+			if (util::IsGeometryOffscreen(mvp, portalSurface->indices.data(), portalSurface->indices.size(), vertices_[portalSurface->bufferIndex].data()))
 				continue;
 
 			// Determine if this surface is backfaced and also determine the distance to the nearest vertex so we can cull based on portal range.
 			// Culling based on vertex distance isn't 100% correct (we should be checking for range to the surface), but it's good enough for the types of portals we have in the game right now.
-			size_t nTriangles = portalSurface->indices.size() / 3;
-			float shortest = 100000000;
+			float shortest;
 
-			for (size_t i = 0; i < portalSurface->indices.size(); i += 3)
-			{
-				const Vertex &vertex = vertices_[portalSurface->bufferIndex][portalSurface->indices[i]];
-				const vec3 normal = vertex.pos - mainCameraPosition;
-				const float length = normal.lengthSquared(); // lose the sqrt
-
-				if (length < shortest)
-				{
-					shortest = length;
-				}
-
-				if (vec3::dotProduct(normal, vertex.normal) >= 0)
-				{
-					nTriangles--;
-				}
-			}
-
-			if (nTriangles == 0)
+			if (util::IsGeometryBackfacing(mainCameraPosition, portalSurface->indices.data(), portalSurface->indices.size(), vertices_[portalSurface->bufferIndex].data(), &shortest))
 				continue;
 
 			// Calculate surface plane.
@@ -972,6 +931,67 @@ public:
 		return true;
 	}
 
+	bool calculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, Transform *camera, vec4 *plane)
+	{
+		assert(camera);
+		assert(plane);
+		const std::unique_ptr<VisCache> &visCache = visCaches_[visCacheId];
+
+		// Calculate which reflective surfaces in the PVS are visible to the camera.
+		visCache->cameraReflectiveSurfaces.clear();
+
+		for (Surface *surface : visCache->reflectiveSurfaces)
+		{
+			// Trivially reject.
+			if (util::IsGeometryOffscreen(mvp, surface->indices.data(), surface->indices.size(), vertices_[surface->bufferIndex].data()))
+				continue;
+
+			// Determine if this surface is backfaced.
+			if (util::IsGeometryBackfacing(mainCameraPosition, surface->indices.data(), surface->indices.size(), vertices_[surface->bufferIndex].data()))
+				continue;
+
+			// Reflective surface is visible to the camera.
+			VisCache::Reflective reflective;
+			reflective.surface = surface;
+
+			if (surface->indices.size() >= 3)
+			{
+				const vec3 v1(vertices_[surface->bufferIndex][surface->indices[0]].pos);
+				const vec3 v2(vertices_[surface->bufferIndex][surface->indices[1]].pos);
+				const vec3 v3(vertices_[surface->bufferIndex][surface->indices[2]].pos);
+				reflective.plane.normal = vec3::crossProduct(v3 - v1, v2 - v1).normal();
+				reflective.plane.distance = vec3::dotProduct(v1, reflective.plane.normal);
+			}
+			else
+			{
+				reflective.plane.normal[0] = 1;
+			}
+
+			visCache->cameraReflectiveSurfaces.push_back(reflective);
+		}
+
+		if (visCache->cameraReflectiveSurfaces.empty())
+			return false;
+
+		// All visible reflective surfaces are required for writing to the stencil buffer, but we only need the first one to figure out the transform.
+		const VisCache::Reflective &reflective = visCache->cameraReflectiveSurfaces[0];
+		Transform surfaceTransform, cameraTransform;
+		surfaceTransform.rotation[0] = reflective.plane.normal;
+		surfaceTransform.rotation[1] = surfaceTransform.rotation[0].perpendicular();
+		surfaceTransform.rotation[2] = vec3::crossProduct(surfaceTransform.rotation[0], surfaceTransform.rotation[1]);
+		surfaceTransform.position = reflective.plane.normal * reflective.plane.distance;
+		cameraTransform.position = surfaceTransform.position;
+		cameraTransform.rotation[0] = -surfaceTransform.rotation[0];
+		cameraTransform.rotation[1] = surfaceTransform.rotation[1];
+		cameraTransform.rotation[2] = surfaceTransform.rotation[2];
+		camera->position = MirroredPoint(mainCameraPosition, surfaceTransform, cameraTransform);
+		camera->rotation[0] = MirroredVector(mainCameraRotation[0], surfaceTransform, cameraTransform);
+		camera->rotation[1] = MirroredVector(mainCameraRotation[1], surfaceTransform, cameraTransform);
+		camera->rotation[2] = MirroredVector(mainCameraRotation[2], surfaceTransform, cameraTransform);
+		*plane = vec4(-cameraTransform.rotation[0], vec3::dotProduct(cameraTransform.position, -cameraTransform.rotation[0]));
+		return true;
+	}
+
 	void renderPortal(uint8_t visCacheId, DrawCallList *drawCallList)
 	{
 		assert(drawCallList);
@@ -998,6 +1018,36 @@ public:
 			dc.ib.type = DrawCall::BufferType::Transient;
 			dc.ib.transientHandle = tib;
 			dc.ib.nIndices = (uint32_t)portal.surface->indices.size();
+			drawCallList->push_back(dc);
+		}
+	}
+
+	void renderReflective(uint8_t visCacheId, DrawCallList *drawCallList)
+	{
+		assert(drawCallList);
+		std::unique_ptr<VisCache> &visCache = visCaches_[visCacheId];
+
+		for (const VisCache::Reflective &reflective : visCache->cameraReflectiveSurfaces)
+		{
+			bgfx::TransientIndexBuffer tib;
+
+			if (!bgfx::checkAvailTransientIndexBuffer((uint32_t)reflective.surface->indices.size()))
+			{
+				WarnOnce(WarnOnceId::TransientBuffer);
+				return;
+			}
+
+			bgfx::allocTransientIndexBuffer(&tib, (uint32_t)reflective.surface->indices.size());
+			memcpy(tib.data, reflective.surface->indices.data(), (uint32_t)reflective.surface->indices.size() * sizeof(uint16_t));
+
+			DrawCall dc;
+			dc.material = reflective.surface->material;
+			dc.vb.type = DrawCall::BufferType::Static;
+			dc.vb.staticHandle = vertexBuffers_[reflective.surface->bufferIndex].handle;
+			dc.vb.nVertices = (uint32_t)vertices_[reflective.surface->bufferIndex].size();
+			dc.ib.type = DrawCall::BufferType::Transient;
+			dc.ib.transientHandle = tib;
+			dc.ib.nIndices = (uint32_t)reflective.surface->indices.size();
 			drawCallList->push_back(dc);
 		}
 	}
@@ -1048,6 +1098,7 @@ public:
 			}
 
 			visCache->portalSurfaces.clear();
+			visCache->reflectiveSurfaces.clear();
 			visCache->bounds.setupForAddingPoints();
 
 			// A cluster of -1 means the camera is outside the PVS - draw everything.
@@ -1121,6 +1172,11 @@ public:
 					}
 					else
 					{
+						if (surface.material->isReflective)
+						{
+							visCache->reflectiveSurfaces.push_back(&surface);
+						}
+
 						if (surface.material->isPortal)
 						{
 							visCache->portalSurfaces.push_back(&surface);
@@ -1158,9 +1214,10 @@ public:
 				if (!nextSurface || nextSurface->material != surface->material || nextSurface->fogIndex != surface->fogIndex || nextSurface->bufferIndex != surface->bufferIndex)
 				{
 					BatchedSurface bs;
+					bs.contentFlags = surface->contentFlags;
 					bs.fogIndex = surface->fogIndex;
-					bs.isSky = (surface->flags & SURF_SKY) != 0;
 					bs.material = surface->material;
+					bs.surfaceFlags = surface->flags;
 
 					if (bs.material->hasAutoSprite2Deform())
 					{
@@ -1246,7 +1303,7 @@ public:
 		duplicateSurfaceId_++;
 	}
 
-	void render(const mat3 &sceneRotation, DrawCallList *drawCallList, uint8_t visCacheId)
+	void render(uint8_t visCacheId, DrawCallList *drawCallList, const mat3 &sceneRotation)
 	{
 		assert(drawCallList);
 		std::unique_ptr<VisCache> &visCache = visCaches_[visCacheId];
@@ -1254,7 +1311,11 @@ public:
 		for (const BatchedSurface &surface : visCache->batchedSurfaces)
 		{
 			DrawCall dc;
-			dc.flags = surface.isSky ? DrawCallFlags::Sky : 0;
+			dc.flags = 0;
+
+			if (surface.surfaceFlags & SURF_SKY)
+				dc.flags |= DrawCallFlags::Sky;
+
 			dc.fogIndex = surface.fogIndex;
 			dc.material = surface.material;
 
@@ -1343,7 +1404,8 @@ private:
 		SurfaceType type;
 		Material *material;
 		int fogIndex;
-		int flags = 0; // SURF_*
+		int flags; // SURF_*
+		int contentFlags;
 		std::vector<uint16_t> indices;
 
 		/// Which geometry buffer to use.
@@ -1388,7 +1450,8 @@ private:
 	{
 		Material *material;
 		int fogIndex;
-		bool isSky;
+		int surfaceFlags;
+		int contentFlags;
 
 		/// @remarks Undefined if the material has CPU deforms.
 		size_t bufferIndex;
@@ -1438,11 +1501,23 @@ private:
 			Surface *surface;
 		};
 
-		/// Portal surface visible to the camera.
+		/// Portal surfaces visible to the camera.
 		std::vector<Portal> cameraPortalSurfaces;
 
 		std::vector<Vertex> cpuDeformVertices;
 		std::vector<uint16_t> cpuDeformIndices;
+
+		/// Reflective surfaces visible to the PVS.
+		std::vector<Surface *> reflectiveSurfaces;
+
+		struct Reflective
+		{
+			Plane plane;
+			Surface *surface;
+		};
+
+		/// Reflective surfaces visible to the Camera.
+		std::vector<Reflective> cameraReflectiveSurfaces;
 	};
 
 	uint8_t *fileData_;
@@ -1919,6 +1994,7 @@ private:
 			const int shaderNum = LittleLong(fs.shaderNum);
 			s.material = findMaterial(shaderNum, lightmapIndex);
 			s.flags = materials_[shaderNum].surfaceFlags;
+			s.contentFlags = materials_[shaderNum].contentFlags;
 
 			// We may have a nodraw surface, because they might still need to be around for movement clipping.
 			if (s.material->surfaceFlags & SURF_NODRAW || materials_[shaderNum].surfaceFlags & SURF_NODRAW)
@@ -2381,10 +2457,22 @@ bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mai
 	return s_world->calculatePortalCamera(visCacheId, mainCameraPosition, mainCameraRotation, mvp, entities, pvsPosition, portalCamera, isMirror, portalPlane);
 }
 
+bool CalculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, Transform *camera, vec4 *plane)
+{
+	assert(IsLoaded());
+	return s_world->calculateReflectionCamera(visCacheId, mainCameraPosition, mainCameraRotation, mvp, camera, plane);
+}
+
 void RenderPortal(uint8_t visCacheId, DrawCallList *drawCallList)
 {
 	assert(IsLoaded());
 	return s_world->renderPortal(visCacheId, drawCallList);
+}
+
+void RenderReflective(uint8_t visCacheId, DrawCallList *drawCallList)
+{
+	assert(IsLoaded());
+	return s_world->renderReflective(visCacheId, drawCallList);
 }
 
 uint8_t CreateVisCache()
@@ -2399,10 +2487,10 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 	s_world->updateVisCache(visCacheId, cameraPosition, areaMask);
 }
 
-void Render(const mat3 &sceneRotation, DrawCallList *drawCallList, uint8_t visCacheId)
+void Render(uint8_t visCacheId, DrawCallList *drawCallList, const mat3 &sceneRotation)
 {
 	assert(IsLoaded());
-	s_world->render(sceneRotation, drawCallList, visCacheId);
+	s_world->render(visCacheId, drawCallList, sceneRotation);
 }
 
 } // namespace world
