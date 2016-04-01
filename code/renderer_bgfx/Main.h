@@ -261,7 +261,6 @@ private:
 	/// @{
 	std::unique_ptr<MaterialCache> materialCache_;
 	std::unique_ptr<ModelCache> modelCache_;
-	std::unique_ptr<TextureCache> textureCache_;
 	/// @}
 
 	/// @name Scene

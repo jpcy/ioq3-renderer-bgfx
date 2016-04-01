@@ -74,7 +74,7 @@ class Material;
 class Model;
 class Skin;
 struct SunLight;
-class Texture;
+struct Texture;
 struct Uniforms;
 struct Uniforms_Material;
 struct Uniforms_MaterialStage;
@@ -1093,60 +1093,33 @@ struct TextureFlags
 	};
 };
 
-class Texture
+struct Texture
 {
 public:
-	Texture(const char *name, const Image &image, int flags, bgfx::TextureFormat::Enum format);
-	Texture(const char *name, bgfx::TextureHandle handle);
-	~Texture();
-	void resize(int width, int height);
-	void update(const bgfx::Memory *mem, int x, int y, int width, int height);
-	bgfx::TextureHandle getHandle() const { return handle_; }
-	const char *getName() const { return name_; }
-	int getWidth() const { return width_; }
-	int getHeight() const { return height_; }
-
-private:
-	uint32_t calculateBgfxFlags() const;
-
-	char name_[MAX_QPATH];
-	int flags_;
-	int width_, height_;
-	int nMips_;
-	bgfx::TextureFormat::Enum format_;
-	bgfx::TextureHandle handle_;
-	Texture *next_;
-
-	friend class TextureCache;
-};
-
-class TextureCache
-{
-public:
-	TextureCache();
-	Texture *createTexture(const char *name, const Image &image, int flags = TextureFlags::None, bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8);
-	Texture *createTexture(const char *name, bgfx::TextureHandle handle);
+	static void initializeCache();
+	static void shutdownCache();
+	static Texture *create(const char *name, const Image &image, int flags = TextureFlags::None, bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8);
+	static Texture *create(const char *name, bgfx::TextureHandle handle);
 
 	/// Finds or loads the given image.
 	/// @return nullptr if it fails, not the default image.
-	Texture *findTexture(const char *name, int flags = TextureFlags::None);
+	static Texture *find(const char *name, int flags = TextureFlags::None);
 
-	const Texture *getDefaultTexture() const { return defaultTexture_; }
-	const Texture *getIdentityLightTexture() const { return identityLightTexture_; }
-	const Texture *getWhiteTexture() const { return whiteTexture_; }
-	std::array<Texture *, 32> &getScratchTextures() { return scratchTextures_; }
+	static const Texture *getDefault();
+	static const Texture *getIdentityLight();
+	static const Texture *getWhite();
+	static Texture *getScratch(size_t index);
 
-private:
-	Texture *addTexture(std::unique_ptr<Texture> &texture);
-	void createBuiltinTextures();
-	static size_t generateHash(const char *name);
+	void resize(int width, int height);
+	void update(const bgfx::Memory *mem, int x, int y, int width, int height);
+	bgfx::TextureHandle getHandle() const;
+	const char *getName() const;
+	int getWidth() const;
+	int getHeight() const;
 
-	std::vector<std::unique_ptr<Texture>> textures_;
-	static const size_t hashTableSize_ = 1024;
-	Texture *hashTable_[hashTableSize_];
-
-	Texture *defaultTexture_, *identityLightTexture_, *whiteTexture_;
-	std::array<Texture *, 32> scratchTextures_;
+#ifdef _DEBUG
+	char name[MAX_QPATH];
+#endif
 };
 
 /// Texture units used by the generic shader(s).
@@ -1529,7 +1502,6 @@ extern ConsoleVariables g_cvars;
 extern const uint8_t *g_externalVisData;
 extern MaterialCache *g_materialCache;
 extern ModelCache *g_modelCache;
-extern TextureCache *g_textureCache;
 
 extern float g_sinTable[g_funcTableSize];
 extern float g_squareTable[g_funcTableSize];

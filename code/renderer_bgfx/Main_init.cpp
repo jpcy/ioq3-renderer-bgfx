@@ -65,7 +65,6 @@ ConsoleVariables g_cvars;
 const uint8_t *g_externalVisData = nullptr;
 MaterialCache *g_materialCache = nullptr;
 ModelCache *g_modelCache = nullptr;
-TextureCache *g_textureCache = nullptr;
 
 float g_sinTable[g_funcTableSize];
 float g_squareTable[g_funcTableSize];
@@ -332,7 +331,7 @@ Main::~Main()
 	ri.Cmd_RemoveCommand("screenshotPNG");
 	g_materialCache = nullptr;
 	g_modelCache = nullptr;
-	g_textureCache = nullptr;
+	Texture::shutdownCache();
 }
 
 struct ShaderProgramIdMap
@@ -423,8 +422,7 @@ void Main::initialize()
 	entityUniforms_ = std::make_unique<Uniforms_Entity>();
 	matUniforms_ = std::make_unique<Uniforms_Material>();
 	matStageUniforms_ = std::make_unique<Uniforms_MaterialStage>();
-	textureCache_ = std::make_unique<TextureCache>();
-	g_textureCache = textureCache_.get();
+	Texture::initializeCache();
 	materialCache_ = std::make_unique<MaterialCache>();
 	g_materialCache = materialCache_.get();
 	modelCache_ = std::make_unique<ModelCache>();

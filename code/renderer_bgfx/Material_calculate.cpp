@@ -526,7 +526,7 @@ void MaterialStage::setTextureSampler(int sampler, Uniforms_MaterialStage *unifo
 	if (!bundle.textures[0])
 	{
 		// Make sure something is bound to the texture sampler, to silence D3D11 warnings.
-		bgfx::setTexture(sampler, uniforms->textures[sampler]->handle, g_textureCache->getWhiteTexture()->getHandle());
+		bgfx::setTexture(sampler, uniforms->textures[sampler]->handle, Texture::getWhite()->getHandle());
 		return;
 	}
 
@@ -571,7 +571,6 @@ bool Material::hasAutoSpriteDeform() const
 void Material::doAutoSpriteDeform(const mat3 &sceneRotation, Vertex *vertices, uint32_t nVertices, uint16_t *indices, uint32_t nIndices, float *softSpriteDepth) const
 {
 	assert(vertices);
-	assert(radius);
 	assert(indices);
 	assert(softSpriteDepth);
 	MaterialDeform deform = MaterialDeform::None;

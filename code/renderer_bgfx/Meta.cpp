@@ -184,7 +184,7 @@ void OnMaterialCreate(Material *material)
 			MaterialStage *stage = &reflection.stages[0];
 			*stage = MaterialStage();
 			stage->active = true;
-			stage->bundles[0].textures[0] = g_textureCache->findTexture("*reflection");
+			stage->bundles[0].textures[0] = Texture::find("*reflection");
 			stage->bundles[0].tcGen = MaterialTexCoordGen::Fragment;
 			stage->blendSrc = BGFX_STATE_BLEND_SRC_ALPHA;
 			stage->blendDst = BGFX_STATE_BLEND_INV_SRC_ALPHA;

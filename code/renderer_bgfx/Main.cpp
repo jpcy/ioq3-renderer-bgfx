@@ -448,7 +448,7 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 	indices[3] = 2; indices[4] = 3; indices[5] = 0;
 	bgfx::setVertexBuffer(&tvb);
 	bgfx::setIndexBuffer(&tib);
-	bgfx::setTexture(0, uniforms_->textureSampler.handle, textureCache_->getScratchTextures()[client]->getHandle());
+	bgfx::setTexture(0, uniforms_->textureSampler.handle, Texture::getScratch(size_t(client))->getHandle());
 	matStageUniforms_->color.set(vec4::white);
 	bgfx::setState(BGFX_STATE_RGB_WRITE);
 	const uint8_t viewId = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), Rect(x, y, w, h), PushViewFlags::Sequential);
@@ -457,7 +457,7 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 
 void Main::uploadCinematic(int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty)
 {
-	Texture *scratch = textureCache_->getScratchTextures()[client];
+	Texture *scratch = Texture::getScratch(size_t(client));
 	
 	if (cols != scratch->getWidth() || rows != scratch->getHeight())
 	{
@@ -540,7 +540,7 @@ void Main::loadWorld(const char *name)
 	if (g_cvars.waterReflections->integer)
 	{
 		// Register the reflection texture so it can accessed by materials.
-		g_textureCache->createTexture("*reflection", reflectionTexture);
+		Texture::create("*reflection", reflectionTexture);
 	}
 
 	// Load the world.

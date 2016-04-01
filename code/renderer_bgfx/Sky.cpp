@@ -605,7 +605,7 @@ void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, uint8_t visCach
 		if (mat == nullptr)
 			continue;
 
-		const bool shouldDrawSkyBox = mat->sky.outerbox[0] && mat->sky.outerbox[0] != g_textureCache->getDefaultTexture();
+		const bool shouldDrawSkyBox = mat->sky.outerbox[0] && mat->sky.outerbox[0] != Texture::getDefault();
 		const bool shouldDrawCloudBox = mat->sky.cloudHeight > 0 && mat->stages[0].active;
 
 		if (!shouldDrawSkyBox && !shouldDrawCloudBox)
