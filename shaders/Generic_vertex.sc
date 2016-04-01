@@ -1,5 +1,5 @@
-$input a_position, a_normal, a_tangent, a_texcoord0, a_texcoord1, a_texcoord2, a_color0
-$output v_position, v_projPosition, v_texcoord0, v_texcoord1, v_texcoord2, v_normal, v_color0
+$input a_position, a_normal, a_tangent, a_texcoord0, a_texcoord1, a_color0
+$output v_position, v_projPosition, v_texcoord0, v_texcoord1, v_normal, v_color0
 
 /*
 ===========================================================================
@@ -110,7 +110,7 @@ void main()
 	vec3 position = a_position;
 	vec3 normal = a_normal;
 
-	if (int(u_NumDeforms_AutoSprite.x) > 0)
+	if (int(u_NumDeforms.x) > 0)
 	{
 		CalculateDeform(position, normal, a_texcoord0, u_Time.x);
 	}
@@ -140,22 +140,6 @@ void main()
 	}
 
 	vec3 wsPosition = mul(u_model[0], vec4(position, 1.0)).xyz;
-	int autoSprite = int(u_NumDeforms_AutoSprite.y);
-
-	if (autoSprite == DGEN_AUTOSPRITE)
-	{
-		// From Unvanquished vertexSprite_vp.glsl
-		float radius = a_texcoord2.w;
-		vec2 corner = a_texcoord0.xy * 2.0 - 1.0;
-		vec3 viewNormal = normalize(u_ViewOrigin.xyz - wsPosition);
-		vec3 left = normalize(cross(u_ViewUp.xyz, viewNormal));
-		vec3 up = cross(left, viewNormal);
-		wsPosition += left * corner.x * radius + up * corner.y * radius;
-	
-		// Pass soft sprite depth to fragment shader.
-		v_texcoord2.x = radius / 2.0;
-	}
-
 	v_texcoord1 = a_texcoord1;
 	v_position = wsPosition;
 	v_normal = mul(u_model[0], vec4(normal, 0.0));

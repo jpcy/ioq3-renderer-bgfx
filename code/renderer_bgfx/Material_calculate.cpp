@@ -561,158 +561,203 @@ bool Material::hasAutoSpriteDeform() const
 {
 	for (const MaterialDeformStage &ds : deforms)
 	{
-		if (ds.deformation == MaterialDeform::Autosprite)
+		if (ds.deformation == MaterialDeform::Autosprite || ds.deformation == MaterialDeform::Autosprite2)
 			return true;
 	}
 
 	return false;
 }
 
-bool Material::hasAutoSprite2Deform() const
+void Material::doAutoSpriteDeform(const mat3 &sceneRotation, Vertex *vertices, uint32_t nVertices, uint16_t *indices, uint32_t nIndices, float *radius) const
 {
+	assert(vertices);
+	assert(radius);
+	assert(indices);
+	assert(radius);
+	MaterialDeform deform = MaterialDeform::None;
+
 	for (const MaterialDeformStage &ds : deforms)
 	{
-		if (ds.deformation == MaterialDeform::Autosprite2)
-			return true;
-	}
-
-	return false;
-}
-
-void Material::setupAutoSpriteDeform(Vertex *vertices, uint32_t nVertices) const
-{
-	assert(vertices);
-
-	if (!hasAutoSpriteDeform())
-		return;
-
-	if ((nVertices % 4) != 0)
-	{
-		ri.Printf(PRINT_WARNING, "Autosprite material %s had odd vertex count %i\n", name, nVertices);
-	}
-
-	for (uint32_t quadIndex = 0; quadIndex < nVertices / 4; quadIndex++)
-	{
-		Vertex *v = &vertices[quadIndex * 4];
-		const vec3 midpoint = (v[0].pos + v[1].pos + v[2].pos + v[3].pos) * 0.25f;
-		const float radius = (v[0].pos - midpoint).length() * 0.707f; // / sqrt(2)
-
-		for (int i = 0; i < 4; i++)
+		if (ds.deformation == MaterialDeform::Autosprite || ds.deformation == MaterialDeform::Autosprite2)
 		{
-			v[i].pos = midpoint;
-			v[i].autoSprite = vec4(0, 0, 0, radius);
+			deform = ds.deformation;
+			break;
 		}
 	}
-}
 
-void Material::doAutoSprite2Deform(const mat3 &sceneRotation, Vertex *vertices, uint32_t nVertices, uint16_t *indices, uint32_t nIndices) const
-{
-	assert(vertices);
-
-	if (!hasAutoSprite2Deform())
-		return;
-
-	if ((nVertices % 4) != 0)
+	if (deform == MaterialDeform::None)
 	{
-		ri.Printf(PRINT_WARNING, "Autosprite2 material %s had odd vertex count %u\n", name, nVertices);
+		*radius = 0;
+		return;
 	}
 
 	if ((nIndices % 6) != 0)
 	{
-		ri.Printf(PRINT_WARNING, "Autosprite2 material %s had odd index count %u\n", name, nIndices);
+		ri.Printf(PRINT_WARNING, "Autosprite material %s had odd index count %u\n", name, nIndices);
 	}
 
 	vec3 forward, leftDir, upDir;
-	forward = sceneRotation[0];
-	leftDir = sceneRotation[1];
-	upDir = sceneRotation[2];
 
-	// Iterate through triangulated quads.
-	for (size_t quadIndex = 0; quadIndex < nVertices / 4; quadIndex++)
+	if (main::GetCurrentEntity())
 	{
-		Vertex *v = &vertices[quadIndex * 4];
+		forward.x = vec3::dotProduct(sceneRotation[0], main::GetCurrentEntity()->e.axis[0]);
+		forward.y = vec3::dotProduct(sceneRotation[0], main::GetCurrentEntity()->e.axis[1]);
+		forward.z = vec3::dotProduct(sceneRotation[0], main::GetCurrentEntity()->e.axis[2]);
+		leftDir.x = vec3::dotProduct(sceneRotation[1], main::GetCurrentEntity()->e.axis[0]);
+		leftDir.y = vec3::dotProduct(sceneRotation[1], main::GetCurrentEntity()->e.axis[1]);
+		leftDir.z = vec3::dotProduct(sceneRotation[1], main::GetCurrentEntity()->e.axis[2]);
+		upDir.x = vec3::dotProduct(sceneRotation[2], main::GetCurrentEntity()->e.axis[0]);
+		upDir.y = vec3::dotProduct(sceneRotation[2], main::GetCurrentEntity()->e.axis[1]);
+		upDir.z = vec3::dotProduct(sceneRotation[2], main::GetCurrentEntity()->e.axis[2]);
+	}
+	else
+	{
+		forward = sceneRotation[0];
+		leftDir = sceneRotation[1];
+		upDir = sceneRotation[2];
+	}
+
+	// Assuming the geometry is triangulated quads.
+	// Autosprite will rebuild them as forward facing sprites.
+	// Autosprite2 will pivot a rectangular quad along the center of its long axis.
+	for (size_t quadIndex = 0; quadIndex < nIndices / 6; quadIndex++)
+	{
+		//const size_t firstIndex = dc->ib.firstIndex + quadIndex * 6;
+		const size_t firstIndex = quadIndex * 6;
+
+		// Get the quad corner vertices and their indexes.
+		auto v = ExtractQuadCorners(vertices, &indices[firstIndex]);
+		std::array<uint16_t, 4> vi;
+
+		for (size_t i = 0; i < vi.size(); i++)
+			vi[i] = uint16_t(v[i] - vertices);
 
 		// Find the midpoint.
-		const vec3 midpoint = (v[0].pos + v[1].pos + v[2].pos + v[3].pos) * 0.25f;
-		const float radius = (v[0].pos - midpoint).length() * 0.707f; // / sqrt(2)
+		const vec3 midpoint = (v[0]->pos + v[1]->pos + v[2]->pos + v[3]->pos) * 0.25f;
+		*radius = (v[0]->pos - midpoint).length() * 0.707f; // / sqrt(2)
 
-		// Store the radius for soft sprites.
-		for (size_t i = 0; i < nVertices; i++)
+		if (deform == MaterialDeform::Autosprite)
 		{
-			v[i].autoSprite = vec4(0, 0, 0, radius);
-		}
+			vec3 left(leftDir * *radius);
+			vec3 up(upDir * *radius);
 
-		const int edgeVerts[6][2] = { { 0, 1 },{ 0, 2 },{ 0, 3 },{ 1, 2 },{ 1, 3 },{ 2, 3 } };
-		uint16_t smallestIndex = indices[0];
+			if (main::isCameraMirrored())
+				left = -left;
 
-		for (size_t i = 0; i < nIndices; i++)
-		{
-			smallestIndex = std::min(smallestIndex, indices[i]);
-		}
-
-		// Identify the two shortest edges.
-		int nums[2] = {};
-		float lengths[2];
-		lengths[0] = lengths[1] = 999999;
-
-		for (int i = 0; i < 6; i++)
-		{
-			const vec3 temp = vec3(v[edgeVerts[i][0]].pos) - vec3(v[edgeVerts[i][1]].pos);
-			const float l = vec3::dotProduct(temp, temp);
-
-			if (l < lengths[0])
+			// Compensate for scale in the axes if necessary.
+			if (main::GetCurrentEntity() && main::GetCurrentEntity()->e.nonNormalizedAxes)
 			{
-				nums[1] = nums[0];
-				lengths[1] = lengths[0];
-				nums[0] = i;
-				lengths[0] = l;
-			}
-			else if (l < lengths[1])
-			{
-				nums[1] = i;
-				lengths[1] = l;
-			}
-		}
+				float axisLength = vec3(main::GetCurrentEntity()->e.axis[0]).length();
 
-		// Find the midpoints.
-		vec3 midpoints[2];
+				if (!axisLength)
+				{
+					axisLength = 0;
+				}
+				else
+				{
+					axisLength = 1.0f / axisLength;
+				}
 
-		for (int i = 0; i < 2; i++)
-		{
-			midpoints[i] = (v[edgeVerts[nums[i]][0]].pos + v[edgeVerts[nums[i]][1]].pos) * 0.5f;
-		}
-
-		// Find the vector of the major axis.
-		const vec3 major(midpoints[1] - midpoints[0]);
-
-		// Cross this with the view direction to get minor axis.
-		const vec3 minor(vec3::crossProduct(major, forward).normal());
-
-		// Re-project the points.
-		for (int i = 0; i < 2; i++)
-		{
-			// We need to see which direction this edge is used to determine direction of projection.
-			int j;
-
-			for (j = 0; j < 5; j++)
-			{
-				if (indices[j] == smallestIndex + edgeVerts[nums[i]][0] && indices[j + 1] == smallestIndex + edgeVerts[nums[i]][1])
-					break;
+				left *= axisLength;
+				up *= axisLength;
 			}
 
-			const float l = 0.5f * sqrt(lengths[i]);
-			vec3 *v1 = &v[edgeVerts[nums[i]][0]].pos;
-			vec3 *v2 = &v[edgeVerts[nums[i]][1]].pos;
+			// Rebuild quad facing the main camera.
+			v[0]->pos = midpoint + left + up;
+			v[1]->pos = midpoint - left + up;
+			v[2]->pos = midpoint - left - up;
+			v[3]->pos = midpoint + left - up;
 
-			if (j == 5)
+			// Constant normal all the way around.
+			v[0]->normal = v[1]->normal = v[2]->normal = v[3]->normal = -sceneRotation[0];
+
+			// Standard square texture coordinates.
+			v[0]->texCoord = v[0]->texCoord2 = vec2(0, 0);
+			v[1]->texCoord = v[1]->texCoord2 = vec2(1, 0);
+			v[2]->texCoord = v[2]->texCoord2 = vec2(1, 1);
+			v[3]->texCoord = v[3]->texCoord2 = vec2(0, 1);
+
+			indices[firstIndex + 0] = vi[0];
+			indices[firstIndex + 1] = vi[1];
+			indices[firstIndex + 2] = vi[3];
+			indices[firstIndex + 3] = vi[3];
+			indices[firstIndex + 4] = vi[1];
+			indices[firstIndex + 5] = vi[2];
+		}
+		else if (deform == MaterialDeform::Autosprite2)
+		{
+			const int edgeVerts[6][2] = { { 0, 1 },{ 0, 2 },{ 0, 3 },{ 1, 2 },{ 1, 3 },{ 2, 3 } };
+			uint16_t smallestIndex = indices[firstIndex];
+
+			for (size_t i = 0; i < vi.size(); i++)
 			{
-				*v1 = midpoints[i] + minor * l;
-				*v2 = midpoints[i] + minor * -l;
+				smallestIndex = std::min(smallestIndex, vi[i]);
 			}
-			else
+
+			// Identify the two shortest edges.
+			int nums[2] = {};
+			float lengths[2];
+			lengths[0] = lengths[1] = 999999;
+
+			for (int i = 0; i < 6; i++)
 			{
-				*v1 = midpoints[i] + minor * -l;
-				*v2 = midpoints[i] + minor * l;
+				const vec3 temp = vec3(v[edgeVerts[i][0]]->pos) - vec3(v[edgeVerts[i][1]]->pos);
+				const float l = vec3::dotProduct(temp, temp);
+
+				if (l < lengths[0])
+				{
+					nums[1] = nums[0];
+					lengths[1] = lengths[0];
+					nums[0] = i;
+					lengths[0] = l;
+				}
+				else if (l < lengths[1])
+				{
+					nums[1] = i;
+					lengths[1] = l;
+				}
+			}
+
+			// Find the midpoints.
+			vec3 midpoints[2];
+
+			for (int i = 0; i < 2; i++)
+			{
+				midpoints[i] = (v[edgeVerts[nums[i]][0]]->pos + v[edgeVerts[nums[i]][1]]->pos) * 0.5f;
+			}
+
+			// Find the vector of the major axis.
+			const vec3 major(midpoints[1] - midpoints[0]);
+
+			// Cross this with the view direction to get minor axis.
+			const vec3 minor(vec3::crossProduct(major, forward).normal());
+
+			// Re-project the points.
+			for (int i = 0; i < 2; i++)
+			{
+				// We need to see which direction this edge is used to determine direction of projection.
+				int j;
+
+				for (j = 0; j < 5; j++)
+				{
+					if (indices[firstIndex + j] == smallestIndex + edgeVerts[nums[i]][0] && indices[firstIndex + j + 1] == smallestIndex + edgeVerts[nums[i]][1])
+						break;
+				}
+
+				const float l = 0.5f * sqrt(lengths[i]);
+				vec3 *v1 = &v[edgeVerts[nums[i]][0]]->pos;
+				vec3 *v2 = &v[edgeVerts[nums[i]][1]]->pos;
+
+				if (j == 5)
+				{
+					*v1 = midpoints[i] + minor * l;
+					*v2 = midpoints[i] + minor * -l;
+				}
+				else
+				{
+					*v1 = midpoints[i] + minor * -l;
+					*v2 = midpoints[i] + minor * l;
+				}
 			}
 		}
 	}
@@ -721,7 +766,6 @@ void Material::doAutoSprite2Deform(const mat3 &sceneRotation, Vertex *vertices, 
 void Material::setDeformUniforms(Uniforms_Material *uniforms) const
 {
 	assert(uniforms);
-	MaterialDeform autoSprite = MaterialDeform::None;
 	vec4 moveDirs[maxDeforms];
 	vec4 gen_Wave_Base_Amplitude[maxDeforms];
 	vec4 frequency_Phase_Spread[maxDeforms];
@@ -731,10 +775,6 @@ void Material::setDeformUniforms(Uniforms_Material *uniforms) const
 	{
 		switch (ds.deformation)
 		{
-		case MaterialDeform::Autosprite:
-			autoSprite = ds.deformation;
-			break;
-
 		case MaterialDeform::Wave:
 			gen_Wave_Base_Amplitude[nDeforms] = vec4((float)ds.deformation, (float)ds.deformationWave.func, ds.deformationWave.base, ds.deformationWave.amplitude);
 			frequency_Phase_Spread[nDeforms] = vec4(ds.deformationWave.frequency, ds.deformationWave.phase, ds.deformationSpread, 0);
@@ -759,7 +799,7 @@ void Material::setDeformUniforms(Uniforms_Material *uniforms) const
 		}
 	}
 
-	uniforms->nDeforms_AutoSprite.set(vec4(nDeforms, (float)autoSprite, 0, 0));
+	uniforms->nDeforms.set(vec4(nDeforms, 0, 0, 0));
 
 	if (nDeforms > 0)
 	{

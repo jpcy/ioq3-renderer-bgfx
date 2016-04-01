@@ -66,7 +66,7 @@ public:
 		return cameraFrustum.clipBounds(bounds_, mat4::transform(entity->e.axis, entity->e.origin)) == Frustum::ClipResult::Outside;
 	}
 
-	void render(DrawCallList *drawCallList, Entity *entity) override
+	void render(const mat3 &scenRotation, DrawCallList *drawCallList, Entity *entity) override
 	{
 		assert(drawCallList);
 		assert(entity);
@@ -1220,7 +1220,7 @@ public:
 					bs.material = surface->material;
 					bs.surfaceFlags = surface->flags;
 
-					if (bs.material->hasAutoSprite2Deform())
+					if (bs.material->hasAutoSpriteDeform())
 					{
 						// Grab the geometry for all surfaces in this batch.
 						// It will be copied into a transient buffer and then deformed every render() call.
@@ -1329,7 +1329,7 @@ public:
 				}
 			}
 
-			if (surface.material->hasAutoSprite2Deform())
+			if (surface.material->hasAutoSpriteDeform())
 			{
 				assert(!visCache->cpuDeformVertices.empty() && !visCache->cpuDeformIndices.empty());
 				assert(surface.nVertices);
@@ -1354,7 +1354,10 @@ public:
 				dc.ib.nIndices = surface.nIndices;
 
 				// Deform the transient buffer contents.
-				surface.material->doAutoSprite2Deform(sceneRotation, (Vertex *)tvb.data, surface.nVertices, (uint16_t *)tib.data, surface.nIndices);
+				float radius;
+				surface.material->doAutoSpriteDeform(sceneRotation, (Vertex *)tvb.data, surface.nVertices, (uint16_t *)tib.data, surface.nIndices, &radius);
+
+				dc.softSpriteDepth = radius / 2;
 			}
 			else
 			{
@@ -2016,7 +2019,6 @@ private:
 				s.type = SurfaceType::Face;
 				const int firstVertex = LittleLong(fs.firstVert);
 				const int nVertices = LittleLong(fs.numVerts);
-				s.material->setupAutoSpriteDeform(&vertices[firstVertex], nVertices);
 				setSurfaceGeometry(&s, &vertices[firstVertex], nVertices, &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex);
 
 				// Setup cullinfo.
@@ -2042,7 +2044,6 @@ private:
 				s.type = SurfaceType::Mesh;
 				const int firstVertex = LittleLong(fs.firstVert);
 				const int nVertices = LittleLong(fs.numVerts);
-				s.material->setupAutoSpriteDeform(&vertices[firstVertex], nVertices);
 				setSurfaceGeometry(&s, &vertices[firstVertex], nVertices, &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex);
 			}
 			else if (type == MST_PATCH)

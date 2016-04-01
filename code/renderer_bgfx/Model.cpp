@@ -63,12 +63,15 @@ public:
 	Bounds getBounds() const override;
 	Transform getTag(const char *name, int frame) const override;
 	bool isCulled(Entity *entity, const Frustum &cameraFrustum) const override;
-	void render(DrawCallList *drawCallList, Entity *entity) override;
+	void render(const mat3 &sceneRotation, DrawCallList *drawCallList, Entity *entity) override;
 
 private:
 	Vertex loadVertex(size_t index, md3St_t *fileTexCoords, md3XyzNormal_t *fileXyzNormals);
 
 	IndexBuffer indexBuffer_;
+
+	/// Need to keep a copy of the model indices in system memory for CPU deforms.
+	std::vector<uint16_t> indices_;
 
 	/// Static model vertex buffer.
 	VertexBuffer vertexBuffer_;
@@ -258,6 +261,13 @@ bool Model_md3::load()
 
 	indexBuffer_.handle = bgfx::createIndexBuffer(indicesMem);
 
+	// Keep a copy of indices in system memory for CPU deforms.
+	if (isAnimated)
+	{
+		indices_.resize(nIndices);
+		memcpy(indices_.data(), indices, sizeof(uint16_t) * nIndices);
+	}
+
 	// Vertices
 	// Texture coords are the same for each frame, positions and normals aren't.
 	// Static models (models with 1 frame) have their surface vertices merged into a single vertex buffer.
@@ -281,7 +291,6 @@ bool Model_md3::load()
 				vertices[startVertex + j] = loadVertex(j, fileTexCoords, fileXyzNormals);
 			}
 
-			surface.materials[0]->setupAutoSpriteDeform(&vertices[startVertex], fileSurface->numVerts);
 			startVertex += fileSurface->numVerts;
 			fileSurface = (md3Surface_t *)((uint8_t *)fileSurface + fileSurface->ofsEnd);
 		}
@@ -387,11 +396,10 @@ bool Model_md3::isCulled(Entity *entity, const Frustum &cameraFrustum) const
 	return cameraFrustum.clipBounds(Bounds::merge(frame.bounds, oldFrame.bounds), modelMatrix) == Frustum::ClipResult::Outside;
 }
 
-void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
+void Model_md3::render(const mat3 &sceneRotation, DrawCallList *drawCallList, Entity *entity)
 {
 	assert(drawCallList);
 	assert(entity);
-
 
 	// Can't render models with no geometry.
 	if (!bgfx::isValid(indexBuffer_.handle))
@@ -405,9 +413,9 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 	bgfx::TransientVertexBuffer tvb;
 	Vertex *vertices = nullptr;
 
-	// Build transient vertex buffer for animated models.
 	if (isAnimated)
 	{
+		// Build transient vertex buffer for animated models.
 		if (!bgfx::checkAvailTransientVertexBuffer(nVertices_, Vertex::decl))
 		{
 			WarnOnce(WarnOnceId::TransientBuffer);
@@ -461,12 +469,6 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 				mat = customMat;
 		}
 
-		// Apply autosprite deform to lerped vertices.
-		if (isAnimated && mat->hasAutoSpriteDeform())
-		{
-			mat->setupAutoSpriteDeform(&vertices[surface.startVertex], surface.nVertices);
-		}
-
 		DrawCall dc;
 		dc.entity = entity;
 		dc.fogIndex = fogIndex;
@@ -487,18 +489,47 @@ void Model_md3::render(DrawCallList *drawCallList, Entity *entity)
 		{
 			dc.vb.type = DrawCall::BufferType::Transient;
 			dc.vb.transientHandle = tvb;
+
+			// Handle CPU deforms.
+			if (isAnimated && mat->hasAutoSpriteDeform())
+			{
+				bgfx::TransientIndexBuffer tib;
+				
+				if (!bgfx::checkAvailTransientIndexBuffer(surface.nIndices))
+				{
+					WarnOnce(WarnOnceId::TransientBuffer);
+					continue;
+				}
+
+				bgfx::allocTransientIndexBuffer(&tib, surface.nIndices);
+				memcpy(tib.data, &indices_[surface.startIndex], sizeof(uint16_t) * surface.nIndices);
+
+				float radius;
+				mat->doAutoSpriteDeform(sceneRotation, (Vertex *)tvb.data, nVertices_, (uint16_t *)tib.data, surface.nIndices, &radius);
+				dc.softSpriteDepth = radius / 2;
+				dc.ib.type = DrawCall::BufferType::Transient;
+				dc.ib.transientHandle = tib;
+				dc.ib.nIndices = surface.nIndices;
+			}
+			else
+			{
+				dc.ib.type = DrawCall::BufferType::Static;
+				dc.ib.staticHandle = indexBuffer_.handle;
+				dc.ib.firstIndex = surface.startIndex;
+				dc.ib.nIndices = surface.nIndices;
+			}
 		}
 		else
 		{
 			dc.vb.type = DrawCall::BufferType::Static;
 			dc.vb.staticHandle = vertexBuffer_.handle;
+			dc.ib.type = DrawCall::BufferType::Static;
+			dc.ib.staticHandle = indexBuffer_.handle;
+			dc.ib.firstIndex = surface.startIndex;
+			dc.ib.nIndices = surface.nIndices;
 		}
 		
 		dc.vb.nVertices = nVertices_;
-		dc.ib.type = DrawCall::BufferType::Static;
-		dc.ib.staticHandle = indexBuffer_.handle;
-		dc.ib.firstIndex = surface.startIndex;
-		dc.ib.nIndices = surface.nIndices;
 		drawCallList->push_back(dc);
 	}
 }

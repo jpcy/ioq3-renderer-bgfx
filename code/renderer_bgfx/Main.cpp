@@ -876,7 +876,7 @@ void Main::flushStretchPics()
 			time_ = ri.Milliseconds();
 			floatTime_ = time_ * 0.001f;
 			uniforms_->dynamicLight_Num_Intensity.set(vec4::empty);
-			matUniforms_->nDeforms_AutoSprite.set(vec4(0, 0, 0, 0));
+			matUniforms_->nDeforms.set(vec4(0, 0, 0, 0));
 			matUniforms_->time.set(vec4(stretchPicMaterial_->setTime(floatTime_), 0, 0, 0));
 
 			if (stretchPicViewId_ == UINT8_MAX)
@@ -1032,7 +1032,9 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		if (!isMainCamera && (entity.e.renderfx & RF_FIRST_PERSON) != 0)
 			continue;
 
+		currentEntity_ = &entity;
 		renderEntity(position, rotation, cameraFrustum, &entity);
+		currentEntity_ = nullptr;
 	}
 
 	renderPolygons();
@@ -1157,7 +1159,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		{
 			uniforms_->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
 			uniforms_->dynamicLight_Num_Intensity.set(vec4::empty);
-			matUniforms_->nDeforms_AutoSprite.set(vec4(0, 0, 0, 0));
+			matUniforms_->nDeforms.set(vec4(0, 0, 0, 0));
 			matStageUniforms_->alphaTest.set(vec4::empty);
 			matStageUniforms_->baseColor.set(vec4::white);
 			matStageUniforms_->generators.set(vec4::empty);
@@ -1257,7 +1259,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				shaderVariant |= GenericShaderProgramVariant::AlphaTest;
 			}
 
-			if (isWorldScene_ && softSpritesEnabled_ && (dc.softSpriteDepth > 0 || mat->hasAutoSpriteDeform()))
+			if (isWorldScene_ && softSpritesEnabled_ && dc.softSpriteDepth > 0)
 			{
 				shaderVariant |= GenericShaderProgramVariant::SoftSprite;
 				bgfx::setTexture(TextureUnit::Depth, matStageUniforms_->depthSampler.handle, linearDepthFb_.handle);
@@ -1272,7 +1274,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 					state |= BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_ONE);
 				}
 
-				uniforms_->softSprite_Depth_UseAlpha_AutoSprite.set(vec4(dc.softSpriteDepth, useAlpha, mat->hasAutoSpriteDeform() ? 1.0f : 0.0f, 0));
+				uniforms_->softSprite_Depth_UseAlpha.set(vec4(dc.softSpriteDepth, useAlpha, 0, 0));
 			}
 
 			if (isWorldScene_ && dc.dynamicLighting && !(dc.flags & DrawCallFlags::Sky))
@@ -1674,7 +1676,7 @@ void Main::renderEntity(vec3 viewPosition, mat3 viewRotation, Frustum cameraFrus
 				break;
 
 			setupEntityLighting(entity);
-			model->render(&drawCalls_, entity);
+			model->render(sceneRotation_, &drawCalls_, entity);
 		}
 		break;
 	

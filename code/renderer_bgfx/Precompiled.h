@@ -424,12 +424,12 @@ enum class MaterialCullType
 
 enum class MaterialDeform
 {
-	None        = DGEN_NONE,
-	Autosprite  = DGEN_AUTOSPRITE,
-	Autosprite2 = DGEN_AUTOSPRITE2,
-	Bulge       = DGEN_BULGE,
-	Move        = DGEN_MOVE,
-	Wave        = DGEN_WAVE,
+	None  = DGEN_NONE,
+	Bulge = DGEN_BULGE,
+	Move  = DGEN_MOVE,
+	Wave  = DGEN_WAVE,
+	Autosprite,
+	Autosprite2,
 	Normals,
 	ProjectionShadow,
 	Text0,
@@ -857,9 +857,7 @@ public:
 	float setTime(float time);
 
 	bool hasAutoSpriteDeform() const;
-	bool hasAutoSprite2Deform() const;
-	void setupAutoSpriteDeform(Vertex *vertices, uint32_t nVertices) const;
-	void doAutoSprite2Deform(const mat3 &sceneRotation, Vertex *vertices, uint32_t nVertices, uint16_t *indices, uint32_t nIndices) const;
+	void doAutoSpriteDeform(const mat3 &sceneRotation, Vertex *vertices, uint32_t nVertices, uint16_t *indices, uint32_t nIndices, float *radius) const;
 	void setDeformUniforms(Uniforms_Material *uniforms) const;
 
 private:
@@ -932,7 +930,7 @@ public:
 	virtual Bounds getBounds() const = 0;
 	virtual Transform getTag(const char *name, int frame) const = 0;
 	virtual bool isCulled(Entity *entity, const Frustum &cameraFrustum) const = 0;
-	virtual void render(DrawCallList *drawCallList, Entity *entity) = 0;
+	virtual void render(const mat3 &sceneRotation, DrawCallList *drawCallList, Entity *entity) = 0;
 	size_t getIndex() const { return index_; }
 	const char *getName() const { return name_; }
 
@@ -1226,7 +1224,7 @@ struct Uniforms
 	Uniform_vec4 smaaMetrics = "u_SmaaMetrics";
 
 	/// @remarks x is soft sprite depth, y is whether to use the shader alpha, z is whether the sprite is an autosprite.
-	Uniform_vec4 softSprite_Depth_UseAlpha_AutoSprite = "u_SoftSprite_Depth_UseAlpha_AutoSprite";
+	Uniform_vec4 softSprite_Depth_UseAlpha = "u_SoftSprite_Depth_UseAlpha";
 
 	/// @remarks Only x and y used.
 	Uniform_vec4 texelOffsets = { "u_TexelOffsets", 16 };
@@ -1321,7 +1319,7 @@ struct Uniforms_Material
 	/// @{
 
 	/// @remarks Only x used.
-	Uniform_vec4 nDeforms_AutoSprite = "u_NumDeforms_AutoSprite";
+	Uniform_vec4 nDeforms = "u_NumDeforms";
 
 	/// @remarks Only xyz used.
 	Uniform_vec4 deformMoveDirs = { "u_DeformMoveDirs", Material::maxDeforms };
@@ -1472,9 +1470,6 @@ struct Vertex
 	/// Linear space.
 	vec4 color;
 
-	/// @remarks x is autoSprite radius.
-	vec4 autoSprite;
-
 	static void init()
 	{
 		decl.begin();
@@ -1483,14 +1478,12 @@ struct Vertex
 		decl.add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float);
 		decl.add(bgfx::Attrib::TexCoord1, 2, bgfx::AttribType::Float);
 		decl.add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Float);
-		decl.add(bgfx::Attrib::TexCoord2, 4, bgfx::AttribType::Float);
 		decl.m_stride = sizeof(Vertex);
 		decl.m_offset[bgfx::Attrib::Position] = offsetof(Vertex, pos);
 		decl.m_offset[bgfx::Attrib::Normal] = offsetof(Vertex, normal);
 		decl.m_offset[bgfx::Attrib::TexCoord0] = offsetof(Vertex, texCoord);
 		decl.m_offset[bgfx::Attrib::TexCoord1] = offsetof(Vertex, texCoord2);
 		decl.m_offset[bgfx::Attrib::Color0] = offsetof(Vertex, color);
-		decl.m_offset[bgfx::Attrib::TexCoord2] = offsetof(Vertex, autoSprite);
 		decl.end();
 	}
 

@@ -1,6 +1,6 @@
 #include "SharedDefines.sh"
 
-uniform vec4 u_NumDeforms_AutoSprite; // x is num deforms, y is autosprite deform
+uniform vec4 u_NumDeforms; // only x used
 uniform vec4 u_DeformMoveDirs[MAX_DEFORMS]; // only xyz used
 uniform vec4 u_Deform_Gen_Wave_Base_Amplitude[MAX_DEFORMS];
 uniform vec4 u_Deform_Frequency_Phase_Spread[MAX_DEFORMS];
@@ -56,7 +56,7 @@ void CalculateDeformSingle(inout vec3 pos, vec3 normal, const vec2 st, float tim
 
 void CalculateDeform(inout vec3 pos, vec3 normal, const vec2 st, float time)
 {
-	for (int i = 0; i < int(u_NumDeforms_AutoSprite.x); i++)
+	for (int i = 0; i < int(u_NumDeforms.x); i++)
 	{
 		CalculateDeformSingle(pos, normal, st, time, int(u_Deform_Gen_Wave_Base_Amplitude[i].x), int(u_Deform_Gen_Wave_Base_Amplitude[i].y), u_Deform_Gen_Wave_Base_Amplitude[i].z, u_Deform_Gen_Wave_Base_Amplitude[i].w, u_Deform_Frequency_Phase_Spread[i].x, u_Deform_Frequency_Phase_Spread[i].y, u_Deform_Frequency_Phase_Spread[i].z, u_DeformMoveDirs[i]);
 	}
