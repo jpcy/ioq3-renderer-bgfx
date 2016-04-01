@@ -1889,7 +1889,7 @@ private:
 							break;
 					}
 
-					lightmapAtlases_[i] = g_textureCache->createTexture(util::VarArgs("*lightmap%d", (int)i), image, TextureType::ColorAlpha, TextureFlags::ClampToEdge);
+					lightmapAtlases_[i] = g_textureCache->createTexture(util::VarArgs("*lightmap%d", (int)i), image, TextureFlags::ClampToEdge);
 				}
 			}
 		}

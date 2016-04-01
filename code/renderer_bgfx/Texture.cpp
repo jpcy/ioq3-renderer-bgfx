@@ -24,13 +24,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 namespace renderer {
 
-Texture::Texture(const char *name, const Image &image, TextureType type, int flags, bgfx::TextureFormat::Enum format)
+Texture::Texture(const char *name, const Image &image, int flags, bgfx::TextureFormat::Enum format)
 {
 	strcpy(name_, name);
 	width_ = image.width;
 	height_ = image.height;
 	nMips_ = image.nMips;
-	type_ = type;
 	flags_ = flags;
 	format_ = format;
 	handle_ = bgfx::createTexture2D(width_, height_, image.nMips, format_, calculateBgfxFlags(), image.memory);
@@ -86,14 +85,14 @@ TextureCache::TextureCache() : hashTable_()
 	createBuiltinTextures();
 }
 
-Texture *TextureCache::createTexture(const char *name, const Image &image, TextureType type, int flags, bgfx::TextureFormat::Enum format)
+Texture *TextureCache::createTexture(const char *name, const Image &image, int flags, bgfx::TextureFormat::Enum format)
 {
 	if (strlen(name) >= MAX_QPATH)
 	{
 		ri.Error(ERR_DROP, "Texture name \"%s\" is too long", name);
 	}
 
-	auto texture = std::make_unique<Texture>(name, image, type, flags, format);
+	auto texture = std::make_unique<Texture>(name, image, flags, format);
 	return addTexture(texture);
 }
 
@@ -108,7 +107,7 @@ Texture *TextureCache::createTexture(const char *name, bgfx::TextureHandle handl
 	return addTexture(texture);
 }
 
-Texture *TextureCache::findTexture(const char *name, TextureType type, int flags)
+Texture *TextureCache::findTexture(const char *name, int flags)
 {
 	if (!name)
 		return nullptr;
@@ -151,7 +150,7 @@ Texture *TextureCache::findTexture(const char *name, TextureType type, int flags
 	if (!image.memory)
 		return nullptr;
 
-	return createTexture(name, image, type, flags);
+	return createTexture(name, image, flags);
 }
 
 Texture *TextureCache::addTexture(std::unique_ptr<Texture> &texture)
@@ -182,7 +181,7 @@ void TextureCache::createBuiltinTextures()
 		*((uint32_t *)&image.memory->data[(x + (defaultSize - 1) * defaultSize) * 4]) = 0xffffffff;
 	}
 
-	defaultTexture_ = createTexture("*default", image, TextureType::ColorAlpha, TextureFlags::Mipmap);
+	defaultTexture_ = createTexture("*default", image, TextureFlags::Mipmap);
 
 	// White texture.
 	image.width = image.height = 8;
@@ -210,7 +209,7 @@ void TextureCache::createBuiltinTextures()
 	{
 		image.allocMemory();
 		memset(image.memory->data, 0, image.memory->size);
-		scratchTextures_[i] = createTexture("*scratch", image, TextureType::ColorAlpha, TextureFlags::Picmip | TextureFlags::ClampToEdge);
+		scratchTextures_[i] = createTexture("*scratch", image, TextureFlags::Picmip | TextureFlags::ClampToEdge);
 	}
 }
 

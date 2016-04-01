@@ -493,7 +493,6 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 			else
 			{
-				TextureType type = TextureType::ColorAlpha;
 				int flags = TextureFlags::None;
 
 				if (!noMipMaps)
@@ -502,21 +501,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				if (!noPicMip)
 					flags |= TextureFlags::Picmip;
 
-				if (stage->type == MaterialStageType::NormalMap || stage->type == MaterialStageType::NormalParallaxMap)
-				{
-					type = TextureType::Normal;
-					flags |= TextureFlags::NoLightScale;
-
-					if (stage->type == MaterialStageType::NormalParallaxMap)
-						type = TextureType::NormalHeight;
-				}
-				/*else
-				{
-					if (r_genNormalMaps->integer)
-						flags |= TextureFlags::GenNormalMap;
-				}*/
-
-				stage->bundles[0].textures[0] = g_textureCache->findTexture(token, type, flags);
+				stage->bundles[0].textures[0] = g_textureCache->findTexture(token, flags);
 
 				if (!stage->bundles[0].textures[0])
 				{
@@ -528,7 +513,6 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 		// clampmap <name>
 		else if (!util::Stricmp(token, "clampmap"))
 		{
-			TextureType type = TextureType::ColorAlpha;
 			int flags = TextureFlags::ClampToEdge;
 
 			token = util::Parse(text, false);
@@ -544,21 +528,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			if (!noPicMip)
 				flags |= TextureFlags::Picmip;
 
-			if (stage->type == MaterialStageType::NormalMap || stage->type == MaterialStageType::NormalParallaxMap)
-			{
-				type = TextureType::Normal;
-				flags |= TextureFlags::NoLightScale;
-
-				if (stage->type == MaterialStageType::NormalParallaxMap)
-					type = TextureType::NormalHeight;
-			}
-			/*else
-			{
-				if (r_genNormalMaps->integer)
-					flags |= TextureFlags::GenNormalMap;
-			}*/
-
-			stage->bundles[0].textures[0] = g_textureCache->findTexture(token, type, flags);
+			stage->bundles[0].textures[0] = g_textureCache->findTexture(token, flags);
 
 			if (!stage->bundles[0].textures[0])
 			{
@@ -599,7 +569,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 					if (!noPicMip)
 						flags |= TextureFlags::Picmip;
 
-					stage->bundles[0].textures[num] = g_textureCache->findTexture(token, TextureType::ColorAlpha, flags);
+					stage->bundles[0].textures[num] = g_textureCache->findTexture(token, flags);
 
 					if (!stage->bundles[0].textures[num])
 					{
@@ -1564,7 +1534,7 @@ void Material::parseSkyParms(char **text)
 		{
 			char pathname[MAX_QPATH];
 			util::Sprintf(pathname, sizeof(pathname), "%s_%s.tga", token, suf[i]);
-			sky.outerbox[i] = g_textureCache->findTexture(pathname, TextureType::ColorAlpha, imgFlags | TextureFlags::ClampToEdge);
+			sky.outerbox[i] = g_textureCache->findTexture(pathname, imgFlags | TextureFlags::ClampToEdge);
 
 			if (!sky.outerbox[i])
 			{
@@ -1606,7 +1576,7 @@ void Material::parseSkyParms(char **text)
 		{
 			char pathname[MAX_QPATH];
 			util::Sprintf(pathname, sizeof(pathname), "%s_%s.tga", token, suf[i]);
-			sky.innerbox[i] = g_textureCache->findTexture(pathname, TextureType::ColorAlpha, imgFlags);
+			sky.innerbox[i] = g_textureCache->findTexture(pathname, imgFlags);
 
 			if (!sky.innerbox[i])
 			{

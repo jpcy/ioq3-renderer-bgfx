@@ -1082,38 +1082,21 @@ struct SunLight
 	float shadowScale = 0.5f;
 };
 
-enum class TextureType
-{
-	/// For color, lightmap, diffuse, and specular.
-	ColorAlpha,
-
-	Normal,
-	NormalHeight,
-
-	/// Normals are swizzled, deluxe are not.
-	Deluxe
-};
-
 struct TextureFlags
 {
 	enum
 	{
-		None               = 0,
-		Mipmap             = 1<<0,
-		Picmip             = 1<<1,
-		Cubemap            = 1<<2,
-		NoCompression      = 1<<3,
-		NoLightScale       = 1<<4,
-		ClampToEdge        = 1<<5,
-		SRGB               = 1<<6,
-		GenNormalMap       = 1<<7
+		None        = 0,
+		Mipmap      = 1<<0,
+		Picmip      = 1<<1,
+		ClampToEdge = 1<<2,
 	};
 };
 
 class Texture
 {
 public:
-	Texture(const char *name, const Image &image, TextureType type, int flags, bgfx::TextureFormat::Enum format);
+	Texture(const char *name, const Image &image, int flags, bgfx::TextureFormat::Enum format);
 	Texture(const char *name, bgfx::TextureHandle handle);
 	~Texture();
 	void resize(int width, int height);
@@ -1127,7 +1110,6 @@ private:
 	uint32_t calculateBgfxFlags() const;
 
 	char name_[MAX_QPATH];
-	TextureType type_;
 	int flags_;
 	int width_, height_;
 	int nMips_;
@@ -1142,12 +1124,12 @@ class TextureCache
 {
 public:
 	TextureCache();
-	Texture *createTexture(const char *name, const Image &image, TextureType type = TextureType::ColorAlpha, int flags = TextureFlags::None, bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8);
+	Texture *createTexture(const char *name, const Image &image, int flags = TextureFlags::None, bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8);
 	Texture *createTexture(const char *name, bgfx::TextureHandle handle);
 
 	/// Finds or loads the given image.
 	/// @return nullptr if it fails, not the default image.
-	Texture *findTexture(const char *name, TextureType type = TextureType::ColorAlpha, int flags = TextureFlags::None);
+	Texture *findTexture(const char *name, int flags = TextureFlags::None);
 
 	const Texture *getDefaultTexture() const { return defaultTexture_; }
 	const Texture *getIdentityLightTexture() const { return identityLightTexture_; }

@@ -276,7 +276,7 @@ Material *MaterialCache::findMaterial(const char *name, int lightmapIndex, bool 
 		flags |= TextureFlags::ClampToEdge;
 	}
 
-	Texture *texture = g_textureCache->findTexture(name, TextureType::ColorAlpha, flags);
+	Texture *texture = g_textureCache->findTexture(name, flags);
 
 	if (!texture)
 	{
