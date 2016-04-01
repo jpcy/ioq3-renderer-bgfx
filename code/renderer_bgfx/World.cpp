@@ -1354,10 +1354,7 @@ public:
 				dc.ib.nIndices = surface.nIndices;
 
 				// Deform the transient buffer contents.
-				float radius;
-				surface.material->doAutoSpriteDeform(sceneRotation, (Vertex *)tvb.data, surface.nVertices, (uint16_t *)tib.data, surface.nIndices, &radius);
-
-				dc.softSpriteDepth = radius / 2;
+				surface.material->doAutoSpriteDeform(sceneRotation, (Vertex *)tvb.data, surface.nVertices, (uint16_t *)tib.data, surface.nIndices, &dc.softSpriteDepth);
 			}
 			else
 			{

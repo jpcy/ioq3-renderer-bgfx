@@ -857,7 +857,7 @@ public:
 	float setTime(float time);
 
 	bool hasAutoSpriteDeform() const;
-	void doAutoSpriteDeform(const mat3 &sceneRotation, Vertex *vertices, uint32_t nVertices, uint16_t *indices, uint32_t nIndices, float *radius) const;
+	void doAutoSpriteDeform(const mat3 &sceneRotation, Vertex *vertices, uint32_t nVertices, uint16_t *indices, uint32_t nIndices, float *softSpriteDepth) const;
 	void setDeformUniforms(Uniforms_Material *uniforms) const;
 
 private:

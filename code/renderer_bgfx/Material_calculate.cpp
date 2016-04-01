@@ -568,12 +568,12 @@ bool Material::hasAutoSpriteDeform() const
 	return false;
 }
 
-void Material::doAutoSpriteDeform(const mat3 &sceneRotation, Vertex *vertices, uint32_t nVertices, uint16_t *indices, uint32_t nIndices, float *radius) const
+void Material::doAutoSpriteDeform(const mat3 &sceneRotation, Vertex *vertices, uint32_t nVertices, uint16_t *indices, uint32_t nIndices, float *softSpriteDepth) const
 {
 	assert(vertices);
 	assert(radius);
 	assert(indices);
-	assert(radius);
+	assert(softSpriteDepth);
 	MaterialDeform deform = MaterialDeform::None;
 
 	for (const MaterialDeformStage &ds : deforms)
@@ -587,7 +587,7 @@ void Material::doAutoSpriteDeform(const mat3 &sceneRotation, Vertex *vertices, u
 
 	if (deform == MaterialDeform::None)
 	{
-		*radius = 0;
+		*softSpriteDepth = 0;
 		return;
 	}
 
@@ -634,12 +634,15 @@ void Material::doAutoSpriteDeform(const mat3 &sceneRotation, Vertex *vertices, u
 
 		// Find the midpoint.
 		const vec3 midpoint = (v[0]->pos + v[1]->pos + v[2]->pos + v[3]->pos) * 0.25f;
-		*radius = (v[0]->pos - midpoint).length() * 0.707f; // / sqrt(2)
+		const float radius = (v[0]->pos - midpoint).length() * 0.707f; // / sqrt(2)
+
+		// Calculate soft sprite depth.
+		*softSpriteDepth = radius / 2;
 
 		if (deform == MaterialDeform::Autosprite)
 		{
-			vec3 left(leftDir * *radius);
-			vec3 up(upDir * *radius);
+			vec3 left(leftDir * radius);
+			vec3 up(upDir * radius);
 
 			if (main::isCameraMirrored())
 				left = -left;

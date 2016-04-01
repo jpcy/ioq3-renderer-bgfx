@@ -1258,8 +1258,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			{
 				shaderVariant |= GenericShaderProgramVariant::AlphaTest;
 			}
-
-			if (isWorldScene_ && softSpritesEnabled_ && dc.softSpriteDepth > 0)
+			else if (isWorldScene_ && softSpritesEnabled_ && dc.softSpriteDepth > 0)
 			{
 				shaderVariant |= GenericShaderProgramVariant::SoftSprite;
 				bgfx::setTexture(TextureUnit::Depth, matStageUniforms_->depthSampler.handle, linearDepthFb_.handle);

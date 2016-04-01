@@ -503,10 +503,7 @@ void Model_md3::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 
 				bgfx::allocTransientIndexBuffer(&tib, surface.nIndices);
 				memcpy(tib.data, &indices_[surface.startIndex], sizeof(uint16_t) * surface.nIndices);
-
-				float radius;
-				mat->doAutoSpriteDeform(sceneRotation, (Vertex *)tvb.data, nVertices_, (uint16_t *)tib.data, surface.nIndices, &radius);
-				dc.softSpriteDepth = radius / 2;
+				mat->doAutoSpriteDeform(sceneRotation, (Vertex *)tvb.data, nVertices_, (uint16_t *)tib.data, surface.nIndices, &dc.softSpriteDepth);
 				dc.ib.type = DrawCall::BufferType::Transient;
 				dc.ib.transientHandle = tib;
 				dc.ib.nIndices = surface.nIndices;
