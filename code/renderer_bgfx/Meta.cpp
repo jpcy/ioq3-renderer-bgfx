@@ -43,15 +43,26 @@ struct LerpTextureAnimationMaterial
 
 static const LerpTextureAnimationMaterial s_lerpTextureAnimationMaterials[] =
 {
-	{ "bfgExplosion",             MaterialStageTextureAnimationLerp::Clamp },
-	{ "bloodExplosion",           MaterialStageTextureAnimationLerp::Clamp },
-	{ "bulletExplosion",          MaterialStageTextureAnimationLerp::Clamp },
-	{ "grenadeExplosion",         MaterialStageTextureAnimationLerp::Clamp },
-	//{ "railExplosion",            MaterialStageTextureAnimationLerp::Clamp },
-	{ "rocketExplosion",          MaterialStageTextureAnimationLerp::Clamp },
-	{ "textures/sfx/flame1side",  MaterialStageTextureAnimationLerp::Wrap },
+	{ "bfgExplosion", MaterialStageTextureAnimationLerp::Clamp },
+	{ "bloodExplosion", MaterialStageTextureAnimationLerp::Clamp },
+	{ "bulletExplosion", MaterialStageTextureAnimationLerp::Clamp },
+	{ "grenadeExplosion", MaterialStageTextureAnimationLerp::Clamp },
+	//{ "railExplosion", MaterialStageTextureAnimationLerp::Clamp },
+	{ "rocketExplosion", MaterialStageTextureAnimationLerp::Clamp },
+	{ "textures/sfx/flame1", MaterialStageTextureAnimationLerp::Wrap },
+	{ "textures/sfx/flame1dark", MaterialStageTextureAnimationLerp::Wrap },
+	{ "textures/sfx/flame1side", MaterialStageTextureAnimationLerp::Wrap },
 	{ "textures/sfx/flame1_hell", MaterialStageTextureAnimationLerp::Wrap },
-	{ "textures/sfx/flame2",      MaterialStageTextureAnimationLerp::Wrap }
+	{ "textures/sfx/flame2", MaterialStageTextureAnimationLerp::Wrap },
+	{ "textures/sfx/flameanim_dimmer", MaterialStageTextureAnimationLerp::Wrap },
+	{ "textures/sfx/flameanim_blue", MaterialStageTextureAnimationLerp::Wrap },
+	{ "textures/sfx/flameanim_blue_nolight", MaterialStageTextureAnimationLerp::Wrap },
+	{ "textures/sfx/flameanim_blue_pj", MaterialStageTextureAnimationLerp::Wrap },
+	{ "textures/sfx/flameanim_green_pj", MaterialStageTextureAnimationLerp::Wrap },
+	{ "textures/sfx/flameanim_red_pj", MaterialStageTextureAnimationLerp::Wrap },
+	{ "textures/sfx/xflame1side", MaterialStageTextureAnimationLerp::Wrap },
+	{ "textures/sfx/xflame2_1800", MaterialStageTextureAnimationLerp::Wrap },
+	{ "textures/sfx/x_conduit", MaterialStageTextureAnimationLerp::Wrap }
 };
 
 static const char *s_reflectiveMaterialNames[] =
