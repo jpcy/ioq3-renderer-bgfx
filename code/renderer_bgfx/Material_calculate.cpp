@@ -240,7 +240,7 @@ void MaterialStage::calculateTextureAnimation(int *frame, int *nextFrame, float 
 	if (fraction)
 	{
 		float temp;
-		*fraction = modf(material->time_ * diffuseBundle.imageAnimationSpeed, &temp);
+		*fraction = std::modf(material->time_ * diffuseBundle.imageAnimationSpeed, &temp);
 	}
 }
 
