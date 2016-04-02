@@ -112,6 +112,7 @@ struct ConsoleVariables
 	cvar_t *dynamicLightScale;
 	cvar_t *hdr;
 	cvar_t *hdrKey;
+	cvar_t *lerpTextureAnimation;
 	cvar_t *maxAnisotropy;
 	cvar_t *picmip;
 	cvar_t *railWidth;
@@ -586,6 +587,13 @@ enum class MaterialStageType
 	GLSL
 };
 
+enum class MaterialStageTextureAnimationLerp
+{
+	Disabled,
+	Clamp,
+	Wrap
+};
+
 enum class MaterialTexCoordGen
 {
 	None = TCGEN_NONE,
@@ -698,6 +706,8 @@ struct MaterialStage
 	MaterialWaveForm alphaWave;
 	MaterialAlphaGen alphaGen = MaterialAlphaGen::Identity;
 
+	MaterialStageTextureAnimationLerp textureAnimationLerp = MaterialStageTextureAnimationLerp::Disabled;
+
 	vec4 constantColor; // for MaterialColorGen::Const and MaterialAlphaGen::Const
 
 	uint64_t depthTestBits = BGFX_STATE_DEPTH_TEST_LEQUAL;
@@ -726,10 +736,10 @@ struct MaterialStage
 	void setTextureSamplers(Uniforms_MaterialStage *uniforms) const;
 
 private:
-	void setTextureSampler(int sampler, Uniforms_MaterialStage *uniforms) const;
-
 	/// @name Calculate
 	/// @{
+	bool shouldLerpTextureAnimation() const;
+	void calculateTextureAnimation(int *frame, int *nextFrame, float *fraction) const;
 
 	float *tableForFunc(MaterialWaveformGenFunc func) const;
 	float evaluateWaveForm(const MaterialWaveForm &wf) const;
@@ -1299,6 +1309,8 @@ struct Uniforms_MaterialStage
 
 	/// @remarks Only x used.
 	Uniform_vec4 alphaTest = "u_AlphaTest";
+
+	Uniform_vec4 animation_Enabled_Fraction = "u_Animation_Enabled_Fraction";
 
 	Uniform_vec4 fogColorMask = "u_FogColorMask";
 

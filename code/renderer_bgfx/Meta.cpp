@@ -35,6 +35,25 @@ struct Meta
 
 static Meta s_meta;
 
+struct LerpTextureAnimationMaterial
+{
+	const char *name;
+	MaterialStageTextureAnimationLerp lerp;
+};
+
+static const LerpTextureAnimationMaterial s_lerpTextureAnimationMaterials[] =
+{
+	{ "bfgExplosion",             MaterialStageTextureAnimationLerp::Clamp },
+	{ "bloodExplosion",           MaterialStageTextureAnimationLerp::Clamp },
+	{ "bulletExplosion",          MaterialStageTextureAnimationLerp::Clamp },
+	{ "grenadeExplosion",         MaterialStageTextureAnimationLerp::Clamp },
+	//{ "railExplosion",            MaterialStageTextureAnimationLerp::Clamp },
+	{ "rocketExplosion",          MaterialStageTextureAnimationLerp::Clamp },
+	{ "textures/sfx/flame1side",  MaterialStageTextureAnimationLerp::Wrap },
+	{ "textures/sfx/flame1_hell", MaterialStageTextureAnimationLerp::Wrap },
+	{ "textures/sfx/flame2",      MaterialStageTextureAnimationLerp::Wrap }
+};
+
 static const char *s_reflectiveMaterialNames[] =
 {
 	"textures/liquids/clear_ripple1",
@@ -150,6 +169,34 @@ void OnMaterialCreate(Material *material)
 			{
 				stage.emissiveLight = 2;
 				break;
+			}
+		}
+	}
+
+	if (g_cvars.lerpTextureAnimation->integer)
+	{
+		for (const LerpTextureAnimationMaterial &m : s_lerpTextureAnimationMaterials)
+		{
+			if (util::Stricmp(material->name, m.name) != 0)
+				continue;
+
+			for (MaterialStage &stage : material->stages)
+			{
+				if (!stage.active)
+					continue;
+
+				for (const MaterialTextureBundle bundle : stage.bundles)
+				{
+					if (bundle.numImageAnimations > 1)
+					{
+						stage.textureAnimationLerp = m.lerp;
+						break;
+					}
+				}
+
+				// Waveforms are used to hide the default choppy animations. They make the lerped animations flicker, so disable them.
+				if (stage.rgbGen == MaterialColorGen::Waveform)
+					stage.rgbGen = MaterialColorGen::Identity;
 			}
 		}
 	}

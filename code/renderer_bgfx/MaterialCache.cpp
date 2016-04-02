@@ -398,8 +398,17 @@ void MaterialCache::printMaterials() const
 
 	for (size_t i = 0; i < materials_.size(); i++)
 	{
-		ri.Printf(PRINT_ALL, "%4u: %s\n", i, materials_[i]->name);
-		nStages[materials_[i]->numUnfoggedPasses]++;
+		const Material *mat = materials_[i].get();
+		bool animated = false;
+
+		for (const MaterialStage &stage : mat->stages)
+		{
+			if (stage.active && stage.bundles[0].numImageAnimations > 1)
+				animated = true;
+		}
+
+		ri.Printf(PRINT_ALL, "%4u: [%c] %s\n", i, animated ? 'a' : ' ', mat->name);
+		nStages[mat->numUnfoggedPasses]++;
 	}
 
 	for (int i = 1; i < Material::maxStages; i++)

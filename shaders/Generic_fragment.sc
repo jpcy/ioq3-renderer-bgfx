@@ -6,6 +6,7 @@ $input v_position, v_projPosition, v_texcoord0, v_texcoord1, v_normal, v_color0
 
 SAMPLER2D(u_DiffuseMap, 0);
 SAMPLER2D(u_LightMap, 1);
+SAMPLER2D(u_NormalMap, 2);
 
 #if defined(USE_ALPHA_TEST)
 uniform vec4 u_AlphaTest; // only x used
@@ -30,6 +31,7 @@ uniform vec4 u_DynamicLight_Num_Intensity; // x is the number of dynamic lights,
 uniform vec4 u_DynamicLightTextureSizes_Cells_Indices_Lights; // w not used
 #endif
 
+uniform vec4 u_Animation_Enabled_Fraction; // only x and y used
 uniform vec4 u_PortalClip;
 uniform vec4 u_PortalPlane;
 uniform vec4 u_ViewOrigin;
@@ -131,6 +133,13 @@ void main()
 	}
 
 	vec4 diffuse = texture2D(u_DiffuseMap, texCoord0);
+
+	if (int(u_Animation_Enabled_Fraction.x) == 1.0)
+	{
+		vec4 diffuse2 = texture2D(u_NormalMap, texCoord0);
+		diffuse = mix(diffuse, diffuse2, u_Animation_Enabled_Fraction.y);
+	}
+
 	float alpha;
 
 	if (u_AlphaGen == AGEN_WATER)

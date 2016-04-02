@@ -134,6 +134,7 @@ void ConsoleVariables::initialize()
 	dynamicLightScale = ri.Cvar_Get("r_dynamicLightScale", "0.7", CVAR_ARCHIVE);
 	hdr = ri.Cvar_Get("r_hdr", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	hdrKey = ri.Cvar_Get("r_hdrKey", "0.1", CVAR_ARCHIVE);
+	lerpTextureAnimation = ri.Cvar_Get("r_lerpTextureAnimation", "1", CVAR_ARCHIVE | CVAR_LATCH);
 	maxAnisotropy = ri.Cvar_Get("r_maxAnisotropy", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	picmip = ri.Cvar_Get("r_picmip", "0", CVAR_ARCHIVE | CVAR_LATCH);
 	ri.Cvar_CheckRange(picmip, 0, 16, qtrue);

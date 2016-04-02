@@ -94,6 +94,18 @@ uint64_t MaterialStage::getState() const
 void MaterialStage::setShaderUniforms(Uniforms_MaterialStage *uniforms, int flags) const
 {
 	uniforms->alphaTest.set((float)alphaTest);
+
+	if (shouldLerpTextureAnimation())
+	{
+		float fraction;
+		calculateTextureAnimation(nullptr, nullptr, &fraction);
+		uniforms->animation_Enabled_Fraction.set(vec4(1, fraction, 0, 0));
+	}
+	else
+	{
+		uniforms->animation_Enabled_Fraction.set(vec4::empty);
+	}
+
 	uniforms->light_Type_Emissive.set(vec4((float)light, emissiveLight, 0, 0));
 	uniforms->normalScale.set(normalScale);
 	uniforms->specularScale.set(specularScale);
@@ -141,59 +153,79 @@ void MaterialStage::setTextureSamplers(Uniforms_MaterialStage *uniforms) const
 {
 	assert(uniforms);
 	assert(active);
-	setTextureSampler(MaterialTextureBundleIndex::DiffuseMap, uniforms);
-	setTextureSampler(MaterialTextureBundleIndex::Lightmap, uniforms);
 
-#if 0
-	if (stage.light != MaterialLight::None)
+	// Diffuse.
+	const MaterialTextureBundle &diffuseBundle = bundles[MaterialTextureBundleIndex::DiffuseMap];
+
+	if (diffuseBundle.isVideoMap)
 	{
-		// bind textures that are sampled and used in the glsl shader, and
-		// bind whiteImage to textures that are sampled but zeroed in the glsl shader
-		//
-		// alternatives:
-		//  - use the last bound texture
-		//     -> costs more to sample a higher res texture then throw out the result
-		//  - disable texture sampling in glsl shader with #ifdefs, as before
-		//     -> increases the number of shaders that must be compiled
-		const bool phong = g_cvars.normalMapping->integer || g_cvars.specularMapping->integer;
-		vec4 enableTextures;
-
-		if (stage.light != MaterialLight::None && phong)
-		{
-			if (stage.bundles[MaterialTextureBundleIndex::NormalMap].textures[0])
-			{
-				stage.setTextureSampler(MaterialTextureBundleIndex::NormalMap);
-				enableTextures[0] = 1.0f;
-			}
-			else if (g_cvars.normalMapping->integer)
-			{
-				g_textureCache->getWhiteTexture()->setSampler(MaterialTextureBundleIndex::NormalMap);
-			}
-
-			if (stage.bundles[MaterialTextureBundleIndex::Deluxemap].textures[0])
-			{
-				stage.setTextureSampler(MaterialTextureBundleIndex::Deluxemap);
-				enableTextures[1] = 1.0f;
-			}
-			else if (g_cvars.deluxeMapping->integer)
-			{
-				g_textureCache->getWhiteTexture()->setSampler(MaterialTextureBundleIndex::Deluxemap);
-			}
-
-			if (stage.bundles[MaterialTextureBundleIndex::Specularmap].textures[0])
-			{
-				stage.setTextureSampler(MaterialTextureBundleIndex::Specularmap);
-				enableTextures[2] = 1.0f;
-			}
-			else if (g_cvars.specularMapping->integer)
-			{
-				g_textureCache->getWhiteTexture()->setSampler(MaterialTextureBundleIndex::Specularmap);
-			}
-		}
-
-		uniforms->enableTextures.set(enableTextures);
+		ri.CIN_RunCinematic(diffuseBundle.videoMapHandle);
+		ri.CIN_UploadCinematic(diffuseBundle.videoMapHandle);
 	}
-#endif
+
+	if (diffuseBundle.numImageAnimations <= 1)
+	{
+		bgfx::setTexture(TextureUnit::Diffuse, uniforms->textures[MaterialTextureBundleIndex::DiffuseMap]->handle, diffuseBundle.textures[0]->getHandle());
+	}
+	else
+	{
+		int frame, nextFrame;
+		calculateTextureAnimation(&frame, &nextFrame, nullptr);
+		bgfx::setTexture(TextureUnit::Diffuse, uniforms->textures[MaterialTextureBundleIndex::DiffuseMap]->handle, diffuseBundle.textures[frame]->getHandle());
+
+		if (shouldLerpTextureAnimation())
+		{
+			bgfx::setTexture(TextureUnit::Normal, uniforms->textures[MaterialTextureBundleIndex::NormalMap]->handle, bundles[MaterialTextureBundleIndex::DiffuseMap].textures[nextFrame]->getHandle());
+		}
+	}
+
+	// Lightmap.
+	const Texture *lightmap = bundles[TextureUnit::Light].textures[0];
+
+	if (!lightmap)
+		lightmap = Texture::getWhite();
+
+	bgfx::setTexture(TextureUnit::Light, uniforms->textures[MaterialTextureBundleIndex::Lightmap]->handle, lightmap->getHandle());
+}
+
+bool MaterialStage::shouldLerpTextureAnimation() const
+{
+	return bundles[MaterialTextureBundleIndex::DiffuseMap].numImageAnimations > 1 && textureAnimationLerp != MaterialStageTextureAnimationLerp::Disabled && g_cvars.lerpTextureAnimation->integer;
+}
+
+void MaterialStage::calculateTextureAnimation(int *frame, int *nextFrame, float *fraction) const
+{
+	const MaterialTextureBundle &diffuseBundle = bundles[MaterialTextureBundleIndex::DiffuseMap];
+
+	if (frame)
+	{
+		// It is necessary to do this messy calc to make sure animations line up exactly with waveforms of the same frequency.
+		*frame = ri.ftol(material->time_ * diffuseBundle.imageAnimationSpeed * g_funcTableSize);
+		*frame >>= g_funcTableSize2;
+		*frame = std::max(0, *frame); // May happen with shader time offsets.
+		*frame %= bundles[MaterialTextureBundleIndex::DiffuseMap].numImageAnimations;
+	}
+
+	if (nextFrame)
+	{
+		assert(frame);
+		*nextFrame = *frame + 1;
+
+		if (textureAnimationLerp == MaterialStageTextureAnimationLerp::Clamp)
+		{
+			*nextFrame = std::min(*nextFrame, diffuseBundle.numImageAnimations - 1);
+		}
+		else
+		{
+			*nextFrame %= diffuseBundle.numImageAnimations;
+		}
+	}
+
+	if (fraction)
+	{
+		float temp;
+		*fraction = modf(material->time_ * diffuseBundle.imageAnimationSpeed, &temp);
+	}
 }
 
 float *MaterialStage::tableForFunc(MaterialWaveformGenFunc func) const
@@ -508,40 +540,6 @@ void MaterialStage::calculateColors(vec4 *baseColor, vec4 *vertColor) const
 	{
 		(*baseColor) = vec4(baseColor->xyz() * (float)g_overbrightFactor, baseColor->a);
 		(*vertColor) = vec4(vertColor->xyz() * (float)g_overbrightFactor, vertColor->a);
-	}
-}
-
-void MaterialStage::setTextureSampler(int sampler, Uniforms_MaterialStage *uniforms) const
-{
-	assert(uniforms);
-	assert(active);
-	const MaterialTextureBundle &bundle = bundles[sampler];
-
-	if (bundle.isVideoMap)
-	{
-		ri.CIN_RunCinematic(bundle.videoMapHandle);
-		ri.CIN_UploadCinematic(bundle.videoMapHandle);
-	}
-
-	if (!bundle.textures[0])
-	{
-		// Make sure something is bound to the texture sampler, to silence D3D11 warnings.
-		bgfx::setTexture(sampler, uniforms->textures[sampler]->handle, Texture::getWhite()->getHandle());
-		return;
-	}
-
-	if (bundle.numImageAnimations <= 1)
-	{
-		bgfx::setTexture(sampler, uniforms->textures[sampler]->handle, bundle.textures[0]->getHandle());
-	}
-	else
-	{
-		// It is necessary to do this messy calc to make sure animations line up exactly with waveforms of the same frequency.
-		int index = ri.ftol(material->time_ * bundle.imageAnimationSpeed * g_funcTableSize);
-		index >>= g_funcTableSize2;
-		index = std::max(0, index); // May happen with shader time offsets.
-		index %= bundle.numImageAnimations;
-		bgfx::setTexture(sampler, uniforms->textures[sampler]->handle, bundle.textures[index]->getHandle());
 	}
 }
 
