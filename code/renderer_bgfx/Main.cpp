@@ -1102,7 +1102,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (alphaTestStage)
 			{
 				alphaTestStage->setShaderUniforms(matStageUniforms_.get(), MaterialStageSetUniformsFlags::TexGen);
-				alphaTestStage->setTextureSamplers(matStageUniforms_.get());
+				bgfx::setTexture(0, uniforms_->textureSampler.handle, alphaTestStage->bundles[0].textures[0]->getHandle());
 				shaderVariant |= DepthShaderProgramVariant::AlphaTest;
 			}
 			else
@@ -1167,6 +1167,10 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			matStageUniforms_->vertexColor.set(vec4::black);
 			const int sky_texorder[6] = { 0, 2, 1, 3, 4, 5 };
 			bgfx::setTexture(TextureUnit::Diffuse, matStageUniforms_->diffuseSampler.handle, mat->sky.outerbox[sky_texorder[dc.skyboxSide]]->getHandle());
+#ifdef _DEBUG
+			bgfx::setTexture(TextureUnit::Diffuse2, matStageUniforms_->diffuseSampler2.handle, Texture::getWhite()->getHandle());
+			bgfx::setTexture(TextureUnit::Light, matStageUniforms_->lightSampler.handle, Texture::getWhite()->getHandle());
+#endif
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
 			bgfx::setState(dc.state);

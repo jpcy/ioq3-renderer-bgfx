@@ -166,6 +166,10 @@ void MaterialStage::setTextureSamplers(Uniforms_MaterialStage *uniforms) const
 	if (diffuseBundle.numImageAnimations <= 1)
 	{
 		bgfx::setTexture(TextureUnit::Diffuse, uniforms->diffuseSampler.handle, diffuseBundle.textures[0]->getHandle());
+
+#ifdef _DEBUG
+		bgfx::setTexture(TextureUnit::Diffuse2, uniforms->diffuseSampler2.handle, Texture::getWhite()->getHandle());
+#endif
 	}
 	else
 	{
@@ -177,15 +181,27 @@ void MaterialStage::setTextureSamplers(Uniforms_MaterialStage *uniforms) const
 		{
 			bgfx::setTexture(TextureUnit::Diffuse2, uniforms->diffuseSampler2.handle, diffuseBundle.textures[nextFrame]->getHandle());
 		}
+#ifdef _DEBUG
+		else
+		{
+			bgfx::setTexture(TextureUnit::Diffuse2, uniforms->diffuseSampler2.handle, Texture::getWhite()->getHandle());
+		}
+#endif
 	}
 
 	// Lightmap.
 	const Texture *lightmap = bundles[MaterialTextureBundleIndex::Lightmap].textures[0];
 
-	if (!lightmap)
-		lightmap = Texture::getWhite();
-
-	bgfx::setTexture(TextureUnit::Light, uniforms->lightSampler.handle, lightmap->getHandle());
+	if (lightmap)
+	{
+		bgfx::setTexture(TextureUnit::Light, uniforms->lightSampler.handle, lightmap->getHandle());
+	}
+#ifdef _DEBUG
+	else
+	{
+		bgfx::setTexture(TextureUnit::Light, uniforms->lightSampler.handle, Texture::getWhite()->getHandle());
+	}
+#endif
 }
 
 bool MaterialStage::shouldLerpTextureAnimation() const
