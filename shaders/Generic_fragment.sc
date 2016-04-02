@@ -4,25 +4,25 @@ $input v_position, v_projPosition, v_texcoord0, v_texcoord1, v_normal, v_color0
 #include "Common.sh"
 #include "SharedDefines.sh"
 
-SAMPLER2D(u_DiffuseMap, 0);
-SAMPLER2D(u_LightMap, 1);
-SAMPLER2D(u_NormalMap, 2);
+SAMPLER2D(u_DiffuseSampler, TU_DIFFUSE);
+SAMPLER2D(u_DiffuseSampler2, TU_DIFFUSE2);
+SAMPLER2D(u_LightSampler, TU_LIGHT);
 
 #if defined(USE_ALPHA_TEST)
 uniform vec4 u_AlphaTest; // only x used
 #endif
 
 #if defined(USE_SOFT_SPRITE)
-SAMPLER2D(u_DepthMap, 5);
+SAMPLER2D(u_DepthSampler, TU_DEPTH);
 
 uniform vec4 u_DepthRange;
 uniform vec4 u_SoftSprite_Depth_UseAlpha; // only x and y used
 #endif
 
 #if defined(USE_DYNAMIC_LIGHTS)
-USAMPLER2D(u_DynamicLightCellsSampler, 6);
-USAMPLER2D(u_DynamicLightIndicesSampler, 7);
-SAMPLER2D(u_DynamicLightsSampler, 8);
+USAMPLER2D(u_DynamicLightCellsSampler, TU_DYNAMIC_LIGHT_CELLS);
+USAMPLER2D(u_DynamicLightIndicesSampler, TU_DYNAMIC_LIGHT_INDICES);
+SAMPLER2D(u_DynamicLightsSampler, TU_DYNAMIC_LIGHTS);
 
 uniform vec4 u_DynamicLightCellSize; // xyz is size
 uniform vec4 u_DynamicLightGridOffset; // w not used
@@ -132,11 +132,11 @@ void main()
 		texCoord0 = gl_FragCoord.xy * u_viewTexel.xy;
 	}
 
-	vec4 diffuse = texture2D(u_DiffuseMap, texCoord0);
+	vec4 diffuse = texture2D(u_DiffuseSampler, texCoord0);
 
 	if (int(u_Animation_Enabled_Fraction.x) == 1.0)
 	{
-		vec4 diffuse2 = texture2D(u_NormalMap, texCoord0);
+		vec4 diffuse2 = texture2D(u_DiffuseSampler2, texCoord0);
 		diffuse = mix(diffuse, diffuse2, u_Animation_Enabled_Fraction.y);
 	}
 
@@ -155,7 +155,7 @@ void main()
 
 #if defined(USE_SOFT_SPRITE)
 	// Normalized linear depths.
-	float sceneDepth = texture2D(u_DepthMap, gl_FragCoord.xy * u_viewTexel.xy).r;
+	float sceneDepth = texture2D(u_DepthSampler, gl_FragCoord.xy * u_viewTexel.xy).r;
 
 	// GL uses -1 to 1 NDC. D3D uses 0 to 1.
 #if BGFX_SHADER_LANGUAGE_HLSL
@@ -206,7 +206,7 @@ void main()
 
 	if (lightType == LIGHT_MAP)
 	{
-		diffuseLight = texture2D(u_LightMap, v_texcoord1).rgb;
+		diffuseLight = texture2D(u_LightSampler, v_texcoord1).rgb;
 	}
 	else if (lightType == LIGHT_VECTOR)
 	{

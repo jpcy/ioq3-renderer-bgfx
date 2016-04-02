@@ -46,4 +46,12 @@
 #define TCGEN_TEXTURE            5
 #define TCGEN_VECTOR             6
 
+#define TU_DIFFUSE               0
+#define TU_DIFFUSE2              1
+#define TU_LIGHT                 2
+#define TU_DEPTH                 3
+#define TU_DYNAMIC_LIGHT_CELLS   4
+#define TU_DYNAMIC_LIGHT_INDICES 5
+#define TU_DYNAMIC_LIGHTS        6
+
 #define USE_HALF_LAMBERT

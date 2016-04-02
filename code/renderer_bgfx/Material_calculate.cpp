@@ -165,27 +165,27 @@ void MaterialStage::setTextureSamplers(Uniforms_MaterialStage *uniforms) const
 
 	if (diffuseBundle.numImageAnimations <= 1)
 	{
-		bgfx::setTexture(TextureUnit::Diffuse, uniforms->textures[MaterialTextureBundleIndex::DiffuseMap]->handle, diffuseBundle.textures[0]->getHandle());
+		bgfx::setTexture(TextureUnit::Diffuse, uniforms->diffuseSampler.handle, diffuseBundle.textures[0]->getHandle());
 	}
 	else
 	{
 		int frame, nextFrame;
 		calculateTextureAnimation(&frame, &nextFrame, nullptr);
-		bgfx::setTexture(TextureUnit::Diffuse, uniforms->textures[MaterialTextureBundleIndex::DiffuseMap]->handle, diffuseBundle.textures[frame]->getHandle());
+		bgfx::setTexture(TextureUnit::Diffuse, uniforms->diffuseSampler.handle, diffuseBundle.textures[frame]->getHandle());
 
 		if (shouldLerpTextureAnimation())
 		{
-			bgfx::setTexture(TextureUnit::Normal, uniforms->textures[MaterialTextureBundleIndex::NormalMap]->handle, bundles[MaterialTextureBundleIndex::DiffuseMap].textures[nextFrame]->getHandle());
+			bgfx::setTexture(TextureUnit::Diffuse2, uniforms->diffuseSampler2.handle, diffuseBundle.textures[nextFrame]->getHandle());
 		}
 	}
 
 	// Lightmap.
-	const Texture *lightmap = bundles[TextureUnit::Light].textures[0];
+	const Texture *lightmap = bundles[MaterialTextureBundleIndex::Lightmap].textures[0];
 
 	if (!lightmap)
 		lightmap = Texture::getWhite();
 
-	bgfx::setTexture(TextureUnit::Light, uniforms->textures[MaterialTextureBundleIndex::Lightmap]->handle, lightmap->getHandle());
+	bgfx::setTexture(TextureUnit::Light, uniforms->lightSampler.handle, lightmap->getHandle());
 }
 
 bool MaterialStage::shouldLerpTextureAnimation() const
@@ -203,7 +203,7 @@ void MaterialStage::calculateTextureAnimation(int *frame, int *nextFrame, float 
 		*frame = ri.ftol(material->time_ * diffuseBundle.imageAnimationSpeed * g_funcTableSize);
 		*frame >>= g_funcTableSize2;
 		*frame = std::max(0, *frame); // May happen with shader time offsets.
-		*frame %= bundles[MaterialTextureBundleIndex::DiffuseMap].numImageAnimations;
+		*frame %= diffuseBundle.numImageAnimations;
 	}
 
 	if (nextFrame)

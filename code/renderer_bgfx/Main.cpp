@@ -646,7 +646,7 @@ void Main::renderScene(const refdef_t *def)
 					{
 						programId = ShaderProgramId::LuminanceDownsample;
 						setTexelOffsetsDownsample4x4(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]);
-						bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, luminanceFrameBuffers_[i - 1].handle);
+						bgfx::setTexture(0, uniforms_->textureSampler.handle, luminanceFrameBuffers_[i - 1].handle);
 					}
 
 					renderScreenSpaceQuad(luminanceFrameBuffers_[i], programId, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_, Rect(0, 0, luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]));
@@ -1166,7 +1166,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			matStageUniforms_->light_Type_Emissive.set(vec4::empty);
 			matStageUniforms_->vertexColor.set(vec4::black);
 			const int sky_texorder[6] = { 0, 2, 1, 3, 4, 5 };
-			bgfx::setTexture(MaterialTextureBundleIndex::DiffuseMap, matStageUniforms_->diffuseMap.handle, mat->sky.outerbox[sky_texorder[dc.skyboxSide]]->getHandle());
+			bgfx::setTexture(TextureUnit::Diffuse, matStageUniforms_->diffuseSampler.handle, mat->sky.outerbox[sky_texorder[dc.skyboxSide]]->getHandle());
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
 			bgfx::setState(dc.state);

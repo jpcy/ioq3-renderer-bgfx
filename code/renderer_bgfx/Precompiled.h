@@ -669,7 +669,6 @@ struct MaterialTextureBundle
 };
 
 /// Indices into MaterialStage::bundle
-/// @remarks Sync with TextureUnit.
 struct MaterialTextureBundleIndex
 {
 	enum
@@ -1133,20 +1132,17 @@ public:
 };
 
 /// Texture units used by the generic shader(s).
-/// @remarks Sync with MaterialTextureBundleIndex and shaders.
 struct TextureUnit
 {
 	enum
 	{
-		Diffuse  = MaterialTextureBundleIndex::DiffuseMap,
-		Light    = MaterialTextureBundleIndex::Lightmap,
-		Normal   = MaterialTextureBundleIndex::NormalMap,
-		Deluxe   = MaterialTextureBundleIndex::Deluxemap,
-		Specular = MaterialTextureBundleIndex::Specularmap,
-		Depth,
-		DynamicLightCells,
-		DynamicLightIndices,
-		DynamicLights
+		Diffuse             = TU_DIFFUSE,
+		Diffuse2            = TU_DIFFUSE2,
+		Light               = TU_LIGHT,
+		Depth               = TU_DEPTH,
+		DynamicLightCells   = TU_DYNAMIC_LIGHT_CELLS,
+		DynamicLightIndices = TU_DYNAMIC_LIGHT_INDICES,
+		DynamicLights       = TU_DYNAMIC_LIGHTS
 	};
 };
 
@@ -1298,15 +1294,6 @@ struct Uniforms_Material
 /// @brief Uniforms derived from material stage state.
 struct Uniforms_MaterialStage
 {
-	Uniforms_MaterialStage()
-	{
-		textures[MaterialTextureBundleIndex::DiffuseMap] = &diffuseMap;
-		textures[MaterialTextureBundleIndex::Lightmap] = &lightmap;
-		textures[MaterialTextureBundleIndex::NormalMap] = &normalMap;
-		textures[MaterialTextureBundleIndex::Deluxemap] = &deluxemap;
-		textures[MaterialTextureBundleIndex::Specularmap] = &specularmap;
-	}
-
 	/// @remarks Only x used.
 	Uniform_vec4 alphaTest = "u_AlphaTest";
 
@@ -1316,16 +1303,13 @@ struct Uniforms_MaterialStage
 
 	/// @name Texture samplers
 	/// @{
-	Uniform_int diffuseMap = "u_DiffuseMap";
-	Uniform_int lightmap = "u_LightMap";
-	Uniform_int normalMap = "u_NormalMap";
-	Uniform_int deluxemap = "u_DeluxeMap";
-	Uniform_int specularmap = "u_SpecularMap";
-	Uniform_int depthSampler = "u_DepthMap";
+	Uniform_int depthSampler = "u_DepthSampler";
+	Uniform_int diffuseSampler = "u_DiffuseSampler";
+	Uniform_int diffuseSampler2 = "u_DiffuseSampler2";
 	Uniform_int dynamicLightCellsSampler = "u_DynamicLightCellsSampler";
 	Uniform_int dynamicLightIndicesSampler = "u_DynamicLightIndicesSampler";
 	Uniform_int dynamicLightsSampler = "u_DynamicLightsSampler";
-	Uniform_int *textures[MaterialTextureBundleIndex::NumMaterialTextureBundles];
+	Uniform_int lightSampler = "u_LightSampler";
 	/// @}
 
 	Uniform_vec4 color = "u_Color";
