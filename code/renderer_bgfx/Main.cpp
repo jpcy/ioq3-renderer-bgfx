@@ -778,24 +778,16 @@ void Main::endFrame()
 		debugDraw(smaaBlendFb_, 1, 0, ShaderProgramId::TextureSingleChannel);
 	}
 
+	uint32_t debug = 0;
+
+	if (g_cvars.bgfx_stats->integer != 0)
+		debug |= BGFX_DEBUG_STATS;
+
+	if (g_cvars.debugText->integer != 0)
+		debug |= BGFX_DEBUG_TEXT;
+
+	bgfx::setDebug(debug);
 	bgfx::frame();
-
-	if (g_cvars.wireframe->modified || g_cvars.bgfx_stats->modified || g_cvars.debugText->modified)
-	{
-		uint32_t debug = 0;
-
-		if (g_cvars.wireframe->integer != 0)
-			debug |= BGFX_DEBUG_WIREFRAME;
-
-		if (g_cvars.bgfx_stats->integer != 0)
-			debug |= BGFX_DEBUG_STATS;
-
-		if (g_cvars.debugText->integer != 0)
-			debug |= BGFX_DEBUG_TEXT;
-
-		bgfx::setDebug(debug);
-		g_cvars.wireframe->modified = g_cvars.bgfx_stats->modified = g_cvars.debugText->modified = qfalse;
-	}
 
 	if (g_cvars.debugDraw->modified)
 	{
@@ -1302,13 +1294,24 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Generic + shaderVariant].handle);
 		}
 
+		if (g_cvars.wireframe->integer != 0)
+		{
+			// Doesn't handle vertex deforms.
+			matStageUniforms_->color.set(vec4::white);
+			SetDrawCallGeometry(dc);
+			bgfx::setState(dc.state | BGFX_STATE_DEPTH_TEST_ALWAYS | BGFX_STATE_PT_LINES);
+			bgfx::setTexture(0, uniforms_->textureSampler.handle, Texture::getWhite()->getHandle());
+			bgfx::setTransform(dc.modelMatrix.get());
+			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::TextureColor].handle);
+		}
+
 		// Do fog pass.
 		if (doFogPass)
 		{
 			matStageUniforms_->color.set(fogColor);
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
-			uint64_t state = dc.state | BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_SRC_ALPHA, BGFX_STATE_BLEND_INV_SRC_ALPHA);
+			uint64_t state = dc.state | BGFX_STATE_BLEND_ALPHA;
 
 			if (mat->fogPass == MaterialFogPass::Equal)
 			{
