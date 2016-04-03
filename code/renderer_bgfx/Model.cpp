@@ -358,14 +358,14 @@ bool Model_md3::isCulled(Entity *entity, const Frustum &cameraFrustum) const
 	assert(entity);
 
 	// It is possible to have a bad frame while changing models.
-	const int frameIndex = Clamped(entity->e.frame, 0, (int)frames_.size() - 1);
-	const int oldFrameIndex = Clamped(entity->e.oldframe, 0, (int)frames_.size() - 1);
+	const int frameIndex = Clamped(entity->frame, 0, (int)frames_.size() - 1);
+	const int oldFrameIndex = Clamped(entity->oldFrame, 0, (int)frames_.size() - 1);
 	const ModelFrame &frame = frames_[frameIndex];
 	const ModelFrame &oldFrame = frames_[oldFrameIndex];
-	const mat4 modelMatrix = mat4::transform(entity->e.axis, entity->e.origin);
+	const mat4 modelMatrix = mat4::transform(entity->rotation, entity->position);
 
 	// Cull bounding sphere ONLY if this is not an upscaled entity.
-	if (!entity->e.nonNormalizedAxes)
+	if (!entity->nonNormalizedAxes)
 	{
 		if (frameIndex == oldFrameIndex)
 		{
@@ -406,9 +406,9 @@ void Model_md3::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 		return;
 
 	// It is possible to have a bad frame while changing models.
-	const int frameIndex = Clamped(entity->e.frame, 0, (int)frames_.size() - 1);
-	const int oldFrameIndex = Clamped(entity->e.oldframe, 0, (int)frames_.size() - 1);
-	const mat4 modelMatrix = mat4::transform(entity->e.axis, entity->e.origin);
+	const int frameIndex = Clamped(entity->frame, 0, (int)frames_.size() - 1);
+	const int oldFrameIndex = Clamped(entity->oldFrame, 0, (int)frames_.size() - 1);
+	const mat4 modelMatrix = mat4::transform(entity->rotation, entity->position);
 	const bool isAnimated = frames_.size() > 1;
 	bgfx::TransientVertexBuffer tvb;
 	Vertex *vertices = nullptr;
@@ -430,7 +430,7 @@ void Model_md3::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 		{
 			Vertex &fromVertex = frames_[oldFrameIndex].vertices[i];
 			Vertex &toVertex = frames_[frameIndex].vertices[i];
-			const float fraction = 1.0f - entity->e.backlerp;
+			const float fraction = entity->lerp;
 			vertices[i].pos = vec3::lerp(fromVertex.pos, toVertex.pos, fraction);
 			vertices[i].normal = vec3::lerp(fromVertex.normal, toVertex.normal, fraction).normal();
 			vertices[i].texCoord = toVertex.texCoord;
@@ -445,11 +445,11 @@ void Model_md3::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 		if (isAnimated)
 		{
 			const ModelFrame &frame = frames_[oldFrameIndex];
-			fogIndex = world::FindFogIndex(vec3(entity->e.origin) + frame.position, frame.radius);
+			fogIndex = world::FindFogIndex(vec3(entity->position) + frame.position, frame.radius);
 		}
 		else
 		{
-			fogIndex = world::FindFogIndex(entity->e.origin, frames_[0].radius);
+			fogIndex = world::FindFogIndex(entity->position, frames_[0].radius);
 		}
 	}
 
@@ -457,13 +457,13 @@ void Model_md3::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 	{
 		Material *mat = surface.materials[0];
 
-		if (entity->e.customShader > 0)
+		if (entity->customMaterial > 0)
 		{
-			mat = g_materialCache->getMaterial(entity->e.customShader);
+			mat = g_materialCache->getMaterial(entity->customMaterial);
 		}
-		else if (entity->e.customSkin > 0)
+		else if (entity->customSkin > 0)
 		{
-			Material *customMat = g_materialCache->getSkin(entity->e.customSkin)->findMaterial(surface.name);
+			Material *customMat = g_materialCache->getSkin(entity->customSkin)->findMaterial(surface.name);
 
 			if (customMat)
 				mat = customMat;
@@ -475,7 +475,7 @@ void Model_md3::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 		dc.material = mat;
 		dc.modelMatrix = modelMatrix;
 
-		if ((entity->e.renderfx & RF_DEPTHHACK) != 0)
+		if ((entity->flags & EntityFlags::DepthHack) != 0)
 		{
 			if (bgfx::getRendererType() == bgfx::RendererType::Direct3D11)
 			{

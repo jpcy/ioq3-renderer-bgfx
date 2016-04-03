@@ -550,7 +550,7 @@ void AddDynamicLightToScene(const DynamicLight &light)
 	s_main->addDynamicLightToScene(light);
 }
 
-void AddEntityToScene(const refEntity_t *entity)
+void AddEntityToScene(const Entity &entity)
 {
 	return s_main->addEntityToScene(entity);
 }
@@ -626,9 +626,9 @@ void RegisterFont(const char *fontName, int pointSize, fontInfo_t *font)
 	s_main->registerFont(fontName, pointSize, font);
 }
 
-void RenderScene(const refdef_t *def)
+void RenderScene(const SceneDefinition &scene)
 {
-	s_main->renderScene(def);
+	s_main->renderScene(scene);
 }
 
 bool SampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir)

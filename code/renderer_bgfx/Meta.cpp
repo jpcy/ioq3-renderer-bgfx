@@ -99,45 +99,45 @@ void OnEntityAddedToScene(const Entity &entity, bool isWorldScene)
 	const vec3 plasmaColor = util::ToLinear(vec3(0.6f, 0.6f, 1.0f));
 	DynamicLight dl;
 	dl.color_radius = vec4::empty;
-	dl.position_type = vec4(entity.e.origin, DynamicLight::Point);
+	dl.position_type = vec4(entity.position, DynamicLight::Point);
 
 	// BFG projectile.
-	if (entity.e.reType == RT_MODEL && s_meta.bfgMissibleModel && entity.e.hModel == s_meta.bfgMissibleModel->getIndex())
+	if (entity.type == EntityType::Model && s_meta.bfgMissibleModel && entity.handle == s_meta.bfgMissibleModel->getIndex())
 	{
 		dl.color_radius = vec4(bfgColor, 200); // Same radius as rocket.
 	}
 	// BFG explosion.
-	else if (entity.e.reType == RT_SPRITE && s_meta.bfgExplosionMaterial && entity.e.customShader == s_meta.bfgExplosionMaterial->index)
+	else if (entity.type == EntityType::Sprite && s_meta.bfgExplosionMaterial && entity.customMaterial == s_meta.bfgExplosionMaterial->index)
 	{
-		dl.color_radius = vec4(bfgColor, 300 * CalculateExplosionLight(entity.e.shaderTime, 1000)); // Same radius and duration as rocket explosion.
+		dl.color_radius = vec4(bfgColor, 300 * CalculateExplosionLight(entity.materialTime, 1000)); // Same radius and duration as rocket explosion.
 	}
 	// Lightning bolt.
-	else if (entity.e.reType == RT_LIGHTNING)
+	else if (entity.type == EntityType::Lightning)
 	{
 		const float base = 1;
 		const float amplitude = 0.1f;
 		const float phase = 0;
 		const float freq = 10.1f;
 		const float radius = base + g_sinTable[ri.ftol((phase + main::GetFloatTime() * freq) * g_funcTableSize) & g_funcTableMask] * amplitude;
-		dl.capsuleEnd = vec3(entity.e.oldorigin);
+		dl.capsuleEnd = vec3(entity.oldPosition);
 		dl.color_radius = vec4(lightningColor, 200 * radius);
 		dl.position_type.w = DynamicLight::Capsule;
 	}
 	// Plasma ball.
-	else if (entity.e.reType == RT_SPRITE && s_meta.plasmaBallMaterial && entity.e.customShader == s_meta.plasmaBallMaterial->index)
+	else if (entity.type == EntityType::Sprite && s_meta.plasmaBallMaterial && entity.customMaterial == s_meta.plasmaBallMaterial->index)
 	{
 		dl.color_radius = vec4(plasmaColor, 150);
 	}
 	// Plasma explosion.
-	else if (entity.e.reType == RT_MODEL && s_meta.plasmaExplosionMaterial && entity.e.customShader == s_meta.plasmaExplosionMaterial->index)
+	else if (entity.type == EntityType::Model && s_meta.plasmaExplosionMaterial && entity.customMaterial == s_meta.plasmaExplosionMaterial->index)
 	{
-		dl.color_radius = vec4(plasmaColor, 200 * CalculateExplosionLight(entity.e.shaderTime, 600)); // CG_MissileHitWall: 600ms duration.
+		dl.color_radius = vec4(plasmaColor, 200 * CalculateExplosionLight(entity.materialTime, 600)); // CG_MissileHitWall: 600ms duration.
 	}
 	// Rail core.
-	else if (entity.e.reType == RT_RAIL_CORE)
+	else if (entity.type == EntityType::RailCore)
 	{
-		dl.capsuleEnd = vec3(entity.e.oldorigin);
-		dl.color_radius = vec4(util::ToLinear(vec4::fromBytes(entity.e.shaderRGBA).xyz()), 200);
+		dl.capsuleEnd = vec3(entity.oldPosition);
+		dl.color_radius = vec4(util::ToLinear(entity.materialColor.rgb()), 200);
 		dl.position_type.w = DynamicLight::Capsule;
 	}
 

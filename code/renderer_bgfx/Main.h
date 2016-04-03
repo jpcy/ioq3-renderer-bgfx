@@ -73,9 +73,9 @@ public:
 	void uploadCinematic(int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);
 	void loadWorld(const char *name);
 	void addDynamicLightToScene(const DynamicLight &light);
-	void addEntityToScene(const refEntity_t *entity);
+	void addEntityToScene(const Entity &entity);
 	void addPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int nPolys);
-	void renderScene(const refdef_t *def);
+	void renderScene(const SceneDefinition &scene);
 	void endFrame();
 	bool sampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
 
@@ -142,13 +142,6 @@ private:
 			ToneMap,
 			Num
 		};
-	};
-
-	struct Rect
-	{
-		Rect() : x(0), y(0), w(0), h(0) {}
-		Rect(int x, int y, int w, int h) : x(x), y(y), w(w), h(h) {}
-		int x, y, w, h;
 	};
 
 	struct PushViewFlags

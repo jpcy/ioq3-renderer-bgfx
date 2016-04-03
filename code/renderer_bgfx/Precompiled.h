@@ -72,6 +72,7 @@ extern glconfig_t glConfig;
 struct Entity;
 class Material;
 class Model;
+struct SceneDefinition;
 class Skin;
 struct SunLight;
 struct Texture;
@@ -286,9 +287,64 @@ private:
 	uint16_t lightsTextureSize_;
 };
 
+struct EntityFlags
+{
+	enum
+	{
+		DepthHack        = 1<<0,
+		FirstPerson      = 1<<1,
+		LightingPosition = 1<<2,
+		ThirdPerson      = 1<<3
+	};
+};
+
+enum class EntityType
+{
+	Beam,
+	Lightning, 
+	Model,
+	Poly,
+	Portal,
+	RailCore,
+	RailRings,
+	Sprite
+};
+
 struct Entity
 {
-	refEntity_t e;
+	/// @name Interface
+	/// @{
+
+	float angle;
+	qhandle_t customMaterial;
+	qhandle_t customSkin;
+	int flags;
+	int frame, oldFrame;
+	qhandle_t handle;
+	float lerp;
+	vec3 lightingPosition;
+
+	/// Color used by MaterialColorGen::Entity and MaterialColorGen::OneMinusEntity.
+	vec4 materialColor;
+
+	/// Texture coordinate used by MaterialTexMod::EntityTranslate.
+	vec2 materialTexCoord;
+
+	float materialTime;
+
+	/// Axis are not normalized, i.e. they have scale.
+	bool nonNormalizedAxes;
+
+	vec3 position, oldPosition;
+	float radius;
+	mat3 rotation;
+	int skinNum;
+	EntityType type;
+
+	/// @}
+
+	/// @name Local
+	/// @{
 
 	/// @remarks Used for environment mapping, alphagen specular and alphagen portal.
 	vec3 localViewPosition;
@@ -300,6 +356,8 @@ struct Entity
 	vec3 ambientLight;
 
 	vec3 directedLight;
+
+	/// @}
 };
 
 /// @brief Given a triangulated quad, extract the unique corner vertices.
@@ -345,7 +403,7 @@ struct IndexBuffer
 namespace main
 {
 	void AddDynamicLightToScene(const DynamicLight &light);
-	void AddEntityToScene(const refEntity_t *entity);
+	void AddEntityToScene(const Entity &entity);
 	void AddPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int nPolys);
 	void DebugPrint(const char *format, ...);
 	void DrawBounds(const Bounds &bounds);
@@ -359,7 +417,7 @@ namespace main
 	bool isCameraMirrored();
 	void LoadWorld(const char *name); 
 	void RegisterFont(const char *fontName, int pointSize, fontInfo_t *font);
-	void RenderScene(const refdef_t *def);
+	void RenderScene(const SceneDefinition &scene);
 	bool SampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
 	void SetColor(vec4 c);
 	void SetSunLight(const SunLight &sunLight); 
@@ -1029,6 +1087,33 @@ public:
 private:
 	uint8_t *data_;
 	long length_;
+};
+
+struct Rect
+{
+	Rect() : x(0), y(0), w(0), h(0) {}
+	Rect(int x, int y, int w, int h) : x(x), y(y), w(w), h(h) {}
+	int x, y, w, h;
+};
+
+struct SceneDefinitionFlags
+{
+	enum
+	{
+		Hyperspace = 1<<0,
+		World      = 1<<1
+	};
+};
+
+struct SceneDefinition
+{
+	uint8_t areaMask[MAX_MAP_AREA_BYTES];
+	int flags;
+	vec2 fov;
+	vec3 position;
+	Rect rect;
+	mat3 rotation;
+	int time;
 };
 
 struct Shader

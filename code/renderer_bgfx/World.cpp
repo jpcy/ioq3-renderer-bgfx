@@ -63,14 +63,14 @@ public:
 
 	bool isCulled(Entity *entity, const Frustum &cameraFrustum) const override
 	{
-		return cameraFrustum.clipBounds(bounds_, mat4::transform(entity->e.axis, entity->e.origin)) == Frustum::ClipResult::Outside;
+		return cameraFrustum.clipBounds(bounds_, mat4::transform(entity->rotation, entity->position)) == Frustum::ClipResult::Outside;
 	}
 
 	void render(const mat3 &scenRotation, DrawCallList *drawCallList, Entity *entity) override
 	{
 		assert(drawCallList);
 		assert(entity);
-		const mat4 modelMatrix = mat4::transform(entity->e.axis, entity->e.origin);
+		const mat4 modelMatrix = mat4::transform(entity->rotation, entity->position);
 
 		for (Surface &surface : surfaces_)
 		{
@@ -825,9 +825,9 @@ public:
 			{
 				const Entity &entity = entities[j];
 
-				if (entity.e.reType == RT_PORTALSURFACE)
+				if (entity.type == EntityType::Portal)
 				{
-					const float d = vec3::dotProduct(entity.e.origin, plane.normal) - plane.distance;
+					const float d = vec3::dotProduct(entity.position, plane.normal) - plane.distance;
 
 					if (d > 64 || d < -64)
 						continue;
@@ -844,7 +844,7 @@ public:
 				continue;
 
 			// Mirrors don't do a fade over distance (although they could).
-			bool isPortalMirror = (vec3(portalEntity->e.origin) == vec3(portalEntity->e.oldorigin));
+			bool isPortalMirror = (portalEntity->position == portalEntity->oldPosition);
 
 			if (!isPortalMirror && shortest > portalSurface->material->portalRange * portalSurface->material->portalRange)
 				continue;
@@ -883,37 +883,37 @@ public:
 		else
 		{
 			// Project the origin onto the surface plane to get an origin point we can rotate around.
-			const float d = vec3::dotProduct(portal.entity->e.origin, portal.plane.normal) - portal.plane.distance;
-			surfaceTransform.position = vec3(portal.entity->e.origin) + surfaceTransform.rotation[0] * -d;
+			const float d = vec3::dotProduct(portal.entity->position, portal.plane.normal) - portal.plane.distance;
+			surfaceTransform.position = portal.entity->position + surfaceTransform.rotation[0] * -d;
 
 			// Now get the camera position and rotation.
-			cameraTransform.position = portal.entity->e.oldorigin;
-			cameraTransform.rotation[0] = -vec3(portal.entity->e.axis[0]);
-			cameraTransform.rotation[1] = -vec3(portal.entity->e.axis[1]);
-			cameraTransform.rotation[2] = portal.entity->e.axis[2];
+			cameraTransform.position = portal.entity->oldPosition;
+			cameraTransform.rotation[0] = -vec3(portal.entity->rotation[0]);
+			cameraTransform.rotation[1] = -vec3(portal.entity->rotation[1]);
+			cameraTransform.rotation[2] = portal.entity->rotation[2];
 
 			// Optionally rotate.
-			if (portal.entity->e.oldframe || portal.entity->e.skinNum)
+			if (portal.entity->oldFrame || portal.entity->skinNum)
 			{
 				float d;
 
-				if (portal.entity->e.oldframe)
+				if (portal.entity->oldFrame)
 				{
 					// If a speed is specified.
-					if (portal.entity->e.frame)
+					if (portal.entity->frame)
 					{
 						// Continuous rotate
-						d = main::GetFloatTime() * portal.entity->e.frame;
+						d = main::GetFloatTime() * portal.entity->frame;
 					}
 					else
 					{
 						// Bobbing rotate, with skinNum being the rotation offset.
-						d = portal.entity->e.skinNum + sin(main::GetFloatTime()) * 4;
+						d = portal.entity->skinNum + sin(main::GetFloatTime()) * 4;
 					}
 				}
-				else if (portal.entity->e.skinNum)
+				else if (portal.entity->skinNum)
 				{
-					d = (float)portal.entity->e.skinNum;
+					d = (float)portal.entity->skinNum;
 				}
 
 				cameraTransform.rotation[1] = cameraTransform.rotation[1].rotatedAroundDirection(cameraTransform.rotation[0], d);
@@ -921,7 +921,7 @@ public:
 			}
 		}
 
-		*pvsPosition = portal.entity->e.oldorigin; // Get the PVS position from the entity.
+		*pvsPosition = portal.entity->oldPosition; // Get the PVS position from the entity.
 		portalCamera->position = MirroredPoint(mainCameraPosition, surfaceTransform, cameraTransform);
 		portalCamera->rotation[0] = MirroredVector(mainCameraRotation[0], surfaceTransform, cameraTransform);
 		portalCamera->rotation[1] = MirroredVector(mainCameraRotation[1], surfaceTransform, cameraTransform);

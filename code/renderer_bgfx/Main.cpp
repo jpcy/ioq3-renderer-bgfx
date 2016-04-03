@@ -556,9 +556,9 @@ void Main::addDynamicLightToScene(const DynamicLight &light)
 	dlightManager_->add(frameNo_, light);
 }
 
-void Main::addEntityToScene(const refEntity_t *entity)
+void Main::addEntityToScene(const Entity &entity)
 {
-	sceneEntities_.push_back({ *entity });
+	sceneEntities_.push_back(entity);
 }
 
 void Main::addPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int nPolys)
@@ -585,20 +585,20 @@ void Main::addPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts
 	}
 }
 
-void Main::renderScene(const refdef_t *def)
+void Main::renderScene(const SceneDefinition &scene)
 {
 	flushStretchPics();
 	stretchPicViewId_ = UINT8_MAX;
-	time_ = def->time;
-	floatTime_ = def->time * 0.001f;
+	time_ = scene.time;
+	floatTime_ = time_ * 0.001f;
 	
 	// Clamp view rect to screen.
-	const int x = std::max(0, def->x);
-	const int y = std::max(0, def->y);
-	const int w = std::min(glConfig.vidWidth, x + def->width) - x;
-	const int h = std::min(glConfig.vidHeight, y + def->height) - y;
+	const int x = std::max(0, scene.rect.x);
+	const int y = std::max(0, scene.rect.y);
+	const int w = std::min(glConfig.vidWidth, x + scene.rect.w) - x;
+	const int h = std::min(glConfig.vidHeight, y + scene.rect.h) - y;
 
-	if (def->rdflags & RDF_HYPERSPACE)
+	if (scene.flags & SceneDefinitionFlags::Hyperspace)
 	{
 		const uint8_t c = time_ & 255;
 		const uint8_t viewId = pushView(defaultFb_, 0, mat4::identity, mat4::identity, Rect(x, y, w, h));
@@ -607,7 +607,7 @@ void Main::renderScene(const refdef_t *def)
 	}
 	else
 	{
-		isWorldScene_ = (def->rdflags & RDF_NOWORLDMODEL) == 0 && world::IsLoaded();
+		isWorldScene_ = (scene.flags & SceneDefinitionFlags::World) && world::IsLoaded();
 
 		// Need to do this here because Main::addEntityToScene doesn't know if this is a world scene.
 		for (const Entity &entity : sceneEntities_)
@@ -622,9 +622,8 @@ void Main::renderScene(const refdef_t *def)
 		}
 
 		// Render camera(s).
-		const vec3 scenePosition(def->vieworg);
-		sceneRotation_ = mat3(def->viewaxis);
-		renderCamera(mainVisCacheId_, scenePosition, scenePosition, sceneRotation_, Rect(x, y, w, h), vec2(def->fov_x, def->fov_y), def->areamask);
+		sceneRotation_ = scene.rotation;
+		renderCamera(mainVisCacheId_, scene.position, scene.position, sceneRotation_, Rect(x, y, w, h), scene.fov, scene.areaMask);
 
 		if (isWorldScene_)
 		{
@@ -1026,10 +1025,10 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 	for (Entity &entity : sceneEntities_)
 	{
-		if (isMainCamera && (entity.e.renderfx & RF_THIRD_PERSON) != 0)
+		if (isMainCamera && (entity.flags & EntityFlags::ThirdPerson) != 0)
 			continue;
 
-		if (!isMainCamera && (entity.e.renderfx & RF_FIRST_PERSON) != 0)
+		if (!isMainCamera && (entity.flags & EntityFlags::FirstPerson) != 0)
 			continue;
 
 		currentEntity_ = &entity;
@@ -1640,40 +1639,40 @@ void Main::renderEntity(vec3 viewPosition, mat3 viewRotation, Frustum cameraFrus
 
 	// Calculate the viewer origin in the model's space.
 	// Needed for fog, specular, and environment mapping.
-	const vec3 delta = viewPosition - vec3(entity->e.origin);
+	const vec3 delta = viewPosition - entity->position;
 
 	// Compensate for scale in the axes if necessary.
 	float axisLength = 1;
 
-	if (entity->e.nonNormalizedAxes)
+	if (entity->nonNormalizedAxes)
 	{
-		axisLength = 1.0f / vec3(entity->e.axis[0]).length();
+		axisLength = 1.0f / entity->rotation[0].length();
 	}
 
 	entity->localViewPosition =
 	{
-		vec3::dotProduct(delta, entity->e.axis[0]) * axisLength,
-		vec3::dotProduct(delta, entity->e.axis[1]) * axisLength,
-		vec3::dotProduct(delta, entity->e.axis[2]) * axisLength
+		vec3::dotProduct(delta, entity->rotation[0]) * axisLength,
+		vec3::dotProduct(delta, entity->rotation[1]) * axisLength,
+		vec3::dotProduct(delta, entity->rotation[2]) * axisLength
 	};
 
-	switch (entity->e.reType)
+	switch (entity->type)
 	{
-	case RT_BEAM:
+	case EntityType::Beam:
 		break;
 
-	case RT_LIGHTNING:
+	case EntityType::Lightning:
 		renderLightningEntity(viewPosition, viewRotation, entity);
 		break;
 
-	case RT_MODEL:
-		if (entity->e.hModel == 0)
+	case EntityType::Model:
+		if (entity->handle == 0)
 		{
-			sceneDebugAxis_.push_back(entity->e.origin);
+			sceneDebugAxis_.push_back(entity->position);
 		}
 		else
 		{
-			Model *model = modelCache_->getModel(entity->e.hModel);
+			Model *model = modelCache_->getModel(entity->handle);
 
 			if (model->isCulled(entity, cameraFrustum))
 				break;
@@ -1683,16 +1682,16 @@ void Main::renderEntity(vec3 viewPosition, mat3 viewRotation, Frustum cameraFrus
 		}
 		break;
 	
-	case RT_RAIL_CORE:
+	case EntityType::RailCore:
 		renderRailCoreEntity(viewPosition, viewRotation, entity);
 		break;
 
-	case RT_RAIL_RINGS:
+	case EntityType::RailRings:
 		renderRailRingsEntity(entity);
 		break;
 
-	case RT_SPRITE:
-		if (cameraFrustum.clipSphere(entity->e.origin, entity->e.radius) == Frustum::ClipResult::Outside)
+	case EntityType::Sprite:
+		if (cameraFrustum.clipSphere(entity->position, entity->radius) == Frustum::ClipResult::Outside)
 			break;
 
 		renderSpriteEntity(viewRotation, entity);
@@ -1705,7 +1704,7 @@ void Main::renderEntity(vec3 viewPosition, mat3 viewRotation, Frustum cameraFrus
 
 void Main::renderLightningEntity(vec3 viewPosition, mat3 viewRotation, Entity *entity)
 {
-	const vec3 start(entity->e.origin), end(entity->e.oldorigin);
+	const vec3 start(entity->position), end(entity->oldPosition);
 	vec3 dir = (end - start);
 	const float length = dir.normalize();
 
@@ -1716,14 +1715,14 @@ void Main::renderLightningEntity(vec3 viewPosition, mat3 viewRotation, Entity *e
 
 	for (int i = 0; i < 4; i++)
 	{
-		renderRailCore(start, end, right, length, g_cvars.railCoreWidth->value, materialCache_->getMaterial(entity->e.customShader), vec4::fromBytes(entity->e.shaderRGBA), entity);
+		renderRailCore(start, end, right, length, g_cvars.railCoreWidth->value, materialCache_->getMaterial(entity->customMaterial), entity->materialColor, entity);
 		right = right.rotatedAroundDirection(dir, 45);
 	}
 }
 
 void Main::renderRailCoreEntity(vec3 viewPosition, mat3 viewRotation, Entity *entity)
 {
-	const vec3 start(entity->e.oldorigin), end(entity->e.origin);
+	const vec3 start(entity->oldPosition), end(entity->position);
 	vec3 dir = (end - start);
 	const float length = dir.normalize();
 
@@ -1732,7 +1731,7 @@ void Main::renderRailCoreEntity(vec3 viewPosition, mat3 viewRotation, Entity *en
 	const vec3 v2 = (end - viewPosition).normal();
 	const vec3 right = vec3::crossProduct(v1, v2).normal();
 
-	renderRailCore(start, end, right, length, g_cvars.railCoreWidth->value, materialCache_->getMaterial(entity->e.customShader), vec4::fromBytes(entity->e.shaderRGBA), entity);
+	renderRailCore(start, end, right, length, g_cvars.railCoreWidth->value, materialCache_->getMaterial(entity->customMaterial), entity->materialColor, entity);
 }
 
 void Main::renderRailCore(vec3 start, vec3 end, vec3 up, float length, float spanWidth, Material *mat, vec4 color, Entity *entity)
@@ -1769,7 +1768,7 @@ void Main::renderRailCore(vec3 start, vec3 end, vec3 up, float length, float spa
 	DrawCall dc;
 	dc.dynamicLighting = false;
 	dc.entity = entity;
-	dc.fogIndex = isWorldScene_ ? world::FindFogIndex(entity->e.origin, entity->e.radius) : -1;
+	dc.fogIndex = isWorldScene_ ? world::FindFogIndex(entity->position, entity->radius) : -1;
 	dc.material = mat;
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
@@ -1781,7 +1780,7 @@ void Main::renderRailCore(vec3 start, vec3 end, vec3 up, float length, float spa
 
 void Main::renderRailRingsEntity(Entity *entity)
 {
-	const vec3 start(entity->e.oldorigin), end(entity->e.origin);
+	const vec3 start(entity->oldPosition), end(entity->position);
 	vec3 dir = (end - start);
 	const float length = dir.normalize();
 	vec3 right, up;
@@ -1830,7 +1829,7 @@ void Main::renderRailRingsEntity(Entity *entity)
 			vertex->pos = positions[j];
 			vertex->texCoord[0] = j < 2;
 			vertex->texCoord[1] = j && j != 3;
-			vertex->color = vec4::fromBytes(entity->e.shaderRGBA);
+			vertex->color = entity->materialColor;
 			positions[j] += dir;
 		}
 
@@ -1843,8 +1842,8 @@ void Main::renderRailRingsEntity(Entity *entity)
 	DrawCall dc;
 	dc.dynamicLighting = false;
 	dc.entity = entity;
-	dc.fogIndex = isWorldScene_ ? world::FindFogIndex(entity->e.origin, entity->e.radius) : -1;
-	dc.material = materialCache_->getMaterial(entity->e.customShader);
+	dc.fogIndex = isWorldScene_ ? world::FindFogIndex(entity->position, entity->radius) : -1;
+	dc.material = materialCache_->getMaterial(entity->customMaterial);
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
 	dc.vb.nVertices = nVertices;
@@ -1858,18 +1857,18 @@ void Main::renderSpriteEntity(mat3 viewRotation, Entity *entity)
 	// Calculate the positions for the four corners.
 	vec3 left, up;
 
-	if (entity->e.rotation == 0)
+	if (entity->angle == 0)
 	{
-		left = viewRotation[1] * entity->e.radius;
-		up = viewRotation[2] * entity->e.radius;
+		left = viewRotation[1] * entity->radius;
+		up = viewRotation[2] * entity->radius;
 	}
 	else
 	{
-		const float ang = (float)M_PI * entity->e.rotation / 180.0f;
+		const float ang = (float)M_PI * entity->angle / 180.0f;
 		const float s = sin(ang);
 		const float c = cos(ang);
-		left = viewRotation[1] * (c * entity->e.radius) + viewRotation[2] * (-s * entity->e.radius);
-		up = viewRotation[2] * (c * entity->e.radius) + viewRotation[1] * (s * entity->e.radius);
+		left = viewRotation[1] * (c * entity->radius) + viewRotation[2] * (-s * entity->radius);
+		up = viewRotation[2] * (c * entity->radius) + viewRotation[1] * (s * entity->radius);
 	}
 
 	if (isCameraMirrored_)
@@ -1886,11 +1885,10 @@ void Main::renderSpriteEntity(mat3 viewRotation, Entity *entity)
 	}
 
 	auto vertices = (Vertex *)tvb.data;
-	const vec3 position(entity->e.origin);
-	vertices[0].pos = position + left + up;
-	vertices[1].pos = position - left + up;
-	vertices[2].pos = position - left - up;
-	vertices[3].pos = position + left - up;
+	vertices[0].pos = entity->position + left + up;
+	vertices[1].pos = entity->position - left + up;
+	vertices[2].pos = entity->position - left - up;
+	vertices[3].pos = entity->position + left - up;
 
 	// Constant normal all the way around.
 	vertices[0].normal = vertices[1].normal = vertices[2].normal = vertices[3].normal = -viewRotation[0];
@@ -1902,7 +1900,7 @@ void Main::renderSpriteEntity(mat3 viewRotation, Entity *entity)
 	vertices[3].texCoord = vertices[3].texCoord2 = vec2(0, 1);
 
 	// Constant color all the way around.
-	vertices[0].color = vertices[1].color = vertices[2].color = vertices[3].color = util::ToLinear(vec4::fromBytes(entity->e.shaderRGBA));
+	vertices[0].color = vertices[1].color = vertices[2].color = vertices[3].color = util::ToLinear(entity->materialColor);
 
 	auto indices = (uint16_t *)tib.data;
 	indices[0] = 0; indices[1] = 1; indices[2] = 3;
@@ -1911,9 +1909,9 @@ void Main::renderSpriteEntity(mat3 viewRotation, Entity *entity)
 	DrawCall dc;
 	dc.dynamicLighting = false;
 	dc.entity = entity;
-	dc.fogIndex = isWorldScene_ ? world::FindFogIndex(entity->e.origin, entity->e.radius) : -1;
-	dc.material = materialCache_->getMaterial(entity->e.customShader);
-	dc.softSpriteDepth = entity->e.radius / 2.0f;
+	dc.fogIndex = isWorldScene_ ? world::FindFogIndex(entity->position, entity->radius) : -1;
+	dc.material = materialCache_->getMaterial(entity->customMaterial);
+	dc.softSpriteDepth = entity->radius / 2.0f;
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
 	dc.vb.nVertices = nVertices;
@@ -1929,14 +1927,14 @@ void Main::setupEntityLighting(Entity *entity)
 	// Trace a sample point down to find ambient light.
 	vec3 lightPosition;
 	
-	if (entity->e.renderfx & RF_LIGHTING_ORIGIN)
+	if (entity->flags & EntityFlags::LightingPosition)
 	{
 		// Seperate lightOrigins are needed so an object that is sinking into the ground can still be lit, and so multi-part models can be lit identically.
-		lightPosition = entity->e.lightingOrigin;
+		lightPosition = entity->lightingPosition;
 	}
 	else
 	{
-		lightPosition = entity->e.origin;
+		lightPosition = entity->position;
 	}
 
 	// If not a world scene, only use dynamic lights (menu system, etc.)

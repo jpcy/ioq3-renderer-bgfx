@@ -301,7 +301,7 @@ void MaterialStage::calculateTexMods(vec4 *outMatrix, vec4 *outOffTurb) const
 			break;
 
 		case MaterialTexMod::EntityTranslate:
-			calculateScrollTexMatrix(main::GetCurrentEntity()->e.shaderTexCoord, matrix);
+			calculateScrollTexMatrix(main::GetCurrentEntity()->materialTexCoord, matrix);
 			break;
 
 		case MaterialTexMod::Scroll:
@@ -482,19 +482,16 @@ void MaterialStage::calculateColors(vec4 *baseColor, vec4 *vertColor) const
 		case MaterialColorGen::Entity:
 			if (main::GetCurrentEntity())
 			{
-				(*baseColor).r = main::GetCurrentEntity()->e.shaderRGBA[0] / 255.0f;
-				(*baseColor).g = main::GetCurrentEntity()->e.shaderRGBA[1] / 255.0f;
-				(*baseColor).b = main::GetCurrentEntity()->e.shaderRGBA[2] / 255.0f;
-				(*baseColor).a = main::GetCurrentEntity()->e.shaderRGBA[3] / 255.0f;
+				(*baseColor) = main::GetCurrentEntity()->materialColor;
 			}
 			break;
 		case MaterialColorGen::OneMinusEntity:
 			if (main::GetCurrentEntity())
 			{
-				(*baseColor).r = 1.0f - main::GetCurrentEntity()->e.shaderRGBA[0] / 255.0f;
-				(*baseColor).g = 1.0f - main::GetCurrentEntity()->e.shaderRGBA[1] / 255.0f;
-				(*baseColor).b = 1.0f - main::GetCurrentEntity()->e.shaderRGBA[2] / 255.0f;
-				(*baseColor).a = 1.0f - main::GetCurrentEntity()->e.shaderRGBA[3] / 255.0f;
+				(*baseColor).r = 1.0f - main::GetCurrentEntity()->materialColor.r;
+				(*baseColor).g = 1.0f - main::GetCurrentEntity()->materialColor.g;
+				(*baseColor).b = 1.0f - main::GetCurrentEntity()->materialColor.b;
+				(*baseColor).a = 1.0f - main::GetCurrentEntity()->materialColor.a;
 			}
 			break;
 		case MaterialColorGen::Identity:
@@ -519,14 +516,14 @@ void MaterialStage::calculateColors(vec4 *baseColor, vec4 *vertColor) const
 		case MaterialAlphaGen::Entity:
 			if (main::GetCurrentEntity())
 			{
-				(*baseColor).a = main::GetCurrentEntity()->e.shaderRGBA[3] / 255.0f;
+				(*baseColor).a = main::GetCurrentEntity()->materialColor.a;
 			}
 			(*vertColor).a = 0.0f;
 			break;
 		case MaterialAlphaGen::OneMinusEntity:
 			if (main::GetCurrentEntity())
 			{
-				(*baseColor).a = 1.0f - main::GetCurrentEntity()->e.shaderRGBA[3] / 255.0f;
+				(*baseColor).a = 1.0f - main::GetCurrentEntity()->materialColor.a;
 			}
 			(*vertColor).a = 0.0f;
 			break;
@@ -565,7 +562,7 @@ float Material::setTime(float time)
 
 	if (main::GetCurrentEntity())
 	{
-		time_ -= main::GetCurrentEntity()->e.shaderTime;
+		time_ -= main::GetCurrentEntity()->materialTime;
 	}
 
 	return time_;
@@ -613,15 +610,15 @@ void Material::doAutoSpriteDeform(const mat3 &sceneRotation, Vertex *vertices, u
 
 	if (main::GetCurrentEntity())
 	{
-		forward.x = vec3::dotProduct(sceneRotation[0], main::GetCurrentEntity()->e.axis[0]);
-		forward.y = vec3::dotProduct(sceneRotation[0], main::GetCurrentEntity()->e.axis[1]);
-		forward.z = vec3::dotProduct(sceneRotation[0], main::GetCurrentEntity()->e.axis[2]);
-		leftDir.x = vec3::dotProduct(sceneRotation[1], main::GetCurrentEntity()->e.axis[0]);
-		leftDir.y = vec3::dotProduct(sceneRotation[1], main::GetCurrentEntity()->e.axis[1]);
-		leftDir.z = vec3::dotProduct(sceneRotation[1], main::GetCurrentEntity()->e.axis[2]);
-		upDir.x = vec3::dotProduct(sceneRotation[2], main::GetCurrentEntity()->e.axis[0]);
-		upDir.y = vec3::dotProduct(sceneRotation[2], main::GetCurrentEntity()->e.axis[1]);
-		upDir.z = vec3::dotProduct(sceneRotation[2], main::GetCurrentEntity()->e.axis[2]);
+		forward.x = vec3::dotProduct(sceneRotation[0], main::GetCurrentEntity()->rotation[0]);
+		forward.y = vec3::dotProduct(sceneRotation[0], main::GetCurrentEntity()->rotation[1]);
+		forward.z = vec3::dotProduct(sceneRotation[0], main::GetCurrentEntity()->rotation[2]);
+		leftDir.x = vec3::dotProduct(sceneRotation[1], main::GetCurrentEntity()->rotation[0]);
+		leftDir.y = vec3::dotProduct(sceneRotation[1], main::GetCurrentEntity()->rotation[1]);
+		leftDir.z = vec3::dotProduct(sceneRotation[1], main::GetCurrentEntity()->rotation[2]);
+		upDir.x = vec3::dotProduct(sceneRotation[2], main::GetCurrentEntity()->rotation[0]);
+		upDir.y = vec3::dotProduct(sceneRotation[2], main::GetCurrentEntity()->rotation[1]);
+		upDir.z = vec3::dotProduct(sceneRotation[2], main::GetCurrentEntity()->rotation[2]);
 	}
 	else
 	{
@@ -661,9 +658,9 @@ void Material::doAutoSpriteDeform(const mat3 &sceneRotation, Vertex *vertices, u
 				left = -left;
 
 			// Compensate for scale in the axes if necessary.
-			if (main::GetCurrentEntity() && main::GetCurrentEntity()->e.nonNormalizedAxes)
+			if (main::GetCurrentEntity() && main::GetCurrentEntity()->nonNormalizedAxes)
 			{
-				float axisLength = vec3(main::GetCurrentEntity()->e.axis[0]).length();
+				float axisLength = vec3(main::GetCurrentEntity()->rotation[0]).length();
 
 				if (!axisLength)
 				{
