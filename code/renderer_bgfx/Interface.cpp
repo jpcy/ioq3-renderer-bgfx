@@ -24,6 +24,73 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 namespace renderer {
 
+/*
+** glconfig_t
+**
+** Contains variables specific to the OpenGL configuration
+** being run right now.  These are constant once the OpenGL
+** subsystem is initialized.
+*/
+typedef enum {
+	TC_NONE,
+	TC_S3TC,  // this is for the GL_S3_s3tc extension.
+	TC_S3TC_ARB  // this is for the GL_EXT_texture_compression_s3tc extension.
+} textureCompression_t;
+
+typedef enum {
+	GLDRV_ICD,					// driver is integrated with window system
+								// WARNING: there are tests that check for
+								// > GLDRV_ICD for minidriverness, so this
+								// should always be the lowest value in this
+								// enum set
+	GLDRV_STANDALONE,			// driver is a non-3Dfx standalone driver
+	GLDRV_VOODOO				// driver is a 3Dfx standalone driver
+} glDriverType_t;
+
+typedef enum {
+	GLHW_GENERIC,			// where everthing works the way it should
+	GLHW_3DFX_2D3D,			// Voodoo Banshee or Voodoo3, relevant since if this is
+							// the hardware type then there can NOT exist a secondary
+							// display adapter
+	GLHW_RIVA128,			// where you can't interpolate alpha
+	GLHW_RAGEPRO,			// where you can't modulate alpha on alpha textures
+	GLHW_PERMEDIA2			// where you don't have src*dst
+} glHardwareType_t;
+
+typedef struct {
+	char					renderer_string[MAX_STRING_CHARS];
+	char					vendor_string[MAX_STRING_CHARS];
+	char					version_string[MAX_STRING_CHARS];
+	char					extensions_string[BIG_INFO_STRING];
+
+	int						maxTextureSize;			// queried from GL
+	int						numTextureUnits;		// multitexture ability
+
+	int						colorBits, depthBits, stencilBits;
+
+	glDriverType_t			driverType;
+	glHardwareType_t		hardwareType;
+
+	qboolean				deviceSupportsGamma;
+	textureCompression_t	textureCompression;
+	qboolean				textureEnvAddAvailable;
+
+	int						vidWidth, vidHeight;
+	// aspect is the screen's physical width / height, which may be different
+	// than scrWidth / scrHeight if the pixels are non-square
+	// normal screens should be 4/3, but wide aspect monitors may be 16/9
+	float					windowAspect;
+
+	int						displayFrequency;
+
+	// synonymous with "does rendering consume the entire screen?", therefore
+	// a Voodoo or Voodoo2 will have this set to TRUE, as will a Win32 ICD that
+	// used CDS.
+	qboolean				isFullscreen;
+	qboolean				stereoEnabled;
+	qboolean				smpActive;		// UNUSED, present for compatibility
+} glconfig_t;
+
 typedef enum {
 	RT_MODEL,
 	RT_POLY,
@@ -209,7 +276,7 @@ static void RE_Shutdown(qboolean destroyWindow)
 	if (destroyWindow)
 	{
 		bgfx::shutdown();
-		Window_Shutdown();
+		window::Shutdown();
 	}
 }
 
@@ -217,7 +284,14 @@ static void RE_BeginRegistration(glconfig_t *config)
 {
 	ri.Printf(PRINT_ALL, "----- Renderer Init -----\n");
 	main::Initialize();
-	*config = glConfig;
+	const bgfx::Caps *caps = bgfx::getCaps();
+	config->maxTextureSize = caps->maxTextureSize;
+	config->deviceSupportsGamma = qtrue;
+	config->vidWidth = window::GetWidth();
+	config->vidHeight = window::GetHeight();
+	config->windowAspect = window::GetAspectRatio();
+	config->displayFrequency = window::GetRefreshRate();
+	config->isFullscreen = window::IsFullscreen() ? qtrue : qfalse;
 }
 
 static qhandle_t RE_RegisterModel(const char *name)

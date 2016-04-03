@@ -595,8 +595,8 @@ void Main::renderScene(const SceneDefinition &scene)
 	// Clamp view rect to screen.
 	const int x = std::max(0, scene.rect.x);
 	const int y = std::max(0, scene.rect.y);
-	const int w = std::min(glConfig.vidWidth, x + scene.rect.w) - x;
-	const int h = std::min(glConfig.vidHeight, y + scene.rect.h) - y;
+	const int w = std::min(window::GetWidth(), x + scene.rect.w) - x;
+	const int h = std::min(window::GetHeight(), y + scene.rect.h) - y;
 
 	if (scene.flags & SceneDefinitionFlags::Hyperspace)
 	{
@@ -872,7 +872,7 @@ void Main::flushStretchPics()
 
 			if (stretchPicViewId_ == UINT8_MAX)
 			{
-				stretchPicViewId_ = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, (float)glConfig.vidWidth, 0, (float)glConfig.vidHeight, -1, 1), Rect(0, 0, glConfig.vidWidth, glConfig.vidHeight), PushViewFlags::Sequential);
+				stretchPicViewId_ = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, (float)window::GetWidth(), 0, (float)window::GetHeight(), -1, 1), Rect(0, 0, window::GetWidth(), window::GetHeight()), PushViewFlags::Sequential);
 			}
 
 			for (const MaterialStage &stage : stretchPicMaterial_->stages)
@@ -1551,8 +1551,8 @@ void Main::renderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId
 		return;
 	}
 
-	if (!rect.w) rect.w = glConfig.vidWidth;
-	if (!rect.h) rect.h = glConfig.vidHeight;
+	if (!rect.w) rect.w = window::GetWidth();
+	if (!rect.h) rect.h = window::GetHeight();
 	const float width = 1.0f;
 	const float height = 1.0f;
 	const float zz = 0.0f;

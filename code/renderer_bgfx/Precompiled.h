@@ -67,7 +67,6 @@ using namespace math;
 namespace renderer {
 
 extern refimport_t ri;
-extern glconfig_t glConfig;
 
 struct Entity;
 class Material;
@@ -1543,8 +1542,17 @@ struct WarnOnceId
 };
 
 void WarnOnce(WarnOnceId::Enum id);
-void Window_Initialize();
-void Window_Shutdown();
+
+namespace window
+{
+	float GetAspectRatio();
+	int GetRefreshRate();
+	int GetWidth();
+	int GetHeight();
+	int IsFullscreen();
+	void Initialize();
+	void Shutdown();
+}
 
 namespace world
 {

@@ -25,7 +25,17 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define R_MODE_FALLBACK 3 // 640 * 480
 
 namespace renderer {
+namespace window {
 
+struct Window
+{
+	float aspectRatio;
+	bool isFullscreen;
+	int refreshRate;
+	int width = 0, height = 0;
+};
+
+static Window s_window;
 static SDL_Window *SDL_window = NULL;
 static float displayAspect = 0.0f;
 
@@ -36,7 +46,7 @@ struct VideoMode
 	float pixelAspect;
 };
 
-VideoMode r_vidModes[] =
+static VideoMode r_vidModes[] =
 {
 	{ "Mode  0: 320x240",		320,	240,	1 },
 	{ "Mode  1: 400x300",		400,	300,	1 },
@@ -62,7 +72,7 @@ enum class SetModeResult
 	Unknown
 };
 
-static bool GetModeInfo(int *width, int *height, float *windowAspect, int mode)
+static bool GetModeInfo(int mode)
 {
 	if (mode < -1)
 		return false;
@@ -73,19 +83,19 @@ static bool GetModeInfo(int *width, int *height, float *windowAspect, int mode)
 
 	if (mode == -1)
 	{
-		*width = g_cvars.customwidth->integer;
-		*height = g_cvars.customheight->integer;
+		s_window.width = g_cvars.customwidth->integer;
+		s_window.height = g_cvars.customheight->integer;
 		pixelAspect = g_cvars.customPixelAspect->value;
 	}
 	else
 	{
 		const VideoMode &vm = r_vidModes[mode];
-		*width  = vm.width;
-		*height = vm.height;
+		s_window.width  = vm.width;
+		s_window.height = vm.height;
 		pixelAspect = vm.pixelAspect;
 	}
 
-	*windowAspect = *width / (*height * pixelAspect);
+	s_window.aspectRatio = s_window.width / (s_window.height * pixelAspect);
 	return true;
 }
 
@@ -141,25 +151,25 @@ static SetModeResult SetMode(int mode, bool fullscreen, bool noborder)
 		// use desktop video resolution
 		if( desktopMode.h > 0 )
 		{
-			glConfig.vidWidth = desktopMode.w;
-			glConfig.vidHeight = desktopMode.h;
+			s_window.width = desktopMode.w;
+			s_window.height = desktopMode.h;
 		}
 		else
 		{
-			glConfig.vidWidth = 640;
-			glConfig.vidHeight = 480;
+			s_window.width = 640;
+			s_window.height = 480;
 			ri.Printf(PRINT_ALL, "Cannot determine display resolution, assuming 640x480\n");
 		}
 
-		glConfig.windowAspect = glConfig.vidWidth / (float)glConfig.vidHeight;
+		s_window.aspectRatio = s_window.width / (float)s_window.height;
 	}
-	else if (!GetModeInfo(&glConfig.vidWidth, &glConfig.vidHeight, &glConfig.windowAspect, mode))
+	else if (!GetModeInfo(mode))
 	{
 		ri.Printf(PRINT_ALL, " invalid mode\n");
 		return SetModeResult::InvalidMode;
 	}
 
-	ri.Printf(PRINT_ALL, " %d %d\n", glConfig.vidWidth, glConfig.vidHeight);
+	ri.Printf(PRINT_ALL, " %d %d\n", s_window.width, s_window.height);
 
 	// Center window
 	int x = SDL_WINDOWPOS_UNDEFINED, y = SDL_WINDOWPOS_UNDEFINED;
@@ -175,22 +185,22 @@ static SetModeResult SetMode(int mode, bool fullscreen, bool noborder)
 	if (fullscreen)
 	{
 		flags |= SDL_WINDOW_FULLSCREEN;
-		glConfig.isFullscreen = qtrue;
+		s_window.isFullscreen = true;
 	}
 	else
 	{
 		if (noborder)
 			flags |= SDL_WINDOW_BORDERLESS;
 
-		glConfig.isFullscreen = qfalse;
+		s_window.isFullscreen = false;
 	}
 
-	if (g_cvars.centerWindow->integer && !glConfig.isFullscreen)
+	if (g_cvars.centerWindow->integer && !s_window.isFullscreen)
 	{
 		x = y = SDL_WINDOWPOS_CENTERED;
 	}
 	
-	if ((SDL_window = SDL_CreateWindow(CLIENT_WINDOW_TITLE, x, y, glConfig.vidWidth, glConfig.vidHeight, flags)) == 0)
+	if ((SDL_window = SDL_CreateWindow(CLIENT_WINDOW_TITLE, x, y, s_window.width, s_window.height, flags)) == 0)
 	{
 		ri.Printf(PRINT_DEVELOPER, "SDL_CreateWindow failed: %s\n", SDL_GetError());
 		goto finished;
@@ -200,9 +210,9 @@ static SetModeResult SetMode(int mode, bool fullscreen, bool noborder)
 	{
 		SDL_DisplayMode mode;
 		mode.format = SDL_PIXELFORMAT_RGB24;
-		mode.w = glConfig.vidWidth;
-		mode.h = glConfig.vidHeight;
-		mode.refresh_rate = glConfig.displayFrequency = ri.Cvar_VariableIntegerValue("r_displayRefresh");
+		mode.w = s_window.width;
+		mode.h = s_window.height;
+		mode.refresh_rate = s_window.refreshRate = ri.Cvar_VariableIntegerValue("r_displayRefresh");
 		mode.driverdata = NULL;
 
 		if (SDL_SetWindowDisplayMode(SDL_window, &mode) < 0)
@@ -264,7 +274,32 @@ static bool StartDriverAndSetMode(int mode, bool fullscreen, bool noborder)
 	return true;
 }
 
-void Window_Initialize()
+float GetAspectRatio()
+{
+	return s_window.aspectRatio;
+}
+
+int GetRefreshRate()
+{
+	return s_window.refreshRate;
+}
+
+int GetWidth()
+{
+	return s_window.width;
+}
+
+int GetHeight()
+{
+	return s_window.height;
+}
+
+int IsFullscreen()
+{
+	return s_window.isFullscreen;
+}
+
+void Initialize()
 {
 	if (ri.Cvar_VariableIntegerValue("com_abnormalExit"))
 	{
@@ -304,10 +339,11 @@ success:
 	bgfx::sdlSetWindow(SDL_window);
 }
 
-void Window_Shutdown()
+void Shutdown()
 {
 	ri.IN_Shutdown();
 	SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
 
+} // namespace window
 } // namespace renderer

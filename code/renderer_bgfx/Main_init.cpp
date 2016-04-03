@@ -55,7 +55,6 @@ const mat4 Main::toOpenGlMatrix_
 );
 
 refimport_t ri;
-glconfig_t glConfig = {};
 
 bgfx::VertexDecl Vertex::decl;
 
@@ -344,7 +343,7 @@ struct ShaderProgramIdMap
 void Main::initialize()
 {
 	// Create a window if we don't have one.
-	if (glConfig.vidWidth == 0)
+	if (window::GetWidth() == 0)
 	{
 		// Get the selected backend, and make sure it's actually supported.
 		bgfx::RendererType::Enum supportedBackends[bgfx::RendererType::Count];
@@ -371,7 +370,7 @@ void Main::initialize()
 			}
 		}
 
-		Window_Initialize();
+		window::Initialize();
 		
 		if (!bgfx::init(selectedBackend, 0, 0, &bgfxCallback))
 		{
@@ -395,7 +394,7 @@ void Main::initialize()
 		resetFlags |= BGFX_RESET_MAXANISOTROPY;
 	}
 
-	bgfx::reset(glConfig.vidWidth, glConfig.vidHeight, resetFlags);
+	bgfx::reset(window::GetWidth(), window::GetHeight(), resetFlags);
 	const bgfx::Caps *caps = bgfx::getCaps();
 
 	if (caps->maxFBAttachments < 2)
@@ -416,8 +415,6 @@ void Main::initialize()
 	debugDraw_ = DebugDrawFromString(g_cvars.debugDraw->string);
 	halfTexelOffset_ = caps->rendererType == bgfx::RendererType::Direct3D9 ? 0.5f : 0;
 	isTextureOriginBottomLeft_ = caps->rendererType == bgfx::RendererType::OpenGL || caps->rendererType == bgfx::RendererType::OpenGLES;
-	glConfig.deviceSupportsGamma = qtrue;
-	glConfig.maxTextureSize = bgfx::getCaps()->maxTextureSize;
 	Vertex::init();
 	uniforms_ = std::make_unique<Uniforms>();
 	entityUniforms_ = std::make_unique<Uniforms_Entity>();
