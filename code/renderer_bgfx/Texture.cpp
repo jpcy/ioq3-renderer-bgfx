@@ -77,7 +77,7 @@ struct TextureImpl
 			bgfxFlags |= BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP;
 		}
 
-		if (g_cvars.maxAnisotropy->integer)
+		if (g_cvars.maxAnisotropy.getBool())
 		{
 			bgfxFlags |= BGFX_TEXTURE_MIN_ANISOTROPIC | BGFX_TEXTURE_MAG_ANISOTROPIC;
 		}

@@ -101,46 +101,46 @@ struct ConsoleVariables
 {
 	void initialize();
 
-	cvar_t *aa;
-	cvar_t *aa_hud;
-	cvar_t *backend;
-	cvar_t *bgfx_stats;
-	cvar_t *debugDraw;
-	cvar_t *debugDrawSize;
-	cvar_t *debugText;
-	cvar_t *dynamicLightIntensity;
-	cvar_t *dynamicLightScale;
-	cvar_t *hdr;
-	cvar_t *hdrKey;
-	cvar_t *lerpTextureAnimation;
-	cvar_t *maxAnisotropy;
-	cvar_t *picmip;
-	cvar_t *railWidth;
-	cvar_t *railCoreWidth;
-	cvar_t *railSegmentLength;
-	cvar_t *screenshotJpegQuality;
-	cvar_t *softSprites;
-	cvar_t *waterReflections;
-	cvar_t *wireframe;
+	ConsoleVariable aa;
+	ConsoleVariable aa_hud;
+	ConsoleVariable backend;
+	ConsoleVariable bgfx_stats;
+	ConsoleVariable debugDraw;
+	ConsoleVariable debugDrawSize;
+	ConsoleVariable debugText;
+	ConsoleVariable dynamicLightIntensity;
+	ConsoleVariable dynamicLightScale;
+	ConsoleVariable hdr;
+	ConsoleVariable hdrKey;
+	ConsoleVariable lerpTextureAnimation;
+	ConsoleVariable maxAnisotropy;
+	ConsoleVariable picmip;
+	ConsoleVariable railWidth;
+	ConsoleVariable railCoreWidth;
+	ConsoleVariable railSegmentLength;
+	ConsoleVariable screenshotJpegQuality;
+	ConsoleVariable softSprites;
+	ConsoleVariable waterReflections;
+	ConsoleVariable wireframe;
 
 	/// @name Screen
 	/// @{
-	cvar_t *brightness;
-	cvar_t *contrast;
-	cvar_t *gamma;
-	cvar_t *saturation;
+	ConsoleVariable brightness;
+	ConsoleVariable contrast;
+	ConsoleVariable gamma;
+	ConsoleVariable saturation;
 	/// @}
 
 	/// @name Window
 	/// @{
-	cvar_t *allowResize;
-	cvar_t *centerWindow;
-	cvar_t *customheight;
-	cvar_t *customwidth;
-	cvar_t *customPixelAspect;
-	cvar_t *fullscreen;
-	cvar_t *mode;
-	cvar_t *noborder;
+	ConsoleVariable allowResize;
+	ConsoleVariable centerWindow;
+	ConsoleVariable customheight;
+	ConsoleVariable customwidth;
+	ConsoleVariable customPixelAspect;
+	ConsoleVariable fullscreen;
+	ConsoleVariable mode;
+	ConsoleVariable noborder;
 	/// @}
 };
 

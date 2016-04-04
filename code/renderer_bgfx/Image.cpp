@@ -107,11 +107,11 @@ static void FinalizeImage(Image *image, uint8_t *data, int flags)
 
 	if (flags & Image::Flags::GenerateMipmaps)
 	{
-		if ((flags & Image::Flags::Picmip) && g_cvars.picmip->integer > 0)
+		if ((flags & Image::Flags::Picmip) && g_cvars.picmip.getInt() > 0)
 		{
 			const int oldWidth = image->width, oldHeight = image->height;
-			image->width = std::max(1, image->width >> g_cvars.picmip->integer);
-			image->height = std::max(1, image->height >> g_cvars.picmip->integer);
+			image->width = std::max(1, image->width >> g_cvars.picmip.getInt());
+			image->height = std::max(1, image->height >> g_cvars.picmip.getInt());
 			image->calculateNumMips();
 			image->allocMemory();
 			stbir_resize_uint8(data, oldWidth, oldHeight, 0, image->memory->data, image->width, image->height, 0, image->nComponents);

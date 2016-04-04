@@ -206,7 +206,7 @@ void MaterialStage::setTextureSamplers(Uniforms_MaterialStage *uniforms) const
 
 bool MaterialStage::shouldLerpTextureAnimation() const
 {
-	return bundles[MaterialTextureBundleIndex::DiffuseMap].numImageAnimations > 1 && textureAnimationLerp != MaterialStageTextureAnimationLerp::Disabled && g_cvars.lerpTextureAnimation->integer;
+	return bundles[MaterialTextureBundleIndex::DiffuseMap].numImageAnimations > 1 && textureAnimationLerp != MaterialStageTextureAnimationLerp::Disabled && g_cvars.lerpTextureAnimation.getBool();
 }
 
 void MaterialStage::calculateTextureAnimation(int *frame, int *nextFrame, float *fraction) const

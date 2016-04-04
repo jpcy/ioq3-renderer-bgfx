@@ -83,9 +83,9 @@ static bool GetModeInfo(int mode)
 
 	if (mode == -1)
 	{
-		s_window.width = g_cvars.customwidth->integer;
-		s_window.height = g_cvars.customheight->integer;
-		pixelAspect = g_cvars.customPixelAspect->value;
+		s_window.width = g_cvars.customwidth.getInt();
+		s_window.height = g_cvars.customheight.getInt();
+		pixelAspect = g_cvars.customPixelAspect.getFloat();
 	}
 	else
 	{
@@ -104,7 +104,7 @@ static SetModeResult SetMode(int mode, bool fullscreen, bool noborder)
 	ri.Printf(PRINT_ALL, "Initializing display\n");
 	Uint32 flags = SDL_WINDOW_SHOWN;
 
-	if (g_cvars.allowResize->integer != 0)
+	if (g_cvars.allowResize.getBool())
 		flags |= SDL_WINDOW_RESIZABLE;
 
 	SDL_Surface *icon = NULL;
@@ -195,7 +195,7 @@ static SetModeResult SetMode(int mode, bool fullscreen, bool noborder)
 		s_window.isFullscreen = false;
 	}
 
-	if (g_cvars.centerWindow->integer && !s_window.isFullscreen)
+	if (g_cvars.centerWindow.getBool() && !s_window.isFullscreen)
 	{
 		x = y = SDL_WINDOWPOS_CENTERED;
 	}
@@ -255,7 +255,7 @@ static bool StartDriverAndSetMode(int mode, bool fullscreen, bool noborder)
 	{
 		ri.Printf( PRINT_ALL, "Fullscreen not allowed with in_nograb 1\n");
 		ri.Cvar_Set( "r_fullscreen", "0" );
-		g_cvars.fullscreen->modified = qfalse;
+		g_cvars.fullscreen.clearModified();
 		fullscreen = false;
 	}
 	
@@ -310,20 +310,20 @@ void Initialize()
 	}
 
 	// Create the window and set up the context
-	if (StartDriverAndSetMode(g_cvars.mode->integer, g_cvars.fullscreen->integer != 0, g_cvars.noborder->integer != 0))
+	if (StartDriverAndSetMode(g_cvars.mode.getInt(), g_cvars.fullscreen.getBool(), g_cvars.noborder.getBool()))
 		goto success;
 
-	if (g_cvars.noborder->integer != 0)
+	if (g_cvars.noborder.getBool())
 	{
 		// Try again with a window border
-		if (StartDriverAndSetMode(g_cvars.mode->integer, g_cvars.fullscreen->integer != 0, false))
+		if (StartDriverAndSetMode(g_cvars.mode.getInt(), g_cvars.fullscreen.getBool(), false))
 			goto success;
 	}
 
 	// Finally, try the default screen resolution
-	if (g_cvars.mode->integer != R_MODE_FALLBACK)
+	if (g_cvars.mode.getInt() != R_MODE_FALLBACK)
 	{
-		ri.Printf(PRINT_ALL, "Setting r_mode %d failed, falling back on r_mode %d\n", g_cvars.mode->integer, R_MODE_FALLBACK);
+		ri.Printf(PRINT_ALL, "Setting r_mode %d failed, falling back on r_mode %d\n", g_cvars.mode.getInt(), R_MODE_FALLBACK);
 
 		if (StartDriverAndSetMode(R_MODE_FALLBACK, false, false))
 			goto success;

@@ -179,7 +179,7 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 	}
 	else if (!util::Stricmp(extension, "jpg"))
 	{
-		if (!jo_write_jpg_to_func(ImageWriteCallbackConst, &buffer, screenShotDataBuffer_.data(), _width, _height, nComponents, g_cvars.screenshotJpegQuality->integer))
+		if (!jo_write_jpg_to_func(ImageWriteCallbackConst, &buffer, screenShotDataBuffer_.data(), _width, _height, nComponents, g_cvars.screenshotJpegQuality.getInt()))
 		{
 			ri.Printf(PRINT_ALL, "Screenshot: error writing jpg file\n");
 			return;
@@ -486,9 +486,9 @@ void Main::loadWorld(const char *name)
 	bgfx::TextureHandle reflectionTexture;
 	bgfx::TextureHandle sceneTextures[SceneFrameBufferAttachment::Num];
 
-	if (g_cvars.hdr->integer != 0)
+	if (g_cvars.hdr.getBool() != 0)
 	{
-		if (g_cvars.waterReflections->integer)
+		if (g_cvars.waterReflections.getBool())
 			reflectionTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::RGBA16F, rtClampFlags);
 
 		if (aa_ != AntiAliasing::None)
@@ -517,14 +517,14 @@ void Main::loadWorld(const char *name)
 			aaFlags |= (1 + (int)aa_ - (int)AntiAliasing::MSAA2x) << BGFX_TEXTURE_RT_MSAA_SHIFT;
 		}
 
-		if (g_cvars.waterReflections->integer)
+		if (g_cvars.waterReflections.getBool())
 			reflectionTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
 
 		sceneTextures[SceneFrameBufferAttachment::Color] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
 		sceneTextures[SceneFrameBufferAttachment::Depth] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT | aaFlags);
 	}
 
-	if (g_cvars.waterReflections->integer)
+	if (g_cvars.waterReflections.getBool())
 		reflectionFb_.handle = bgfx::createFrameBuffer(1, &reflectionTexture); // Don't destroy the texture, that will be done by the texture cache.
 
 	sceneFb_.handle = bgfx::createFrameBuffer(SceneFrameBufferAttachment::Num, sceneTextures, true);
@@ -537,7 +537,7 @@ void Main::loadWorld(const char *name)
 		smaaSearchTex_ = bgfx::createTexture2D(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, 1, bgfx::TextureFormat::R8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(searchTexBytes, SEARCHTEX_SIZE));
 	}
 
-	if (g_cvars.waterReflections->integer)
+	if (g_cvars.waterReflections.getBool())
 	{
 		// Register the reflection texture so it can accessed by materials.
 		Texture::create("*reflection", reflectionTexture);
@@ -628,7 +628,7 @@ void Main::renderScene(const SceneDefinition &scene)
 		if (isWorldScene_)
 		{
 			// HDR.
-			if (g_cvars.hdr->integer)
+			if (g_cvars.hdr.getBool())
 			{
 				// Luminance.
 				for (size_t i = 0; i < nLuminanceFrameBuffers_; i++)
@@ -668,13 +668,13 @@ void Main::renderScene(const SceneDefinition &scene)
 				// Clamp to sane values.
 				uniforms_->brightnessContrastGammaSaturation.set(vec4
 				(
-					Clamped(g_cvars.brightness->value - 1.0f, -0.8f, 0.8f),
-					Clamped(g_cvars.contrast->value, 0.5f, 3.0f),
-					Clamped(g_cvars.gamma->value, 0.5f, 3.0f),
-					Clamped(g_cvars.saturation->value, 0.0f, 3.0f)
+					Clamped(g_cvars.brightness.getFloat() - 1.0f, -0.8f, 0.8f),
+					Clamped(g_cvars.contrast.getFloat(), 0.5f, 3.0f),
+					Clamped(g_cvars.gamma.getFloat(), 0.5f, 3.0f),
+					Clamped(g_cvars.saturation.getFloat(), 0.0f, 3.0f)
 				));
 
-				uniforms_->hdrKey.set(vec4(Clamped(g_cvars.hdrKey->value, 0.01f, 0.2f), 0, 0, 0));
+				uniforms_->hdrKey.set(vec4(Clamped(g_cvars.hdrKey.getFloat(), 0.01f, 0.2f), 0, 0, 0));
 				bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Color);
 				bgfx::setTexture(1, uniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[currentAdaptedLuminanceFB_].handle);
 				renderScreenSpaceQuad(aa_ == AntiAliasing::None ? defaultFb_ : sceneTempFb_, ShaderProgramId::ToneMap, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
@@ -682,7 +682,7 @@ void Main::renderScene(const SceneDefinition &scene)
 
 			if (aa_ == AntiAliasing::FXAA)
 			{
-				if (g_cvars.hdr->integer)
+				if (g_cvars.hdr.getBool())
 				{
 					bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneTempFb_.handle);
 				}
@@ -698,7 +698,7 @@ void Main::renderScene(const SceneDefinition &scene)
 				uniforms_->smaaMetrics.set(vec4(1.0f / w, 1.0f / h, (float)w, (float)h));
 
 				// Edge detection.
-				if (g_cvars.hdr->integer)
+				if (g_cvars.hdr.getBool())
 				{
 					bgfx::setTexture(0, uniforms_->smaaColorSampler.handle, sceneTempFb_.handle);
 				}
@@ -716,7 +716,7 @@ void Main::renderScene(const SceneDefinition &scene)
 				renderScreenSpaceQuad(smaaBlendFb_, ShaderProgramId::SMAABlendingWeightCalculation, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE, BGFX_CLEAR_COLOR, isTextureOriginBottomLeft_);
 
 				// Neighborhood blending.
-				if (g_cvars.hdr->integer)
+				if (g_cvars.hdr.getBool())
 				{
 					bgfx::setTexture(0, uniforms_->smaaColorSampler.handle, sceneTempFb_.handle);
 				}
@@ -759,7 +759,7 @@ void Main::endFrame()
 	{
 		debugDraw(dlightManager_->getLightsTexture(), 0, 0, ShaderProgramId::TextureSingleChannel);
 	}
-	else if (debugDraw_ == DebugDraw::Luminance && g_cvars.hdr->integer)
+	else if (debugDraw_ == DebugDraw::Luminance && g_cvars.hdr.getBool())
 	{
 		for (int i = 0; i < nLuminanceFrameBuffers_; i++)
 		{
@@ -780,22 +780,22 @@ void Main::endFrame()
 
 	uint32_t debug = 0;
 
-	if (g_cvars.bgfx_stats->integer != 0)
+	if (g_cvars.bgfx_stats.getBool())
 		debug |= BGFX_DEBUG_STATS;
 
-	if (g_cvars.debugText->integer != 0)
+	if (g_cvars.debugText.getBool())
 		debug |= BGFX_DEBUG_TEXT;
 
 	bgfx::setDebug(debug);
 	bgfx::frame();
 
-	if (g_cvars.debugDraw->modified)
+	if (g_cvars.debugDraw.isModified())
 	{
-		debugDraw_ = DebugDrawFromString(g_cvars.debugDraw->string);
-		g_cvars.debugDraw->modified = qfalse;
+		debugDraw_ = DebugDrawFromString(g_cvars.debugDraw.getString());
+		g_cvars.debugDraw.clearModified();
 	}
 
-	if (g_cvars.debugText->integer)
+	if (g_cvars.debugText.getBool())
 	{
 		bgfx::dbgTextClear();
 		debugTextY = 0;
@@ -818,13 +818,13 @@ bool Main::sampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, v
 void Main::debugDraw(const FrameBuffer &texture, int x, int y, ShaderProgramId::Enum program)
 {
 	bgfx::setTexture(0, uniforms_->textureSampler.handle, texture.handle);
-	renderScreenSpaceQuad(defaultFb_, program, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize->integer * x, g_cvars.debugDrawSize->integer * y, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
+	renderScreenSpaceQuad(defaultFb_, program, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize.getInt() * x, g_cvars.debugDrawSize.getInt() * y, g_cvars.debugDrawSize.getInt(), g_cvars.debugDrawSize.getInt()));
 }
 
 void Main::debugDraw(bgfx::TextureHandle texture, int x, int y, ShaderProgramId::Enum program)
 {
 	bgfx::setTexture(0, uniforms_->textureSampler.handle, texture);
-	renderScreenSpaceQuad(defaultFb_, program, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize->integer * x, g_cvars.debugDrawSize->integer * y, g_cvars.debugDrawSize->integer, g_cvars.debugDrawSize->integer));
+	renderScreenSpaceQuad(defaultFb_, program, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize.getInt() * x, g_cvars.debugDrawSize.getInt() * y, g_cvars.debugDrawSize.getInt(), g_cvars.debugDrawSize.getInt()));
 }
 
 uint8_t Main::pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags)
@@ -959,7 +959,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	if (isWorldScene_ && isMainCamera)
 	{
 		// Render a reflection camera if there's a reflecting surface visible.
-		if (g_cvars.waterReflections->integer)
+		if (g_cvars.waterReflections.getBool())
 		{
 			Transform reflectionCamera;
 			vec4 reflectionPlane;
@@ -1294,7 +1294,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Generic + shaderVariant].handle);
 		}
 
-		if (g_cvars.wireframe->integer != 0)
+		if (g_cvars.wireframe.getBool())
 		{
 			// Doesn't handle vertex deforms.
 			matStageUniforms_->color.set(vec4::white);
@@ -1718,7 +1718,7 @@ void Main::renderLightningEntity(vec3 viewPosition, mat3 viewRotation, Entity *e
 
 	for (int i = 0; i < 4; i++)
 	{
-		renderRailCore(start, end, right, length, g_cvars.railCoreWidth->value, materialCache_->getMaterial(entity->customMaterial), entity->materialColor, entity);
+		renderRailCore(start, end, right, length, g_cvars.railCoreWidth.getFloat(), materialCache_->getMaterial(entity->customMaterial), entity->materialColor, entity);
 		right = right.rotatedAroundDirection(dir, 45);
 	}
 }
@@ -1734,7 +1734,7 @@ void Main::renderRailCoreEntity(vec3 viewPosition, mat3 viewRotation, Entity *en
 	const vec3 v2 = (end - viewPosition).normal();
 	const vec3 right = vec3::crossProduct(v1, v2).normal();
 
-	renderRailCore(start, end, right, length, g_cvars.railCoreWidth->value, materialCache_->getMaterial(entity->customMaterial), entity->materialColor, entity);
+	renderRailCore(start, end, right, length, g_cvars.railCoreWidth.getFloat(), materialCache_->getMaterial(entity->customMaterial), entity->materialColor, entity);
 }
 
 void Main::renderRailCore(vec3 start, vec3 end, vec3 up, float length, float spanWidth, Material *mat, vec4 color, Entity *entity)
@@ -1788,8 +1788,8 @@ void Main::renderRailRingsEntity(Entity *entity)
 	const float length = dir.normalize();
 	vec3 right, up;
 	dir.toNormalVectors(&right, &up);
-	dir *= g_cvars.railSegmentLength->value;
-	int nSegments = (int)std::max(1.0f, length / g_cvars.railSegmentLength->value);
+	dir *= g_cvars.railSegmentLength.getFloat();
+	int nSegments = (int)std::max(1.0f, length / g_cvars.railSegmentLength.getFloat());
 
 	if (nSegments > 1)
 		nSegments--;
@@ -1798,7 +1798,7 @@ void Main::renderRailRingsEntity(Entity *entity)
 		return;
 
 	const float scale = 0.25f;
-	const float spanWidth = g_cvars.railWidth->value;
+	const float spanWidth = g_cvars.railWidth.getFloat();
 	vec3 positions[4];
 
 	for (int i = 0; i < 4; i++)

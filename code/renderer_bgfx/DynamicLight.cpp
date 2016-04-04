@@ -59,7 +59,7 @@ void DynamicLightManager::add(int frameNo, const DynamicLight &light)
 
 	DynamicLight &l = lights_[frameNo % BGFX_NUM_BUFFER_FRAMES][nLights_++];
 	l = light;
-	l.color_radius.w *= g_cvars.dynamicLightScale->value;
+	l.color_radius.w *= g_cvars.dynamicLightScale.getFloat();
 }
 
 void DynamicLightManager::clear()
@@ -262,7 +262,7 @@ void DynamicLightManager::updateUniforms(Uniforms *uniforms)
 	uniforms->dynamicLightCellSize.set(vec4((float)cellSize_.x, (float)cellSize_.y, (float)cellSize_.z, (float)cellsTextureSize_));
 	uniforms->dynamicLightGridOffset.set(gridOffset_);
 	uniforms->dynamicLightGridSize.set(vec4((float)gridSize_.x, (float)gridSize_.y, (float)gridSize_.z, 0));
-	uniforms->dynamicLight_Num_Intensity.set(vec4((float)nLights_, g_cvars.dynamicLightIntensity->value, 0, 0));
+	uniforms->dynamicLight_Num_Intensity.set(vec4((float)nLights_, g_cvars.dynamicLightIntensity.getFloat(), 0, 0));
 	uniforms->dynamicLightTextureSizes_Cells_Indices_Lights.set(vec4((float)cellsTextureSize_, (float)indicesTextureSize_, (float)lightsTextureSize_, 0));
 }
 

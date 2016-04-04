@@ -21,7 +21,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #pragma once
 
-extern "C" {
+//extern "C" {
+namespace renderer {
+
+struct cvar_t;
 
 typedef float vec_t;
 typedef vec_t vec3_t[3];
@@ -91,67 +94,27 @@ typedef enum {
 	ERR_NEED_CD					// pop up the need-cd dialog
 } errorParm_t;
 
-/*
-==========================================================
+struct ConsoleVariableFlags
+{
+	enum
+	{
+		Archive,
+		Cheat,
+		Latch
+	};
+};
 
-CVARS (console variables)
-
-Many variables can be used for cheating purposes, so when
-cheats is zero, force all unspecified variables to their
-default values.
-==========================================================
-*/
-
-#define	CVAR_ARCHIVE		0x0001	// set to cause it to be saved to vars.rc
-// used for system variables, not for player
-// specific configurations
-#define	CVAR_USERINFO		0x0002	// sent to server on connect or change
-#define	CVAR_SERVERINFO		0x0004	// sent in response to front end requests
-#define	CVAR_SYSTEMINFO		0x0008	// these cvars will be duplicated on all clients
-#define	CVAR_INIT		0x0010	// don't allow change from console at all,
-// but can be set from the command line
-#define	CVAR_LATCH		0x0020	// will only change when C code next does
-// a Cvar_Get(), so it can't be changed
-// without proper initialization.  modified
-// will be set, even though the value hasn't
-// changed yet
-#define	CVAR_ROM		0x0040	// display only, cannot be set by user at all
-#define	CVAR_USER_CREATED	0x0080	// created by a set command
-#define	CVAR_TEMP		0x0100	// can be set even when cheats are disabled, but is not archived
-#define CVAR_CHEAT		0x0200	// can not be changed if cheats are disabled
-#define CVAR_NORESTART		0x0400	// do not clear when a cvar_restart is issued
-
-#define CVAR_SERVER_CREATED	0x0800	// cvar was created by a server the client connected to.
-#define CVAR_VM_CREATED		0x1000	// cvar was created exclusively in one of the VMs.
-#define CVAR_PROTECTED		0x2000	// prevent modifying this var from VMs or the server
-// These flags are only returned by the Cvar_Flags() function
-#define CVAR_MODIFIED		0x40000000	// Cvar was modified
-#define CVAR_NONEXISTENT	0x80000000	// Cvar doesn't exist.
-
-// nothing outside the Cvar_*() functions should modify these fields!
-typedef struct cvar_s cvar_t;
-
-struct cvar_s {
-	char			*name;
-	char			*string;
-	char			*resetString;		// cvar_restart will reset to this value
-	char			*latchedString;		// for CVAR_LATCH vars
-	int				flags;
-	qboolean	modified;			// set each time the cvar is changed
-	int				modificationCount;	// incremented each time the cvar is changed
-	float			value;				// atof( string )
-	int				integer;			// atoi( string )
-	qboolean	validate;
-	qboolean	integral;
-	float			min;
-	float			max;
-	char			*description;
-
-	cvar_t *next;
-	cvar_t *prev;
-	cvar_t *hashNext;
-	cvar_t *hashPrev;
-	int			hashIndex;
+struct ConsoleVariable
+{
+	void checkRange(float minValue, float maxValue, bool shouldBeIntegral);
+	void clearModified();
+	bool getBool() const;
+	const char *getString() const;
+	float getFloat() const;
+	int getInt() const;
+	bool isModified() const;
+	void setDescription(const char *description);
+	cvar_t *cvar;
 };
 
 // cinematic states
@@ -273,6 +236,11 @@ typedef struct poly_s {
 } poly_t;
 
 #define CLIENT_WINDOW_TITLE		"ioquake3"
+
+namespace interface
+{
+	ConsoleVariable GetConsoleVariable(const char *name, const char *value, int flags);
+}
 
 //
 // these are the functions imported by the refresh module
@@ -647,4 +615,5 @@ typedef struct {
 	int			patchHeight;
 } dsurface_t;
 
-} // extern "C"
+//} // extern "C"
+} // namespace renderer

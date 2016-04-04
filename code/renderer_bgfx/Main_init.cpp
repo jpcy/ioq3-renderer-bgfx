@@ -73,8 +73,8 @@ float g_inverseSawToothTable[g_funcTableSize];
 
 void ConsoleVariables::initialize()
 {
-	aa = ri.Cvar_Get("r_aa", "", CVAR_ARCHIVE | CVAR_LATCH);
-	ri.Cvar_SetDescription(aa,
+	aa = interface::GetConsoleVariable("r_aa", "", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	aa.setDescription(
 		"<empty>   None\n"
 		"fxaa      FXAA v2\n"
 		"msaa2x    MSAA 2x\n"
@@ -82,14 +82,14 @@ void ConsoleVariables::initialize()
 		"msaa8x    MSAA 8x\n"
 		"msaa16x   MSAA 16x\n"
 		"smaa      SMAA 1x\n");
-	aa_hud = ri.Cvar_Get("r_aa_hud", "", CVAR_ARCHIVE | CVAR_LATCH);
-	ri.Cvar_SetDescription(aa_hud,
+	aa_hud = interface::GetConsoleVariable("r_aa_hud", "", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	aa_hud.setDescription(
 		"<empty>   None\n"
 		"msaa2x    MSAA 2x\n"
 		"msaa4x    MSAA 4x\n"
 		"msaa8x    MSAA 8x\n"
 		"msaa16x   MSAA 16x\n");
-	backend = ri.Cvar_Get("r_backend", "", CVAR_ARCHIVE | CVAR_LATCH);
+	backend = interface::GetConsoleVariable("r_backend", "", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 
 	{
 		// Have the r_backend cvar print a list of supported backends when invoked without any arguments.
@@ -114,52 +114,52 @@ void ConsoleVariables::initialize()
 				description += util::VarArgs(FORMAT, map.id, bgfx::getRendererName(map.type));
 		}
 
-		ri.Cvar_SetDescription(backend, description.c_str());
+		backend.setDescription(description.c_str());
 		#undef FORMAT
 	}
 
-	bgfx_stats = ri.Cvar_Get("r_bgfx_stats", "0", CVAR_CHEAT);
-	debugDraw = ri.Cvar_Get("r_debugDraw", "", 0);
-	ri.Cvar_SetDescription(debugDraw,
+	bgfx_stats = interface::GetConsoleVariable("r_bgfx_stats", "0", ConsoleVariableFlags::Cheat);
+	debugDraw = interface::GetConsoleVariable("r_debugDraw", "", 0);
+	debugDraw.setDescription(
 		"<empty>    None\n"
 		"depth      Linear depth\n"
 		"dlight     Dynamic light data\n"
 		"lum        Average and adapted luminance\n"
 		"reflection Planar reflection\n"
 		"smaa       SMAA edges and weights\n");
-	debugDrawSize = ri.Cvar_Get("r_debugDrawSize", "256", CVAR_ARCHIVE);
-	debugText = ri.Cvar_Get("r_debugText", "0", CVAR_CHEAT);
-	dynamicLightIntensity = ri.Cvar_Get("r_dynamicLightIntensity", "1", CVAR_ARCHIVE);
-	dynamicLightScale = ri.Cvar_Get("r_dynamicLightScale", "0.7", CVAR_ARCHIVE);
-	hdr = ri.Cvar_Get("r_hdr", "0", CVAR_ARCHIVE | CVAR_LATCH);
-	hdrKey = ri.Cvar_Get("r_hdrKey", "0.1", CVAR_ARCHIVE);
-	lerpTextureAnimation = ri.Cvar_Get("r_lerpTextureAnimation", "1", CVAR_ARCHIVE | CVAR_LATCH);
-	maxAnisotropy = ri.Cvar_Get("r_maxAnisotropy", "0", CVAR_ARCHIVE | CVAR_LATCH);
-	picmip = ri.Cvar_Get("r_picmip", "0", CVAR_ARCHIVE | CVAR_LATCH);
-	ri.Cvar_CheckRange(picmip, 0, 16, qtrue);
-	railWidth = ri.Cvar_Get("r_railWidth", "16", CVAR_ARCHIVE);
-	railCoreWidth = ri.Cvar_Get("r_railCoreWidth", "6", CVAR_ARCHIVE);
-	railSegmentLength = ri.Cvar_Get("r_railSegmentLength", "32", CVAR_ARCHIVE);
-	softSprites = ri.Cvar_Get("r_softSprites", "1", CVAR_ARCHIVE);
-	screenshotJpegQuality = ri.Cvar_Get("r_screenshotJpegQuality", "90", CVAR_ARCHIVE);
-	waterReflections = ri.Cvar_Get("r_waterReflections", "0", CVAR_ARCHIVE | CVAR_LATCH);
-	wireframe = ri.Cvar_Get("r_wireframe", "0", CVAR_CHEAT);
+	debugDrawSize = interface::GetConsoleVariable("r_debugDrawSize", "256", ConsoleVariableFlags::Archive);
+	debugText = interface::GetConsoleVariable("r_debugText", "0", ConsoleVariableFlags::Cheat);
+	dynamicLightIntensity = interface::GetConsoleVariable("r_dynamicLightIntensity", "1", ConsoleVariableFlags::Archive);
+	dynamicLightScale = interface::GetConsoleVariable("r_dynamicLightScale", "0.7", ConsoleVariableFlags::Archive);
+	hdr = interface::GetConsoleVariable("r_hdr", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	hdrKey = interface::GetConsoleVariable("r_hdrKey", "0.1", ConsoleVariableFlags::Archive);
+	lerpTextureAnimation = interface::GetConsoleVariable("r_lerpTextureAnimation", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	maxAnisotropy = interface::GetConsoleVariable("r_maxAnisotropy", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	picmip = interface::GetConsoleVariable("r_picmip", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	picmip.checkRange(0, 16, true);
+	railWidth = interface::GetConsoleVariable("r_railWidth", "16", ConsoleVariableFlags::Archive);
+	railCoreWidth = interface::GetConsoleVariable("r_railCoreWidth", "6", ConsoleVariableFlags::Archive);
+	railSegmentLength = interface::GetConsoleVariable("r_railSegmentLength", "32", ConsoleVariableFlags::Archive);
+	softSprites = interface::GetConsoleVariable("r_softSprites", "1", ConsoleVariableFlags::Archive);
+	screenshotJpegQuality = interface::GetConsoleVariable("r_screenshotJpegQuality", "90", ConsoleVariableFlags::Archive);
+	waterReflections = interface::GetConsoleVariable("r_waterReflections", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	wireframe = interface::GetConsoleVariable("r_wireframe", "0", ConsoleVariableFlags::Cheat);
 
 	// Screen
-	brightness = ri.Cvar_Get("r_brightness", "1", CVAR_ARCHIVE);
-	contrast = ri.Cvar_Get("r_contrast", "1", CVAR_ARCHIVE);
-	gamma = ri.Cvar_Get("r_gamma", "1", CVAR_ARCHIVE);
-	saturation = ri.Cvar_Get("r_saturation", "1", CVAR_ARCHIVE);
+	brightness = interface::GetConsoleVariable("r_brightness", "1", ConsoleVariableFlags::Archive);
+	contrast = interface::GetConsoleVariable("r_contrast", "1", ConsoleVariableFlags::Archive);
+	gamma = interface::GetConsoleVariable("r_gamma", "1", ConsoleVariableFlags::Archive);
+	saturation = interface::GetConsoleVariable("r_saturation", "1", ConsoleVariableFlags::Archive);
 
 	// Window
-	allowResize = ri.Cvar_Get("r_allowResize", "0", CVAR_ARCHIVE | CVAR_LATCH);
-	centerWindow = ri.Cvar_Get("r_centerWindow", "1", CVAR_ARCHIVE | CVAR_LATCH);
-	customheight = ri.Cvar_Get("r_customheight", "1080", CVAR_ARCHIVE | CVAR_LATCH);
-	customwidth = ri.Cvar_Get("r_customwidth", "1920", CVAR_ARCHIVE | CVAR_LATCH);
-	customPixelAspect = ri.Cvar_Get("r_customPixelAspect", "1", CVAR_ARCHIVE | CVAR_LATCH);
-	fullscreen = ri.Cvar_Get("r_fullscreen", "1", CVAR_ARCHIVE);
-	mode = ri.Cvar_Get("r_mode", "-2", CVAR_ARCHIVE | CVAR_LATCH);
-	noborder = ri.Cvar_Get("r_noborder", "0", CVAR_ARCHIVE | CVAR_LATCH);
+	allowResize = interface::GetConsoleVariable("r_allowResize", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	centerWindow = interface::GetConsoleVariable("r_centerWindow", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	customheight = interface::GetConsoleVariable("r_customheight", "1080", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	customwidth = interface::GetConsoleVariable("r_customwidth", "1920", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	customPixelAspect = interface::GetConsoleVariable("r_customPixelAspect", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	fullscreen = interface::GetConsoleVariable("r_fullscreen", "1", ConsoleVariableFlags::Archive);
+	mode = interface::GetConsoleVariable("r_mode", "-2", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	noborder = interface::GetConsoleVariable("r_noborder", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 }
 
 static void TakeScreenshot(const char *extension)
@@ -262,19 +262,19 @@ AntiAliasing AntiAliasingFromString(const char *s)
 Main::Main()
 {
 	g_cvars.initialize();
-	aa_ = AntiAliasingFromString(g_cvars.aa->string);
+	aa_ = AntiAliasingFromString(g_cvars.aa.getString());
 
 	// Don't allow MSAA if HDR is enabled.
-	if (g_cvars.hdr->integer && aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x)
+	if (g_cvars.hdr.getBool() && aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x)
 		aa_ = AntiAliasing::None;
 
-	aaHud_ = AntiAliasingFromString(g_cvars.aa_hud->string);
+	aaHud_ = AntiAliasingFromString(g_cvars.aa_hud.getString());
 
 	// Non-world/HUD scenes can only use MSAA.
 	if (!(aaHud_ >= AntiAliasing::MSAA2x && aaHud_ <= AntiAliasing::MSAA16x))
 		aaHud_ = AntiAliasing::None;
 
-	softSpritesEnabled_ = g_cvars.softSprites->integer && !(aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x);
+	softSpritesEnabled_ = g_cvars.softSprites.getBool() && !(aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x);
 
 	ri.Cmd_AddCommand("r_printMaterials", Cmd_PrintMaterials);
 	ri.Cmd_AddCommand("screenshot", Cmd_Screenshot);
@@ -363,7 +363,7 @@ void Main::initialize()
 			if (j == nSupportedBackends)
 				continue; // Not supported.
 
-			if (!util::Stricmp(g_cvars.backend->string, map.id))
+			if (!util::Stricmp(g_cvars.backend.getString(), map.id))
 			{
 				selectedBackend = map.type;
 				break;
@@ -389,7 +389,7 @@ void Main::initialize()
 		resetFlags |= (1 + (int)aaHud_ - (int)AntiAliasing::MSAA2x) << BGFX_RESET_MSAA_SHIFT;
 	}
 
-	if (g_cvars.maxAnisotropy->integer)
+	if (g_cvars.maxAnisotropy.getBool())
 	{
 		resetFlags |= BGFX_RESET_MAXANISOTROPY;
 	}
@@ -412,7 +412,7 @@ void Main::initialize()
 		ri.Error(ERR_DROP, "R16U texture format not supported");
 	}
 
-	debugDraw_ = DebugDrawFromString(g_cvars.debugDraw->string);
+	debugDraw_ = DebugDrawFromString(g_cvars.debugDraw.getString());
 	halfTexelOffset_ = caps->rendererType == bgfx::RendererType::Direct3D9 ? 0.5f : 0;
 	isTextureOriginBottomLeft_ = caps->rendererType == bgfx::RendererType::OpenGL || caps->rendererType == bgfx::RendererType::OpenGLES;
 	Vertex::init();
@@ -510,7 +510,7 @@ void Main::initialize()
 		if (aa_ != AntiAliasing::SMAA && (i == ShaderProgramId::SMAABlendingWeightCalculation || i == ShaderProgramId::SMAAEdgeDetection || i == ShaderProgramId::SMAANeighborhoodBlending))
 			continue;
 
-		if (g_cvars.hdr->integer == 0 && (i == ShaderProgramId::AdaptedLuminance || i == ShaderProgramId::Luminance || i == ShaderProgramId::LuminanceDownsample || i == ShaderProgramId::ToneMap))
+		if (g_cvars.hdr.getBool() == 0 && (i == ShaderProgramId::AdaptedLuminance || i == ShaderProgramId::Luminance || i == ShaderProgramId::LuminanceDownsample || i == ShaderProgramId::ToneMap))
 			continue;
 
 		Shader &fragment = fragmentShaders_[programMap[i].frag];

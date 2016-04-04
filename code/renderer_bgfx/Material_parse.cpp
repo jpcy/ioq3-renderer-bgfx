@@ -707,7 +707,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			else if (!util::Stricmp(token, "normalMap") || !util::Stricmp(token, "bumpMap"))
 			{
 				stage->type = MaterialStageType::NormalMap;
-				//VectorSet4(stage->normalScale, r_baseNormalX->value, r_baseNormalY->value, 1.0f, r_baseParallax->value);
+				//VectorSet4(stage->normalScale, r_baseNormalX.getFloat(), r_baseNormalY.getFloat(), 1.0f, r_baseParallax.getFloat());
 			}
 			else if (!util::Stricmp(token, "normalParallaxMap") || !util::Stricmp(token, "bumpParallaxMap"))
 			{
@@ -716,7 +716,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				else
 					stage->type = MaterialStageType::NormalMap;
 
-				VectorSet4(stage->normalScale, r_baseNormalX->value, r_baseNormalY->value, 1.0f, r_baseParallax->value);*/
+				VectorSet4(stage->normalScale, r_baseNormalX.getFloat(), r_baseNormalY.getFloat(), 1.0f, r_baseParallax.getFloat());*/
 			}
 			else if (!util::Stricmp(token, "specularMap"))
 			{

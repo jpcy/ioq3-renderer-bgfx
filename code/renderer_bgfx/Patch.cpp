@@ -23,7 +23,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #pragma hdrstop
 
 #define PATCH_STITCHING
-#define SUBDIVISIONS 1 // r_subdivisions->value
+#define SUBDIVISIONS 1 // r_subdivisions.getFloat()
 #define	MAX_PATCH_SIZE		32			// max dimensions of a patch mesh in map file
 #define	MAX_GRID_SIZE		65			// max dimensions of a grid mesh in memory
 
