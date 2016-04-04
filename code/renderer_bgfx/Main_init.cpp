@@ -643,9 +643,16 @@ void SetSunLight(const SunLight &sunLight)
 	s_main->setSunLight(sunLight);
 }
 
-void Shutdown()
+void Shutdown(bool destroyWindow)
 {
+	world::Unload();
 	s_main.reset(nullptr);
+
+	if (destroyWindow)
+	{
+		bgfx::shutdown();
+		window::Shutdown();
+	}
 }
 
 void UploadCinematic(int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty)

@@ -24,6 +24,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 namespace renderer {
 
+#define	BIG_INFO_STRING		8192  // used for system info key only
+#define	MAX_STRING_CHARS	1024	// max length of a string passed to Cmd_TokenizeString
+
 /*
 ** glconfig_t
 **
@@ -90,6 +93,11 @@ typedef struct {
 	qboolean				stereoEnabled;
 	qboolean				smpActive;		// UNUSED, present for compatibility
 } glconfig_t;
+
+typedef struct {
+	vec3_t		origin;
+	vec3_t		axis[3];
+} orientation_t;
 
 typedef enum {
 	RT_MODEL,
@@ -192,6 +200,8 @@ typedef enum {
 	STEREO_RIGHT
 } stereoFrame_t;
 
+#define	REF_API_VERSION		8
+
 //
 // these are the functions exported by the refresh module
 //
@@ -269,20 +279,11 @@ typedef struct {
 
 static void RE_Shutdown(qboolean destroyWindow)
 {
-	ri.Printf(PRINT_ALL, "RE_Shutdown(%i)\n", destroyWindow);
-	world::Unload();
-	main::Shutdown();
-
-	if (destroyWindow)
-	{
-		bgfx::shutdown();
-		window::Shutdown();
-	}
+	main::Shutdown(destroyWindow != qfalse);
 }
 
 static void RE_BeginRegistration(glconfig_t *config)
 {
-	ri.Printf(PRINT_ALL, "----- Renderer Init -----\n");
 	main::Initialize();
 	const bgfx::Caps *caps = bgfx::getCaps();
 	config->maxTextureSize = caps->maxTextureSize;
@@ -446,18 +447,7 @@ static void RE_RenderScene(const refdef_t *fd)
 
 static void RE_SetColor(const float *rgba)
 {
-	vec4 c;
-
-	if (rgba == NULL)
-	{
-		c = vec4::white;
-	}
-	else
-	{
-		c = vec4(rgba);
-	}
-
-	main::SetColor(c);
+	main::SetColor(rgba ? vec4(rgba) : vec4::white);
 }
 
 static void RE_DrawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, qhandle_t hShader)
@@ -495,28 +485,30 @@ static int RE_MarkFragments(int numPoints, const vec3_t *points, const vec3_t pr
 static int RE_LerpTag(orientation_t *orientation, qhandle_t handle, int startFrame, int endFrame, float frac, const char *tagName)
 {
 	Model *m = g_modelCache->getModel(handle);
-	Transform from = m->getTag(tagName, startFrame);
-	Transform to = m->getTag(tagName, endFrame);
 
-	Transform lerped;
-	lerped.position = vec3::lerp(from.position, to.position, frac);
-	lerped.rotation[0] = vec3::lerp(from.rotation[0], to.rotation[0], frac).normal();
-	lerped.rotation[1] = vec3::lerp(from.rotation[1], to.rotation[1], frac).normal();
-	lerped.rotation[2] = vec3::lerp(from.rotation[2], to.rotation[2], frac).normal();
-
-	memcpy(orientation->origin, &lerped.position.x, sizeof(vec3_t));
-	memcpy(orientation->axis[0], &lerped.rotation[0].x, sizeof(vec3_t));
-	memcpy(orientation->axis[1], &lerped.rotation[1].x, sizeof(vec3_t));
-	memcpy(orientation->axis[2], &lerped.rotation[2].x, sizeof(vec3_t));
-	return qtrue;
+	if (m)
+	{
+		Transform lerped = m->lerpTag(tagName, startFrame, endFrame, frac);
+		memcpy(orientation->origin, &lerped.position.x, sizeof(vec3_t));
+		memcpy(orientation->axis[0], &lerped.rotation[0].x, sizeof(vec3_t));
+		memcpy(orientation->axis[1], &lerped.rotation[1].x, sizeof(vec3_t));
+		memcpy(orientation->axis[2], &lerped.rotation[2].x, sizeof(vec3_t));
+		return qtrue;
+	}
+	
+	return qfalse;
 }
 
 static void RE_ModelBounds(qhandle_t handle, vec3_t mins, vec3_t maxs)
 {
 	Model *m = g_modelCache->getModel(handle);
-	Bounds bounds = m->getBounds();
-	memcpy(mins, &bounds.min.x, sizeof(vec3_t));
-	memcpy(maxs, &bounds.max.x, sizeof(vec3_t));
+
+	if (m)
+	{
+		const Bounds bounds = m->getBounds();
+		memcpy(mins, &bounds.min.x, sizeof(vec3_t));
+		memcpy(maxs, &bounds.max.x, sizeof(vec3_t));
+	}
 }
 
 static void RE_RegisterFont(const char *fontName, int pointSize, fontInfo_t *font)

@@ -420,7 +420,7 @@ namespace main
 	bool SampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
 	void SetColor(vec4 c);
 	void SetSunLight(const SunLight &sunLight); 
-	void Shutdown();
+	void Shutdown(bool destroyWindow);
 	void UploadCinematic(int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);
 }
 
@@ -999,6 +999,7 @@ public:
 	virtual void render(const mat3 &sceneRotation, DrawCallList *drawCallList, Entity *entity) = 0;
 	size_t getIndex() const { return index_; }
 	const char *getName() const { return name_; }
+	Transform lerpTag(const char *name, int startFrame, int endFrame, float fraction);
 
 	static std::unique_ptr<Model> createMD3(const char *name);
 

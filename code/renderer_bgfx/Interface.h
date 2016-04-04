@@ -54,17 +54,7 @@ typedef int		qhandle_t;
 #define Q_EXPORT
 #endif
 
-#define	MAX_STRING_CHARS	1024	// max length of a string passed to Cmd_TokenizeString
-#define	MAX_STRING_TOKENS	1024	// max tokens resulting from Cmd_TokenizeString
 #define	MAX_TOKEN_CHARS		1024	// max length of an individual token
-
-#define	MAX_INFO_STRING		1024
-#define	MAX_INFO_KEY		  1024
-#define	MAX_INFO_VALUE		1024
-
-#define	BIG_INFO_STRING		8192  // used for system info key only
-#define	BIG_INFO_KEY		  8192
-#define	BIG_INFO_VALUE		8192
 
 #define	MAX_QPATH			64		// max length of a quake game pathname
 #ifdef PATH_MAX
@@ -271,11 +261,6 @@ typedef struct {
 } markFragment_t;
 
 typedef struct {
-	vec3_t		origin;
-	vec3_t		axis[3];
-} orientation_t;
-
-typedef struct {
 	vec3_t		xyz;
 	float		st[2];
 	byte		modulate[4];
@@ -288,7 +273,6 @@ typedef struct poly_s {
 } poly_t;
 
 #define CLIENT_WINDOW_TITLE		"ioquake3"
-#define	REF_API_VERSION		8
 
 //
 // these are the functions imported by the refresh module

@@ -29,6 +29,18 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 namespace renderer {
 
+Transform Model::lerpTag(const char *name, int startFrame, int endFrame, float fraction)
+{
+	Transform from = getTag(name, startFrame);
+	Transform to = getTag(name, endFrame);
+	Transform lerped;
+	lerped.position = vec3::lerp(from.position, to.position, fraction);
+	lerped.rotation[0] = vec3::lerp(from.rotation[0], to.rotation[0], fraction).normal();
+	lerped.rotation[1] = vec3::lerp(from.rotation[1], to.rotation[1], fraction).normal();
+	lerped.rotation[2] = vec3::lerp(from.rotation[2], to.rotation[2], fraction).normal();
+	return lerped;
+}
+
 struct ModelSurface
 {
 	char name[MAX_QPATH]; // polyset name
