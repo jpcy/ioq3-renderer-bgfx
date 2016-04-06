@@ -32,13 +32,13 @@ Model *ModelCache::findModel(const char *name)
 {
 	if (!name || !name[0])
 	{
-		ri.Printf(PRINT_ALL, "ModelCache::findModel: NULL name\n");
+		interface::Printf("ModelCache::findModel: NULL name\n");
 		return nullptr;
 	}
 
 	if (strlen(name) >= MAX_QPATH)
 	{
-		ri.Printf(PRINT_ALL, "Model name exceeds MAX_QPATH\n");
+		interface::Printf("Model name exceeds MAX_QPATH\n");
 		return nullptr;
 	}
 

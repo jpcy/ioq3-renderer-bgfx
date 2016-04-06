@@ -159,12 +159,12 @@ struct TextureCache
 	{
 		if (strlen(name) >= MAX_QPATH)
 		{
-			ri.Error(ERR_DROP, "Texture name \"%s\" is too long", name);
+			interface::Error("Texture name \"%s\" is too long", name);
 		}
 
 		if (nTextures == maxTextures)
 		{
-			ri.Error(ERR_DROP, "Exceeded max textures");
+			interface::Error("Exceeded max textures");
 		}
 
 		TextureImpl *texture = &textureImpls[nTextures];
@@ -181,12 +181,12 @@ struct TextureCache
 	{
 		if (strlen(name) >= MAX_QPATH)
 		{
-			ri.Error(ERR_DROP, "Texture name \"%s\" is too long", name);
+			interface::Error("Texture name \"%s\" is too long", name);
 		}
 
 		if (nTextures == maxTextures)
 		{
-			ri.Error(ERR_DROP, "Exceeded max textures");
+			interface::Error("Exceeded max textures");
 	}
 
 		TextureImpl *texture = &textureImpls[nTextures];
@@ -216,7 +216,7 @@ struct TextureCache
 				{
 					if (t->flags != flags)
 					{
-						ri.Printf(PRINT_DEVELOPER, "WARNING: reused image %s with mixed flags (%i vs %i)\n", name, t->flags, flags);
+						interface::PrintDeveloperf("WARNING: reused image %s with mixed flags (%i vs %i)\n", name, t->flags, flags);
 					}
 				}
 

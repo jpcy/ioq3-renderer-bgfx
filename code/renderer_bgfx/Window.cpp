@@ -101,7 +101,7 @@ static bool GetModeInfo(int mode)
 
 static SetModeResult SetMode(int mode, bool fullscreen, bool noborder)
 {
-	ri.Printf(PRINT_ALL, "Initializing display\n");
+	interface::Printf("Initializing display\n");
 	Uint32 flags = SDL_WINDOW_SHOWN;
 
 	if (g_cvars.allowResize.getBool())
@@ -136,15 +136,15 @@ static SetModeResult SetMode(int mode, bool fullscreen, bool noborder)
 	if (SDL_GetDesktopDisplayMode(display, &desktopMode) == 0)
 	{
 		displayAspect = desktopMode.w / (float)desktopMode.h;
-		ri.Printf(PRINT_ALL, "Display aspect: %.3f\n", displayAspect);
+		interface::Printf("Display aspect: %.3f\n", displayAspect);
 	}
 	else
 	{
 		memset(&desktopMode, 0, sizeof(SDL_DisplayMode));
-		ri.Printf(PRINT_ALL, "Cannot determine display aspect, assuming 1.333\n");
+		interface::Printf("Cannot determine display aspect, assuming 1.333\n");
 	}
 
-	ri.Printf (PRINT_ALL, "...setting mode %d:", mode );
+	interface::Printf("...setting mode %d:", mode );
 
 	if (mode == -2)
 	{
@@ -158,18 +158,18 @@ static SetModeResult SetMode(int mode, bool fullscreen, bool noborder)
 		{
 			s_window.width = 640;
 			s_window.height = 480;
-			ri.Printf(PRINT_ALL, "Cannot determine display resolution, assuming 640x480\n");
+			interface::Printf("Cannot determine display resolution, assuming 640x480\n");
 		}
 
 		s_window.aspectRatio = s_window.width / (float)s_window.height;
 	}
 	else if (!GetModeInfo(mode))
 	{
-		ri.Printf(PRINT_ALL, " invalid mode\n");
+		interface::Printf(" invalid mode\n");
 		return SetModeResult::InvalidMode;
 	}
 
-	ri.Printf(PRINT_ALL, " %d %d\n", s_window.width, s_window.height);
+	interface::Printf(" %d %d\n", s_window.width, s_window.height);
 
 	// Center window
 	int x = SDL_WINDOWPOS_UNDEFINED, y = SDL_WINDOWPOS_UNDEFINED;
@@ -177,7 +177,7 @@ static SetModeResult SetMode(int mode, bool fullscreen, bool noborder)
 	if (SDL_window != NULL)
 	{
 		SDL_GetWindowPosition(SDL_window, &x, &y);
-		ri.Printf(PRINT_DEVELOPER, "Existing window at %dx%d before being destroyed\n", x, y);
+		interface::PrintDeveloperf("Existing window at %dx%d before being destroyed\n", x, y);
 		SDL_DestroyWindow(SDL_window);
 		SDL_window = NULL;
 	}
@@ -202,7 +202,7 @@ static SetModeResult SetMode(int mode, bool fullscreen, bool noborder)
 	
 	if ((SDL_window = SDL_CreateWindow(CLIENT_WINDOW_TITLE, x, y, s_window.width, s_window.height, flags)) == 0)
 	{
-		ri.Printf(PRINT_DEVELOPER, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+		interface::PrintDeveloperf("SDL_CreateWindow failed: %s\n", SDL_GetError());
 		goto finished;
 	}
 
@@ -212,12 +212,12 @@ static SetModeResult SetMode(int mode, bool fullscreen, bool noborder)
 		mode.format = SDL_PIXELFORMAT_RGB24;
 		mode.w = s_window.width;
 		mode.h = s_window.height;
-		mode.refresh_rate = s_window.refreshRate = ri.Cvar_VariableIntegerValue("r_displayRefresh");
+		mode.refresh_rate = s_window.refreshRate = interface::Cvar_GetInteger("r_displayRefresh");
 		mode.driverdata = NULL;
 
 		if (SDL_SetWindowDisplayMode(SDL_window, &mode) < 0)
 		{
-			ri.Printf(PRINT_DEVELOPER, "SDL_SetWindowDisplayMode failed: %s\n", SDL_GetError());
+			interface::PrintDeveloperf("SDL_SetWindowDisplayMode failed: %s\n", SDL_GetError());
 			goto finished;
 		}
 	}
@@ -229,7 +229,7 @@ finished:
 
 	if (!SDL_window)
 	{
-		ri.Printf(PRINT_ALL, "Couldn't get a visual\n");
+		interface::Printf("Couldn't get a visual\n");
 		return SetModeResult::InvalidMode;
 	}
 
@@ -242,19 +242,19 @@ static bool StartDriverAndSetMode(int mode, bool fullscreen, bool noborder)
 	{
 		if (SDL_Init(SDL_INIT_VIDEO) == -1)
 		{
-			ri.Printf(PRINT_ALL, "SDL_Init( SDL_INIT_VIDEO ) FAILED (%s)\n", SDL_GetError());
+			interface::Printf("SDL_Init( SDL_INIT_VIDEO ) FAILED (%s)\n", SDL_GetError());
 			return false;
 		}
 
 		const char *driverName = SDL_GetCurrentVideoDriver();
-		ri.Printf(PRINT_ALL, "SDL using driver \"%s\"\n", driverName);
-		ri.Cvar_Set("r_sdlDriver", driverName);
+		interface::Printf("SDL using driver \"%s\"\n", driverName);
+		interface::Cvar_Set("r_sdlDriver", driverName);
 	}
 
-	if (fullscreen && ri.Cvar_VariableIntegerValue("in_nograb"))
+	if (fullscreen && interface::Cvar_GetInteger("in_nograb"))
 	{
-		ri.Printf( PRINT_ALL, "Fullscreen not allowed with in_nograb 1\n");
-		ri.Cvar_Set( "r_fullscreen", "0" );
+		interface::Printf("Fullscreen not allowed with in_nograb 1\n");
+		interface::Cvar_Set( "r_fullscreen", "0" );
 		g_cvars.fullscreen.clearModified();
 		fullscreen = false;
 	}
@@ -262,10 +262,10 @@ static bool StartDriverAndSetMode(int mode, bool fullscreen, bool noborder)
 	switch (SetMode(mode, fullscreen, noborder))
 	{
 	case SetModeResult::InvalidFullScreen:
-		ri.Printf(PRINT_ALL, "...WARNING: fullscreen unavailable in this mode\n");
+		interface::Printf("...WARNING: fullscreen unavailable in this mode\n");
 		return false;
 	case SetModeResult::InvalidMode:
-		ri.Printf(PRINT_ALL, "...WARNING: could not set the given mode (%d)\n", mode);
+		interface::Printf("...WARNING: could not set the given mode (%d)\n", mode);
 		return false;
 	default:
 		break;
@@ -301,12 +301,12 @@ int IsFullscreen()
 
 void Initialize()
 {
-	if (ri.Cvar_VariableIntegerValue("com_abnormalExit"))
+	if (interface::Cvar_GetInteger("com_abnormalExit"))
 	{
-		ri.Cvar_Set("r_mode", util::VarArgs("%d", R_MODE_FALLBACK));
-		ri.Cvar_Set("r_fullscreen", "0");
-		ri.Cvar_Set("r_centerWindow", "0");
-		ri.Cvar_Set("com_abnormalExit", "0");
+		interface::Cvar_Set("r_mode", util::VarArgs("%d", R_MODE_FALLBACK));
+		interface::Cvar_Set("r_fullscreen", "0");
+		interface::Cvar_Set("r_centerWindow", "0");
+		interface::Cvar_Set("com_abnormalExit", "0");
 	}
 
 	// Create the window and set up the context
@@ -323,25 +323,25 @@ void Initialize()
 	// Finally, try the default screen resolution
 	if (g_cvars.mode.getInt() != R_MODE_FALLBACK)
 	{
-		ri.Printf(PRINT_ALL, "Setting r_mode %d failed, falling back on r_mode %d\n", g_cvars.mode.getInt(), R_MODE_FALLBACK);
+		interface::Printf("Setting r_mode %d failed, falling back on r_mode %d\n", g_cvars.mode.getInt(), R_MODE_FALLBACK);
 
 		if (StartDriverAndSetMode(R_MODE_FALLBACK, false, false))
 			goto success;
 	}
 
 	// Nothing worked, give up
-	ri.Error(ERR_FATAL, "Could not load OpenGL subsystem");
+	interface::FatalError("Could not load OpenGL subsystem");
 
 success:
 	// This depends on SDL_INIT_VIDEO, hence having it here
-	ri.IN_Init(SDL_window);
+	interface::IN_Init(SDL_window);
 
 	bgfx::sdlSetWindow(SDL_window);
 }
 
 void Shutdown()
 {
-	ri.IN_Shutdown();
+	interface::IN_Shutdown();
 	SDL_QuitSubSystem(SDL_INIT_VIDEO);
 }
 

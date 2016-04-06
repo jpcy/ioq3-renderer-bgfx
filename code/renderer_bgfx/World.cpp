@@ -506,7 +506,7 @@ public:
 	bool inPvs(vec3 position1, vec3 position2)
 	{
 		Node *leaf = leafFromPosition(position1);
-		byte *vis = ri.CM_ClusterPVS(leaf->cluster);
+		const uint8_t *vis = interface::CM_ClusterPVS(leaf->cluster);
 		leaf = leafFromPosition(position2);
 		return ((vis[leaf->cluster >> 3] & (1 << (leaf->cluster & 7))) != 0);
 	}
@@ -1063,7 +1063,7 @@ public:
 
 		if (!file.isValid())
 		{
-			ri.Error(ERR_DROP, "%s not found", name_);
+			interface::Error("%s not found", name_);
 			return;
 		}
 
@@ -1162,7 +1162,7 @@ public:
 						
 						if (k == VisCache::maxSkies)
 						{
-							ri.Printf(PRINT_WARNING, "Too many skies\n");
+							interface::PrintWarningf("Too many skies\n");
 						}
 						else
 						{
@@ -1666,7 +1666,7 @@ private:
 
 		if (version != BSP_VERSION )
 		{
-			ri.Error(ERR_DROP, "%s has wrong version number (%i should be %i)", name_, version, BSP_VERSION);
+			interface::Error("%s has wrong version number (%i should be %i)", name_, version, BSP_VERSION);
 			return;
 		}
 	
@@ -1699,7 +1699,7 @@ private:
 			l.filelen = LittleLong(l.filelen);
 
 			if (lumpSizes[i] != 0 && (l.filelen % lumpSizes[i]))
-				ri.Error(ERR_DROP, "%s: lump %d has bad size", name_, (int)i);
+				interface::Error("%s: lump %d has bad size", name_, (int)i);
 		}
 
 		// Entities
@@ -1774,7 +1774,7 @@ private:
 			
 			if ((unsigned)f.originalBrushNumber >= nBrushes)
 			{
-				ri.Error(ERR_DROP, "fog brushNumber out of range");
+				interface::Error("fog brushNumber out of range");
 			}
 
 			const dbrush_t &brush = fileBrushes[f.originalBrushNumber];
@@ -1782,7 +1782,7 @@ private:
 
 			if ((unsigned)firstSide > nBrushSides - 6)
 			{
-				ri.Error(ERR_DROP, "fog brush side number out of range");
+				interface::Error("fog brush side number out of range");
 			}
 
 			// Brushes are always sorted with the axial sides first.
@@ -1928,7 +1928,7 @@ private:
 
 			if (lump.filelen != numGridPoints * 8)
 			{
-				ri.Printf(PRINT_WARNING, "WARNING: light grid mismatch\n");
+				interface::PrintWarningf("WARNING: light grid mismatch\n");
 			}
 			else
 			{
@@ -2179,7 +2179,7 @@ private:
 		if (bufferVertices->size() + nVertices >= UINT16_MAX)
 		{
 			if (++currentGeometryBuffer_ == maxWorldGeometryBuffers_)
-				ri.Error(ERR_DROP, "Not enough world vertex buffers");
+				interface::Error("Not enough world vertex buffers");
 
 			bufferVertices = &vertices_[currentGeometryBuffer_];
 		}
@@ -2231,7 +2231,7 @@ private:
 	{
 		if (materialIndex < 0 || materialIndex >= (int)materials_.size())
 		{
-			ri.Error(ERR_DROP, "%s: bad material index %i", name_, materialIndex);
+			interface::Error("%s: bad material index %i", name_, materialIndex);
 		}
 
 		if (lightmapIndex > 0)

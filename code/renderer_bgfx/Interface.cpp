@@ -24,19 +24,21 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 namespace renderer {
 
+typedef enum { qfalse, qtrue }	qboolean;
+
 #define	BIG_INFO_STRING		8192  // used for system info key only
 #define	MAX_STRING_CHARS	1024	// max length of a string passed to Cmd_TokenizeString
 
-	/*
-	==========================================================
+/*
+==========================================================
 
-	CVARS (console variables)
+CVARS (console variables)
 
-	Many variables can be used for cheating purposes, so when
-	cheats is zero, force all unspecified variables to their
-	default values.
-	==========================================================
-	*/
+Many variables can be used for cheating purposes, so when
+cheats is zero, force all unspecified variables to their
+default values.
+==========================================================
+*/
 
 #define	CVAR_ARCHIVE		0x0001	// set to cause it to be saved to vars.rc
 	// used for system variables, not for player
@@ -88,45 +90,23 @@ struct cvar_t {
 	int			hashIndex;
 };
 
-void ConsoleVariable::checkRange(float minValue, float maxValue, bool shouldBeIntegral)
-{
-	ri.Cvar_CheckRange(cvar, minValue, maxValue, shouldBeIntegral ? qtrue : qfalse);
-}
+// cinematic states
+typedef enum {
+	FMV_IDLE,
+	FMV_PLAY,		// play
+	FMV_EOF,		// all other conditions, i.e. stop/EOF/abort
+	FMV_ID_BLT,
+	FMV_ID_IDLE,
+	FMV_LOOPED,
+	FMV_ID_WAIT
+} e_status;
 
-void ConsoleVariable::clearModified()
-{
-	cvar->modified = qfalse;
-}
+#define CIN_system	1
+#define CIN_loop	2
+#define	CIN_hold	4
+#define CIN_silent	8
+#define CIN_shader	16
 
-bool ConsoleVariable::getBool() const
-{
-	return cvar->integer != 0;
-}
-
-const char *ConsoleVariable::getString() const
-{
-	return cvar->string;
-}
-
-float ConsoleVariable::getFloat() const
-{
-	return cvar->value;
-}
-
-int ConsoleVariable::getInt() const
-{
-	return cvar->integer;
-}
-
-bool ConsoleVariable::isModified() const
-{
-	return cvar->modified != qfalse;
-}
-
-void ConsoleVariable::setDescription(const char *description)
-{
-	ri.Cvar_SetDescription(cvar, description);
-}
 
 /*
 ** glconfig_t
@@ -303,6 +283,117 @@ typedef enum {
 
 #define	REF_API_VERSION		8
 
+typedef enum {
+	h_high,
+	h_low,
+	h_dontcare
+} ha_pref;
+
+// print levels from renderer (FIXME: set up for game / cgame?)
+typedef enum {
+	PRINT_ALL,
+	PRINT_DEVELOPER,		// only print when "developer 1"
+	PRINT_WARNING,
+	PRINT_ERROR
+} printParm_t;
+
+
+#ifdef ERR_FATAL
+#undef ERR_FATAL			// this is be defined in malloc.h
+#endif
+
+// parameters to the main Error routine
+typedef enum {
+	ERR_FATAL,					// exit the entire game with a popup window
+	ERR_DROP,					// print to console and disconnect from game
+	ERR_SERVERDISCONNECT,		// don't kill server
+	ERR_DISCONNECT,				// client disconnected from the server
+	ERR_NEED_CD					// pop up the need-cd dialog
+} errorParm_t;
+
+//
+// these are the functions imported by the refresh module
+//
+typedef struct {
+	// print message on the local console
+	void	(QDECL *Printf)(int printLevel, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
+
+	// abort the game
+	void	(QDECL *Error)(int errorLevel, const char *fmt, ...) __attribute__((noreturn, format(printf, 2, 3)));
+
+	// milliseconds should only be used for profiling, never
+	// for anything game related.  Get time from the refdef
+	int(*Milliseconds)(void);
+
+	// stack based memory allocation for per-level things that
+	// won't be freed
+#ifdef HUNK_DEBUG
+	void	*(*Hunk_AllocDebug)(int size, ha_pref pref, char *label, char *file, int line);
+#else
+	void	*(*Hunk_Alloc)(int size, ha_pref pref);
+#endif
+	void	*(*Hunk_AllocateTempMemory)(int size);
+	void(*Hunk_FreeTempMemory)(void *block);
+
+	// dynamic memory allocator for things that need to be freed
+	void	*(*Malloc)(int bytes);
+	void(*Free)(void *buf);
+
+	cvar_t	*(*Cvar_Get)(const char *name, const char *value, int flags);
+	void(*Cvar_Set)(const char *name, const char *value);
+	void(*Cvar_SetValue) (const char *name, float value);
+	void(*Cvar_CheckRange)(cvar_t *cv, float minVal, float maxVal, qboolean shouldBeIntegral);
+	void(*Cvar_SetDescription)(cvar_t *cv, const char *description);
+
+	int(*Cvar_VariableIntegerValue) (const char *var_name);
+
+	void(*Cmd_AddCommand)(const char *name, void(*cmd)(void));
+	void(*Cmd_RemoveCommand)(const char *name);
+
+	int(*Cmd_Argc) (void);
+	char	*(*Cmd_Argv) (int i);
+
+	void(*Cmd_ExecuteText) (int exec_when, const char *text);
+
+	byte	*(*CM_ClusterPVS)(int cluster);
+
+	// visualization for debugging collision detection
+	void(*CM_DrawDebugSurface)(void(*drawPoly)(int color, int numPoints, float *points));
+
+	// a -1 return means the file does not exist
+	// NULL can be passed for buf to just determine existance
+	int(*FS_FileIsInPAK)(const char *name, int *pCheckSum);
+	long(*FS_ReadFile)(const char *name, void **buf);
+	void(*FS_FreeFile)(void *buf);
+	char **	(*FS_ListFiles)(const char *name, const char *extension, int *numfilesfound);
+	void(*FS_FreeFileList)(char **filelist);
+	void(*FS_WriteFile)(const char *qpath, const void *buffer, int size);
+	qboolean(*FS_FileExists)(const char *file);
+
+	// cinematic stuff
+	void(*CIN_UploadCinematic)(int handle);
+	int(*CIN_PlayCinematic)(const char *arg0, int xpos, int ypos, int width, int height, int bits);
+	e_status(*CIN_RunCinematic) (int handle);
+
+	void(*CL_WriteAVIVideoFrame)(const byte *buffer, int size);
+
+	// input event handling
+	void(*IN_Init)(void *windowData);
+	void(*IN_Shutdown)(void);
+	void(*IN_Restart)(void);
+
+	// math
+	long(*ftol)(float f);
+
+	// system stuff
+	void(*Sys_SetEnv)(const char *name, const char *value);
+	void(*Sys_GLimpSafeInit)(void);
+	void(*Sys_GLimpInit)(void);
+	qboolean(*Sys_LowPhysicalMemory)(void);
+} refimport_t;
+
+static refimport_t ri;
+
 //
 // these are the functions exported by the refresh module
 //
@@ -378,9 +469,89 @@ typedef struct {
 	void(*TakeVideoFrame)(int h, int w, byte* captureBuffer, byte *encodeBuffer, qboolean motionJpeg);
 } refexport_t;
 
+void ConsoleVariable::checkRange(float minValue, float maxValue, bool shouldBeIntegral)
+{
+	ri.Cvar_CheckRange(cvar, minValue, maxValue, shouldBeIntegral ? qtrue : qfalse);
+}
+
+void ConsoleVariable::clearModified()
+{
+	cvar->modified = qfalse;
+}
+
+bool ConsoleVariable::getBool() const
+{
+	return cvar->integer != 0;
+}
+
+const char *ConsoleVariable::getString() const
+{
+	return cvar->string;
+}
+
+float ConsoleVariable::getFloat() const
+{
+	return cvar->value;
+}
+
+int ConsoleVariable::getInt() const
+{
+	return cvar->integer;
+}
+
+bool ConsoleVariable::isModified() const
+{
+	return cvar->modified != qfalse;
+}
+
+void ConsoleVariable::setDescription(const char *description)
+{
+	ri.Cvar_SetDescription(cvar, description);
+}
+
 namespace interface
 {
-	ConsoleVariable GetConsoleVariable(const char *name, const char *value, int flags)
+	void CIN_UploadCinematic(int handle)
+	{
+		ri.CIN_UploadCinematic(handle);
+	}
+
+	int CIN_PlayCinematic(const char *arg0, int xpos, int ypos, int width, int height)
+	{
+		return ri.CIN_PlayCinematic(arg0, xpos, ypos, width, height, CIN_loop | CIN_silent | CIN_shader);
+	}
+
+	void CIN_RunCinematic(int handle)
+	{
+		ri.CIN_RunCinematic(handle);
+	}
+
+	void Cmd_Add(const char *name, void(*cmd)(void))
+	{
+		ri.Cmd_AddCommand(name, cmd);
+	}
+
+	void Cmd_Remove(const char *name)
+	{
+		ri.Cmd_RemoveCommand(name);
+	}
+
+	int Cmd_Argc()
+	{
+		return ri.Cmd_Argc();
+	}
+
+	const char *Cmd_Argv(int i)
+	{
+		return ri.Cmd_Argv(i);
+	}
+
+	const uint8_t *CM_ClusterPVS(int cluster)
+	{
+		return ri.CM_ClusterPVS(cluster);
+	}
+
+	ConsoleVariable Cvar_Get(const char *name, const char *value, int flags)
 	{
 		int translatedFlags = 0;
 
@@ -394,6 +565,117 @@ namespace interface
 		ConsoleVariable cvar;
 		cvar.cvar = ri.Cvar_Get(name, value, translatedFlags);
 		return cvar;
+	}
+
+	int Cvar_GetInteger(const char *name)
+	{
+		return ri.Cvar_VariableIntegerValue(name);
+	}
+
+	void Cvar_Set(const char *name, const char *value)
+	{
+		ri.Cvar_Set(name, value);
+	}
+
+	static void Error(int errorLevel, const char *format, va_list args)
+	{
+		char text[4096];
+		util::Vsnprintf(text, sizeof(text), format, args);
+		va_end(args);
+		ri.Error(errorLevel, text);
+	}
+
+	void Error(const char *format, ...)
+	{
+		va_list args;
+		va_start(args, format);
+		Error(ERR_DROP, format, args);
+	}
+
+	void FatalError(const char *format, ...)
+	{
+		va_list args;
+		va_start(args, format);
+		Error(ERR_FATAL, format, args);
+	}
+
+	long FS_ReadFile(const char *name, uint8_t **buf)
+	{
+		return ri.FS_ReadFile(name, (void **)buf);
+	}
+
+	void FS_FreeReadFile(uint8_t *buf)
+	{
+		ri.FS_FreeFile(buf);
+	}
+
+	bool FS_FileExists(const char *filename)
+	{
+		return ri.FS_FileExists(filename) != qfalse;
+	}
+
+	char **FS_ListFiles(const char *name, const char *extension, int *numFilesFound)
+	{
+		return ri.FS_ListFiles(name, extension, numFilesFound);
+	}
+
+	void FS_FreeListFiles(char **fileList)
+	{
+		ri.FS_FreeFileList(fileList);
+	}
+
+	void FS_WriteFile(const char *filename, const uint8_t *buffer, size_t size)
+	{
+		ri.FS_WriteFile(filename, buffer, (int)size);
+	}
+
+	int GetTime()
+	{
+		return ri.Milliseconds();
+	}
+
+	void *Hunk_Alloc(int size)
+	{
+		return ri.Hunk_Alloc(size, h_low);
+	}
+
+	void IN_Init(void *windowData)
+	{
+		ri.IN_Init(windowData);
+	}
+
+	void IN_Shutdown()
+	{
+		ri.IN_Shutdown();
+	}
+
+	static void Print(int printLevel, const char *format, va_list args)
+	{
+		char text[4096];
+		util::Vsnprintf(text, sizeof(text), format, args);
+		va_end(args);
+		ri.Printf(printLevel, text);
+	}
+
+	void Printf(const char *format, ...)
+	{
+		va_list args;
+		va_start(args, format);
+		Print(PRINT_ALL, format, args);
+	}
+
+	void PrintDeveloperf(const char *format, ...)
+	{
+		va_list args;
+		va_start(args, format);
+		Print(PRINT_DEVELOPER, format, args);
+	}
+
+	void PrintWarningf(const char *format, ...)
+	{
+		va_list args;
+		va_start(args, format);
+		Print(PRINT_WARNING, format, args);
 	}
 }
 
@@ -661,6 +943,16 @@ static void RE_TakeVideoFrame(int h, int w, byte* captureBuffer, byte *encodeBuf
 {
 }
 
+#if (defined _MSC_VER)
+#define Q_EXPORT __declspec(dllexport)
+#elif (defined __SUNPRO_C)
+#define Q_EXPORT __global
+#elif ((__GNUC__ >= 3) && (!__EMX__) && (!sun))
+#define Q_EXPORT __attribute__((visibility("default")))
+#else
+#define Q_EXPORT
+#endif
+
 // this is the only function actually exported at the linker level
 // If the module can't init to a valid rendering state, NULL will be
 // returned.
@@ -673,7 +965,7 @@ extern "C" Q_EXPORT refexport_t * QDECL GetRefAPI(int apiVersion, refimport_t *r
 
 	if (apiVersion != REF_API_VERSION)
 	{
-		ri.Printf(PRINT_ALL, "Mismatched REF_API_VERSION: expected %i, got %i\n", REF_API_VERSION, apiVersion);
+		interface::Printf("Mismatched REF_API_VERSION: expected %i, got %i\n", REF_API_VERSION, apiVersion);
 		return NULL;
 	}
 

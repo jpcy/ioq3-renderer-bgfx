@@ -121,7 +121,7 @@ bool Model_md3::load()
 
 	if (fileHeader->version != MD3_VERSION)
 	{
-		ri.Printf(PRINT_WARNING, "Model %s has wrong version (%i should be %i)\n", name_, fileHeader->version, MD3_VERSION);
+		interface::PrintWarningf("Model %s has wrong version (%i should be %i)\n", name_, fileHeader->version, MD3_VERSION);
 		return false;
 	}
 
@@ -137,7 +137,7 @@ bool Model_md3::load()
 
 	if (fileHeader->numFrames < 1)
 	{
-		ri.Printf(PRINT_WARNING, "Model %s has no frames\n", name_);
+		interface::PrintWarningf("Model %s has no frames\n", name_);
 		return false;
 	}
 

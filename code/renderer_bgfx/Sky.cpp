@@ -142,7 +142,7 @@ static void AddSkyPolygon(int nump, vec3 *vecs)
 
 static void ClipSkyPolygon(int nump, vec3 *vecs, int stage) 
 {
-	qboolean	front, back;
+	bool front, back;
 	float	d, e;
 	float	dists[MAX_CLIP_VERTS];
 	int		sides[MAX_CLIP_VERTS];
@@ -151,26 +151,26 @@ static void ClipSkyPolygon(int nump, vec3 *vecs, int stage)
 	int		i, j;
 
 	if (nump > MAX_CLIP_VERTS-2)
-		ri.Error (ERR_DROP, "ClipSkyPolygon: MAX_CLIP_VERTS");
+		interface::Error("ClipSkyPolygon: MAX_CLIP_VERTS");
 	if (stage == 6)
 	{	// fully clipped, so draw it
 		AddSkyPolygon (nump, vecs);
 		return;
 	}
 
-	front = back = qfalse;
+	front = back = false;
 
 	for (i=0; i<nump ; i++)
 	{
 		d = vec3::dotProduct(vecs[i], sky_clip[stage]);
 		if (d > ON_EPSILON)
 		{
-			front = qtrue;
+			front = true;
 			sides[i] = SIDE_FRONT;
 		}
 		else if (d < -ON_EPSILON)
 		{
-			back = qtrue;
+			back = true;
 			sides[i] = SIDE_BACK;
 		}
 		else
@@ -454,10 +454,10 @@ static void TessellateCloudBox(Vertex *vertices, uint16_t *indices, uint32_t *nV
 		if ((sky_mins[0][sideIndex] >= sky_maxs[0][sideIndex]) || (sky_mins[1][sideIndex] >= sky_maxs[1][sideIndex]))
 			continue;
 
-		sky_mins_subd[0] = ri.ftol(sky_mins[0][sideIndex] * HALF_SKY_SUBDIVISIONS);
-		sky_mins_subd[1] = ri.ftol(sky_mins[1][sideIndex] * HALF_SKY_SUBDIVISIONS);
-		sky_maxs_subd[0] = ri.ftol(sky_maxs[0][sideIndex] * HALF_SKY_SUBDIVISIONS);
-		sky_maxs_subd[1] = ri.ftol(sky_maxs[1][sideIndex] * HALF_SKY_SUBDIVISIONS);
+		sky_mins_subd[0] = std::lrintf(sky_mins[0][sideIndex] * HALF_SKY_SUBDIVISIONS);
+		sky_mins_subd[1] = std::lrintf(sky_mins[1][sideIndex] * HALF_SKY_SUBDIVISIONS);
+		sky_maxs_subd[0] = std::lrintf(sky_maxs[0][sideIndex] * HALF_SKY_SUBDIVISIONS);
+		sky_maxs_subd[1] = std::lrintf(sky_maxs[1][sideIndex] * HALF_SKY_SUBDIVISIONS);
 
 		if (sky_mins_subd[0] < -HALF_SKY_SUBDIVISIONS) 
 			sky_mins_subd[0] = -HALF_SKY_SUBDIVISIONS;

@@ -54,8 +54,6 @@ const mat4 Main::toOpenGlMatrix_
 	0, 0, 0, 1
 );
 
-refimport_t ri;
-
 bgfx::VertexDecl Vertex::decl;
 
 static std::unique_ptr<Main> s_main;
@@ -73,7 +71,7 @@ float g_inverseSawToothTable[g_funcTableSize];
 
 void ConsoleVariables::initialize()
 {
-	aa = interface::GetConsoleVariable("r_aa", "", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	aa = interface::Cvar_Get("r_aa", "", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	aa.setDescription(
 		"<empty>   None\n"
 		"fxaa      FXAA v2\n"
@@ -82,14 +80,14 @@ void ConsoleVariables::initialize()
 		"msaa8x    MSAA 8x\n"
 		"msaa16x   MSAA 16x\n"
 		"smaa      SMAA 1x\n");
-	aa_hud = interface::GetConsoleVariable("r_aa_hud", "", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	aa_hud = interface::Cvar_Get("r_aa_hud", "", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	aa_hud.setDescription(
 		"<empty>   None\n"
 		"msaa2x    MSAA 2x\n"
 		"msaa4x    MSAA 4x\n"
 		"msaa8x    MSAA 8x\n"
 		"msaa16x   MSAA 16x\n");
-	backend = interface::GetConsoleVariable("r_backend", "", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	backend = interface::Cvar_Get("r_backend", "", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 
 	{
 		// Have the r_backend cvar print a list of supported backends when invoked without any arguments.
@@ -118,8 +116,8 @@ void ConsoleVariables::initialize()
 		#undef FORMAT
 	}
 
-	bgfx_stats = interface::GetConsoleVariable("r_bgfx_stats", "0", ConsoleVariableFlags::Cheat);
-	debugDraw = interface::GetConsoleVariable("r_debugDraw", "", 0);
+	bgfx_stats = interface::Cvar_Get("r_bgfx_stats", "0", ConsoleVariableFlags::Cheat);
+	debugDraw = interface::Cvar_Get("r_debugDraw", "", 0);
 	debugDraw.setDescription(
 		"<empty>    None\n"
 		"depth      Linear depth\n"
@@ -127,51 +125,51 @@ void ConsoleVariables::initialize()
 		"lum        Average and adapted luminance\n"
 		"reflection Planar reflection\n"
 		"smaa       SMAA edges and weights\n");
-	debugDrawSize = interface::GetConsoleVariable("r_debugDrawSize", "256", ConsoleVariableFlags::Archive);
-	debugText = interface::GetConsoleVariable("r_debugText", "0", ConsoleVariableFlags::Cheat);
-	dynamicLightIntensity = interface::GetConsoleVariable("r_dynamicLightIntensity", "1", ConsoleVariableFlags::Archive);
-	dynamicLightScale = interface::GetConsoleVariable("r_dynamicLightScale", "0.7", ConsoleVariableFlags::Archive);
-	hdr = interface::GetConsoleVariable("r_hdr", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	hdrKey = interface::GetConsoleVariable("r_hdrKey", "0.1", ConsoleVariableFlags::Archive);
-	lerpTextureAnimation = interface::GetConsoleVariable("r_lerpTextureAnimation", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	maxAnisotropy = interface::GetConsoleVariable("r_maxAnisotropy", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	picmip = interface::GetConsoleVariable("r_picmip", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	debugDrawSize = interface::Cvar_Get("r_debugDrawSize", "256", ConsoleVariableFlags::Archive);
+	debugText = interface::Cvar_Get("r_debugText", "0", ConsoleVariableFlags::Cheat);
+	dynamicLightIntensity = interface::Cvar_Get("r_dynamicLightIntensity", "1", ConsoleVariableFlags::Archive);
+	dynamicLightScale = interface::Cvar_Get("r_dynamicLightScale", "0.7", ConsoleVariableFlags::Archive);
+	hdr = interface::Cvar_Get("r_hdr", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	hdrKey = interface::Cvar_Get("r_hdrKey", "0.1", ConsoleVariableFlags::Archive);
+	lerpTextureAnimation = interface::Cvar_Get("r_lerpTextureAnimation", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	maxAnisotropy = interface::Cvar_Get("r_maxAnisotropy", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	picmip = interface::Cvar_Get("r_picmip", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	picmip.checkRange(0, 16, true);
-	railWidth = interface::GetConsoleVariable("r_railWidth", "16", ConsoleVariableFlags::Archive);
-	railCoreWidth = interface::GetConsoleVariable("r_railCoreWidth", "6", ConsoleVariableFlags::Archive);
-	railSegmentLength = interface::GetConsoleVariable("r_railSegmentLength", "32", ConsoleVariableFlags::Archive);
-	softSprites = interface::GetConsoleVariable("r_softSprites", "1", ConsoleVariableFlags::Archive);
-	screenshotJpegQuality = interface::GetConsoleVariable("r_screenshotJpegQuality", "90", ConsoleVariableFlags::Archive);
-	waterReflections = interface::GetConsoleVariable("r_waterReflections", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	wireframe = interface::GetConsoleVariable("r_wireframe", "0", ConsoleVariableFlags::Cheat);
+	railWidth = interface::Cvar_Get("r_railWidth", "16", ConsoleVariableFlags::Archive);
+	railCoreWidth = interface::Cvar_Get("r_railCoreWidth", "6", ConsoleVariableFlags::Archive);
+	railSegmentLength = interface::Cvar_Get("r_railSegmentLength", "32", ConsoleVariableFlags::Archive);
+	softSprites = interface::Cvar_Get("r_softSprites", "1", ConsoleVariableFlags::Archive);
+	screenshotJpegQuality = interface::Cvar_Get("r_screenshotJpegQuality", "90", ConsoleVariableFlags::Archive);
+	waterReflections = interface::Cvar_Get("r_waterReflections", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	wireframe = interface::Cvar_Get("r_wireframe", "0", ConsoleVariableFlags::Cheat);
 
 	// Screen
-	brightness = interface::GetConsoleVariable("r_brightness", "1", ConsoleVariableFlags::Archive);
-	contrast = interface::GetConsoleVariable("r_contrast", "1", ConsoleVariableFlags::Archive);
-	gamma = interface::GetConsoleVariable("r_gamma", "1", ConsoleVariableFlags::Archive);
-	saturation = interface::GetConsoleVariable("r_saturation", "1", ConsoleVariableFlags::Archive);
+	brightness = interface::Cvar_Get("r_brightness", "1", ConsoleVariableFlags::Archive);
+	contrast = interface::Cvar_Get("r_contrast", "1", ConsoleVariableFlags::Archive);
+	gamma = interface::Cvar_Get("r_gamma", "1", ConsoleVariableFlags::Archive);
+	saturation = interface::Cvar_Get("r_saturation", "1", ConsoleVariableFlags::Archive);
 
 	// Window
-	allowResize = interface::GetConsoleVariable("r_allowResize", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	centerWindow = interface::GetConsoleVariable("r_centerWindow", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	customheight = interface::GetConsoleVariable("r_customheight", "1080", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	customwidth = interface::GetConsoleVariable("r_customwidth", "1920", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	customPixelAspect = interface::GetConsoleVariable("r_customPixelAspect", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	fullscreen = interface::GetConsoleVariable("r_fullscreen", "1", ConsoleVariableFlags::Archive);
-	mode = interface::GetConsoleVariable("r_mode", "-2", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	noborder = interface::GetConsoleVariable("r_noborder", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	allowResize = interface::Cvar_Get("r_allowResize", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	centerWindow = interface::Cvar_Get("r_centerWindow", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	customheight = interface::Cvar_Get("r_customheight", "1080", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	customwidth = interface::Cvar_Get("r_customwidth", "1920", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	customPixelAspect = interface::Cvar_Get("r_customPixelAspect", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	fullscreen = interface::Cvar_Get("r_fullscreen", "1", ConsoleVariableFlags::Archive);
+	mode = interface::Cvar_Get("r_mode", "-2", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	noborder = interface::Cvar_Get("r_noborder", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 }
 
 static void TakeScreenshot(const char *extension)
 {
-	const bool silent = !strcmp(ri.Cmd_Argv(1), "silent");
+	const bool silent = !strcmp(interface::Cmd_Argv(1), "silent");
 	static int lastNumber = -1;
 	char filename[MAX_OSPATH];
 
-	if (ri.Cmd_Argc() == 2 && !silent)
+	if (interface::Cmd_Argc() == 2 && !silent)
 	{
 		// Explicit filename.
-		util::Sprintf(filename, MAX_OSPATH, "screenshots/%s.%s", ri.Cmd_Argv(1), extension);
+		util::Sprintf(filename, MAX_OSPATH, "screenshots/%s.%s", interface::Cmd_Argv(1), extension);
 	}
 	else
 	{
@@ -199,13 +197,13 @@ static void TakeScreenshot(const char *extension)
 				util::Sprintf(filename, MAX_OSPATH, "screenshots/shot%i%i%i%i.%s", a, b, c, d, extension);
 			}
 
-			if (!ri.FS_FileExists(filename))
+			if (!interface::FS_FileExists(filename))
 				break; // File doesn't exist.
 		}
 
 		if (lastNumber >= 9999)
 		{
-			ri.Printf(PRINT_ALL, "ScreenShot: Couldn't create a file\n"); 
+			interface::Printf("ScreenShot: Couldn't create a file\n"); 
 			return;
 		}
 
@@ -215,7 +213,7 @@ static void TakeScreenshot(const char *extension)
 	bgfx::saveScreenShot(filename);
 
 	if (!silent)
-		ri.Printf(PRINT_ALL, "Wrote %s\n", filename);
+		interface::Printf("Wrote %s\n", filename);
 }
 
 static void Cmd_PrintMaterials()
@@ -276,10 +274,10 @@ Main::Main()
 
 	softSpritesEnabled_ = g_cvars.softSprites.getBool() && !(aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x);
 
-	ri.Cmd_AddCommand("r_printMaterials", Cmd_PrintMaterials);
-	ri.Cmd_AddCommand("screenshot", Cmd_Screenshot);
-	ri.Cmd_AddCommand("screenshotJPEG", Cmd_ScreenshotJPEG);
-	ri.Cmd_AddCommand("screenshotPNG", Cmd_ScreenshotPNG);
+	interface::Cmd_Add("r_printMaterials", Cmd_PrintMaterials);
+	interface::Cmd_Add("screenshot", Cmd_Screenshot);
+	interface::Cmd_Add("screenshotJPEG", Cmd_ScreenshotJPEG);
+	interface::Cmd_Add("screenshotPNG", Cmd_ScreenshotPNG);
 
 	// init function tables
 	for (size_t i = 0; i < g_funcTableSize; i++)
@@ -325,10 +323,10 @@ Main::~Main()
 			bgfx::destroyTexture(smaaSearchTex_);
 	}
 
-	ri.Cmd_RemoveCommand("r_printMaterials");
-	ri.Cmd_RemoveCommand("screenshot");
-	ri.Cmd_RemoveCommand("screenshotJPEG");
-	ri.Cmd_RemoveCommand("screenshotPNG");
+	interface::Cmd_Remove("r_printMaterials");
+	interface::Cmd_Remove("screenshot");
+	interface::Cmd_Remove("screenshotJPEG");
+	interface::Cmd_Remove("screenshotPNG");
 	g_materialCache = nullptr;
 	g_modelCache = nullptr;
 	Texture::shutdownCache();
@@ -374,12 +372,12 @@ void Main::initialize()
 		
 		if (!bgfx::init(selectedBackend, 0, 0, &bgfxCallback))
 		{
-			ri.Error(ERR_DROP, "bgfx init failed");
+			interface::Error("bgfx init failed");
 		}
 
 		// Print the chosen backend name. It may not be the one that was selected.
 		const bool forced = selectedBackend != bgfx::RendererType::Count && selectedBackend != bgfx::getCaps()->rendererType;
-		ri.Printf(PRINT_ALL, "Renderer backend%s: %s\n", forced ? " forced to" : "", bgfx::getRendererName(bgfx::getCaps()->rendererType));
+		interface::Printf("Renderer backend%s: %s\n", forced ? " forced to" : "", bgfx::getRendererName(bgfx::getCaps()->rendererType));
 	}
 
 	uint32_t resetFlags = 0;
@@ -399,17 +397,17 @@ void Main::initialize()
 
 	if (caps->maxFBAttachments < 2)
 	{
-		ri.Error(ERR_DROP, "MRT not supported");
+		interface::Error("MRT not supported");
 	}
 
 	if ((caps->formats[bgfx::TextureFormat::R8U] & BGFX_CAPS_FORMAT_TEXTURE_2D) == 0)
 	{
-		ri.Error(ERR_DROP, "R8U texture format not supported");
+		interface::Error("R8U texture format not supported");
 	}
 
 	if ((caps->formats[bgfx::TextureFormat::R16U] & BGFX_CAPS_FORMAT_TEXTURE_2D) == 0)
 	{
-		ri.Error(ERR_DROP, "R16U texture format not supported");
+		interface::Error("R16U texture format not supported");
 	}
 
 	debugDraw_ = DebugDrawFromString(g_cvars.debugDraw.getString());
@@ -520,7 +518,7 @@ void Main::initialize()
 			fragment.handle = bgfx::createShader(bgfx::makeRef(fragMem[programMap[i].frag].mem, (uint32_t)fragMem[programMap[i].frag].size));
 
 			if (!bgfx::isValid(fragment.handle))
-				ri.Error(ERR_DROP, "Error creating fragment shader");
+				interface::Error("Error creating fragment shader");
 		}
 
 		Shader &vertex = vertexShaders_[programMap[i].vert];
@@ -530,13 +528,13 @@ void Main::initialize()
 			vertex.handle = bgfx::createShader(bgfx::makeRef(vertMem[programMap[i].vert].mem, (uint32_t)vertMem[programMap[i].vert].size));
 
 			if (!bgfx::isValid(vertex.handle))
-				ri.Error(ERR_DROP, "Error creating vertex shader");
+				interface::Error("Error creating vertex shader");
 		}
 
 		shaderPrograms_[i].handle = bgfx::createProgram(vertex.handle, fragment.handle);
 
 		if (!bgfx::isValid(shaderPrograms_[i].handle))
-			ri.Error(ERR_DROP, "Error creating shader program");
+			interface::Error("Error creating shader program");
 	}
 }
 

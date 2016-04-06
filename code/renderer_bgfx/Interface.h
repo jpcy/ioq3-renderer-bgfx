@@ -21,7 +21,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #pragma once
 
-//extern "C" {
 namespace renderer {
 
 struct cvar_t;
@@ -29,7 +28,6 @@ struct cvar_t;
 typedef float vec_t;
 typedef vec_t vec3_t[3];
 typedef unsigned char 		byte;
-typedef enum { qfalse, qtrue }	qboolean;
 typedef int		qhandle_t;
 
 #if defined(_WIN32) || defined(__WIN32__) || defined(_WIN64) || defined(__WIN64__)
@@ -41,20 +39,8 @@ typedef int		qhandle_t;
 #endif
 
 //Ignore __attribute__ on non-gcc platforms
-#ifndef __GNUC__
-#ifndef __attribute__
+#if !defined(__GNUC__) && !defined(__attribute__)
 #define __attribute__(x)
-#endif
-#endif
-
-#if (defined _MSC_VER)
-#define Q_EXPORT __declspec(dllexport)
-#elif (defined __SUNPRO_C)
-#define Q_EXPORT __global
-#elif ((__GNUC__ >= 3) && (!__EMX__) && (!sun))
-#define Q_EXPORT __attribute__((visibility("default")))
-#else
-#define Q_EXPORT
 #endif
 
 #define	MAX_TOKEN_CHARS		1024	// max length of an individual token
@@ -65,34 +51,6 @@ typedef int		qhandle_t;
 #else
 #define	MAX_OSPATH			256		// max length of a filesystem pathname
 #endif
-
-typedef enum {
-	h_high,
-	h_low,
-	h_dontcare
-} ha_pref;
-
-// print levels from renderer (FIXME: set up for game / cgame?)
-typedef enum {
-	PRINT_ALL,
-	PRINT_DEVELOPER,		// only print when "developer 1"
-	PRINT_WARNING,
-	PRINT_ERROR
-} printParm_t;
-
-
-#ifdef ERR_FATAL
-#undef ERR_FATAL			// this is be defined in malloc.h
-#endif
-
-// parameters to the main Error routine
-typedef enum {
-	ERR_FATAL,					// exit the entire game with a popup window
-	ERR_DROP,					// print to console and disconnect from game
-	ERR_SERVERDISCONNECT,		// don't kill server
-	ERR_DISCONNECT,				// client disconnected from the server
-	ERR_NEED_CD					// pop up the need-cd dialog
-} errorParm_t;
 
 struct ConsoleVariableFlags
 {
@@ -116,23 +74,6 @@ struct ConsoleVariable
 	void setDescription(const char *description);
 	cvar_t *cvar;
 };
-
-// cinematic states
-typedef enum {
-	FMV_IDLE,
-	FMV_PLAY,		// play
-	FMV_EOF,		// all other conditions, i.e. stop/EOF/abort
-	FMV_ID_BLT,
-	FMV_ID_IDLE,
-	FMV_LOOPED,
-	FMV_ID_WAIT
-} e_status;
-
-#define CIN_system	1
-#define CIN_loop	2
-#define	CIN_hold	4
-#define CIN_silent	8
-#define CIN_shader	16
 
 // font support 
 
@@ -229,99 +170,37 @@ typedef struct {
 	byte		modulate[4];
 } polyVert_t;
 
-typedef struct poly_s {
-	qhandle_t			hShader;
-	int					numVerts;
-	polyVert_t			*verts;
-} poly_t;
-
 #define CLIENT_WINDOW_TITLE		"ioquake3"
 
 namespace interface
 {
-	ConsoleVariable GetConsoleVariable(const char *name, const char *value, int flags);
+	void CIN_UploadCinematic(int handle);
+	int CIN_PlayCinematic(const char *arg0, int xpos, int ypos, int width, int height);
+	void CIN_RunCinematic(int handle);
+	void Cmd_Add(const char *name, void (*cmd)(void));
+	void Cmd_Remove(const char *name);
+	int Cmd_Argc();
+	const char *Cmd_Argv(int i);
+	const uint8_t *CM_ClusterPVS(int cluster);
+	ConsoleVariable Cvar_Get(const char *name, const char *value, int flags);
+	int Cvar_GetInteger(const char *name);
+	void Cvar_Set(const char *name, const char *value);
+	void Error(const char *format, ...) __attribute__((format(printf, 1, 2)));
+	void FatalError(const char *format, ...) __attribute__((format(printf, 1, 2)));
+	long FS_ReadFile(const char *name, uint8_t **buf);
+	void FS_FreeReadFile(uint8_t *buf);
+	bool FS_FileExists(const char *filename);
+	char **FS_ListFiles(const char *name, const char *extension, int *numFilesFound);
+	void FS_FreeListFiles(char **fileList);
+	void FS_WriteFile(const char *filename, const uint8_t *buffer, size_t size);
+	int GetTime();
+	void *Hunk_Alloc(int size);
+	void IN_Init(void *windowData);
+	void IN_Shutdown();
+	void Printf(const char *format, ...) __attribute__((format(printf, 1, 2)));
+	void PrintDeveloperf(const char *format, ...) __attribute__((format(printf, 1, 2)));
+	void PrintWarningf(const char *format, ...) __attribute__((format(printf, 1, 2)));
 }
-
-//
-// these are the functions imported by the refresh module
-//
-typedef struct {
-	// print message on the local console
-	void	(QDECL *Printf)(int printLevel, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
-
-	// abort the game
-	void	(QDECL *Error)(int errorLevel, const char *fmt, ...) __attribute__((noreturn, format(printf, 2, 3)));
-
-	// milliseconds should only be used for profiling, never
-	// for anything game related.  Get time from the refdef
-	int(*Milliseconds)(void);
-
-	// stack based memory allocation for per-level things that
-	// won't be freed
-#ifdef HUNK_DEBUG
-	void	*(*Hunk_AllocDebug)(int size, ha_pref pref, char *label, char *file, int line);
-#else
-	void	*(*Hunk_Alloc)(int size, ha_pref pref);
-#endif
-	void	*(*Hunk_AllocateTempMemory)(int size);
-	void(*Hunk_FreeTempMemory)(void *block);
-
-	// dynamic memory allocator for things that need to be freed
-	void	*(*Malloc)(int bytes);
-	void(*Free)(void *buf);
-
-	cvar_t	*(*Cvar_Get)(const char *name, const char *value, int flags);
-	void(*Cvar_Set)(const char *name, const char *value);
-	void(*Cvar_SetValue) (const char *name, float value);
-	void(*Cvar_CheckRange)(cvar_t *cv, float minVal, float maxVal, qboolean shouldBeIntegral);
-	void(*Cvar_SetDescription)(cvar_t *cv, const char *description);
-
-	int(*Cvar_VariableIntegerValue) (const char *var_name);
-
-	void(*Cmd_AddCommand)(const char *name, void(*cmd)(void));
-	void(*Cmd_RemoveCommand)(const char *name);
-
-	int(*Cmd_Argc) (void);
-	char	*(*Cmd_Argv) (int i);
-
-	void(*Cmd_ExecuteText) (int exec_when, const char *text);
-
-	byte	*(*CM_ClusterPVS)(int cluster);
-
-	// visualization for debugging collision detection
-	void(*CM_DrawDebugSurface)(void(*drawPoly)(int color, int numPoints, float *points));
-
-	// a -1 return means the file does not exist
-	// NULL can be passed for buf to just determine existance
-	int(*FS_FileIsInPAK)(const char *name, int *pCheckSum);
-	long(*FS_ReadFile)(const char *name, void **buf);
-	void(*FS_FreeFile)(void *buf);
-	char **	(*FS_ListFiles)(const char *name, const char *extension, int *numfilesfound);
-	void(*FS_FreeFileList)(char **filelist);
-	void(*FS_WriteFile)(const char *qpath, const void *buffer, int size);
-	qboolean(*FS_FileExists)(const char *file);
-
-	// cinematic stuff
-	void(*CIN_UploadCinematic)(int handle);
-	int(*CIN_PlayCinematic)(const char *arg0, int xpos, int ypos, int width, int height, int bits);
-	e_status(*CIN_RunCinematic) (int handle);
-
-	void(*CL_WriteAVIVideoFrame)(const byte *buffer, int size);
-
-	// input event handling
-	void(*IN_Init)(void *windowData);
-	void(*IN_Shutdown)(void);
-	void(*IN_Restart)(void);
-
-	// math
-	long(*ftol)(float f);
-
-	// system stuff
-	void(*Sys_SetEnv)(const char *name, const char *value);
-	void(*Sys_GLimpSafeInit)(void);
-	void(*Sys_GLimpInit)(void);
-	qboolean(*Sys_LowPhysicalMemory)(void);
-} refimport_t;
 
 /*
 ========================================================================
@@ -615,5 +494,4 @@ typedef struct {
 	int			patchHeight;
 } dsurface_t;
 
-//} // extern "C"
 } // namespace renderer

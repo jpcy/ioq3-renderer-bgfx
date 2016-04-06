@@ -169,7 +169,7 @@ Skin::Skin(const char *name, qhandle_t handle)
 
 		if (nSurfaces_ >= MD3_MAX_SURFACES)
 		{
-			ri.Printf(PRINT_WARNING, "WARNING: Ignoring surfaces in '%s', the max is %d surfaces!\n", name, MD3_MAX_SURFACES);
+			interface::PrintWarningf("WARNING: Ignoring surfaces in '%s', the max is %d surfaces!\n", name, MD3_MAX_SURFACES);
 			break;
 		}
 
@@ -200,7 +200,7 @@ Material *Skin::findMaterial(const char *surfaceName)
 
 MaterialCache::MaterialCache() : hashTable_(), textHashTable_()
 {
-	ri.Printf(PRINT_ALL, "Initializing Materials\n");
+	interface::Printf("Initializing Materials\n");
 	createInternalShaders();
 	scanAndLoadShaderFiles();
 	createExternalShaders();
@@ -280,7 +280,7 @@ Material *MaterialCache::findMaterial(const char *name, int lightmapIndex, bool 
 
 	if (!texture)
 	{
-		ri.Printf(PRINT_DEVELOPER, "Couldn't find image file for shader %s\n", name);
+		interface::PrintDeveloperf("Couldn't find image file for shader %s\n", name);
 		m.defaultShader = true;
 		return createMaterial(m);
 	}
@@ -361,7 +361,7 @@ void MaterialCache::remapMaterial(const char *oldName, const char *newName, cons
 
 		if (materials[i] == nullptr || materials[i] == defaultMaterial_)
 		{
-			ri.Printf(PRINT_WARNING, "WARNING: RE_RemapShader: %s shader %s not found\n", i == 0 ? "old" : "new", name);
+			interface::PrintWarningf("WARNING: RE_RemapShader: %s shader %s not found\n", i == 0 ? "old" : "new", name);
 			return;
 		}
 	}
@@ -407,14 +407,14 @@ void MaterialCache::printMaterials() const
 				animated = true;
 		}
 
-		ri.Printf(PRINT_ALL, "%4u: [%c] %s\n", i, animated ? 'a' : ' ', mat->name);
+		interface::Printf("%4u: [%c] %s\n", i, animated ? 'a' : ' ', mat->name);
 		nStages[mat->numUnfoggedPasses]++;
 	}
 
 	for (int i = 1; i < Material::maxStages; i++)
 	{
 		if (nStages[i])
-			ri.Printf(PRINT_ALL, "%i materials with %i stage(s)\n", nStages[i], i);
+			interface::Printf("%i materials with %i stage(s)\n", nStages[i], i);
 	}
 }
 
@@ -422,13 +422,13 @@ Skin *MaterialCache::findSkin(const char *name)
 {
 	if (!name || !name[0])
 	{
-		ri.Printf(PRINT_DEVELOPER, "Empty skin name\n");
+		interface::PrintDeveloperf("Empty skin name\n");
 		return nullptr;
 	}
 
 	if (strlen(name) >= MAX_QPATH)
 	{
-		ri.Printf(PRINT_DEVELOPER, "Skin name exceeds MAX_QPATH\n");
+		interface::PrintDeveloperf("Skin name exceeds MAX_QPATH\n");
 		return nullptr;
 	}
 
@@ -488,11 +488,11 @@ void MaterialCache::scanAndLoadShaderFiles()
 {
 	// scan for shader files
 	int numShaderFiles;
-	char **shaderFiles = ri.FS_ListFiles("scripts", ".shader", &numShaderFiles);
+	char **shaderFiles = interface::FS_ListFiles("scripts", ".shader", &numShaderFiles);
 
 	if (!shaderFiles || !numShaderFiles)
 	{
-		ri.Printf(PRINT_WARNING, "WARNING: no shader files found\n");
+		interface::PrintWarningf("WARNING: no shader files found\n");
 		return;
 	}
 
@@ -517,17 +517,17 @@ void MaterialCache::scanAndLoadShaderFiles()
 				strcpy(ext, ".mtr");
 			}
 
-			if (ri.FS_ReadFile(filename, NULL) <= 0)
+			if (interface::FS_ReadFile(filename, NULL) <= 0)
 			{
 				util::Sprintf(filename, sizeof(filename), "scripts/%s", shaderFiles[i]);
 			}
 		}
 		
-		ri.Printf(PRINT_DEVELOPER, "...loading '%s'\n", filename);
-		long summand = ri.FS_ReadFile(filename, (void **)&buffers[i]);
+		interface::PrintDeveloperf("...loading '%s'\n", filename);
+		long summand = interface::FS_ReadFile(filename, (uint8_t **)&buffers[i]);
 		
 		if (!buffers[i])
-			ri.Error(ERR_DROP, "Couldn't load %s", filename);
+			interface::Error("Couldn't load %s", filename);
 		
 		// Do a simple check on the shader structure in that file to make sure one bad shader file cannot fuck up all other shaders.
 		char *p = buffers[i];
@@ -548,23 +548,23 @@ void MaterialCache::scanAndLoadShaderFiles()
 
 			if (token[0] != '{' || token[1] != '\0')
 			{
-				ri.Printf(PRINT_WARNING, "WARNING: Ignoring shader file %s. Shader \"%s\" on line %d missing opening brace", filename, shaderName, shaderLine);
+				interface::PrintWarningf("WARNING: Ignoring shader file %s. Shader \"%s\" on line %d missing opening brace", filename, shaderName, shaderLine);
 
 				if (token[0])
 				{
-					ri.Printf(PRINT_WARNING, " (found \"%s\" on line %d)", token, util::GetCurrentParseLine());
+					interface::PrintWarningf(" (found \"%s\" on line %d)", token, util::GetCurrentParseLine());
 				}
 
-				ri.Printf(PRINT_WARNING, ".\n");
-				ri.FS_FreeFile(buffers[i]);
+				interface::PrintWarningf(".\n");
+				interface::FS_FreeReadFile((uint8_t *)buffers[i]);
 				buffers[i] = NULL;
 				break;
 			}
 
 			if (!util::SkipBracedSection(&p, 1))
 			{
-				ri.Printf(PRINT_WARNING, "WARNING: Ignoring shader file %s. Shader \"%s\" on line %d missing closing brace.\n", filename, shaderName, shaderLine);
-				ri.FS_FreeFile(buffers[i]);
+				interface::PrintWarningf("WARNING: Ignoring shader file %s. Shader \"%s\" on line %d missing closing brace.\n", filename, shaderName, shaderLine);
+				interface::FS_FreeReadFile((uint8_t *)buffers[i]);
 				buffers[i] = NULL;
 				break;
 			}
@@ -575,9 +575,9 @@ void MaterialCache::scanAndLoadShaderFiles()
 	}
 
 	// build single large buffer
-	s_shaderText = (char *)ri.Hunk_Alloc(sum + numShaderFiles*2, h_low);
-	s_shaderText[0] = '\0';
-	char *textEnd = s_shaderText;
+	shaderText_.resize(sum + numShaderFiles * 2);
+	shaderText_[0] = '\0';
+	char *textEnd = shaderText_.data();
  
 	// free in reverse order, so the temp files are all dumped
 	for (int i = numShaderFiles - 1; i >= 0 ; i--)
@@ -588,19 +588,19 @@ void MaterialCache::scanAndLoadShaderFiles()
 		strcat(textEnd, buffers[i]);
 		strcat(textEnd, "\n");
 		textEnd += strlen(textEnd);
-		ri.FS_FreeFile(buffers[i]);
+		interface::FS_FreeReadFile((uint8_t *)buffers[i]);
 	}
 
-	util::Compress(s_shaderText);
+	util::Compress(shaderText_.data());
 
 	// free up memory
-	ri.FS_FreeFileList(shaderFiles);
+	interface::FS_FreeListFiles(shaderFiles);
 
 	// look for shader names
 	int textHashTable_Sizes[textHashTableSize_];
 	memset(textHashTable_Sizes, 0, sizeof(textHashTable_Sizes));
 	int size = 0;
-	char *p = s_shaderText;
+	char *p = shaderText_.data();
 
 	while (1)
 	{
@@ -616,7 +616,7 @@ void MaterialCache::scanAndLoadShaderFiles()
 	}
 
 	size += textHashTableSize_;
-	auto hashMem = (char *)ri.Hunk_Alloc(size * sizeof(char *), h_low);
+	auto hashMem = (char *)interface::Hunk_Alloc(size * sizeof(char *));
 
 	for (int i = 0; i < textHashTableSize_; i++)
 	{
@@ -626,7 +626,7 @@ void MaterialCache::scanAndLoadShaderFiles()
 
 	// look for shader names
 	memset(textHashTable_Sizes, 0, sizeof(textHashTable_Sizes));
-	p = s_shaderText;
+	p = shaderText_.data();
 
 	while (1)
 	{
@@ -662,7 +662,7 @@ char *MaterialCache::findShaderInShaderText(const char *name)
 		}
 	}
 
-	char *p = s_shaderText;
+	char *p = shaderText_.data();
 
 	if (!p)
 		return NULL;

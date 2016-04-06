@@ -117,14 +117,14 @@ static void MakeMeshNormals( int width, int height, Vertex ctrl[MAX_GRID_SIZE][M
 	int		x, y;
 	Vertex	*dv;
 	vec3		around[8], temp;
-	qboolean	good[8];
-	qboolean	wrapWidth, wrapHeight;
+	bool good[8];
+	bool wrapWidth, wrapHeight;
 	float		len;
 static	int	neighbors[8][2] = {
 	{0,1}, {1,1}, {1,0}, {1,-1}, {0,-1}, {-1,-1}, {-1,0}, {-1,1}
 	};
 
-	wrapWidth = qfalse;
+	wrapWidth = false;
 	for ( i = 0 ; i < height ; i++ ) {
 		delta = ctrl[i][0].pos - ctrl[i][width-1].pos;
 		len = delta.lengthSquared();
@@ -133,10 +133,10 @@ static	int	neighbors[8][2] = {
 		}
 	}
 	if ( i == height ) {
-		wrapWidth = qtrue;
+		wrapWidth = true;
 	}
 
-	wrapHeight = qfalse;
+	wrapHeight = false;
 	for ( i = 0 ; i < width ; i++ ) {
 		delta = ctrl[0][i].pos - ctrl[height-1][i].pos;
 		len = delta.lengthSquared();
@@ -145,7 +145,7 @@ static	int	neighbors[8][2] = {
 		}
 	}
 	if ( i == width) {
-		wrapHeight = qtrue;
+		wrapHeight = true;
 	}
 
 
@@ -156,7 +156,7 @@ static	int	neighbors[8][2] = {
 			base = dv->pos;
 			for ( k = 0 ; k < 8 ; k++ ) {
 				around[k] = vec3::empty;
-				good[k] = qfalse;
+				good[k] = false;
 
 				for ( dist = 1 ; dist <= 3 ; dist++ ) {
 					x = i + neighbors[k][0] * dist;
@@ -183,7 +183,7 @@ static	int	neighbors[8][2] = {
 					if (temp.normalize() == 0 ) {
 						continue;				// degenerate edge, get more dist
 					} else {
-						good[k] = qtrue;
+						good[k] = true;
 						around[k] = temp;
 						break;					// good edge
 					}

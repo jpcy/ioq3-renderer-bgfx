@@ -32,7 +32,7 @@ DynamicLightManager::DynamicLightManager() : nLights_(0)
 
 	// FIXME: workaround d3d11 flickering texture if smaller than 64x64 and not updated every frame
 	lightsTextureSize_ = std::max(uint16_t(64), lightsTextureSize_);
-	ri.Printf(PRINT_ALL, "dlight texture size is %ux%u\n", lightsTextureSize_, lightsTextureSize_);
+	interface::Printf("dlight texture size is %ux%u\n", lightsTextureSize_, lightsTextureSize_);
 
 	// Clamp and filter are just for debug drawing. Sampling uses texel fetch.
 	lightsTexture_ = bgfx::createTexture2D(lightsTextureSize_, lightsTextureSize_, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
@@ -53,7 +53,7 @@ void DynamicLightManager::add(int frameNo, const DynamicLight &light)
 {
 	if (nLights_ == maxLights - 1)
 	{
-		ri.Printf(PRINT_WARNING, "Hit maximum dlights\n");
+		interface::PrintWarningf("Hit maximum dlights\n");
 		return;
 	}
 
@@ -99,12 +99,12 @@ void DynamicLightManager::initializeGrid()
 		cellSize_[i] = int(worldSize[i] / gridSize_[i]);
 	}
 
-	ri.Printf(PRINT_ALL, "dlight grid size is %ux%ux%u\n", gridSize_.x, gridSize_.y, gridSize_.z);
+	interface::Printf("dlight grid size is %ux%ux%u\n", gridSize_.x, gridSize_.y, gridSize_.z);
 	gridOffset_ = vec3::empty - world::GetBounds().min;
 
 	// Cells texture.
 	cellsTextureSize_ = util::CalculateSmallestPowerOfTwoTextureSize((int)gridSize_.x * (int)gridSize_.y * (int)gridSize_.z);
-	ri.Printf(PRINT_ALL, "dlight cells texture size is %ux%u\n", cellsTextureSize_, cellsTextureSize_);
+	interface::Printf("dlight cells texture size is %ux%u\n", cellsTextureSize_, cellsTextureSize_);
 	cellsTexture_ = bgfx::createTexture2D(cellsTextureSize_, cellsTextureSize_, 1, bgfx::TextureFormat::R16U, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
 
 	for (int i = 0; i < BGFX_NUM_BUFFER_FRAMES; i++)
@@ -114,7 +114,7 @@ void DynamicLightManager::initializeGrid()
 
 	// Indices textures.
 	indicesTextureSize_ = 512;
-	ri.Printf(PRINT_ALL, "dlight indices texture size is %ux%u\n", indicesTextureSize_, indicesTextureSize_);
+	interface::Printf("dlight indices texture size is %ux%u\n", indicesTextureSize_, indicesTextureSize_);
 	indicesTexture_ = bgfx::createTexture2D(indicesTextureSize_, indicesTextureSize_, 1, bgfx::TextureFormat::R8U, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
 
 	for (int i = 0; i < BGFX_NUM_BUFFER_FRAMES; i++)
@@ -227,7 +227,7 @@ void DynamicLightManager::updateTextures(int frameNo)
 
 		if (indicesOffset > uint16_t(UINT16_MAX - 2))
 		{
-			ri.Printf(PRINT_WARNING, "Too many assigned lights.\n");
+			interface::PrintWarningf("Too many assigned lights.\n");
 			break;
 		}
 	}

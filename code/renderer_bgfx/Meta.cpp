@@ -118,7 +118,7 @@ void OnEntityAddedToScene(const Entity &entity, bool isWorldScene)
 		const float amplitude = 0.1f;
 		const float phase = 0;
 		const float freq = 10.1f;
-		const float radius = base + g_sinTable[ri.ftol((phase + main::GetFloatTime() * freq) * g_funcTableSize) & g_funcTableMask] * amplitude;
+		const float radius = base + g_sinTable[std::lrintf((phase + main::GetFloatTime() * freq) * g_funcTableSize) & g_funcTableMask] * amplitude;
 		dl.capsuleEnd = vec3(entity.oldPosition);
 		dl.color_radius = vec4(lightningColor, 200 * radius);
 		dl.position_type.w = DynamicLight::Capsule;

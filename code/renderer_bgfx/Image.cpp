@@ -74,7 +74,7 @@ static uint8_t *Stbi_LoadImage(const char *filename, const uint8_t *fileBuffer, 
 
 	if (data == nullptr)
 	{
-		ri.Printf(PRINT_ALL, "Error loading image \"%s\". Reason: \"%s\"\n", filename, stbi_failure_reason());
+		interface::Printf("Error loading image \"%s\". Reason: \"%s\"\n", filename, stbi_failure_reason());
 		return nullptr;
 	}
 

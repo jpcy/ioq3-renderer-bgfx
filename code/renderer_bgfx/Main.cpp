@@ -63,7 +63,7 @@ void WarnOnce(WarnOnceId::Enum id)
 
 	if (!warned[id])
 	{
-		ri.Printf(PRINT_WARNING, "BGFX transient buffer alloc failed\n");
+		interface::PrintWarningf("BGFX transient buffer alloc failed\n");
 		warned[id] = true;
 	}
 }
@@ -173,7 +173,7 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 	{
 		if (!stbi_write_png_to_func(ImageWriteCallback, &buffer, _width, _height, nComponents, screenShotDataBuffer_.data(), (int)outputPitch))
 		{
-			ri.Printf(PRINT_ALL, "Screenshot: error writing png file\n");
+			interface::Printf("Screenshot: error writing png file\n");
 			return;
 		}
 	}
@@ -181,7 +181,7 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 	{
 		if (!jo_write_jpg_to_func(ImageWriteCallbackConst, &buffer, screenShotDataBuffer_.data(), _width, _height, nComponents, g_cvars.screenshotJpegQuality.getInt()))
 		{
-			ri.Printf(PRINT_ALL, "Screenshot: error writing jpg file\n");
+			interface::Printf("Screenshot: error writing jpg file\n");
 			return;
 		}
 	}
@@ -189,7 +189,7 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 	{
 		if (!stbi_write_tga_to_func(ImageWriteCallback, &buffer, _width, _height, nComponents, screenShotDataBuffer_.data()))
 		{
-			ri.Printf(PRINT_ALL, "Screenshot: error writing tga file\n");
+			interface::Printf("Screenshot: error writing tga file\n");
 			return;
 		}
 	}
@@ -197,7 +197,7 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 	// Write file buffer to file.
 	if (buffer.bytesWritten > 0)
 	{
-		ri.FS_WriteFile(_filePath, buffer.data->data(), (int)buffer.bytesWritten);
+		interface::FS_WriteFile(_filePath, buffer.data->data(), buffer.bytesWritten);
 	}
 }
 
@@ -314,7 +314,7 @@ void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
 {
 	if (!fontName)
 	{
-		ri.Printf(PRINT_ALL, "RE_RegisterFont: called with empty name\n");
+		interface::Printf("RE_RegisterFont: called with empty name\n");
 		return;
 	}
 
@@ -323,7 +323,7 @@ void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
 
 	if (nFonts_ >= maxFonts_)
 	{
-		ri.Printf(PRINT_WARNING, "RE_RegisterFont: Too many fonts registered already.\n");
+		interface::PrintWarningf("RE_RegisterFont: Too many fonts registered already.\n");
 		return;
 	}
 
@@ -339,14 +339,14 @@ void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
 		}
 	}
 
-	int len = ri.FS_ReadFile(name, NULL);
+	long len = interface::FS_ReadFile(name, NULL);
 
 	if (len != sizeof(fontInfo_t))
 		return;
 
 	int offset = 0;
-	const uint8_t *data;
-	ri.FS_ReadFile(name, (void **)&data);
+	uint8_t *data;
+	interface::FS_ReadFile(name, &data);
 
 	for (int i = 0; i < GLYPHS_PER_FONT; i++)
 	{
@@ -376,7 +376,7 @@ void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
 	}
 
 	memcpy(&fonts_[nFonts_++], font, sizeof(fontInfo_t));
-	ri.FS_FreeFile((void **)data);
+	interface::FS_FreeReadFile(data);
 }
 
 void Main::debugPrint(const char *text)
@@ -423,7 +423,7 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 {
 	if (!math::IsPowerOfTwo(cols) || !math::IsPowerOfTwo(rows))
 	{
-		ri.Error(ERR_DROP, "Draw_StretchRaw: size not a power of 2: %i by %i", cols, rows);
+		interface::Error("Draw_StretchRaw: size not a power of 2: %i by %i", cols, rows);
 	}
 
 	bgfx::TransientVertexBuffer tvb;
@@ -477,7 +477,7 @@ void Main::loadWorld(const char *name)
 {
 	if (world::IsLoaded())
 	{
-		ri.Error(ERR_DROP, "ERROR: attempted to redundantly load world map");
+		interface::Error("ERROR: attempted to redundantly load world map");
 	}
 
 	// Create frame buffers first.
@@ -864,7 +864,7 @@ void Main::flushStretchPics()
 		{
 			memcpy(tvb.data, &stretchPicVertices_[0], sizeof(Vertex) * stretchPicVertices_.size());
 			memcpy(tib.data, &stretchPicIndices_[0], sizeof(uint16_t) * stretchPicIndices_.size());
-			time_ = ri.Milliseconds();
+			time_ = interface::GetTime();
 			floatTime_ = time_ * 0.001f;
 			uniforms_->dynamicLight_Num_Intensity.set(vec4::empty);
 			matUniforms_->nDeforms.set(vec4(0, 0, 0, 0));

@@ -238,12 +238,12 @@ int Compress(char *data_p)
 				// record when we hit a newline
 			}
 			else if (c == '\n' || c == '\r') {
-				newline = qtrue;
+				newline = true;
 				in++;
 				// record when we hit whitespace
 			}
 			else if (c == ' ' || c == '\t') {
-				whitespace = qtrue;
+				whitespace = true;
 				in++;
 				// an actual token
 			}
@@ -251,11 +251,11 @@ int Compress(char *data_p)
 				// if we have a pending newline, emit it (and it counts as whitespace)
 				if (newline) {
 					*out++ = '\n';
-					newline = qfalse;
-					whitespace = qfalse;
+					newline = false;
+					whitespace = false;
 				} if (whitespace) {
 					*out++ = ' ';
-					whitespace = qfalse;
+					whitespace = false;
 				}
 
 				// copy quoted strings unmolested
@@ -395,7 +395,7 @@ int Sprintf(char *dest, int size, const char *fmt, ...)
 	va_end(argptr);
 
 	if (len >= size)
-		ri.Printf(PRINT_WARNING, "util::Sprintf: Output length %d too short, require %d bytes.\n", size, len + 1);
+		interface::PrintWarningf("util::Sprintf: Output length %d too short, require %d bytes.\n", size, len + 1);
 
 	return len;
 }
@@ -447,13 +447,13 @@ int Stricmp(const char *s1, const char *s2)
 void Strncpyz(char *dest, const char *src, int destsize)
 {
 	if (!dest) {
-		ri.Error(ERR_FATAL, "util::Strncpyz: NULL dest");
+		interface::FatalError("util::Strncpyz: NULL dest");
 	}
 	if (!src) {
-		ri.Error(ERR_FATAL, "util::Strncpyz: NULL src");
+		interface::FatalError("util::Strncpyz: NULL src");
 	}
 	if (destsize < 1) {
-		ri.Error(ERR_FATAL, "util::Strncpyz: destsize < 1");
+		interface::FatalError("util::Strncpyz: destsize < 1");
 	}
 
 	strncpy(dest, src, destsize - 1);
@@ -464,7 +464,7 @@ void Strcat(char *dest, int size, const char *src)
 {
 	auto l1 = (int)strlen(dest);
 	if (l1 >= size) {
-		ri.Error(ERR_FATAL, "util::Strcat: already overflowed");
+		interface::FatalError("util::Strcat: already overflowed");
 	}
 	Strncpyz(dest + l1, src, size - l1);
 }

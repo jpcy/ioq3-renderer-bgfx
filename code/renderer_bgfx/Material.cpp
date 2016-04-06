@@ -56,7 +56,7 @@ void Material::finish()
 		// check for a missing texture
 		if (!pStage->bundles[0].textures[0])
 		{
-			ri.Printf(PRINT_WARNING, "Material %s has a stage with no image\n", name);
+			interface::PrintWarningf("Material %s has a stage with no image\n", name);
 			pStage->active = false;
 			stageIndex++;
 			continue;
@@ -135,7 +135,7 @@ void Material::finish()
 
 	if (lightmapIndex >= 0 && !hasLightmapStage)
 	{
-		ri.Printf(PRINT_DEVELOPER, "WARNING: material '%s' has lightmap but no lightmap stage!\n", name);
+		interface::PrintDeveloperf("WARNING: material '%s' has lightmap but no lightmap stage!\n", name);
 	}
 
 	// compute number of passes

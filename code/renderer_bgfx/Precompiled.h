@@ -66,8 +66,6 @@ using namespace math;
 
 namespace renderer {
 
-extern refimport_t ri;
-
 struct Entity;
 class Material;
 class Model;
@@ -961,7 +959,7 @@ private:
 	char *findShaderInShaderText(const char *name);
 
 	static const size_t maxShaderFiles_ = 4096;
-	char *s_shaderText;
+	std::vector<char> shaderText_;
 
 	std::vector<std::unique_ptr<Material>> materials_;
 
@@ -1077,8 +1075,8 @@ void Patch_Free(Patch *grid);
 class ReadOnlyFile
 {
 public:
-	ReadOnlyFile(const char *filename) { length_ = ri.FS_ReadFile(filename, (void **)&data_); }
-	~ReadOnlyFile() { if (data_) ri.FS_FreeFile((void *)data_); }
+	ReadOnlyFile(const char *filename) { length_ = interface::FS_ReadFile(filename, &data_); }
+	~ReadOnlyFile() { if (data_) interface::FS_FreeReadFile(data_); }
 	bool isValid() const { return data_ && length_ >= 0; }
 	const uint8_t *getData() const { return data_; }
 	uint8_t *getData() { return data_; }

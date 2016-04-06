@@ -44,7 +44,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Precompiled.h"
 #pragma hdrstop
 
-#define	WAVEVALUE(table, base, amplitude, phase, freq) ((base) + table[ri.ftol((((phase) + material->time_ * (freq)) * g_funcTableSize)) & g_funcTableMask] * (amplitude))
+#define	WAVEVALUE(table, base, amplitude, phase, freq) ((base) + table[std::lrintf((((phase) + material->time_ * (freq)) * g_funcTableSize)) & g_funcTableMask] * (amplitude))
 
 namespace renderer {
 
@@ -159,8 +159,8 @@ void MaterialStage::setTextureSamplers(Uniforms_MaterialStage *uniforms) const
 
 	if (diffuseBundle.isVideoMap)
 	{
-		ri.CIN_RunCinematic(diffuseBundle.videoMapHandle);
-		ri.CIN_UploadCinematic(diffuseBundle.videoMapHandle);
+		interface::CIN_RunCinematic(diffuseBundle.videoMapHandle);
+		interface::CIN_UploadCinematic(diffuseBundle.videoMapHandle);
 	}
 
 	if (diffuseBundle.numImageAnimations <= 1)
@@ -216,7 +216,7 @@ void MaterialStage::calculateTextureAnimation(int *frame, int *nextFrame, float 
 	if (frame)
 	{
 		// It is necessary to do this messy calc to make sure animations line up exactly with waveforms of the same frequency.
-		*frame = ri.ftol(material->time_ * diffuseBundle.imageAnimationSpeed * g_funcTableSize);
+		*frame = std::lrintf(material->time_ * diffuseBundle.imageAnimationSpeed * g_funcTableSize);
 		*frame >>= g_funcTableSize2;
 		*frame = std::max(0, *frame); // May happen with shader time offsets.
 		*frame %= diffuseBundle.numImageAnimations;
@@ -263,7 +263,7 @@ float *MaterialStage::tableForFunc(MaterialWaveformGenFunc func) const
 		break;
 	}
 
-	ri.Error(ERR_DROP, "TableForFunc called with invalid function '%d' in shader '%s'", func, material->name);
+	interface::Error("TableForFunc called with invalid function '%d' in shader '%s'", func, material->name);
 	return NULL;
 }
 
@@ -325,7 +325,7 @@ void MaterialStage::calculateTexMods(vec4 *outMatrix, vec4 *outOffTurb) const
 			break;
 
 		default:
-			ri.Error(ERR_DROP, "ERROR: unknown texmod '%d' in shader '%s'", bundle.texMods[tm].type, material->name);
+			interface::Error("ERROR: unknown texmod '%d' in shader '%s'", bundle.texMods[tm].type, material->name);
 			break;
 		}
 
@@ -603,7 +603,7 @@ void Material::doAutoSpriteDeform(const mat3 &sceneRotation, Vertex *vertices, u
 
 	if ((nIndices % 6) != 0)
 	{
-		ri.Printf(PRINT_WARNING, "Autosprite material %s had odd index count %u\n", name, nIndices);
+		interface::PrintWarningf("Autosprite material %s had odd index count %u\n", name, nIndices);
 	}
 
 	vec3 forward, leftDir, upDir;
