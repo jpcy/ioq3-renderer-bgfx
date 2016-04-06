@@ -1,22 +1,3 @@
-#if BGFX_SHADER_LANGUAGE_HLSL
-struct BgfxUSampler2D
-{
-	Texture2D<uvec4> m_texture;
-};
-
-#define USAMPLER2D(_name, _reg) \
-	uniform Texture2D<uvec4> _name ## Texture : register(t[_reg]); \
-	static BgfxUSampler2D _name = { _name ## Texture }
-
-uvec4 texelFetch(BgfxUSampler2D _sampler, ivec2 _coord, int _level)
-{
-	return _sampler.m_texture.Load(ivec3(_coord, _level));
-}
-
-#else
-#define USAMPLER2D(_name, _reg) uniform usampler2D _name
-#endif
-
 vec4 ApplyDepthRange(vec4 v, float offset, float scale)
 {
 	float z = v.z / v.w;
