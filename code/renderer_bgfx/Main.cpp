@@ -932,7 +932,7 @@ static void SetDrawCallGeometry(const DrawCall &dc)
 	}
 }
 
-void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask, vec4 clippingPlane, int flags)
+void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask, Plane clippingPlane, int flags)
 {
 	assert(areaMask);
 	const float zMin = 4;
@@ -962,7 +962,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		if (g_cvars.waterReflections.getBool())
 		{
 			Transform reflectionCamera;
-			vec4 reflectionPlane;
+			Plane reflectionPlane;
 
 			if (world::CalculateReflectionCamera(visCacheId, position, rotation, vpMatrix, &reflectionCamera, &reflectionPlane))
 			{
@@ -987,7 +987,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		// Render a portal camera if there's a portal surface visible.
 		vec3 pvsPosition;
 		Transform portalCamera;
-		vec4 portalPlane;
+		Plane portalPlane;
 		bool isCameraMirrored;
 
 		if (world::CalculatePortalCamera(visCacheId, position, rotation, vpMatrix, sceneEntities_, &pvsPosition, &portalCamera, &isCameraMirrored, &portalPlane))
@@ -1040,7 +1040,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 	if (flags & RenderCameraFlags::UseClippingPlane)
 	{
 		uniforms_->portalClip.set(vec4(1, 0, 0, 0));
-		uniforms_->portalPlane.set(clippingPlane);
+		uniforms_->portalPlane.set(clippingPlane.toVec4());
 	}
 	else
 	{

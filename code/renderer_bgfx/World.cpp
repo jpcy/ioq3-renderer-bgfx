@@ -777,7 +777,7 @@ public:
 		}
 	}
 
-	bool calculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, vec4 *portalPlane) const
+	bool calculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, Plane *portalPlane) const
 	{
 		assert(pvsPosition);
 		assert(portalCamera);
@@ -927,11 +927,11 @@ public:
 		portalCamera->rotation[1] = MirroredVector(mainCameraRotation[1], surfaceTransform, cameraTransform);
 		portalCamera->rotation[2] = MirroredVector(mainCameraRotation[2], surfaceTransform, cameraTransform);
 		*isMirror = portal.isMirror;
-		*portalPlane = vec4(-cameraTransform.rotation[0], vec3::dotProduct(cameraTransform.position, -cameraTransform.rotation[0]));
+		*portalPlane = Plane(-cameraTransform.rotation[0], vec3::dotProduct(cameraTransform.position, -cameraTransform.rotation[0]));
 		return true;
 	}
 
-	bool calculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, Transform *camera, vec4 *plane)
+	bool calculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, Transform *camera, Plane *plane)
 	{
 		assert(camera);
 		assert(plane);
@@ -988,7 +988,7 @@ public:
 		camera->rotation[0] = MirroredVector(mainCameraRotation[0], surfaceTransform, cameraTransform);
 		camera->rotation[1] = MirroredVector(mainCameraRotation[1], surfaceTransform, cameraTransform);
 		camera->rotation[2] = MirroredVector(mainCameraRotation[2], surfaceTransform, cameraTransform);
-		*plane = vec4(-cameraTransform.rotation[0], vec3::dotProduct(cameraTransform.position, -cameraTransform.rotation[0]));
+		*plane = Plane(-cameraTransform.rotation[0], vec3::dotProduct(cameraTransform.position, -cameraTransform.rotation[0]));
 		return true;
 	}
 
@@ -2459,13 +2459,13 @@ void GetSky(uint8_t visCacheId, size_t index, Material **material, const std::ve
 	s_world->getSky(visCacheId, index, material, vertices);
 }
 
-bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, vec4 *portalPlane)
+bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, Plane *portalPlane)
 {
 	assert(IsLoaded());
 	return s_world->calculatePortalCamera(visCacheId, mainCameraPosition, mainCameraRotation, mvp, entities, pvsPosition, portalCamera, isMirror, portalPlane);
 }
 
-bool CalculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, Transform *camera, vec4 *plane)
+bool CalculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, Transform *camera, Plane *plane)
 {
 	assert(IsLoaded());
 	return s_world->calculateReflectionCamera(visCacheId, mainCameraPosition, mainCameraRotation, mvp, camera, plane);

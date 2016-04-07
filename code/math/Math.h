@@ -668,6 +668,8 @@ public:
 	// Returns 1, 2, or 1 + 2
 	int testBounds(Bounds bounds);
 
+	vec4 toVec4() const { return vec4(normal, distance); }
+
 	vec3 normal;
 	float distance;
 
