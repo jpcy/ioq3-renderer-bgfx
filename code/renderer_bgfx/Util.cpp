@@ -351,6 +351,31 @@ bool IsGeometryBackfacing(vec3 cameraPosition, const uint16_t *indices, size_t n
 	return nTriangles == 0;
 }
 
+vec3 MirroredPoint(const vec3 in, const Transform &surface, const Transform &camera)
+{
+	const vec3 local = in - surface.position;
+	vec3 transformed;
+
+	for (size_t i = 0; i < 3; i++)
+	{
+		transformed += camera.rotation[i] * vec3::dotProduct(local, surface.rotation[i]);
+	}
+
+	return transformed + camera.position;
+}
+
+vec3 MirroredVector(const vec3 in, const Transform &surface, const Transform &camera)
+{
+	vec3 transformed;
+
+	for (size_t i = 0; i < 3; i++)
+	{
+		transformed += camera.rotation[i] * vec3::dotProduct(in, surface.rotation[i]);
+	}
+
+	return transformed;
+}
+
 char *SkipPath(char *pathname)
 {
 	char *last = pathname;

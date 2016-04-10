@@ -1469,6 +1469,9 @@ namespace util
 	bool IsGeometryOffscreen(const mat4 &mvp, const uint16_t *indices, size_t nIndices, const Vertex *vertices);
 	bool IsGeometryBackfacing(vec3 cameraPosition, const uint16_t *indices, size_t nIndices, const Vertex *vertices, float *shortestVertexDistanceSquared = nullptr);
 
+	vec3 MirroredPoint(const vec3 in, const Transform &surface, const Transform &camera);
+	vec3 MirroredVector(const vec3 in, const Transform &surface, const Transform &camera);
+
 	char *SkipPath(char *pathname);
 	const char *GetExtension(const char *name);
 	void StripExtension(const char *in, char *out, int destsize);

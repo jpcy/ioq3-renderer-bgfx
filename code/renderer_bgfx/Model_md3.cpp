@@ -22,11 +22,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Precompiled.h"
 #pragma hdrstop
 
-#define LittleFloat(x) (x)
-#define LittleLong(x) (x)
-#define LittleShort(x) (x)
-#define	LL(x) x = LittleLong(x)
-
 namespace renderer {
 
 /*
