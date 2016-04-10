@@ -167,9 +167,9 @@ Skin::Skin(const char *name, qhandle_t handle)
 		// Parse the material name.
 		token = CommaParse(&text_p);
 
-		if (nSurfaces_ >= MD3_MAX_SURFACES)
+		if (nSurfaces_ >= maxSurfaces)
 		{
-			interface::PrintWarningf("WARNING: Ignoring surfaces in '%s', the max is %d surfaces!\n", name, MD3_MAX_SURFACES);
+			interface::PrintWarningf("WARNING: Ignoring surfaces in '%s', the max is %d surfaces!\n", name, maxSurfaces);
 			break;
 		}
 

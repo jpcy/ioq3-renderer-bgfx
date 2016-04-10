@@ -1144,6 +1144,8 @@ public:
 	Material *findMaterial(const char *surfaceName);
 
 private:
+	static const size_t maxSurfaces = 32;
+
 	struct Surface
 	{
 		char name[MAX_QPATH];
@@ -1154,7 +1156,7 @@ private:
 	char name_[MAX_QPATH];
 
 	qhandle_t handle_;
-	Surface surfaces_[MD3_MAX_SURFACES];
+	Surface surfaces_[maxSurfaces];
 	size_t nSurfaces_;
 };
 
