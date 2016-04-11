@@ -109,7 +109,8 @@ void OnEntityAddedToScene(const Entity &entity, bool isWorldScene)
 	// BFG explosion.
 	else if (entity.type == EntityType::Sprite && s_meta.bfgExplosionMaterial && entity.customMaterial == s_meta.bfgExplosionMaterial->index)
 	{
-		dl.color_radius = vec4(bfgColor, 300 * CalculateExplosionLight(entity.materialTime, 1000)); // Same radius and duration as rocket explosion.
+		// Same radius as rocket explosion. CG_MissileHitWall: 600ms duration.
+		dl.color_radius = vec4(bfgColor, 300 * CalculateExplosionLight(entity.materialTime, 600));
 	}
 	// Lightning bolt.
 	else if (entity.type == EntityType::Lightning)
@@ -131,7 +132,8 @@ void OnEntityAddedToScene(const Entity &entity, bool isWorldScene)
 	// Plasma explosion.
 	else if (entity.type == EntityType::Model && s_meta.plasmaExplosionMaterial && entity.customMaterial == s_meta.plasmaExplosionMaterial->index)
 	{
-		dl.color_radius = vec4(plasmaColor, 200 * CalculateExplosionLight(entity.materialTime, 600)); // CG_MissileHitWall: 600ms duration.
+		// CG_MissileHitWall: 600ms duration.
+		dl.color_radius = vec4(plasmaColor, 200 * CalculateExplosionLight(entity.materialTime, 600));
 	}
 	// Rail core.
 	else if (entity.type == EntityType::RailCore)
