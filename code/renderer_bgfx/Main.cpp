@@ -381,7 +381,12 @@ void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
 
 void Main::debugPrint(const char *text)
 {
-	bgfx::dbgTextPrintf(0, debugTextY, 0x4f, text);
+	const uint16_t fontHeight = 16;
+	const uint16_t maxY = window::GetHeight() / fontHeight;
+	const uint16_t columnWidth = 32;
+	uint16_t x = debugTextY / maxY * columnWidth;
+	uint16_t y = debugTextY % maxY;
+	bgfx::dbgTextPrintf(x, y, 0x4f, text);
 	debugTextY++;
 }
 
@@ -391,6 +396,11 @@ void Main::drawBounds(const Bounds &bounds)
 }
 
 void Main::drawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex)
+{
+	drawStretchPicGradient(x, y, w, h, s1, t1, s2, t2, materialIndex, stretchPicColor_);
+}
+
+void Main::drawStretchPicGradient(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex, vec4 gradientColor)
 {
 	Material *mat = materialCache_->getMaterial(materialIndex);
 
@@ -414,7 +424,8 @@ void Main::drawStretchPic(float x, float y, float w, float h, float s1, float t1
 	v[1].texCoord = vec2(s2, t1);
 	v[2].texCoord = vec2(s2, t2);
 	v[3].texCoord = vec2(s1, t2);
-	v[0].color = v[1].color = v[2].color = v[3].color = util::ToLinear(stretchPicColor_);
+	v[0].color = v[1].color = util::ToLinear(stretchPicColor_);
+	v[2].color = v[3].color = util::ToLinear(gradientColor);
 	i[0] = firstVertex + 3; i[1] = firstVertex + 0; i[2] = firstVertex + 2;
 	i[3] = firstVertex + 2; i[4] = firstVertex + 0; i[5] = firstVertex + 1;
 }

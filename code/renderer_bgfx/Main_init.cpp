@@ -575,6 +575,11 @@ void DrawStretchPic(float x, float y, float w, float h, float s1, float t1, floa
 	s_main->drawStretchPic(x, y, w, h, s1, t1, s2, t2, materialIndex);
 }
 
+void DrawStretchPicGradient(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex, vec4 gradientColor)
+{
+	s_main->drawStretchPicGradient(x, y, w, h, s1, t1, s2, t2, materialIndex, gradientColor);
+}
+
 void DrawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty)
 {
 	s_main->drawStretchRaw(x, y, w, h, cols, rows, data, client, dirty);

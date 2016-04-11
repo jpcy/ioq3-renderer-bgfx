@@ -69,6 +69,7 @@ public:
 	void debugPrint(const char *text);
 	void drawBounds(const Bounds &bounds);
 	void drawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex);
+	void drawStretchPicGradient(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex, vec4 gradientColor);
 	void drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);
 	void uploadCinematic(int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);
 	void loadWorld(const char *name);

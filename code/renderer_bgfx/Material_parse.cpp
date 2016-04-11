@@ -19,6 +19,33 @@ along with Quake III Arena source code; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
 */
+/*
+===========================================================================
+
+Return to Castle Wolfenstein single player GPL Source Code
+Copyright (C) 1999-2010 id Software LLC, a ZeniMax Media company.
+
+This file is part of the Return to Castle Wolfenstein single player GPL Source Code (RTCW SP Source Code).
+
+RTCW SP Source Code is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+RTCW SP Source Code is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with RTCW SP Source Code.  If not, see <http://www.gnu.org/licenses/>.
+
+In addition, the RTCW SP Source Code is also subject to certain additional terms. You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License which accompanied the RTCW SP Source Code.  If not, please request a copy in writing from id Software at the address below.
+
+If you have questions concerning this license or the applicable additional terms, you may contact in writing id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA.
+
+===========================================================================
+*/
 #include "Precompiled.h"
 #pragma hdrstop
 
@@ -90,8 +117,11 @@ static infoParm_t infoParms[] =
 	{"nomarks",		0,	SURF_NOMARKS,	0 },		// don't make impact marks, but still explode
 	{"ladder",		0,	SURF_LADDER,	0 },
 	{"nodamage",	0,	SURF_NODAMAGE,	0 },
+
+#if defined(ENGINE_IOQ3)
 	{"metalsteps",	0,	SURF_METALSTEPS,0 },
 	{"flesh",		0,	SURF_FLESH,		0 },
+#endif
 	{"nosteps",		0,	SURF_NOSTEPS,	0 },
 
 	// drawsurf attributes
@@ -99,7 +129,10 @@ static infoParm_t infoParms[] =
 	{"pointlight",	0,	SURF_POINTLIGHT, 0 },	// sample lighting at vertexes
 	{"nolightmap",	0,	SURF_NOLIGHTMAP,0 },	// don't generate a lightmap
 	{"nodlight",	0,	SURF_NODLIGHT, 0 },		// don't ever add dynamic lights
+
+#if defined(ENGINE_IOQ3)
 	{"dust",		0,	SURF_DUST, 0}			// leave a dust trail when walking on this surface
+#endif
 };
 
 bool Material::parse(char **text)
@@ -316,6 +349,13 @@ bool Material::parse(char **text)
 		else if (!util::Stricmp(token, "skyparms"))
 		{
 			parseSkyParms(text);
+		}
+		// RF, allow each shader to permit compression if available
+		else if (!util::Stricmp(token, "allowcompress"))
+		{
+		}
+		else if (!util::Stricmp(token, "nocompress"))
+		{
 		}
 		// light <value> determines flaring in q3map, not needed here
 		else if (!util::Stricmp(token, "light")) 

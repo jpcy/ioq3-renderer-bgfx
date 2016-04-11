@@ -535,6 +535,7 @@ void MaterialCache::scanAndLoadShaderFiles()
 
 		while(1)
 		{
+			char *oldP = p;
 			char *token = util::Parse(&p, true);
 			
 			if (!*token)
@@ -543,29 +544,26 @@ void MaterialCache::scanAndLoadShaderFiles()
 			char shaderName[MAX_QPATH];
 			util::Strncpyz(shaderName, token, sizeof(shaderName));
 			int shaderLine = util::GetCurrentParseLine();
-
 			token = util::Parse(&p, true);
 
 			if (token[0] != '{' || token[1] != '\0')
 			{
-				interface::PrintWarningf("WARNING: Ignoring shader file %s. Shader \"%s\" on line %d missing opening brace", filename, shaderName, shaderLine);
+				interface::PrintWarningf("WARNING: Shader file %s. Shader \"%s\" on line %d missing opening brace", filename, shaderName, shaderLine);
 
 				if (token[0])
 				{
 					interface::PrintWarningf(" (found \"%s\" on line %d)", token, util::GetCurrentParseLine());
 				}
 
-				interface::PrintWarningf(".\n");
-				interface::FS_FreeReadFile((uint8_t *)buffers[i]);
-				buffers[i] = NULL;
+				interface::PrintWarningf(". Ignoring rest of shader file.\n");
+				*oldP = 0;
 				break;
 			}
 
 			if (!util::SkipBracedSection(&p, 1))
 			{
-				interface::PrintWarningf("WARNING: Ignoring shader file %s. Shader \"%s\" on line %d missing closing brace.\n", filename, shaderName, shaderLine);
-				interface::FS_FreeReadFile((uint8_t *)buffers[i]);
-				buffers[i] = NULL;
+				interface::PrintWarningf("WARNING: Shader file %s. Shader \"%s\" on line %d missing closing brace. Ignoring rest of shader file.\n", filename, shaderName, shaderLine);
+				*oldP = 0;
 				break;
 			}
 		}

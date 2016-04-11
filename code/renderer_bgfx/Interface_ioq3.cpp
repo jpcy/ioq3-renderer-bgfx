@@ -22,6 +22,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Precompiled.h"
 #pragma hdrstop
 
+#if defined(ENGINE_IOQ3)
+
 namespace renderer {
 
 typedef enum { qfalse, qtrue }	qboolean;
@@ -1004,3 +1006,5 @@ extern "C" Q_EXPORT refexport_t * QDECL GetRefAPI(int apiVersion, refimport_t *r
 }
 
 } // namespace renderer
+
+#endif // ENGINE_IOQ3

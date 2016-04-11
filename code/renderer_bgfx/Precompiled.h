@@ -405,6 +405,7 @@ namespace main
 	void DebugPrint(const char *format, ...);
 	void DrawBounds(const Bounds &bounds);
 	void DrawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex);
+	void DrawStretchPicGradient(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex, vec4 gradientColor);
 	void DrawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);
 	void EndFrame();
 	const Entity *GetCurrentEntity();

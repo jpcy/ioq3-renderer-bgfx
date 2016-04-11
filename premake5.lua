@@ -357,12 +357,28 @@ newoption
 	}
 }
 
+newoption
+{
+	trigger = "engine",
+	value = "VALUE",
+	description = "Target engine",
+	allowed =
+	{
+		{ "ioq3", "ioquake3" },
+		{ "iortcw", "iortcw" }
+	}
+}
+
 if _ACTION == nil then
 	return
 end
 
 if not _OPTIONS["mingw"] then
 	_OPTIONS["mingw"] = "mingw-w64"
+end
+
+if not _OPTIONS["engine"] then
+	_OPTIONS["engine"] = "ioq3"
 end
 
 local BX_PATH = path.join(path.getabsolute(".."), "bx")
@@ -373,11 +389,15 @@ if not os.isdir(BX_PATH) then
 end
 
 local IOQ3_PATH = path.join(path.getabsolute(".."), "ioq3")
+local IORTCW_PATH = path.join(path.getabsolute(".."), "iortcw")
 local RENDERER_PATH = path.getabsolute(".")
 
 if os.is("windows") then
-	if not os.isdir(IOQ3_PATH) then
+	if _OPTIONS["engine"] == "ioq3" and not os.isdir(IOQ3_PATH) then
 		print("ioquake3 not found at " .. IOQ3_PATH)
+		os.exit()
+	elseif _OPTIONS["engine"] == "iortcw" and not os.isdir(IORTCW_PATH) then
+		print("iortcw not found at " .. IORTCW_PATH)
 		os.exit()
 	end
 end
@@ -430,7 +450,11 @@ solution "renderer_bgfx"
 dofile("renderer_bgfx.lua")
 
 if os.is("windows") then
-	createRendererProject(BGFX_PATH, BX_PATH, RENDERER_PATH, path.join(IOQ3_PATH, "code/SDL2/include"), path.join(IOQ3_PATH, "code/libs/win32/libSDL2"), path.join(IOQ3_PATH, "code/libs/win64/libSDL264"))
+	if _OPTIONS["engine"] == "ioq3" then
+		createRendererProject(_OPTIONS["engine"], BGFX_PATH, BX_PATH, RENDERER_PATH, path.join(IOQ3_PATH, "code/SDL2/include"), path.join(IOQ3_PATH, "code/libs/win32/libSDL2"), path.join(IOQ3_PATH, "code/libs/win64/libSDL264"))
+	elseif _OPTIONS["engine"] == "iortcw" then
+		createRendererProject(_OPTIONS["engine"], BGFX_PATH, BX_PATH, RENDERER_PATH, path.join(IORTCW_PATH, "SP/code/SDL2/include"), path.join(IORTCW_PATH, "SP/code/libs/win32/libSDL2"), path.join(IORTCW_PATH, "SP/code/libs/win64/libSDL264"))
+	end
 else
 	createRendererProject(BGFX_PATH, BX_PATH, RENDERER_PATH, nil, nil, nil)
 end

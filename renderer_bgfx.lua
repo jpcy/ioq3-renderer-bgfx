@@ -1,4 +1,4 @@
-function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sdlLib32, sdlLib64)
+function createRendererProject(engine, bgfxPath, bxPath, rendererPath, sdlIncludeDir, sdlLib32, sdlLib64)
 	project "renderer_bgfx"
 	kind "SharedLib"
 	language "C++"
@@ -48,6 +48,22 @@ function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sd
 	if os.is("linux") then
 		linuxSdlCflags = os.outputof("pkg-config --silence-errors --cflags sdl2")
 		linuxArchDefine = "ARCH_STRING=" .. os.outputof("uname -m")
+	end
+	
+	if engine == "ioq3" then
+		defines "ENGINE_IOQ3"
+		
+		configuration "x86"
+			targetname "renderer_bgfx_x86"
+		configuration "x86_64"
+			targetname "renderer_bgfx_x86_64"
+	elseif engine == "iortcw" then
+		defines "ENGINE_IORTCW"
+		
+		configuration "x86"
+			targetname "renderer_sp_bgfx_x86"
+		configuration "x86_64"
+			targetname "renderer_sp_bgfx_x86_64"
 	end
 	
 	configuration "Debug"
@@ -111,13 +127,7 @@ function createRendererProject(bgfxPath, bxPath, rendererPath, sdlIncludeDir, sd
 		
 	configuration { "windows", "x86_64" }
 		links(sdlLib64)
-
-	configuration "x86"
-		targetname "renderer_bgfx_x86"
-		
-	configuration "x86_64"
-		targetname "renderer_bgfx_x86_64"
-		
+	
 	configuration {}
 	
 	filter("files:not " .. path.getrelative(path.getabsolute("."), path.join(rendererPath, "code/renderer_bgfx/*.cpp")))
