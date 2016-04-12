@@ -30,7 +30,7 @@ class WorldModel : public Model
 {
 public:
 	WorldModel(int index, size_t nSurfaces, Bounds bounds);
-	bool load() override { return true; }
+	bool load(const ReadOnlyFile &file) override { return true; }
 	Bounds getBounds() const override { return bounds_; }
 	Transform getTag(const char *name, int frame) const override { return Transform(); }
 	bool isCulled(Entity *entity, const Frustum &cameraFrustum) const override;

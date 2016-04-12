@@ -350,6 +350,11 @@ bool Material::parse(char **text)
 		{
 			parseSkyParms(text);
 		}
+		// Ridah, allow disable fog for some shaders
+		else if (!util::Stricmp(token, "nofog"))
+		{
+			noFog = true;
+		}
 		// RF, allow each shader to permit compression if available
 		else if (!util::Stricmp(token, "allowcompress"))
 		{

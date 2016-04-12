@@ -69,6 +69,7 @@ namespace renderer {
 struct Entity;
 class Material;
 class Model;
+class ReadOnlyFile;
 struct SceneDefinition;
 class Skin;
 struct SunLight;
@@ -850,6 +851,7 @@ public:
 	bool isSky = false;
 	MaterialSkyParms sky;
 	MaterialFogParms fogParms;
+	bool noFog = false;
 
 	float portalRange = 256;			// distance to fog out at
 	bool isPortal = false;
@@ -991,7 +993,7 @@ class Model
 {
 public:
 	virtual ~Model() {}
-	virtual bool load() = 0;
+	virtual bool load(const ReadOnlyFile &file) = 0;
 	virtual Bounds getBounds() const = 0;
 	virtual Transform getTag(const char *name, int frame) const = 0;
 	virtual bool isCulled(Entity *entity, const Frustum &cameraFrustum) const = 0;
@@ -1001,6 +1003,7 @@ public:
 	Transform lerpTag(const char *name, int startFrame, int endFrame, float fraction);
 
 	static std::unique_ptr<Model> createMD3(const char *name);
+	static std::unique_ptr<Model> createMDC(const char *name);
 
 protected:
 	char name_[MAX_QPATH];

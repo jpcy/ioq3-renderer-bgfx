@@ -130,11 +130,189 @@ typedef struct {
 	int			ofsEnd;				// end of file
 } md3Header_t;
 
+// Ridah, mesh compression
+/*
+==============================================================================
+
+MDC file format
+
+==============================================================================
+*/
+
+#define MDC_IDENT           ( ( 'C' << 24 ) + ( 'P' << 16 ) + ( 'D' << 8 ) + 'I' )
+#define MDC_VERSION         2
+
+// version history:
+// 1 - original
+// 2 - changed tag structure so it only lists the names once
+
+typedef struct {
+	unsigned int ofsVec;                    // offset direction from the last base frame
+											//	unsigned short	ofsVec;
+} mdcXyzCompressed_t;
+
+typedef struct {
+	char name[MAX_QPATH];           // tag name
+} mdcTagName_t;
+
+#define MDC_TAG_ANGLE_SCALE ( 360.0f / 32700.0f )
+
+typedef struct {
+	short xyz[3];
+	short angles[3];
+} mdcTag_t;
+
+/*
+** mdcSurface_t
+**
+** CHUNK			SIZE
+** header			sizeof( md3Surface_t )
+** shaders			sizeof( md3Shader_t ) * numShaders
+** triangles[0]		sizeof( md3Triangle_t ) * numTriangles
+** st				sizeof( md3St_t ) * numVerts
+** XyzNormals		sizeof( md3XyzNormal_t ) * numVerts * numBaseFrames
+** XyzCompressed	sizeof( mdcXyzCompressed ) * numVerts * numCompFrames
+** frameBaseFrames	sizeof( short ) * numFrames
+** frameCompFrames	sizeof( short ) * numFrames (-1 if frame is a baseFrame)
+*/
+typedef struct {
+	int ident;                  //
+
+	char name[MAX_QPATH];       // polyset name
+
+	int flags;
+	int numCompFrames;          // all surfaces in a model should have the same
+	int numBaseFrames;          // ditto
+
+	int numShaders;             // all surfaces in a model should have the same
+	int numVerts;
+
+	int numTriangles;
+	int ofsTriangles;
+
+	int ofsShaders;             // offset from start of md3Surface_t
+	int ofsSt;                  // texture coords are common for all frames
+	int ofsXyzNormals;          // numVerts * numBaseFrames
+	int ofsXyzCompressed;       // numVerts * numCompFrames
+
+	int ofsFrameBaseFrames;     // numFrames
+	int ofsFrameCompFrames;     // numFrames
+
+	int ofsEnd;                 // next surface follows
+} mdcSurface_t;
+
+typedef struct {
+	int ident;
+	int version;
+
+	char name[MAX_QPATH];           // model name
+
+	int flags;
+
+	int numFrames;
+	int numTags;
+	int numSurfaces;
+
+	int numSkins;
+
+	int ofsFrames;                  // offset for first frame, stores the bounds and localOrigin
+	int ofsTagNames;                // numTags
+	int ofsTags;                    // numFrames * numTags
+	int ofsSurfaces;                // first surface, others follow
+
+	int ofsEnd;                     // end of file
+} mdcHeader_t;
+// done.
+
+// Ridah, mesh compression
+#define NUMMDCVERTEXNORMALS  256
+
+static float s_anormals[NUMMDCVERTEXNORMALS][3] =
+{
+	{ 1.0f, 0.0f, 0.0f },{ 0.980785f, 0.19509f, 0.0f },{ 0.92388f, 0.382683f, 0.0f },{ 0.83147f, 0.55557f, 0.0f },
+	{ 0.707107f, 0.707107f, 0.0f },{ 0.55557f, 0.83147f, 0.0f },{ 0.382683f, 0.92388f, 0.0f },{ 0.19509f, 0.980785f, 0.0f },
+	{ -0.0f, 1.0f, 0.0f },{ -0.19509f, 0.980785f, 0.0f },{ -0.382683f, 0.92388f, 0.0f },{ -0.55557f, 0.83147f, 0.0f },
+	{ -0.707107f, 0.707107f, 0.0f },{ -0.83147f, 0.55557f, 0.0f },{ -0.92388f, 0.382683f, 0.0f },{ -0.980785f, 0.19509f, 0.0f },
+	{ -1.0f, -0.0f, 0.0f },{ -0.980785f, -0.19509f, 0.0f },{ -0.92388f, -0.382683f, 0.0f },{ -0.83147f, -0.55557f, 0.0f },
+	{ -0.707107f, -0.707107f, 0.0f },{ -0.55557f, -0.831469f, 0.0f },{ -0.382684f, -0.92388f, 0.0f },{ -0.19509f, -0.980785f, 0.0f },
+	{ 0.0f, -1.0f, 0.0f },{ 0.19509f, -0.980785f, 0.0f },{ 0.382684f, -0.923879f, 0.0f },{ 0.55557f, -0.83147f, 0.0f },
+	{ 0.707107f, -0.707107f, 0.0f },{ 0.83147f, -0.55557f, 0.0f },{ 0.92388f, -0.382683f, 0.0f },{ 0.980785f, -0.19509f, 0.0f },
+	{ 0.980785f, 0.0f, -0.19509f },{ 0.956195f, 0.218245f, -0.19509f },{ 0.883657f, 0.425547f, -0.19509f },{ 0.766809f, 0.61151f, -0.19509f },
+	{ 0.61151f, 0.766809f, -0.19509f },{ 0.425547f, 0.883657f, -0.19509f },{ 0.218245f, 0.956195f, -0.19509f },{ -0.0f, 0.980785f, -0.19509f },
+	{ -0.218245f, 0.956195f, -0.19509f },{ -0.425547f, 0.883657f, -0.19509f },{ -0.61151f, 0.766809f, -0.19509f },{ -0.766809f, 0.61151f, -0.19509f },
+	{ -0.883657f, 0.425547f, -0.19509f },{ -0.956195f, 0.218245f, -0.19509f },{ -0.980785f, -0.0f, -0.19509f },{ -0.956195f, -0.218245f, -0.19509f },
+	{ -0.883657f, -0.425547f, -0.19509f },{ -0.766809f, -0.61151f, -0.19509f },{ -0.61151f, -0.766809f, -0.19509f },{ -0.425547f, -0.883657f, -0.19509f },
+	{ -0.218245f, -0.956195f, -0.19509f },{ 0.0f, -0.980785f, -0.19509f },{ 0.218245f, -0.956195f, -0.19509f },{ 0.425547f, -0.883657f, -0.19509f },
+	{ 0.61151f, -0.766809f, -0.19509f },{ 0.766809f, -0.61151f, -0.19509f },{ 0.883657f, -0.425547f, -0.19509f },{ 0.956195f, -0.218245f, -0.19509f },
+	{ 0.92388f, 0.0f, -0.382683f },{ 0.892399f, 0.239118f, -0.382683f },{ 0.800103f, 0.46194f, -0.382683f },{ 0.653281f, 0.653281f, -0.382683f },
+	{ 0.46194f, 0.800103f, -0.382683f },{ 0.239118f, 0.892399f, -0.382683f },{ -0.0f, 0.92388f, -0.382683f },{ -0.239118f, 0.892399f, -0.382683f },
+	{ -0.46194f, 0.800103f, -0.382683f },{ -0.653281f, 0.653281f, -0.382683f },{ -0.800103f, 0.46194f, -0.382683f },{ -0.892399f, 0.239118f, -0.382683f },
+	{ -0.92388f, -0.0f, -0.382683f },{ -0.892399f, -0.239118f, -0.382683f },{ -0.800103f, -0.46194f, -0.382683f },{ -0.653282f, -0.653281f, -0.382683f },
+	{ -0.46194f, -0.800103f, -0.382683f },{ -0.239118f, -0.892399f, -0.382683f },{ 0.0f, -0.92388f, -0.382683f },{ 0.239118f, -0.892399f, -0.382683f },
+	{ 0.46194f, -0.800103f, -0.382683f },{ 0.653281f, -0.653282f, -0.382683f },{ 0.800103f, -0.46194f, -0.382683f },{ 0.892399f, -0.239117f, -0.382683f },
+	{ 0.83147f, 0.0f, -0.55557f },{ 0.790775f, 0.256938f, -0.55557f },{ 0.672673f, 0.488726f, -0.55557f },{ 0.488726f, 0.672673f, -0.55557f },
+	{ 0.256938f, 0.790775f, -0.55557f },{ -0.0f, 0.83147f, -0.55557f },{ -0.256938f, 0.790775f, -0.55557f },{ -0.488726f, 0.672673f, -0.55557f },
+	{ -0.672673f, 0.488726f, -0.55557f },{ -0.790775f, 0.256938f, -0.55557f },{ -0.83147f, -0.0f, -0.55557f },{ -0.790775f, -0.256938f, -0.55557f },
+	{ -0.672673f, -0.488726f, -0.55557f },{ -0.488725f, -0.672673f, -0.55557f },{ -0.256938f, -0.790775f, -0.55557f },{ 0.0f, -0.83147f, -0.55557f },
+	{ 0.256938f, -0.790775f, -0.55557f },{ 0.488725f, -0.672673f, -0.55557f },{ 0.672673f, -0.488726f, -0.55557f },{ 0.790775f, -0.256938f, -0.55557f },
+	{ 0.707107f, 0.0f, -0.707107f },{ 0.653281f, 0.270598f, -0.707107f },{ 0.5f, 0.5f, -0.707107f },{ 0.270598f, 0.653281f, -0.707107f },
+	{ -0.0f, 0.707107f, -0.707107f },{ -0.270598f, 0.653282f, -0.707107f },{ -0.5f, 0.5f, -0.707107f },{ -0.653281f, 0.270598f, -0.707107f },
+	{ -0.707107f, -0.0f, -0.707107f },{ -0.653281f, -0.270598f, -0.707107f },{ -0.5f, -0.5f, -0.707107f },{ -0.270598f, -0.653281f, -0.707107f },
+	{ 0.0f, -0.707107f, -0.707107f },{ 0.270598f, -0.653281f, -0.707107f },{ 0.5f, -0.5f, -0.707107f },{ 0.653282f, -0.270598f, -0.707107f },
+	{ 0.55557f, 0.0f, -0.83147f },{ 0.481138f, 0.277785f, -0.83147f },{ 0.277785f, 0.481138f, -0.83147f },{ -0.0f, 0.55557f, -0.83147f },
+	{ -0.277785f, 0.481138f, -0.83147f },{ -0.481138f, 0.277785f, -0.83147f },{ -0.55557f, -0.0f, -0.83147f },{ -0.481138f, -0.277785f, -0.83147f },
+	{ -0.277785f, -0.481138f, -0.83147f },{ 0.0f, -0.55557f, -0.83147f },{ 0.277785f, -0.481138f, -0.83147f },{ 0.481138f, -0.277785f, -0.83147f },
+	{ 0.382683f, 0.0f, -0.92388f },{ 0.270598f, 0.270598f, -0.92388f },{ -0.0f, 0.382683f, -0.92388f },{ -0.270598f, 0.270598f, -0.92388f },
+	{ -0.382683f, -0.0f, -0.92388f },{ -0.270598f, -0.270598f, -0.92388f },{ 0.0f, -0.382683f, -0.92388f },{ 0.270598f, -0.270598f, -0.92388f },
+	{ 0.19509f, 0.0f, -0.980785f },{ -0.0f, 0.19509f, -0.980785f },{ -0.19509f, -0.0f, -0.980785f },{ 0.0f, -0.19509f, -0.980785f },
+	{ 0.980785f, 0.0f, 0.19509f },{ 0.956195f, 0.218245f, 0.19509f },{ 0.883657f, 0.425547f, 0.19509f },{ 0.766809f, 0.61151f, 0.19509f },
+	{ 0.61151f, 0.766809f, 0.19509f },{ 0.425547f, 0.883657f, 0.19509f },{ 0.218245f, 0.956195f, 0.19509f },{ -0.0f, 0.980785f, 0.19509f },
+	{ -0.218245f, 0.956195f, 0.19509f },{ -0.425547f, 0.883657f, 0.19509f },{ -0.61151f, 0.766809f, 0.19509f },{ -0.766809f, 0.61151f, 0.19509f },
+	{ -0.883657f, 0.425547f, 0.19509f },{ -0.956195f, 0.218245f, 0.19509f },{ -0.980785f, -0.0f, 0.19509f },{ -0.956195f, -0.218245f, 0.19509f },
+	{ -0.883657f, -0.425547f, 0.19509f },{ -0.766809f, -0.61151f, 0.19509f },{ -0.61151f, -0.766809f, 0.19509f },{ -0.425547f, -0.883657f, 0.19509f },
+	{ -0.218245f, -0.956195f, 0.19509f },{ 0.0f, -0.980785f, 0.19509f },{ 0.218245f, -0.956195f, 0.19509f },{ 0.425547f, -0.883657f, 0.19509f },
+	{ 0.61151f, -0.766809f, 0.19509f },{ 0.766809f, -0.61151f, 0.19509f },{ 0.883657f, -0.425547f, 0.19509f },{ 0.956195f, -0.218245f, 0.19509f },
+	{ 0.92388f, 0.0f, 0.382683f },{ 0.892399f, 0.239118f, 0.382683f },{ 0.800103f, 0.46194f, 0.382683f },{ 0.653281f, 0.653281f, 0.382683f },
+	{ 0.46194f, 0.800103f, 0.382683f },{ 0.239118f, 0.892399f, 0.382683f },{ -0.0f, 0.92388f, 0.382683f },{ -0.239118f, 0.892399f, 0.382683f },
+	{ -0.46194f, 0.800103f, 0.382683f },{ -0.653281f, 0.653281f, 0.382683f },{ -0.800103f, 0.46194f, 0.382683f },{ -0.892399f, 0.239118f, 0.382683f },
+	{ -0.92388f, -0.0f, 0.382683f },{ -0.892399f, -0.239118f, 0.382683f },{ -0.800103f, -0.46194f, 0.382683f },{ -0.653282f, -0.653281f, 0.382683f },
+	{ -0.46194f, -0.800103f, 0.382683f },{ -0.239118f, -0.892399f, 0.382683f },{ 0.0f, -0.92388f, 0.382683f },{ 0.239118f, -0.892399f, 0.382683f },
+	{ 0.46194f, -0.800103f, 0.382683f },{ 0.653281f, -0.653282f, 0.382683f },{ 0.800103f, -0.46194f, 0.382683f },{ 0.892399f, -0.239117f, 0.382683f },
+	{ 0.83147f, 0.0f, 0.55557f },{ 0.790775f, 0.256938f, 0.55557f },{ 0.672673f, 0.488726f, 0.55557f },{ 0.488726f, 0.672673f, 0.55557f },
+	{ 0.256938f, 0.790775f, 0.55557f },{ -0.0f, 0.83147f, 0.55557f },{ -0.256938f, 0.790775f, 0.55557f },{ -0.488726f, 0.672673f, 0.55557f },
+	{ -0.672673f, 0.488726f, 0.55557f },{ -0.790775f, 0.256938f, 0.55557f },{ -0.83147f, -0.0f, 0.55557f },{ -0.790775f, -0.256938f, 0.55557f },
+	{ -0.672673f, -0.488726f, 0.55557f },{ -0.488725f, -0.672673f, 0.55557f },{ -0.256938f, -0.790775f, 0.55557f },{ 0.0f, -0.83147f, 0.55557f },
+	{ 0.256938f, -0.790775f, 0.55557f },{ 0.488725f, -0.672673f, 0.55557f },{ 0.672673f, -0.488726f, 0.55557f },{ 0.790775f, -0.256938f, 0.55557f },
+	{ 0.707107f, 0.0f, 0.707107f },{ 0.653281f, 0.270598f, 0.707107f },{ 0.5f, 0.5f, 0.707107f },{ 0.270598f, 0.653281f, 0.707107f },
+	{ -0.0f, 0.707107f, 0.707107f },{ -0.270598f, 0.653282f, 0.707107f },{ -0.5f, 0.5f, 0.707107f },{ -0.653281f, 0.270598f, 0.707107f },
+	{ -0.707107f, -0.0f, 0.707107f },{ -0.653281f, -0.270598f, 0.707107f },{ -0.5f, -0.5f, 0.707107f },{ -0.270598f, -0.653281f, 0.707107f },
+	{ 0.0f, -0.707107f, 0.707107f },{ 0.270598f, -0.653281f, 0.707107f },{ 0.5f, -0.5f, 0.707107f },{ 0.653282f, -0.270598f, 0.707107f },
+	{ 0.55557f, 0.0f, 0.83147f },{ 0.481138f, 0.277785f, 0.83147f },{ 0.277785f, 0.481138f, 0.83147f },{ -0.0f, 0.55557f, 0.83147f },
+	{ -0.277785f, 0.481138f, 0.83147f },{ -0.481138f, 0.277785f, 0.83147f },{ -0.55557f, -0.0f, 0.83147f },{ -0.481138f, -0.277785f, 0.83147f },
+	{ -0.277785f, -0.481138f, 0.83147f },{ 0.0f, -0.55557f, 0.83147f },{ 0.277785f, -0.481138f, 0.83147f },{ 0.481138f, -0.277785f, 0.83147f },
+	{ 0.382683f, 0.0f, 0.92388f },{ 0.270598f, 0.270598f, 0.92388f },{ -0.0f, 0.382683f, 0.92388f },{ -0.270598f, 0.270598f, 0.92388f },
+	{ -0.382683f, -0.0f, 0.92388f },{ -0.270598f, -0.270598f, 0.92388f },{ 0.0f, -0.382683f, 0.92388f },{ 0.270598f, -0.270598f, 0.92388f },
+	{ 0.19509f, 0.0f, 0.980785f },{ -0.0f, 0.19509f, 0.980785f },{ -0.19509f, -0.0f, 0.980785f },{ 0.0f, -0.19509f, 0.980785f }
+};
+
+// NOTE: MDC_MAX_ERROR is effectively the compression level. the lower this value, the higher
+// the accuracy, but with lower compression ratios.
+#define MDC_MAX_ERROR       0.1f     // if any compressed vert is off by more than this from the
+// actual vert, make this a baseframe
+
+#define MDC_DIST_SCALE      0.05f    // lower for more accuracy, but less range
+
+// note: we are locked in at 8 or less bits since changing to byte-encoded normals
+#define MDC_BITS_PER_AXIS   8
+#define MDC_MAX_OFS         127.0f   // to be safe
+
+#define MDC_MAX_DIST        ( MDC_MAX_OFS * MDC_DIST_SCALE )
+
 class Model_md3 : public Model
 {
 public:
-	Model_md3(const char *name);
-	bool load() override;
+	Model_md3(const char *name, bool compressed);
+	bool load(const ReadOnlyFile &file) override;
 	Bounds getBounds() const override;
 	Transform getTag(const char *name, int frame) const override;
 	bool isCulled(Entity *entity, const Frustum &cameraFrustum) const override;
@@ -167,7 +345,9 @@ private:
 		char name[MAX_QPATH];
 	};
 
-	Vertex loadVertex(size_t index, md3St_t *fileTexCoords, md3XyzNormal_t *fileXyzNormals);
+	vec3 decodeNormal(short normal) const;
+
+	bool compressed_;
 
 	IndexBuffer indexBuffer_;
 
@@ -187,118 +367,238 @@ private:
 
 std::unique_ptr<Model> Model::createMD3(const char *name)
 {
-	return std::make_unique<Model_md3>(name);
+	return std::make_unique<Model_md3>(name, false);
 }
 
-Model_md3::Model_md3(const char *name)
+std::unique_ptr<Model> Model::createMDC(const char *name)
+{
+	return std::make_unique<Model_md3>(name, true);
+}
+
+Model_md3::Model_md3(const char *name, bool compressed)
 {
 	util::Strncpyz(name_, name, sizeof(name_));
+	compressed_ = compressed;
 }
 
-bool Model_md3::load()
+struct FileHeader
 {
-	ReadOnlyFile file(name_);
+	int ident;
+	int version;
+	int nFrames;
+	int nTags;
+	int nSurfaces;
+	int nSkins;
+	int framesOffset;
+	int tagNamesOffset; // compressed only
+	int tagsOffset;
+	int surfacesOffset;
+};
 
-	if (!file.isValid())
-		return false;
+#define COPY_HEADER \
+header.ident = fileHeader->ident; \
+header.version = fileHeader->version; \
+header.nFrames = fileHeader->numFrames; \
+header.nTags = fileHeader->numTags; \
+header.nSurfaces = fileHeader->numSurfaces; \
+header.nSkins = fileHeader->numSkins; \
+header.framesOffset = fileHeader->ofsFrames; \
+header.tagsOffset = fileHeader->ofsTags; \
+header.surfacesOffset = fileHeader->ofsSurfaces;
 
-	uint8_t *data = file.getData();
+struct FileSurface
+{
+	uint8_t *offset;
+	char name[MAX_QPATH];
+	int nCompressedFrames; // compressed only
+	int nBaseFrames; // compressed only
+	int nShaders;
+	int nVertices;
+	int nTriangles;
+	int trianglesOffset;
+	int shadersOffset;
+	int uvsOffset;
+	int positionNormalOffset;
+	int positionNormalCompressedOffset; // compressed only
+	int baseFramesOffset; // compressed only
+	int compressedFramesOffset; // compressed only
+};
+
+bool Model_md3::load(const ReadOnlyFile &file)
+{
+	const uint8_t *data = file.getData();
 
 	// Header
-	auto fileHeader = (md3Header_t *)data;
-	LL(fileHeader->version);
+	FileHeader header;
 
-	if (fileHeader->version != MD3_VERSION)
+	if (compressed_)
 	{
-		interface::PrintWarningf("Model %s has wrong version (%i should be %i)\n", name_, fileHeader->version, MD3_VERSION);
+		auto fileHeader = (mdcHeader_t *)data;
+		COPY_HEADER
+		header.tagNamesOffset = fileHeader->ofsTagNames;
+	}
+	else
+	{
+		auto fileHeader = (md3Header_t *)data;
+		COPY_HEADER
+	}
+	
+	const int validIdent = compressed_ ? MDC_IDENT : MD3_IDENT;
+	const int validVersion = compressed_ ? MDC_VERSION : MD3_VERSION;
+
+	if (header.ident != validIdent)
+	{
+		interface::PrintWarningf("Model %s: wrong ident (%i should be %i)\n", name_, header.ident, validIdent);
 		return false;
 	}
 
-	LL(fileHeader->ident);
-	LL(fileHeader->version);
-	LL(fileHeader->numFrames);
-	LL(fileHeader->numTags);
-	LL(fileHeader->numSurfaces);
-	LL(fileHeader->ofsFrames);
-	LL(fileHeader->ofsTags);
-	LL(fileHeader->ofsSurfaces);
-	LL(fileHeader->ofsEnd);
-
-	if (fileHeader->numFrames < 1)
+	if (header.version != validVersion)
 	{
-		interface::PrintWarningf("Model %s has no frames\n", name_);
+		interface::PrintWarningf("Model %s: wrong version (%i should be %i)\n", name_, header.version, validVersion);
+		return false;
+	}
+
+	if (header.nFrames < 1)
+	{
+		interface::PrintWarningf("Model %s: no frames\n", name_);
 		return false;
 	}
 
 	// Frames
-	auto fileFrames = (const md3Frame_t *)&data[fileHeader->ofsFrames];
-	frames_.resize(fileHeader->numFrames);
+	auto fileFrames = (const md3Frame_t *)&data[header.framesOffset];
+	frames_.resize(header.nFrames);
 
-	for (int i = 0; i < fileHeader->numFrames; i++)
+	for (int i = 0; i < header.nFrames; i++)
 	{
 		Frame &frame = frames_[i];
 		const md3Frame_t &fileFrame = fileFrames[i];
-		frame.radius = LittleFloat(fileFrame.radius);
+		frame.radius = fileFrame.radius;
+		frame.bounds = Bounds(fileFrame.bounds[0], fileFrame.bounds[1]);
+		frame.position = fileFrame.localOrigin;
 
-		for (int j = 0; j < 3; j++)
+		if (compressed_ && (strstr(name_, "sherman") || strstr(name_, "mg42")))
 		{
-			frame.bounds[0][j] = LittleFloat(fileFrame.bounds[0][j]);
-			frame.bounds[1][j] = LittleFloat(fileFrame.bounds[1][j]);
-			frame.position[j] = LittleFloat(fileFrame.localOrigin[j]);
+			frame.radius = 256;
+			frame.bounds = Bounds(vec3(128, 128, 128), vec3(-128, -128, -128));
 		}
 
 		// Tags
-		auto fileTags = (const md3Tag_t *)&data[fileHeader->ofsTags];
-		frame.tags.resize(fileHeader->numTags);
+		frame.tags.resize(header.nTags);
 
-		for (int j = 0; j < fileHeader->numTags; j++)
+		for (int j = 0; j < header.nTags; j++)
 		{
 			Transform &tag = frame.tags[j];
-			const md3Tag_t &fileTag = fileTags[j + i * fileHeader->numTags];
 
-			for (int k = 0; k < 3; k++)
+			if (compressed_)
 			{
-				tag.position[k] = LittleFloat(fileTag.origin[k]);
-				tag.rotation[0][k] = LittleFloat(fileTag.axis[0][k]);
-				tag.rotation[1][k] = LittleFloat(fileTag.axis[1][k]);
-				tag.rotation[2][k] = LittleFloat(fileTag.axis[2][k]);
+				const auto &fileTag = ((const mdcTag_t *)&data[header.tagsOffset])[j + i * header.nTags];
+				vec3 angles;
+
+				for (int k = 0; k < 3; k++)
+				{
+					tag.position[k] = (float)fileTag.xyz[k] * MD3_XYZ_SCALE;
+					angles[k] = (float)fileTag.angles[k] * MDC_TAG_ANGLE_SCALE;
+				}
+
+				tag.rotation = mat3(angles);
+			}
+			else
+			{
+				const auto &fileTag = ((const md3Tag_t *)&data[header.tagsOffset])[j + i * header.nTags];
+				tag.position = fileTag.origin;
+				tag.rotation[0] = fileTag.axis[0];
+				tag.rotation[1] = fileTag.axis[1];
+				tag.rotation[2] = fileTag.axis[2];
 			}
 		}
 	}
 
 	// Tag names
-	auto fileTags = (const md3Tag_t *)&data[fileHeader->ofsTags];
-	tagNames_.resize(fileHeader->numTags);
+	tagNames_.resize(header.nTags);
 
-	for (int i = 0; i < fileHeader->numTags; i++)
+	if (compressed_)
 	{
-		util::Strncpyz(tagNames_[i].name, fileTags[i].name, sizeof(tagNames_[i].name));
+		auto fileTagNames = (const mdcTagName_t *)&data[header.tagNamesOffset];
+
+		for (int i = 0; i < header.nTags; i++)
+		{
+			util::Strncpyz(tagNames_[i].name, fileTagNames[i].name, sizeof(tagNames_[i].name));
+		}
+	}
+	else
+	{
+		auto fileTags = (const md3Tag_t *)&data[header.tagsOffset];
+
+		for (int i = 0; i < header.nTags; i++)
+		{
+			util::Strncpyz(tagNames_[i].name, fileTags[i].name, sizeof(tagNames_[i].name));
+		}
+	}
+
+	// Copy uncompressed and compression surface data into a common struct.
+	FileSurface fileSurfaces[MD3_MAX_SURFACES];
+
+	if (compressed_)
+	{
+		auto mdcSurface = (mdcSurface_t *)&data[header.surfacesOffset];
+
+		for (int i = 0; i < header.nSurfaces; i++)
+		{
+			FileSurface &fs = fileSurfaces[i];
+			fs.offset = (uint8_t *)mdcSurface;
+			util::Strncpyz(fs.name, mdcSurface->name, sizeof(fs.name));
+			fs.nCompressedFrames = mdcSurface->numCompFrames;
+			fs.nBaseFrames = mdcSurface->numBaseFrames;
+			fs.nShaders = mdcSurface->numShaders;
+			fs.nVertices = mdcSurface->numVerts;
+			fs.nTriangles = mdcSurface->numTriangles;
+			fs.trianglesOffset = mdcSurface->ofsTriangles;
+			fs.shadersOffset = mdcSurface->ofsShaders;
+			fs.uvsOffset = mdcSurface->ofsSt;
+			fs.positionNormalOffset = mdcSurface->ofsXyzNormals;
+			fs.positionNormalCompressedOffset = mdcSurface->ofsXyzCompressed;
+			fs.baseFramesOffset = mdcSurface->ofsFrameBaseFrames;
+			fs.compressedFramesOffset = mdcSurface->ofsFrameCompFrames;
+
+			// Move to the next surface.
+			mdcSurface = (mdcSurface_t *)((uint8_t *)mdcSurface + mdcSurface->ofsEnd);
+		}
+	}
+	else
+	{
+		auto md3Surface = (md3Surface_t *)&data[header.surfacesOffset];
+
+		for (int i = 0; i < header.nSurfaces; i++)
+		{
+			FileSurface &fs = fileSurfaces[i];
+			fs.offset = (uint8_t *)md3Surface;
+			util::Strncpyz(fs.name, md3Surface->name, sizeof(fs.name));
+			fs.nShaders = md3Surface->numShaders;
+			fs.nVertices = md3Surface->numVerts;
+			fs.nTriangles = md3Surface->numTriangles;
+			fs.trianglesOffset = md3Surface->ofsTriangles;
+			fs.shadersOffset = md3Surface->ofsShaders;
+			fs.uvsOffset = md3Surface->ofsSt;
+			fs.positionNormalOffset = md3Surface->ofsXyzNormals;
+
+			// Move to the next surface.
+			md3Surface = (md3Surface_t *)((uint8_t *)md3Surface + md3Surface->ofsEnd);
+		}
 	}
 
 	// Surfaces
-	auto fileSurface = (md3Surface_t *)&data[fileHeader->ofsSurfaces];
-	surfaces_.resize(fileHeader->numSurfaces);
+	surfaces_.resize(header.nSurfaces);
+	size_t nIndices = 0;
+	nVertices_ = 0;
 
-	for (int i = 0; i < fileHeader->numSurfaces; i++)
+	for (int i = 0; i < header.nSurfaces; i++)
 	{
+		FileSurface &fs = fileSurfaces[i];
 		Surface &s = surfaces_[i];
-		md3Surface_t &fs = *fileSurface; // Just an alias.
-		LL(fs.ident);
-		LL(fs.flags);
-		LL(fs.numFrames);
-		LL(fs.numShaders);
-		LL(fs.numTriangles);
-		LL(fs.ofsTriangles);
-		LL(fs.numVerts);
-		LL(fs.ofsShaders);
-		LL(fs.ofsSt);
-		LL(fs.ofsXyzNormals);
-		LL(fs.ofsEnd);
-
 		util::Strncpyz(s.name, fs.name, sizeof(s.name));
 		util::ToLowerCase(s.name); // Lowercase the surface name so skin compares are faster.
 
-									// Strip off a trailing _1 or _2. This is a crutch for q3data being a mess.
+		// Strip off a trailing _1 or _2. This is a crutch for q3data being a mess.
 		size_t n = strlen(s.name);
 
 		if (n > 2 && s.name[n - 2] == '_')
@@ -307,28 +607,17 @@ bool Model_md3::load()
 		}
 
 		// Surface materials
-		auto fileShaders = (md3Shader_t *)((uint8_t *)&fs + fs.ofsShaders);
-		s.materials.resize(fs.numShaders);
+		auto fileShaders = (md3Shader_t *)(fs.offset + fs.shadersOffset);
+		s.materials.resize(fs.nShaders);
 
-		for (int j = 0; j < fs.numShaders; j++)
+		for (int j = 0; j < fs.nShaders; j++)
 		{
 			s.materials[j] = g_materialCache->findMaterial(fileShaders[j].name, MaterialLightmapId::None);
 		}
 
-		// Move to the next surface.
-		fileSurface = (md3Surface_t *)((uint8_t *)&fs + fs.ofsEnd);
-	}
-
-	// Total the number of indices and vertices in each surface.
-	size_t nIndices = 0;
-	nVertices_ = 0;
-	fileSurface = (md3Surface_t *)&data[fileHeader->ofsSurfaces];
-
-	for (int i = 0; i < fileHeader->numSurfaces; i++)
-	{
-		nIndices += fileSurface->numTriangles * 3;
-		nVertices_ += fileSurface->numVerts;
-		fileSurface = (md3Surface_t *)((uint8_t *)fileSurface + fileSurface->ofsEnd);
+		// Total the number of indices and vertices in each surface.
+		nIndices += fs.nTriangles * 3;
+		nVertices_ += fs.nVertices;
 	}
 
 	// Stop here if the model doesn't have any geometry (e.g. weapon hand models).
@@ -341,23 +630,22 @@ bool Model_md3::load()
 	const bgfx::Memory *indicesMem = bgfx::alloc(uint32_t(sizeof(uint16_t) * nIndices));
 	auto indices = (uint16_t *)indicesMem->data;
 	uint32_t startIndex = 0, startVertex = 0;
-	fileSurface = (md3Surface_t *)&data[fileHeader->ofsSurfaces];
 
-	for (int i = 0; i < fileHeader->numSurfaces; i++)
+	for (int i = 0; i < header.nSurfaces; i++)
 	{
+		FileSurface &fs = fileSurfaces[i];
 		Surface &surface = surfaces_[i];
 		surface.startIndex = startIndex;
-		surface.nIndices = fileSurface->numTriangles * 3;
-		auto fileIndices = (int *)((uint8_t *)fileSurface + fileSurface->ofsTriangles);
+		surface.nIndices = fs.nTriangles * 3;
+		auto fileIndices = (int *)(fs.offset + fs.trianglesOffset);
 
 		for (uint32_t j = 0; j < surface.nIndices; j++)
 		{
-			indices[startIndex + j] = LittleLong(startVertex + fileIndices[j]);
+			indices[startIndex + j] = startVertex + fileIndices[j];
 		}
 
 		startIndex += surface.nIndices;
-		startVertex += fileSurface->numVerts;
-		fileSurface = (md3Surface_t *)((uint8_t *)fileSurface + fileSurface->ofsEnd);
+		startVertex += fs.nVertices;
 	}
 
 	indexBuffer_.handle = bgfx::createIndexBuffer(indicesMem);
@@ -379,56 +667,96 @@ bool Model_md3::load()
 		auto vertices = (Vertex *)verticesMem->data;
 		frames_[0].vertices.resize(nVertices_);
 		size_t startVertex = 0;
-		auto fileSurface = (md3Surface_t *)&data[fileHeader->ofsSurfaces];
 
-		for (int i = 0; i < fileHeader->numSurfaces; i++)
+		for (int i = 0; i < header.nSurfaces; i++)
 		{
+			FileSurface &fs = fileSurfaces[i];
 			Surface &surface = surfaces_[i];
-			auto fileTexCoords = (md3St_t *)((uint8_t *)fileSurface + fileSurface->ofsSt);
-			auto fileXyzNormals = (md3XyzNormal_t *)((uint8_t *)fileSurface + fileSurface->ofsXyzNormals);
+			auto fileTexCoords = (md3St_t *)(fs.offset + fs.uvsOffset);
+			auto fileXyzNormals = (md3XyzNormal_t *)(fs.offset + fs.positionNormalOffset);
 
-			for (int j = 0; j < fileSurface->numVerts; j++)
+			for (int j = 0; j < fs.nVertices; j++)
 			{
-				vertices[startVertex + j] = loadVertex(j, fileTexCoords, fileXyzNormals);
+				Vertex &v = vertices[startVertex + j];
+				v.pos.x = fileXyzNormals[j].xyz[0] * MD3_XYZ_SCALE;
+				v.pos.y = fileXyzNormals[j].xyz[1] * MD3_XYZ_SCALE;
+				v.pos.z = fileXyzNormals[j].xyz[2] * MD3_XYZ_SCALE;
+				v.normal = decodeNormal(fileXyzNormals[j].normal);
+				v.texCoord = vec2(fileTexCoords[j].st);
+				v.color = vec4::white;
 			}
 
-			startVertex += fileSurface->numVerts;
-			fileSurface = (md3Surface_t *)((uint8_t *)fileSurface + fileSurface->ofsEnd);
+			startVertex += fs.nVertices;
 		}
 
 		vertexBuffer_.handle = bgfx::createVertexBuffer(verticesMem, Vertex::decl);
 	}
 	else
 	{
-		for (int i = 0; i < fileHeader->numFrames; i++)
+		for (int i = 0; i < header.nFrames; i++)
 		{
 			frames_[i].vertices.resize(nVertices_);
 		}
 
 		uint32_t startVertex = 0;
-		auto fileSurface = (md3Surface_t *)&data[fileHeader->ofsSurfaces];
 
-		for (int i = 0; i < fileHeader->numSurfaces; i++)
+		for (int i = 0; i < header.nSurfaces; i++)
 		{
+			FileSurface &fs = fileSurfaces[i];
 			Surface &surface = surfaces_[i];
+			auto fileBaseFrames = (short *)(fs.offset + fs.baseFramesOffset);
+			auto fileCompressedFrames = (short *)(fs.offset + fs.compressedFramesOffset);
 
 			// Texture coords are the same for each frame, positions and normals aren't.
-			auto fileTexCoords = (md3St_t *)((uint8_t *)fileSurface + fileSurface->ofsSt);
+			auto fileTexCoords = (md3St_t *)(fs.offset + fs.uvsOffset);
 
-			for (int j = 0; j < fileHeader->numFrames; j++)
+			for (int j = 0; j < header.nFrames; j++)
 			{
-				auto fileXyzNormals = (md3XyzNormal_t *)((uint8_t *)fileSurface + fileSurface->ofsXyzNormals + j * sizeof(md3XyzNormal_t) * fileSurface->numVerts);
+				int positionNormalFrame;
 
-				for (int k = 0; k < fileSurface->numVerts; k++)
+				if (compressed_)
 				{
-					frames_[j].vertices[startVertex + k] = loadVertex(k, fileTexCoords, fileXyzNormals);
+					positionNormalFrame = fileBaseFrames[j];
+				}
+				else
+				{
+					positionNormalFrame = j;
+				}
+
+				auto fileXyzNormals = (md3XyzNormal_t *)(fs.offset + fs.positionNormalOffset + positionNormalFrame * sizeof(md3XyzNormal_t) * fs.nVertices);
+
+				for (int k = 0; k < fs.nVertices; k++)
+				{
+					Vertex &v = frames_[j].vertices[startVertex + k];
+					v.pos.x = fileXyzNormals[k].xyz[0] * MD3_XYZ_SCALE;
+					v.pos.y = fileXyzNormals[k].xyz[1] * MD3_XYZ_SCALE;
+					v.pos.z = fileXyzNormals[k].xyz[2] * MD3_XYZ_SCALE;
+					v.normal = decodeNormal(fileXyzNormals[k].normal);
+					v.texCoord = vec2(fileTexCoords[k].st);
+					v.color = vec4::white;
+
+					if (compressed_)
+					{
+						// If compressedFrameIndex isn't -1, use compressedFrameIndex as a delta from baseFrameIndex.
+						short compressedFrameIndex = fileCompressedFrames[j];
+
+						if (compressedFrameIndex != -1)
+						{
+							auto fileXyzCompressed = (mdcXyzCompressed_t *)(fs.offset + fs.positionNormalCompressedOffset + compressedFrameIndex * sizeof(mdcXyzCompressed_t) * fs.nVertices);
+							vec3 delta;
+							delta[0] = (float((fileXyzCompressed[k].ofsVec) & 255) - MDC_MAX_OFS) * MDC_DIST_SCALE;
+							delta[1] = (float((fileXyzCompressed[k].ofsVec >> 8) & 255) - MDC_MAX_OFS) * MDC_DIST_SCALE;
+							delta[2] = (float((fileXyzCompressed[k].ofsVec >> 16) & 255) - MDC_MAX_OFS) * MDC_DIST_SCALE;
+							v.pos += delta;
+							v.normal = vec3(s_anormals[fileXyzCompressed[k].ofsVec >> 24]);
+						}
+					}
 				}
 			}
 
 			surface.startVertex = startVertex;
-			surface.nVertices = fileSurface->numVerts;
-			startVertex += fileSurface->numVerts;
-			fileSurface = (md3Surface_t *)((uint8_t *)fileSurface + fileSurface->ofsEnd);
+			surface.nVertices = fs.nVertices;
+			startVertex += fs.nVertices;
 		}
 	}
 
@@ -632,34 +960,20 @@ void Model_md3::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 	}
 }
 
-Vertex Model_md3::loadVertex(size_t index, md3St_t *fileTexCoords, md3XyzNormal_t *fileXyzNormals)
+vec3 Model_md3::decodeNormal(short normal) const
 {
-	Vertex v;
-
-	// Position
-	v.pos.x = LittleShort(fileXyzNormals[index].xyz[0]) * MD3_XYZ_SCALE;
-	v.pos.y = LittleShort(fileXyzNormals[index].xyz[1]) * MD3_XYZ_SCALE;
-	v.pos.z = LittleShort(fileXyzNormals[index].xyz[2]) * MD3_XYZ_SCALE;
-
-	// Normal
 	// decode X as cos( lat ) * sin( long )
 	// decode Y as sin( lat ) * sin( long )
 	// decode Z as cos( long )
-	short normal = LittleShort(fileXyzNormals[index].normal);
 	unsigned lat = (normal >> 8) & 0xff;
 	unsigned lng = (normal & 0xff);
 	lat *= (g_funcTableSize / 256);
 	lng *= (g_funcTableSize / 256);
-	v.normal.x = g_sinTable[(lat + (g_funcTableSize / 4)) & g_funcTableMask] * g_sinTable[lng];
-	v.normal.y = g_sinTable[lat] * g_sinTable[lng];
-	v.normal.z = g_sinTable[(lng + (g_funcTableSize / 4)) & g_funcTableMask];
-
-	// UV
-	v.texCoord.u = LittleFloat(fileTexCoords[index].st[0]);
-	v.texCoord.v = LittleFloat(fileTexCoords[index].st[1]);
-
-	v.color = { 1, 1, 1, 1 };
-	return v;
+	vec3 result;
+	result.x = g_sinTable[(lat + (g_funcTableSize / 4)) & g_funcTableMask] * g_sinTable[lng];
+	result.y = g_sinTable[lat] * g_sinTable[lng];
+	result.z = g_sinTable[(lng + (g_funcTableSize / 4)) & g_funcTableMask];
+	return result;
 }
 
 } // namespace renderer

@@ -604,15 +604,21 @@ void Main::renderScene(const SceneDefinition &scene)
 	floatTime_ = time_ * 0.001f;
 	
 	// Clamp view rect to screen.
-	const int x = std::max(0, scene.rect.x);
-	const int y = std::max(0, scene.rect.y);
-	const int w = std::min(window::GetWidth(), x + scene.rect.w) - x;
-	const int h = std::min(window::GetHeight(), y + scene.rect.h) - y;
+	Rect rect;
+	rect.x = std::max(0, scene.rect.x);
+	rect.y = std::max(0, scene.rect.y);
+#if 0
+	rect.w = std::min(window::GetWidth(), rect.x + scene.rect.w) - rect.x;
+	rect.h = std::min(window::GetHeight(), rect.y + scene.rect.h) - rect.y;
+#else
+	rect.w = scene.rect.w;
+	rect.h = scene.rect.h;
+#endif
 
 	if (scene.flags & SceneDefinitionFlags::Hyperspace)
 	{
 		const uint8_t c = time_ & 255;
-		const uint8_t viewId = pushView(defaultFb_, 0, mat4::identity, mat4::identity, Rect(x, y, w, h));
+		const uint8_t viewId = pushView(defaultFb_, 0, mat4::identity, mat4::identity, rect);
 		bgfx::setViewClear(viewId, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, (c<<24)|(c<<16)|(c<<8)|0xff);
 		bgfx::touch(viewId);
 	}
@@ -634,7 +640,7 @@ void Main::renderScene(const SceneDefinition &scene)
 
 		// Render camera(s).
 		sceneRotation_ = scene.rotation;
-		renderCamera(mainVisCacheId_, scene.position, scene.position, sceneRotation_, Rect(x, y, w, h), scene.fov, scene.areaMask);
+		renderCamera(mainVisCacheId_, scene.position, scene.position, sceneRotation_, rect, scene.fov, scene.areaMask);
 
 		if (isWorldScene_)
 		{
@@ -706,7 +712,7 @@ void Main::renderScene(const SceneDefinition &scene)
 			}
 			else if (aa_ == AntiAliasing::SMAA)
 			{
-				uniforms_->smaaMetrics.set(vec4(1.0f / w, 1.0f / h, (float)w, (float)h));
+				uniforms_->smaaMetrics.set(vec4(1.0f / rect.w, 1.0f / rect.h, (float)rect.w, (float)rect.h));
 
 				// Edge detection.
 				if (g_cvars.hdr.getBool())
@@ -1186,7 +1192,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			continue;
 		}
 
-		const bool doFogPass = dc.fogIndex >= 0 && mat->fogPass != MaterialFogPass::None;
+		const bool doFogPass = !dc.material->noFog && dc.fogIndex >= 0 && mat->fogPass != MaterialFogPass::None;
 
 		if (mat->numUnfoggedPasses == 0 && !doFogPass)
 			continue;
@@ -1230,7 +1236,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 		vec4 fogColor, fogDistance, fogDepth;
 		float eyeT;
 
-		if (dc.fogIndex >= 0)
+		if (!dc.material->noFog && dc.fogIndex >= 0)
 		{
 			world::CalculateFog(dc.fogIndex, dc.modelMatrix, modelViewMatrix, position, localViewPosition, rotation, &fogColor, &fogDistance, &fogDepth, &eyeT);
 			uniforms_->fogDistance.set(fogDistance);
@@ -1243,7 +1249,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (!stage.active)
 				continue;
 
-			if (dc.fogIndex >= 0 && stage.adjustColorsForFog != MaterialAdjustColorsForFog::None)
+			if (!dc.material->noFog && dc.fogIndex >= 0 && stage.adjustColorsForFog != MaterialAdjustColorsForFog::None)
 			{
 				uniforms_->fogEnabled.set(vec4(1, 0, 0, 0));
 				matStageUniforms_->fogColorMask.set(stage.getFogColorMask());

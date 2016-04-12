@@ -31,9 +31,11 @@ struct ModelHandler
 	Create create;
 };
 
+// Note that the ordering indicates the order of preference used when there are multiple models of different formats available.
 static const ModelHandler s_modelHandlers[] =
 {
-	{ "md3", Model::createMD3 }
+	{ "md3", Model::createMD3 },
+	{ "mdc", Model::createMDC }
 };
 
 Transform Model::lerpTag(const char *name, int startFrame, int endFrame, float fraction)
@@ -56,13 +58,13 @@ Model *ModelCache::findModel(const char *name)
 {
 	if (!name || !name[0])
 	{
-		interface::Printf("ModelCache::findModel: NULL name\n");
+		interface::PrintWarningf("ModelCache::findModel: NULL name\n");
 		return nullptr;
 	}
 
 	if (strlen(name) >= MAX_QPATH)
 	{
-		interface::Printf("Model name exceeds MAX_QPATH\n");
+		interface::PrintWarningf("Model name exceeds MAX_QPATH\n");
 		return nullptr;
 	}
 
@@ -79,29 +81,37 @@ Model *ModelCache::findModel(const char *name)
 	}
 
 	// Create/load the model
+	// Calculate the filename extension to determine which handler to try first.
 	const char *extension = util::GetExtension(name);
 
-	if (strlen(extension) == 0)
-		extension = s_modelHandlers[0].extension;
-
-	char filename[MAX_QPATH];
-	util::StripExtension(name, filename, sizeof(filename));
-	util::Strcat(filename, sizeof(filename), util::VarArgs(".%s", extension));
-	std::unique_ptr<Model> m;
-
-	for (const ModelHandler &handler : s_modelHandlers)
+	// First pass: try the handler that corresponds to the filename extension.
+	// Second pass: if we got this far, either the extension was omitted, or the filename with the supplied extension doesn't exist. Either way, try loading using all supported extensions.
+	for (int i = 0; i < 2; i++)
 	{
-		if (util::Stricmp(extension, handler.extension))
-			continue;
-		
-		std::unique_ptr<Model> m = handler.create(filename);
+		for (const ModelHandler &handler : s_modelHandlers)
+		{
+			// First pass: ignore handlers that don't match the extension.
+			if (i == 0 && util::Stricmp(extension, handler.extension))
+				continue;
 
-		if (!m->load())
-			return nullptr;
+			char filename[MAX_QPATH];
+			util::StripExtension(name, filename, sizeof(filename));
+			util::Strcat(filename, sizeof(filename), util::VarArgs(".%s", handler.extension));
+			ReadOnlyFile file(filename);
 
-		return addModel(std::move(m));
+			if (!file.isValid())
+				continue;
+
+			std::unique_ptr<Model> m = handler.create(filename);
+
+			if (!m->load(file))
+				return nullptr; // The load function will print any error messages.
+
+			return addModel(std::move(m));
+		}
 	}
 
+	interface::PrintDeveloperf("Model %s: file doesn't exist\n", name);
 	return nullptr;
 }
 
