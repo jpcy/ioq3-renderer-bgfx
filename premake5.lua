@@ -456,5 +456,5 @@ if os.is("windows") then
 		createRendererProject(_OPTIONS["engine"], BGFX_PATH, BX_PATH, RENDERER_PATH, path.join(IORTCW_PATH, "SP/code/SDL2/include"), path.join(IORTCW_PATH, "SP/code/libs/win32/libSDL2"), path.join(IORTCW_PATH, "SP/code/libs/win64/libSDL264"))
 	end
 else
-	createRendererProject(BGFX_PATH, BX_PATH, RENDERER_PATH, nil, nil, nil)
+	createRendererProject(_OPTIONS["engine"], BGFX_PATH, BX_PATH, RENDERER_PATH, nil, nil, nil)
 end
