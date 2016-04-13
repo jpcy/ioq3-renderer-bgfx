@@ -141,7 +141,7 @@ bool Material::parse(char **text)
 
 	if (token[0] != '{')
 	{
-		interface::PrintWarningf("WARNING: expecting '{', found '%s' instead in shader '%s'\n", token, name);
+		interface::PrintWarningf("'%s': expecting '{', found '%s' instead\n", name, token);
 		return false;
 	}
 
@@ -153,7 +153,7 @@ bool Material::parse(char **text)
 
 		if (!token[0])
 		{
-			interface::PrintWarningf("WARNING: no concluding '}' in shader %s\n", name);
+			interface::PrintWarningf("'%s': no concluding '}'\n", name);
 			return false;
 		}
 
@@ -167,7 +167,7 @@ bool Material::parse(char **text)
 		{
 			if (stageIndex >= maxStages)
 			{
-				interface::PrintWarningf("WARNING: too many stages in shader %s (max is %i)\n", name, (int)maxStages);
+				interface::PrintWarningf("'%s': too many stages (max is %i)\n", name, (int)maxStages);
 				return false;
 			}
 
@@ -250,7 +250,7 @@ bool Material::parse(char **text)
 		{
 			if (numDeforms == maxDeforms)
 			{
-				interface::PrintWarningf("WARNING: max deforms in '%s'\n", name);
+				interface::PrintWarningf("'%s': max deforms\n", name);
 				continue;
 			}
 
@@ -302,6 +302,10 @@ bool Material::parse(char **text)
 		{
 			noPicMip = true;
 		}
+		// character picmip adjustment
+		else if (!util::Stricmp(token, "picmip2"))
+		{
+		}
 		// polygonOffset
 		else if (!util::Stricmp(token, "polygonOffset"))
 		{
@@ -322,15 +326,13 @@ bool Material::parse(char **text)
 			fogParms.color = parseVector(text, &parsedColor);
 
 			if (!parsedColor)
-			{
 				return false;
-			}
 
 			token = util::Parse(text, false);
 
 			if (!token[0]) 
 			{
-				interface::PrintWarningf("WARNING: missing parm for 'fogParms' keyword in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing fogParms 'distance to opaque'\n", name);
 				continue;
 			}
 
@@ -349,6 +351,162 @@ bool Material::parse(char **text)
 		else if (!util::Stricmp(token, "skyparms"))
 		{
 			parseSkyParms(text);
+		}
+		// This is fixed fog for the skybox/clouds determined solely by the shader
+		// it will not change in a level and will not be necessary
+		// to force clients to use a sky fog the server says to.
+		// skyfogvars <(r,g,b)> <dist>
+		else if (!util::Stricmp(token, "skyfogvars"))
+		{
+			bool parsedFogColor;
+			vec3 fogColor = parseVector(text, &parsedFogColor);
+
+			if (!parsedFogColor)
+				return false;
+
+			token = util::Parse(text, false);
+
+			if (!token[0])
+			{
+				interface::PrintWarningf("'%s': missing density value for sky fog\n", name);
+				continue;
+			}
+
+			if (atof(token) > 1)
+			{
+				interface::PrintWarningf("'%s': last value for skyfogvars is 'density' which needs to be 0.0-1.0\n", name);
+				continue;
+			}
+
+			//R_SetFog(FOG_SKY, 0, 5, fogColor[0], fogColor[1], fogColor[2], atof(token));
+			continue;
+		}
+		else if (!util::Stricmp(token, "sunshader"))
+		{
+			token = util::Parse(text, false);
+
+			if (!token[0])
+			{
+				interface::PrintWarningf("'%s': missing shader name for 'sunshader'\n", name);
+				continue;
+			}
+
+			//tr.sunShaderName = "sun";
+		}
+		//----(SA)	added
+		// ambient multiplier for lightgrid
+		else if (!util::Stricmp(token, "lightgridmulamb"))
+		{
+			token = util::Parse(text, false);
+
+			if (!token[0])
+			{
+				interface::PrintWarningf("'%s': missing value for 'lightgrid ambient multiplier'\n", name);
+				continue;
+			}
+
+			if (atof(token) > 0)
+			{
+				//tr.lightGridMulAmbient = atof(token);
+			}
+		}
+		// directional multiplier for lightgrid
+		else if (!util::Stricmp(token, "lightgridmuldir"))
+		{
+			token = util::Parse(text, false);
+
+			if (!token[0])
+			{
+				interface::PrintWarningf("'%s': missing value for 'lightgrid directional multiplier'\n", name);
+				continue;
+			}
+
+			if (atof(token) > 0)
+			{
+				//tr.lightGridMulDirected = atof(token);
+			}
+		}
+		//----(SA)	end
+		else if (!util::Stricmp(token, "waterfogvars"))
+		{
+			bool waterParsed;
+			vec3 waterColor = parseVector(text, &waterParsed);
+
+			if (!waterParsed)
+				return false;
+
+			token = util::Parse(text, false);
+
+			if (!token[0])
+			{
+				interface::PrintWarningf("'%s': missing density/distance value for water fog\n", name);
+				continue;
+			}
+
+			float fogvar = (float)atof(token);
+			char fogString[64];
+
+			//----(SA)	right now allow one water color per map.  I'm sure this will need
+			//			to change at some point, but I'm not sure how to track fog parameters
+			//			on a "per-water volume" basis yet.
+			// '0' specifies "use the map values for everything except the fog color
+			if (fogvar == 0)
+			{
+				// TODO
+			}
+			// distance "linear" fog
+			else if (fogvar > 1)
+			{
+				util::Sprintf(fogString, sizeof(fogString), "0 %d 1.1 %f %f %f 200", (int)fogvar, waterColor[0], waterColor[1], waterColor[2]);
+			}
+			// density "exp" fog
+			else
+			{
+				util::Sprintf(fogString, sizeof(fogString), "0 5 %f %f %f %f 200", fogvar, waterColor[0], waterColor[1], waterColor[2]);
+			}
+
+			//		near
+			//		far
+			//		density
+			//		r,g,b
+			//		time to complete
+			interface::Cvar_Set("r_waterFogColor", fogString);
+			continue;
+		}
+		// fogvars
+		else if (!util::Stricmp(token, "fogvars"))
+		{
+			bool parsedFogColor;
+			vec3 fogColor = parseVector(text, &parsedFogColor);
+
+			if (!parsedFogColor)
+				return false;
+
+			token = util::Parse(text, false);
+
+			if (!token[0])
+			{
+				interface::PrintWarningf("'%s': missing density value for the fog\n", name);
+				continue;
+			}
+
+			//----(SA)	NOTE:	fogFar > 1 means the shader is setting the farclip, < 1 means setting
+			//					density (so old maps or maps that just need softening fog don't have to care about farclip)
+			float fogDensity = (float)atof(token);
+			int fogFar;
+
+			if (fogDensity >= 1)
+			{
+				// linear
+				fogFar = (int)fogDensity;
+			}
+			else
+			{
+				fogFar = 5;
+			}
+
+			interface::Cvar_Set("r_mapFogColor", util::VarArgs("0 %d %f %f %f %f 0", fogFar, fogDensity, fogColor[0], fogColor[1], fogColor[2]));
+			continue;
 		}
 		// Ridah, allow disable fog for some shaders
 		else if (!util::Stricmp(token, "nofog"))
@@ -374,7 +532,7 @@ bool Material::parse(char **text)
 
 			if (token[0] == 0)
 			{
-				interface::PrintWarningf("WARNING: missing cull parms in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing cull parms\n", name);
 			}
 			else if (!util::Stricmp(token, "none") || !util::Stricmp(token, "twosided") || !util::Stricmp(token, "disable"))
 			{
@@ -386,7 +544,7 @@ bool Material::parse(char **text)
 			}
 			else
 			{
-				interface::PrintWarningf("WARNING: invalid cull parm '%s' in shader '%s'\n", token, name);
+				interface::PrintWarningf("'%s': invalid cull parm '%s'\n", name, token);
 			}
 		}
 		// sort
@@ -396,7 +554,7 @@ bool Material::parse(char **text)
 
 			if (token[0] == 0)
 			{
-				interface::PrintWarningf("WARNING: missing sort parameter in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing sort parameter\n", name);
 				continue;
 			}
 
@@ -404,7 +562,7 @@ bool Material::parse(char **text)
 		}
 		else
 		{
-			interface::PrintWarningf("WARNING: unknown general shader parameter '%s' in '%s'\n", token, name);
+			interface::PrintWarningf("'%s': unknown general shader parameter '%s'\n", name, token);
 			return false;
 		}
 	}
@@ -428,7 +586,7 @@ vec3 Material::parseVector(char **text, bool *result) const
 
 	if (strcmp(token, "("))
 	{
-		interface::PrintWarningf("WARNING: missing parenthesis in shader '%s'\n", name);
+		interface::PrintWarningf("'%s': missing opening parenthesis\n", name);
 
 		if (result)
 			*result = false;
@@ -442,7 +600,7 @@ vec3 Material::parseVector(char **text, bool *result) const
 
 		if (!token[0])
 		{
-			interface::PrintWarningf("WARNING: missing vector element in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing vector element\n", name);
 
 			if (result)
 				*result = false;
@@ -457,7 +615,7 @@ vec3 Material::parseVector(char **text, bool *result) const
 
 	if (strcmp(token, ")"))
 	{
-		interface::PrintWarningf("WARNING: missing parenthesis in shader '%s'\n", name);
+		interface::PrintWarningf("'%s': missing closing parenthesis\n", name);
 
 		if (result)
 			*result = false;
@@ -478,16 +636,84 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 	for (;;)
 	{
-		char *token = util::Parse(text, true);
+		const char *token = util::Parse(text, true);
 
 		if (!token[0])
 		{
-			interface::PrintWarningf("WARNING: no matching '}' found\n");
+			interface::PrintWarningf("'%s': no matching '}' found\n", name);
 			return false;
 		}
 
 		if (token[0] == '}')
 			break;
+
+		// check special case for map16/map32/mapcomp/mapnocomp (compression enabled)
+		// only use this texture if 16 bit color depth
+		if (!util::Stricmp(token, "map16"))
+		{
+			util::Parse(text, false); // ignore the map
+			continue;
+		}
+		else if (!util::Stricmp(token, "map32"))
+		{
+			token = "map";   // use this map
+		}
+		// only use this texture if compression is enabled
+		else if (!util::Stricmp(token, "mapcomp"))
+		{
+			/*if (glConfig.textureCompression && r_ext_compressed_textures->integer)
+			{
+				token = "map";   // use this map
+			}
+			else*/
+			{
+				util::Parse(text, false);   // ignore the map
+				continue;
+			}
+		}
+		// only use this texture if compression is not available or disabled
+		else if (!util::Stricmp(token, "mapnocomp"))
+		{
+			//if (!glConfig.textureCompression)
+			{
+				token = "map";   // use this map
+			}
+			/*else
+			{
+				util::Parse(text, false);   // ignore the map
+				continue;
+			}*/
+		}
+		// only use this texture if compression is enabled
+		else if (!util::Stricmp(token, "animmapcomp"))
+		{
+			/*if (glConfig.textureCompression && r_ext_compressed_textures->integer)
+			{
+				token = "animmap";   // use this map
+			}
+			else*/
+			{
+				while (token[0])
+					util::Parse(text, false);   // ignore the map
+
+				continue;
+			}
+		}
+		// only use this texture if compression is not available or disabled
+		else if (!util::Stricmp(token, "animmapnocomp"))
+		{
+			//if (!glConfig.textureCompression)
+			{
+				token = "animmap";   // use this map
+			}
+			/*else
+			{
+				while (token[0])
+					util::Parse(text, false);   // ignore the map
+
+				continue;
+			}*/
+		}
 		
 		// map <name>
 		if (!util::Stricmp(token, "map"))
@@ -496,7 +722,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (!token[0])
 			{
-				interface::PrintWarningf("WARNING: missing parameter for 'map' keyword in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing parameter for 'map' keyword\n", name);
 				return false;
 			}
 
@@ -520,8 +746,8 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			{
 				/*if (!tr.worldDeluxeMapping)
 				{
-					interface::PrintWarningf("WARNING: shader '%s' wants a deluxe map in a map compiled without them\n", name);
-					return qfalse;
+					interface::PrintWarningf("'%s': wants a deluxe map in a map compiled without them\n", name);
+					return false;
 				}*/
 
 				stage->bundles[0].isLightmap = true;
@@ -550,7 +776,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 				if (!stage->bundles[0].textures[0])
 				{
-					interface::PrintWarningf("WARNING: could not find texture '%s' in shader '%s'\n", token, name);
+					interface::PrintWarningf("'%s': could not find texture '%s'\n", name, token);
 					return false;
 				}
 			}
@@ -563,7 +789,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			token = util::Parse(text, false);
 			if (!token[0])
 			{
-				interface::PrintWarningf("WARNING: missing parameter for 'clampmap' keyword in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing parameter for 'clampmap' keyword\n", name);
 				return false;
 			}
 
@@ -577,7 +803,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (!stage->bundles[0].textures[0])
 			{
-				interface::PrintWarningf("WARNING: could not find texture '%s' in shader '%s'\n", token, name);
+				interface::PrintWarningf("'%s': could not find texture '%s'\n", name, token);
 				return false;
 			}
 		}
@@ -588,7 +814,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (!token[0])
 			{
-				interface::PrintWarningf("WARNING: missing parameter for 'animMap' keyword in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing parameter for 'animMap' keyword\n", name);
 				return false;
 			}
 
@@ -618,7 +844,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 					if (!stage->bundles[0].textures[num])
 					{
-						interface::PrintWarningf("WARNING: could not find texture '%s' in shader '%s'\n", token, name);
+						interface::PrintWarningf("'%s': could not find texture '%s'\n", name, token);
 						return false;
 					}
 
@@ -632,7 +858,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (!token[0])
 			{
-				interface::PrintWarningf("WARNING: missing parameter for 'videoMap' keyword in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing parameter for 'videoMap' keyword\n", name);
 				return false;
 			}
 
@@ -651,10 +877,9 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (!token[0])
 			{
-				interface::PrintWarningf("WARNING: missing parameter for 'alphaFunc' keyword in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing parameter for 'alphaFunc' keyword\n", name);
 				return false;
 			}
-
 
 			stage->alphaTest = alphaTestFromName(token);
 		}
@@ -665,7 +890,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (!token[0])
 			{
-				interface::PrintWarningf("WARNING: missing parameter for 'depthfunc' keyword in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing parameter for 'depthfunc' keyword\n", name);
 				return false;
 			}
 
@@ -679,7 +904,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 			else
 			{
-				interface::PrintWarningf("WARNING: unknown depthfunc '%s' in shader '%s'\n", token, name);
+				interface::PrintWarningf("'%s': unknown depthfunc '%s'\n", name, token);
 			}
 		}
 		// detail
@@ -694,7 +919,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (token[0] == 0)
 			{
-				interface::PrintWarningf("WARNING: missing parm for blendFunc in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing parm for blendFunc\n", name);
 				continue;
 			}
 
@@ -723,7 +948,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 				if (token[0] == 0)
 				{
-					interface::PrintWarningf("WARNING: missing parm for blendFunc in shader '%s'\n", name);
+					interface::PrintWarningf("'%s': missing parm for blendFunc\n", name);
 					continue;
 				}
 
@@ -743,7 +968,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (token[0] == 0)
 			{
-				interface::PrintWarningf("WARNING: missing parameters for stage in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing parameters for stage\n", name);
 			}
 			else if (!util::Stricmp(token, "diffuseMap"))
 			{
@@ -770,7 +995,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 			else
 			{
-				interface::PrintWarningf("WARNING: unknown stage parameter '%s' in shader '%s'\n", token, name);
+				interface::PrintWarningf("'%s': unknown stage parameter '%s'\n", name, token);
 			}
 		}
 		// specularReflectance <value>
@@ -780,7 +1005,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (token[0] == 0)
 			{
-				interface::PrintWarningf("WARNING: missing parameter for specular reflectance in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing parameter for specular reflectance\n", name);
 				continue;
 			}
 
@@ -793,7 +1018,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (token[0] == 0)
 			{
-				interface::PrintWarningf("WARNING: missing parameter for specular exponent in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing parameter for specular exponent\n", name);
 				continue;
 			}
 
@@ -809,7 +1034,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (token[0] == 0)
 			{
-				interface::PrintWarningf("WARNING: missing parameter for gloss in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing parameter for gloss\n", name);
 				continue;
 			}
 
@@ -822,7 +1047,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (token[0] == 0)
 			{
-				interface::PrintWarningf("WARNING: missing parameter for parallaxDepth in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing parameter for parallaxDepth\n", name);
 				continue;
 			}
 
@@ -837,7 +1062,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (token[0] == 0)
 			{
-				interface::PrintWarningf("WARNING: missing parameter for normalScale in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing parameter for normalScale\n", name);
 				continue;
 			}
 
@@ -868,7 +1093,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (token[0] == 0)
 			{
-				interface::PrintWarningf("WARNING: missing parameter for specularScale in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing parameter for specularScale\n", name);
 				continue;
 			}
 
@@ -877,7 +1102,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (token[0] == 0)
 			{
-				interface::PrintWarningf("WARNING: missing parameter for specularScale in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing parameter for specularScale\n", name);
 				continue;
 			}
 
@@ -912,7 +1137,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (token[0] == 0)
 			{
-				interface::PrintWarningf("WARNING: missing parameters for rgbGen in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing parameters for rgbGen\n", name);
 			}
 			else if (!util::Stricmp(token, "wave"))
 			{
@@ -972,7 +1197,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 			else
 			{
-				interface::PrintWarningf("WARNING: unknown rgbGen parameter '%s' in shader '%s'\n", token, name);
+				interface::PrintWarningf("'%s': unknown rgbGen parameter '%s'\n", name, token);
 			}
 		}
 		// alphaGen 
@@ -982,7 +1207,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (token[0] == 0)
 			{
-				interface::PrintWarningf("WARNING: missing parameters for alphaGen in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing parameters for alphaGen\n", name);
 			}
 			else if (!util::Stricmp(token, "wave"))
 			{
@@ -1007,6 +1232,37 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			{
 				stage->alphaGen = MaterialAlphaGen::OneMinusEntity;
 			}
+			// Ridah
+			else if (!util::Stricmp(token, "normalzfade"))
+			{
+				stage->alphaGen = MaterialAlphaGen::NormalZFade;
+				token = util::Parse(text, false);
+
+				if (token[0])
+				{
+					stage->constantColor[3] = 255 * (float)atof(token);
+				}
+				else
+				{
+					stage->constantColor[3] = 255;
+				}
+
+				token = util::Parse(text, false);
+
+				if (token[0])
+				{
+					stage->zFadeBounds[0] = (float)atof(token); // lower range
+					token = util::Parse(text, false);
+					stage->zFadeBounds[1] = (float)atof(token); // upper range
+				}
+				else
+				{
+					stage->zFadeBounds[0] = -1.0; // lower range
+					stage->zFadeBounds[1] = 1.0; // upper range
+				}
+
+			}
+			// done.
 			else if (!util::Stricmp(token, "vertex"))
 			{
 				stage->alphaGen = MaterialAlphaGen::Vertex;
@@ -1026,7 +1282,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 				if (token[0] == 0)
 				{
-					interface::PrintWarningf("WARNING: missing range parameter for alphaGen portal in shader '%s', defaulting to %g\n", name, portalRange);
+					interface::PrintWarningf("'%s': missing range parameter for alphaGen portal, defaulting to %g\n", name, portalRange);
 				}
 				else
 				{
@@ -1035,7 +1291,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 			else
 			{
-				interface::PrintWarningf("WARNING: unknown alphaGen parameter '%s' in shader '%s'\n", token, name);
+				interface::PrintWarningf("'%s': unknown alphaGen parameter '%s'\n", name, token);
 				continue;
 			}
 		}
@@ -1046,7 +1302,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (token[0] == 0)
 			{
-				interface::PrintWarningf("WARNING: missing texgen parm in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing texgen parm\n", name);
 			}
 			else if (!util::Stricmp(token, "environment"))
 			{
@@ -1068,7 +1324,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			}
 			else 
 			{
-				interface::PrintWarningf("WARNING: unknown texgen parm in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': unknown texgen parm\n", name);
 			}
 		}
 		// tcMod <type> <...>
@@ -1076,7 +1332,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 		{
 			if (stage->bundles[0].numTexMods == MaterialTextureBundle::maxTexMods)
 			{
-				interface::PrintWarningf("WARNING: too many tcMod stages in shader '%s'", name);
+				interface::PrintWarningf("'%s': too many tcMod stages", name);
 				continue;
 			}
 
@@ -1104,7 +1360,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 		}
 		else
 		{
-			interface::PrintWarningf("WARNING: unknown parameter '%s' in shader '%s'\n", token, name);
+			interface::PrintWarningf("'%s': unknown parameter '%s'\n", name, token);
 			return false;
 		}
 	}
@@ -1148,7 +1404,7 @@ MaterialWaveForm Material::parseWaveForm(char **text) const
 
 	if (token[0] == 0)
 	{
-		interface::PrintWarningf("WARNING: missing waveform parm in shader '%s'\n", name);
+		interface::PrintWarningf("'%s': missing waveform parm\n", name);
 		return wave;
 	}
 
@@ -1159,7 +1415,7 @@ MaterialWaveForm Material::parseWaveForm(char **text) const
 
 	if (token[0] == 0)
 	{
-		interface::PrintWarningf("WARNING: missing waveform parm in shader '%s'\n", name);
+		interface::PrintWarningf("'%s': missing waveform parm\n", name);
 		return wave;
 	}
 
@@ -1168,7 +1424,7 @@ MaterialWaveForm Material::parseWaveForm(char **text) const
 
 	if (token[0] == 0)
 	{
-		interface::PrintWarningf("WARNING: missing waveform parm in shader '%s'\n", name);
+		interface::PrintWarningf("'%s': missing waveform parm\n", name);
 		return wave;
 	}
 
@@ -1177,7 +1433,7 @@ MaterialWaveForm Material::parseWaveForm(char **text) const
 
 	if (token[0] == 0)
 	{
-		interface::PrintWarningf("WARNING: missing waveform parm in shader '%s'\n", name);
+		interface::PrintWarningf("'%s': missing waveform parm\n", name);
 		return wave;
 	}
 
@@ -1186,7 +1442,7 @@ MaterialWaveForm Material::parseWaveForm(char **text) const
 
 	if (token[0] == 0)
 	{
-		interface::PrintWarningf("WARNING: missing waveform parm in shader '%s'\n", name);
+		interface::PrintWarningf("'%s': missing waveform parm\n", name);
 		return wave;
 	}
 
@@ -1206,7 +1462,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing tcMod turb parms in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing tcMod turb parms\n", name);
 			return tmi;
 		}
 
@@ -1215,7 +1471,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing tcMod turb in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing tcMod turb\n", name);
 			return tmi;
 		}
 
@@ -1224,7 +1480,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing tcMod turb in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing tcMod turb\n", name);
 			return tmi;
 		}
 
@@ -1233,7 +1489,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing tcMod turb in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing tcMod turb\n", name);
 			return tmi;
 		}
 
@@ -1246,7 +1502,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing scale parms in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing scale parms\n", name);
 			return tmi;
 		}
 
@@ -1255,7 +1511,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing scale parms in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing scale parms\n", name);
 			return tmi;
 		}
 
@@ -1268,7 +1524,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing scale scroll parms in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing scale scroll parms\n", name);
 			return tmi;
 		}
 
@@ -1277,7 +1533,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing scale scroll parms in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing scale scroll parms\n", name);
 			return tmi;
 		}
 
@@ -1290,7 +1546,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing stretch parms in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing stretch parms\n", name);
 			return tmi;
 		}
 
@@ -1299,7 +1555,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing stretch parms in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing stretch parms\n", name);
 			return tmi;
 		}
 
@@ -1308,7 +1564,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing stretch parms in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing stretch parms\n", name);
 			return tmi;
 		}
 
@@ -1317,7 +1573,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing stretch parms in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing stretch parms\n", name);
 			return tmi;
 		}
 
@@ -1326,7 +1582,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing stretch parms in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing stretch parms\n", name);
 			return tmi;
 		}
 
@@ -1339,7 +1595,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing transform parms in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing transform parms\n", name);
 			return tmi;
 		}
 
@@ -1348,7 +1604,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing transform parms in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing transform parms\n", name);
 			return tmi;
 		}
 
@@ -1357,7 +1613,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing transform parms in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing transform parms\n", name);
 			return tmi;
 		}
 
@@ -1366,7 +1622,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing transform parms in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing transform parms\n", name);
 			return tmi;
 		}
 
@@ -1375,7 +1631,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing transform parms in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing transform parms\n", name);
 			return tmi;
 		}
 
@@ -1384,7 +1640,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing transform parms in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing transform parms\n", name);
 			return tmi;
 		}
 
@@ -1397,7 +1653,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing tcMod rotate parms in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing tcMod rotate parms\n", name);
 			return tmi;
 		}
 
@@ -1410,7 +1666,7 @@ MaterialTexModInfo Material::parseTexMod(char *buffer) const
 	}
 	else
 	{
-		interface::PrintWarningf("WARNING: unknown tcMod '%s' in shader '%s'\n", token, name);
+		interface::PrintWarningf("'%s': unknown tcMod '%s'\n", name, token);
 	}
 
 	return tmi;
@@ -1433,7 +1689,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 
 	if (token[0] == 0)
 	{
-		interface::PrintWarningf("WARNING: missing deform parm in shader '%s'\n", name);
+		interface::PrintWarningf("'%s': missing deform parm\n", name);
 	}
 	else if (!util::Stricmp(token, "projectionShadow"))
 	{
@@ -1462,7 +1718,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing deformVertexes bulge parm in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing deformVertexes bulge parm\n", name);
 			return ds;
 		}
 
@@ -1471,7 +1727,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing deformVertexes bulge parm in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing deformVertexes bulge parm\n", name);
 			return ds;
 		}
 
@@ -1480,7 +1736,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing deformVertexes bulge parm in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing deformVertexes bulge parm\n", name);
 			return ds;
 		}
 
@@ -1493,7 +1749,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing deformVertexes parm in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing deformVertexes parm\n", name);
 			return ds;
 		}
 
@@ -1504,7 +1760,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 		else
 		{
 			ds.deformationSpread = 100.0f;
-			interface::PrintWarningf("WARNING: illegal div value of 0 in deformVertexes command for shader '%s'\n", name);
+			interface::PrintWarningf("'%s': illegal div value of 0 in deformVertexes command for shader '%s'\n", name);
 		}
 
 		ds.deformationWave = parseWaveForm(text);
@@ -1516,7 +1772,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing deformVertexes parm in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing deformVertexes parm\n", name);
 			return ds;
 		}
 
@@ -1525,7 +1781,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 
 		if (token[0] == 0)
 		{
-			interface::PrintWarningf("WARNING: missing deformVertexes parm in shader '%s'\n", name);
+			interface::PrintWarningf("'%s': missing deformVertexes parm\n", name);
 			return ds;
 		}
 
@@ -1540,7 +1796,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 
 			if (token[0] == 0)
 			{
-				interface::PrintWarningf("WARNING: missing deformVertexes parm in shader '%s'\n", name);
+				interface::PrintWarningf("'%s': missing deformVertexes parm\n", name);
 				return ds;
 			}
 
@@ -1552,7 +1808,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 	}
 	else
 	{
-		interface::PrintWarningf("WARNING: unknown deformVertexes subtype '%s' found in shader '%s'\n", token, name);
+		interface::PrintWarningf("'%s': unknown deformVertexes subtype '%s' found\n", name, token);
 	}
 
 	return ds;
@@ -1569,7 +1825,7 @@ void Material::parseSkyParms(char **text)
 
 	if (token[0] == 0)
 	{
-		interface::PrintWarningf("WARNING: 'skyParms' missing parameter in shader '%s'\n", name);
+		interface::PrintWarningf("'%s': 'skyParms' missing parameter\n", name);
 		return;
 	}
 
@@ -1593,7 +1849,7 @@ void Material::parseSkyParms(char **text)
 
 	if (token[0] == 0)
 	{
-		interface::PrintWarningf("WARNING: 'skyParms' missing parameter in shader '%s'\n", name);
+		interface::PrintWarningf("'%s': 'skyParms' missing parameter\n", name);
 		return;
 	}
 
@@ -1611,7 +1867,7 @@ void Material::parseSkyParms(char **text)
 
 	if (token[0] == 0) 
 	{
-		interface::PrintWarningf("WARNING: 'skyParms' missing parameter in shader '%s'\n", name);
+		interface::PrintWarningf("'%s': 'skyParms' missing parameter\n", name);
 		return;
 	}
 
@@ -1645,7 +1901,7 @@ MaterialAlphaTest Material::alphaTestFromName(const char *name) const
 		{ "GE128", MaterialAlphaTest::GE_128 }
 	}))
 	{
-		interface::PrintWarningf("WARNING: invalid alphaFunc name '%s' in shader '%s'\n", name, this->name);
+		interface::PrintWarningf("'%s': invalid alphaFunc name '%s'\n", this->name, name);
 	}
 	
 	return value;
@@ -1669,7 +1925,7 @@ uint64_t Material::srcBlendModeFromName(const char *name) const
 		{ "GL_SRC_ALPHA_SATURATE", BGFX_STATE_BLEND_SRC_ALPHA_SAT }
 	}))
 	{
-		interface::PrintWarningf("WARNING: unknown blend mode '%s' in shader '%s', substituting GL_ONE\n", name, this->name);
+		interface::PrintWarningf("'%s': unknown blend mode '%s', substituting GL_ONE\n", this->name, name);
 	}
 	
 	return value;
@@ -1692,7 +1948,7 @@ uint64_t Material::dstBlendModeFromName(const char *name) const
 		{ "GL_ONE_MINUS_SRC_COLOR", BGFX_STATE_BLEND_INV_SRC_COLOR }
 	}))
 	{
-		interface::PrintWarningf("WARNING: unknown blend mode '%s' in shader '%s', substituting GL_ONE\n", name, this->name);
+		interface::PrintWarningf("'%s': unknown blend mode '%s', substituting GL_ONE\n", this->name, name);
 	}
 
 	return value;
@@ -1713,7 +1969,7 @@ MaterialWaveformGenFunc Material::genFuncFromName(const char *name) const
 		{ "noise", MaterialWaveformGenFunc::Noise }
 	}))
 	{
-		interface::PrintWarningf("WARNING: invalid genfunc name '%s' in shader '%s'\n", name, this->name);
+		interface::PrintWarningf("'%s': invalid genfunc name '%s'\n", this->name, name);
 	}
 
 	return value;

@@ -527,6 +527,9 @@ void MaterialStage::calculateColors(vec4 *baseColor, vec4 *vertColor) const
 			}
 			(*vertColor).a = 0.0f;
 			break;
+		case MaterialAlphaGen::NormalZFade:
+			// TODO
+			break;
 		case MaterialAlphaGen::Vertex:
 			(*baseColor).a = 0.0f;
 			(*vertColor).a = 1.0f;

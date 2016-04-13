@@ -58,7 +58,7 @@ Model *ModelCache::findModel(const char *name)
 {
 	if (!name || !name[0])
 	{
-		interface::PrintWarningf("ModelCache::findModel: NULL name\n");
+		//interface::PrintWarningf("ModelCache::findModel: NULL name\n");
 		return nullptr;
 	}
 

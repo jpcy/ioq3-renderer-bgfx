@@ -38,12 +38,26 @@ namespace renderer {
 #define BSP_IDENT	(('P'<<24)+('S'<<16)+('B'<<8)+'I')
 // little-endian "IBSP"
 
+#if defined(ENGINE_IOQ3)
 #define BSP_VERSION			46
+#elif defined(ENGINE_IORTCW)
+#define BSP_VERSION			47
+#else
+#error Engine undefined
+#endif
 
 
 // there shouldn't be any problem with increasing these values at the
 // expense of more memory allocation in the utilities
+
+#if defined(ENGINE_IOQ3)
 #define	MAX_MAP_MODELS		0x400
+#elif defined(ENGINE_IORTCW)
+#define	MAX_MAP_MODELS		0x800
+#else
+#error Engine undefined
+#endif
+	
 #define	MAX_MAP_BRUSHES		0x8000
 #define	MAX_MAP_ENTITIES	0x800
 #define	MAX_MAP_ENTSTRING	0x40000

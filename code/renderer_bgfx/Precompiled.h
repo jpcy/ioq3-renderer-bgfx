@@ -441,6 +441,7 @@ enum class MaterialAlphaGen
 	Skip,
 	Entity,
 	OneMinusEntity,
+	NormalZFade,
 	Vertex,
 	OneMinusVertex,
 	Waveform,
@@ -785,6 +786,8 @@ struct MaterialStage
 
 	vec4 normalScale;
 	vec4 specularScale;
+
+	vec2 zFadeBounds; // for MaterialAlphaGen::NormalZFade
 
 	vec4 getFogColorMask() const;
 	uint64_t getState() const;
