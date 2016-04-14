@@ -35,7 +35,8 @@ struct ModelHandler
 static const ModelHandler s_modelHandlers[] =
 {
 	{ "md3", Model::createMD3 },
-	{ "mdc", Model::createMDC }
+	{ "mdc", Model::createMDC },
+	{ "mds", Model::createMDS }
 };
 
 Transform Model::lerpTag(const char *name, int startFrame, int endFrame, float fraction)

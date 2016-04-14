@@ -892,7 +892,8 @@ void Model_md3::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 		}
 		else if (entity->customSkin > 0)
 		{
-			Material *customMat = g_materialCache->getSkin(entity->customSkin)->findMaterial(surface.name);
+			Skin *skin = g_materialCache->getSkin(entity->customSkin);
+			Material *customMat = skin ? skin->findMaterial(surface.name) : nullptr;
 
 			if (customMat)
 				mat = customMat;

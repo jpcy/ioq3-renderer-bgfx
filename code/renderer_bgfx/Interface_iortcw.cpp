@@ -884,9 +884,28 @@ static void RE_LoadWorld(const char *name)
 	main::LoadWorld(name);
 }
 
-static qboolean RE_GetSkinModel(qhandle_t skinid, const char *type, char *name)
+static qboolean RE_GetSkinModel(qhandle_t handle, const char *type, char *name)
 {
-	assert(0);
+	Skin *skin = g_materialCache->getSkin(handle);
+
+	if (!skin)
+		return qfalse;
+
+	// client is requesting scale from the skin rather than a model
+	if (!util::Stricmp(type, "playerscale"))
+	{
+		util::Sprintf(name, MAX_QPATH, "%.2f %.2f %.2f", skin->getScale(), skin->getScale(), skin->getScale());
+		return qtrue;
+	}
+
+	const char *modelName = skin->findModelName(type);
+
+	if (modelName)
+	{
+		util::Strncpyz(name, modelName, MAX_QPATH);
+		return qtrue;
+	}
+
 	return qfalse;
 }
 

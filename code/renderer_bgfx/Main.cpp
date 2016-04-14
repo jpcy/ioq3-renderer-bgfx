@@ -766,7 +766,14 @@ void Main::renderScene(const SceneDefinition &scene)
 void Main::endFrame()
 {
 	flushStretchPics();
-	assert(firstFreeViewId_ != 0); // Should always be one active view.
+
+	if (firstFreeViewId_ == 0)
+	{
+		// No active views. Make sure the screen is cleared.
+		const uint8_t viewId = pushView(defaultFb_, 0, mat4::identity, mat4::identity, Rect(0, 0, window::GetWidth(), window::GetHeight()));
+		bgfx::setViewClear(viewId, BGFX_CLEAR_COLOR, 0x000000ff);
+		bgfx::touch(viewId);
+	}
 
 	if (debugDraw_ == DebugDraw::Depth)
 	{

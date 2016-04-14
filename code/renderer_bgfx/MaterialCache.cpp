@@ -19,6 +19,33 @@ along with Quake III Arena source code; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
 */
+/*
+===========================================================================
+
+Return to Castle Wolfenstein single player GPL Source Code
+Copyright (C) 1999-2010 id Software LLC, a ZeniMax Media company.
+
+This file is part of the Return to Castle Wolfenstein single player GPL Source Code (RTCW SP Source Code).
+
+RTCW SP Source Code is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+RTCW SP Source Code is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with RTCW SP Source Code.  If not, see <http://www.gnu.org/licenses/>.
+
+In addition, the RTCW SP Source Code is also subject to certain additional terms. You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License which accompanied the RTCW SP Source Code.  If not, please request a copy in writing from id Software at the address below.
+
+If you have questions concerning this license or the applicable additional terms, you may contact in writing id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA.
+
+===========================================================================
+*/
 #include "Precompiled.h"
 #pragma hdrstop
 
@@ -125,7 +152,6 @@ Skin::Skin(const char *name, qhandle_t handle)
 {
 	util::Strncpyz(name_, name, sizeof(name_));
 	handle_ = handle;
-	nSurfaces_ = 0;
 
 	// If not a .skin file, load as a single shader
 	if (strcmp(name + strlen(name) - 5, ".skin"))
@@ -146,33 +172,55 @@ Skin::Skin(const char *name, qhandle_t handle)
 
 	while (text_p && *text_p)
 	{
-		Surface &surface = surfaces_[nSurfaces_];
-
 		// Get surface name.
 		const char *token = CommaParse(&text_p);
-		util::Strncpyz(surface.name, token, sizeof(surface.name));
 
 		if (!token[0])
 			break;
-
-		// Lowercase the surface name so skin compares are faster.
-		util::ToLowerCase(surface.name);
 
 		if (*text_p == ',')
 			text_p++;
 
 		if (strstr(token, "tag_"))
 			continue;
-		
-		// Parse the material name.
-		token = CommaParse(&text_p);
 
-		if (nSurfaces_ >= maxSurfaces)
+		// this is specifying a model
+		if (strstr(token, "md3_"))
 		{
-			interface::PrintWarningf("WARNING: Ignoring surfaces in '%s', the max is %d surfaces!\n", name, maxSurfaces);
+			if (nModels_ >= maxModels_)
+			{
+				interface::PrintWarningf("WARNING: Ignoring models in '%s', the max is %d!\n", name, maxModels_);
+				break;
+			}
+
+			Model &model = models_[nModels_];
+			util::Strncpyz(model.type, token, sizeof(model.type));
+			token = CommaParse(&text_p);
+			util::Strncpyz(model.name, token, sizeof(model.name));
+			nModels_++;
+			continue;
+		}
+
+		//----(SA)	added
+		if (strstr(token, "playerscale"))
+		{
+			token = CommaParse(&text_p);
+			scale_ = (float)atof(token); // uniform scaling for now
+			continue;
+		}
+		//----(SA) end
+		
+		// Got this far, it's a surface.
+		if (nSurfaces_ >= maxSurfaces_)
+		{
+			interface::PrintWarningf("WARNING: Ignoring surfaces in '%s', the max is %d surfaces!\n", name, maxSurfaces_);
 			break;
 		}
 
+		Surface &surface = surfaces_[nSurfaces_];
+		util::Strncpyz(surface.name, token, sizeof(surface.name));
+		util::ToLowerCase(surface.name); // Lowercase the surface name so skin compares are faster.
+		token = CommaParse(&text_p);
 		surface.material = g_materialCache->findMaterial(token, MaterialLightmapId::None, true);
 		nSurfaces_++;
 	}
@@ -193,6 +241,19 @@ Material *Skin::findMaterial(const char *surfaceName)
 	{
 		if (!strcmp(surface.name, surfaceName))
 			return surface.material;
+	}
+
+	return nullptr;
+}
+
+const char *Skin::findModelName(const char *modelType) const
+{
+	for (const Model &model : models_)
+	{
+		if (!util::Stricmp(model.type, modelType))
+		{
+			return model.type;
+		}
 	}
 
 	return nullptr;
@@ -454,6 +515,15 @@ Skin *MaterialCache::findSkin(const char *name)
 	Skin *result = skin.get();
 	skins_.push_back(std::move(skin));
 	return result;
+}
+
+Skin *MaterialCache::getSkin(qhandle_t handle)
+{
+	// Don't return default skin (handle 0).
+	if (handle < 1 || size_t(handle) >= skins_.size())
+		return nullptr;
+
+	return skins_[handle].get();
 }
 
 size_t MaterialCache::generateHash(const char *fname, size_t size)

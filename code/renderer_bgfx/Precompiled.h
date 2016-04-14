@@ -19,6 +19,33 @@ along with Quake III Arena source code; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
 */
+/*
+===========================================================================
+
+Return to Castle Wolfenstein single player GPL Source Code
+Copyright (C) 1999-2010 id Software LLC, a ZeniMax Media company.
+
+This file is part of the Return to Castle Wolfenstein single player GPL Source Code (RTCW SP Source Code).
+
+RTCW SP Source Code is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+RTCW SP Source Code is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with RTCW SP Source Code.  If not, see <http://www.gnu.org/licenses/>.
+
+In addition, the RTCW SP Source Code is also subject to certain additional terms. You should have received a copy of these additional terms immediately following the terms and conditions of the GNU General Public License which accompanied the RTCW SP Source Code.  If not, please request a copy in writing from id Software at the address below.
+
+If you have questions concerning this license or the applicable additional terms, you may contact in writing id Software LLC, c/o ZeniMax Media Inc., Suite 120, Rockville, Maryland 20850 USA.
+
+===========================================================================
+*/
 #pragma once
 
 #include <algorithm>
@@ -948,7 +975,7 @@ public:
 	void printMaterials() const;
 
 	Skin *findSkin(const char *name);
-	Skin *getSkin(qhandle_t handle) { return skins_[handle].get(); }
+	Skin *getSkin(qhandle_t handle);
 
 private:
 	size_t generateHash(const char *fname, size_t size);
@@ -1007,6 +1034,7 @@ public:
 
 	static std::unique_ptr<Model> createMD3(const char *name);
 	static std::unique_ptr<Model> createMDC(const char *name);
+	static std::unique_ptr<Model> createMDS(const char *name);
 
 protected:
 	char name_[MAX_QPATH];
@@ -1147,11 +1175,20 @@ public:
 	bool hasSurfaces() const { return nSurfaces_ > 0; }
 	const char *getName() const { return name_; }
 	qhandle_t getHandle() const { return handle_; }
+	float getScale() const { return scale_; }
 
 	Material *findMaterial(const char *surfaceName);
+	const char *findModelName(const char *modelType) const;
 
 private:
-	static const size_t maxSurfaces = 32;
+	static const size_t maxModels_ = 5;
+	static const size_t maxSurfaces_ = 32;
+
+	struct Model
+	{
+		char type[MAX_QPATH]; // md3_lower, md3_lbelt, md3_rbelt, etc.
+		char name[MAX_QPATH]; // lower.md3, belt1.md3, etc.
+	};
 
 	struct Surface
 	{
@@ -1163,8 +1200,11 @@ private:
 	char name_[MAX_QPATH];
 
 	qhandle_t handle_;
-	Surface surfaces_[maxSurfaces];
-	size_t nSurfaces_;
+	Model models_[maxModels_];
+	size_t nModels_ = 0;
+	Surface surfaces_[maxSurfaces_];
+	size_t nSurfaces_ = 0;
+	float scale_ = 0;
 };
 
 /// @remarks Called when a sky material is parsed.
