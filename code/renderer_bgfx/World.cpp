@@ -41,6 +41,32 @@ WorldModel::WorldModel(int index, size_t nSurfaces, Bounds bounds) : tempSurface
 	util::Sprintf(name_, sizeof(name_), "*%d", index);
 }
 
+Material *WorldModel::getMaterial(size_t surfaceNo) const
+{
+	// if it's out of range, return the first surface
+	if (surfaceNo >= (int)surfaces_.size())
+		surfaceNo = 0;
+
+	const Surface &surface = surfaces_[surfaceNo];
+
+	if (surface.material->lightmapIndex > MaterialLightmapId::None)
+	{
+		bool mipRawImage = true;
+
+		// Get mipmap info for original texture.
+		Texture *texture = Texture::get(surface.material->name);
+
+		if (texture)
+			mipRawImage = (texture->getFlags() & TextureFlags::Mipmap) != 0;
+
+		Material *mat = g_materialCache->findMaterial(surface.material->name, MaterialLightmapId::None, mipRawImage);
+		mat->stages[0].rgbGen = MaterialColorGen::LightingDiffuse; // (SA) new
+		return mat;
+	}
+
+	return surface.material;
+}
+
 bool WorldModel::isCulled(Entity *entity, const Frustum &cameraFrustum) const
 {
 	return cameraFrustum.clipBounds(bounds_, mat4::transform(entity->rotation, entity->position)) == Frustum::ClipResult::Outside;

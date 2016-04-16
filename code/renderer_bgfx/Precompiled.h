@@ -344,9 +344,10 @@ struct Entity
 	qhandle_t customMaterial;
 	qhandle_t customSkin;
 	int flags;
-	int frame, oldFrame;
+	int frame, torsoFrame;
+	int oldFrame, oldTorsoFrame;
 	qhandle_t handle;
-	float lerp;
+	float lerp, torsoLerp;
 	vec3 lightingPosition;
 
 	/// Color used by MaterialColorGen::Entity and MaterialColorGen::OneMinusEntity.
@@ -362,7 +363,7 @@ struct Entity
 
 	vec3 position, oldPosition;
 	float radius;
-	mat3 rotation;
+	mat3 rotation, torsoRotation;
 	int skinNum;
 	EntityType type;
 
@@ -1025,12 +1026,15 @@ public:
 	virtual ~Model() {}
 	virtual bool load(const ReadOnlyFile &file) = 0;
 	virtual Bounds getBounds() const = 0;
-	virtual Transform getTag(const char *name, int frame) const = 0;
+	virtual Material *getMaterial(size_t surfaceNo) const = 0;
 	virtual bool isCulled(Entity *entity, const Frustum &cameraFrustum) const = 0;
 	virtual void render(const mat3 &sceneRotation, DrawCallList *drawCallList, Entity *entity) = 0;
+
+	/// @return Tag index. -1 if tag not found.
+	virtual int lerpTag(const char *name, const Entity &entity, int startIndex, Transform *transform) const = 0;
+
 	size_t getIndex() const { return index_; }
 	const char *getName() const { return name_; }
-	Transform lerpTag(const char *name, int startFrame, int endFrame, float fraction);
 
 	static std::unique_ptr<Model> createMD3(const char *name);
 	static std::unique_ptr<Model> createMDC(const char *name);
@@ -1246,6 +1250,8 @@ public:
 	/// @return nullptr if it fails, not the default image.
 	static Texture *find(const char *name, int flags = TextureFlags::None);
 
+	static Texture *get(const char *name);
+
 	static const Texture *getDefault();
 	static const Texture *getIdentityLight();
 	static const Texture *getWhite();
@@ -1253,6 +1259,7 @@ public:
 
 	void resize(int width, int height);
 	void update(const bgfx::Memory *mem, int x, int y, int width, int height);
+	int getFlags() const;
 	bgfx::TextureHandle getHandle() const;
 	const char *getName() const;
 	int getWidth() const;

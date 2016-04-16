@@ -821,6 +821,61 @@ namespace interface
 	}
 }
 
+static Entity ConvertEntity(const refEntity_t *re)
+{
+	Entity entity;
+	entity.flags = 0;
+
+	if (re->renderfx & RF_DEPTHHACK)
+		entity.flags |= EntityFlags::DepthHack;
+	if (re->renderfx & RF_FIRST_PERSON)
+		entity.flags |= EntityFlags::FirstPerson;
+	if (re->renderfx & RF_THIRD_PERSON)
+		entity.flags |= EntityFlags::ThirdPerson;
+	if (re->renderfx & RF_LIGHTING_ORIGIN)
+		entity.flags |= EntityFlags::LightingPosition;
+
+	if (re->reType == RT_MODEL)
+		entity.type = EntityType::Model;
+	else if (re->reType == RT_POLY)
+		entity.type = EntityType::Poly;
+	else if (re->reType == RT_SPRITE)
+		entity.type = EntityType::Sprite;
+	else if (re->reType == RT_BEAM)
+		entity.type = EntityType::Beam;
+	else if (re->reType == RT_RAIL_CORE)
+		entity.type = EntityType::RailCore;
+	else if (re->reType == RT_RAIL_RINGS)
+		entity.type = EntityType::RailRings;
+	else if (re->reType == RT_LIGHTNING)
+		entity.type = EntityType::Lightning;
+	else if (re->reType == RT_PORTALSURFACE)
+		entity.type = EntityType::Portal;
+
+	entity.handle = re->hModel;
+	entity.lightingPosition = re->lightingOrigin;
+	entity.rotation = re->axis;
+	entity.torsoRotation = re->torsoAxis;
+	entity.nonNormalizedAxes = re->nonNormalizedAxes != qfalse;
+	entity.position = re->origin;
+	entity.frame = re->frame;
+	entity.torsoFrame = re->torsoFrame;
+	entity.oldPosition = re->oldorigin;
+	entity.oldFrame = re->oldframe;
+	entity.oldTorsoFrame = re->oldTorsoFrame;
+	entity.lerp = 1.0f - re->backlerp;
+	entity.torsoLerp = 1.0f - re->torsoBacklerp;
+	entity.skinNum = re->skinNum;
+	entity.customSkin = re->customSkin;
+	entity.customMaterial = re->customShader;
+	entity.materialColor = vec4(re->shaderRGBA[0] / 255.0f, re->shaderRGBA[1] / 255.0f, re->shaderRGBA[2] / 255.0f, re->shaderRGBA[3] / 255.0f);
+	entity.materialTexCoord = re->shaderTexCoord;
+	entity.materialTime = re->shaderTime;
+	entity.radius = re->radius;
+	entity.angle = re->rotation;
+	return entity;
+}
+
 static void RE_Shutdown(qboolean destroyWindow)
 {
 	main::Shutdown(destroyWindow != qfalse);
@@ -911,7 +966,16 @@ static qboolean RE_GetSkinModel(qhandle_t handle, const char *type, char *name)
 
 static qhandle_t RE_GetShaderFromModel(qhandle_t modelid, int surfnum, int withlightmap)
 {
-	assert(0);
+	Model *model = g_modelCache->getModel(modelid);
+
+	if (model)
+	{
+		Material *mat = model->getMaterial((size_t)std::max(0, surfnum));
+
+		if (mat)
+			return mat->index;
+	}
+
 	return 0;
 }
 
@@ -930,53 +994,7 @@ static void RE_ClearScene()
 
 static void RE_AddRefEntityToScene(const refEntity_t *re)
 {
-	Entity entity;
-	entity.flags = 0;
-
-	if (re->renderfx & RF_DEPTHHACK)
-		entity.flags |= EntityFlags::DepthHack;
-	if (re->renderfx & RF_FIRST_PERSON)
-		entity.flags |= EntityFlags::FirstPerson;
-	if (re->renderfx & RF_THIRD_PERSON)
-		entity.flags |= EntityFlags::ThirdPerson;
-	if (re->renderfx & RF_LIGHTING_ORIGIN)
-		entity.flags |= EntityFlags::LightingPosition;
-
-	if (re->reType == RT_MODEL)
-		entity.type = EntityType::Model;
-	else if (re->reType == RT_POLY)
-		entity.type = EntityType::Poly;
-	else if (re->reType == RT_SPRITE)
-		entity.type = EntityType::Sprite;
-	else if (re->reType == RT_BEAM)
-		entity.type = EntityType::Beam;
-	else if (re->reType == RT_RAIL_CORE)
-		entity.type = EntityType::RailCore;
-	else if (re->reType == RT_RAIL_RINGS)
-		entity.type = EntityType::RailRings;
-	else if (re->reType == RT_LIGHTNING)
-		entity.type = EntityType::Lightning;
-	else if (re->reType == RT_PORTALSURFACE)
-		entity.type = EntityType::Portal;
-
-	entity.handle = re->hModel;
-	entity.lightingPosition = re->lightingOrigin;
-	entity.rotation = re->axis;
-	entity.nonNormalizedAxes = re->nonNormalizedAxes != qfalse;
-	entity.position = re->origin;
-	entity.frame = re->frame;
-	entity.oldPosition = re->oldorigin;
-	entity.oldFrame = re->oldframe;
-	entity.lerp = 1.0f - re->backlerp;
-	entity.skinNum = re->skinNum;
-	entity.customSkin = re->customSkin;
-	entity.customMaterial = re->customShader;
-	entity.materialColor = vec4(re->shaderRGBA[0] / 255.0f, re->shaderRGBA[1] / 255.0f, re->shaderRGBA[2] / 255.0f, re->shaderRGBA[3] / 255.0f);
-	entity.materialTexCoord = re->shaderTexCoord;
-	entity.materialTime = re->shaderTime;
-	entity.radius = re->radius;
-	entity.angle = re->rotation;
-	main::AddEntityToScene(entity);
+	main::AddEntityToScene(ConvertEntity(re));
 }
 
 static int RE_LightForPoint(vec3_t point, vec3_t ambientLight, vec3_t directedLight, vec3_t lightDir)
@@ -986,7 +1004,6 @@ static int RE_LightForPoint(vec3_t point, vec3_t ambientLight, vec3_t directedLi
 
 static void RE_AddPolyToScene(qhandle_t hShader, int numVerts, const polyVert_t *verts)
 {
-	assert(0);
 	//main::AddPolyToScene(hShader, numVerts, verts, num);
 }
 
@@ -1005,12 +1022,10 @@ static void RE_AddLightToScene(const vec3_t org, float intensity, float r, float
 
 static void RE_AddCoronaToScene(const vec3_t org, float r, float g, float b, float scale, int id, int flags)
 {
-	assert(0);
 }
 
 static void RE_SetFog(int fogvar, int var1, int var2, float r, float g, float b, float density)
 {
-	assert(0);
 }
 
 static void RE_RenderScene(const refdef_t *fd)
@@ -1068,29 +1083,31 @@ static void RE_EndFrame(int *frontEndMsec, int *backEndMsec)
 
 static int RE_MarkFragments(int numPoints, const vec3_t *points, const vec3_t projection, int maxPoints, vec3_t pointBuffer, int maxFragments, markFragment_t *fragmentBuffer)
 {
-	if (world::IsLoaded())
-		return world::MarkFragments(numPoints, (const vec3 *)points, projection, maxPoints, (vec3 *)pointBuffer, maxFragments, fragmentBuffer);
+	//if (world::IsLoaded())
+		//return world::MarkFragments(numPoints, (const vec3 *)points, projection, maxPoints, (vec3 *)pointBuffer, maxFragments, fragmentBuffer);
 
 	return 0;
 }
 
 static int RE_LerpTag(orientation_t *tag, const refEntity_t *refent, const char *tagName, int startIndex)
 {
-	assert(0);
+	Model *m = g_modelCache->getModel(refent->hModel);
 
-	/*Model *m = g_modelCache->getModel(handle);
+	if (!m)
+		return -1;
 
-	if (m)
+	Transform lerped;
+	int tagIndex = m->lerpTag(tagName, ConvertEntity(refent), startIndex, &lerped);
+
+	if (tagIndex >= 0)
 	{
-		Transform lerped = m->lerpTag(tagName, startFrame, endFrame, frac);
-		memcpy(orientation->origin, &lerped.position.x, sizeof(vec3_t));
-		memcpy(orientation->axis[0], &lerped.rotation[0].x, sizeof(vec3_t));
-		memcpy(orientation->axis[1], &lerped.rotation[1].x, sizeof(vec3_t));
-		memcpy(orientation->axis[2], &lerped.rotation[2].x, sizeof(vec3_t));
-		return qtrue;
-	}*/
+		memcpy(tag->origin, &lerped.position.x, sizeof(vec3_t));
+		memcpy(tag->axis[0], &lerped.rotation[0].x, sizeof(vec3_t));
+		memcpy(tag->axis[1], &lerped.rotation[1].x, sizeof(vec3_t));
+		memcpy(tag->axis[2], &lerped.rotation[2].x, sizeof(vec3_t));
+	}
 
-	return qfalse;
+	return tagIndex;
 }
 
 static void RE_ModelBounds(qhandle_t handle, vec3_t mins, vec3_t maxs)
@@ -1117,7 +1134,6 @@ static void RE_RemapShader(const char *oldShader, const char *newShader, const c
 
 static void RE_ZombieFXAddNewHit(int entityNum, const vec3_t hitPos, const vec3_t hitDir)
 {
-	assert(0);
 }
 
 static qboolean RE_GetEntityToken(char *buffer, int size)

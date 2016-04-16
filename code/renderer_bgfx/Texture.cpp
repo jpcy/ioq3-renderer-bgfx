@@ -245,6 +245,24 @@ struct TextureCache
 		return createTexture(name, image, flags, bgfx::TextureFormat::RGBA8);
 	}
 
+	TextureImpl *getTexture(const char *name)
+	{
+		if (!name)
+			return nullptr;
+
+		size_t hash = generateHash(name);
+
+		for (TextureImpl *t = hashTable[hash]; t; t = t->next)
+		{
+			if (!strcmp(name, t->name))
+			{
+				return t;
+			}
+		}
+
+		return nullptr;
+	}
+
 	void hashTexture(TextureImpl *texture)
 	{
 		size_t hash = generateHash(texture->name);
@@ -320,6 +338,16 @@ Texture *Texture::find(const char *name, int flags)
 	return s_textureCache->textureFromImpl(impl);
 }
 
+Texture *Texture::get(const char *name)
+{
+	TextureImpl *impl = s_textureCache->getTexture(name);
+
+	if (!impl)
+		return nullptr;
+
+	return s_textureCache->textureFromImpl(impl);
+}
+
 const Texture *Texture::getDefault()
 {
 	return s_textureCache->textureFromImpl(s_textureCache->defaultTexture);
@@ -348,6 +376,11 @@ void Texture::resize(int width, int height)
 void Texture::update(const bgfx::Memory *mem, int x, int y, int width, int height)
 {
 	s_textureCache->implFromTexture(this)->update(mem, x, y, width, height);
+}
+
+int Texture::getFlags() const
+{
+	return s_textureCache->implFromTexture(this)->flags;
 }
 
 bgfx::TextureHandle Texture::getHandle() const

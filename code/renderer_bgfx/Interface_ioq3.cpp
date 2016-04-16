@@ -890,17 +890,25 @@ static int RE_LerpTag(orientation_t *orientation, qhandle_t handle, int startFra
 {
 	Model *m = g_modelCache->getModel(handle);
 
-	if (m)
+	if (!m)
+		return -1;
+
+	Transform lerped;
+	Entity entity;
+	entity.oldFrame = startFrame;
+	entity.frame = endFrame;
+	entity.lerp = frac;
+	int tagIndex = m->lerpTag(tagName, entity, 0, &lerped);
+
+	if (tagIndex >= 0)
 	{
-		Transform lerped = m->lerpTag(tagName, startFrame, endFrame, frac);
 		memcpy(orientation->origin, &lerped.position.x, sizeof(vec3_t));
 		memcpy(orientation->axis[0], &lerped.rotation[0].x, sizeof(vec3_t));
 		memcpy(orientation->axis[1], &lerped.rotation[1].x, sizeof(vec3_t));
 		memcpy(orientation->axis[2], &lerped.rotation[2].x, sizeof(vec3_t));
-		return qtrue;
 	}
-	
-	return qfalse;
+
+	return tagIndex;
 }
 
 static void RE_ModelBounds(qhandle_t handle, vec3_t mins, vec3_t maxs)

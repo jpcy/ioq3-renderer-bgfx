@@ -314,8 +314,9 @@ public:
 	Model_md3(const char *name, bool compressed);
 	bool load(const ReadOnlyFile &file) override;
 	Bounds getBounds() const override;
-	Transform getTag(const char *name, int frame) const override;
+	Material *getMaterial(size_t surfaceNo) const override { return nullptr; }
 	bool isCulled(Entity *entity, const Frustum &cameraFrustum) const override;
+	int lerpTag(const char *name, const Entity &entity, int startIndex, Transform *transform) const override;
 	void render(const mat3 &sceneRotation, DrawCallList *drawCallList, Entity *entity) override;
 
 private:
@@ -346,6 +347,7 @@ private:
 	};
 
 	vec3 decodeNormal(short normal) const;
+	int getTag(const char *name, int frame, int startIndex, Transform *transform) const;
 
 	bool compressed_;
 
@@ -768,20 +770,6 @@ Bounds Model_md3::getBounds() const
 	return frames_[0].bounds;
 }
 
-Transform Model_md3::getTag(const char *name, int frame) const
-{
-	// It is possible to have a bad frame while changing models, so don't error.
-	frame = std::min(frame, int(frames_.size() - 1));
-
-	for (size_t i = 0; i < tagNames_.size(); i++)
-	{
-		if (!strcmp(tagNames_[i].name, name))
-			return frames_[frame].tags[i];
-	}
-
-	return Transform();
-}
-
 bool Model_md3::isCulled(Entity *entity, const Frustum &cameraFrustum) const
 {
 	assert(entity);
@@ -823,6 +811,23 @@ bool Model_md3::isCulled(Entity *entity, const Frustum &cameraFrustum) const
 	}
 
 	return cameraFrustum.clipBounds(Bounds::merge(frame.bounds, oldFrame.bounds), modelMatrix) == Frustum::ClipResult::Outside;
+}
+
+int Model_md3::lerpTag(const char *name, const Entity &entity, int startIndex, Transform *transform) const
+{
+	assert(transform);
+	Transform from, to;
+
+	const int tagIndex = getTag(name, entity.oldFrame, startIndex, &from);
+
+	if (tagIndex < 0 || getTag(name, entity.frame, startIndex, &to) < 0)
+		return -1;
+
+	transform->position = vec3::lerp(from.position, to.position, entity.lerp);
+	transform->rotation[0] = vec3::lerp(from.rotation[0], to.rotation[0], entity.lerp).normal();
+	transform->rotation[1] = vec3::lerp(from.rotation[1], to.rotation[1], entity.lerp).normal();
+	transform->rotation[2] = vec3::lerp(from.rotation[2], to.rotation[2], entity.lerp).normal();
+	return tagIndex;
 }
 
 void Model_md3::render(const mat3 &sceneRotation, DrawCallList *drawCallList, Entity *entity)
@@ -975,6 +980,25 @@ vec3 Model_md3::decodeNormal(short normal) const
 	result.y = g_sinTable[lat] * g_sinTable[lng];
 	result.z = g_sinTable[(lng + (g_funcTableSize / 4)) & g_funcTableMask];
 	return result;
+}
+
+int Model_md3::getTag(const char *name, int frame, int startIndex, Transform *transform) const
+{
+	assert(transform);
+
+	// It is possible to have a bad frame while changing models, so don't error.
+	frame = std::min(frame, int(frames_.size() - 1));
+
+	for (int i = 0; i < (int)tagNames_.size(); i++)
+	{
+		if (i >= startIndex && !strcmp(tagNames_[i].name, name))
+		{
+			*transform = frames_[frame].tags[i];
+			return i;
+		}
+	}
+
+	return -1;
 }
 
 } // namespace renderer

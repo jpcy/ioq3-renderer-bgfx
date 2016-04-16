@@ -32,8 +32,9 @@ public:
 	WorldModel(int index, size_t nSurfaces, Bounds bounds);
 	bool load(const ReadOnlyFile &file) override { return true; }
 	Bounds getBounds() const override { return bounds_; }
-	Transform getTag(const char *name, int frame) const override { return Transform(); }
+	Material *getMaterial(size_t surfaceNo) const override;
 	bool isCulled(Entity *entity, const Frustum &cameraFrustum) const override;
+	int lerpTag(const char *name, const Entity &entity, int startIndex, Transform *transform) const override { return -1; }
 	void render(const mat3 &scenRotation, DrawCallList *drawCallList, Entity *entity) override;
 	void addPatchSurface(size_t index, Material *material, int width, int height, const Vertex *points, int lightmapIndex, int nLightmapTilesPerDimension);
 	void addSurface(size_t index, Material *material, const Vertex *vertices, size_t nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex, int nLightmapTilesPerDimension);

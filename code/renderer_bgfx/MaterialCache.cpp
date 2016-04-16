@@ -252,7 +252,7 @@ const char *Skin::findModelName(const char *modelType) const
 	{
 		if (!util::Stricmp(model.type, modelType))
 		{
-			return model.type;
+			return model.name;
 		}
 	}
 
