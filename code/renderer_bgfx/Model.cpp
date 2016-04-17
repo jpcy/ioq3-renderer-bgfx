@@ -36,7 +36,9 @@ static const ModelHandler s_modelHandlers[] =
 {
 	{ "md3", Model::createMD3 },
 	{ "mdc", Model::createMDC },
+#if defined(ENGINE_IORTCW)
 	{ "mds", Model::createMDS }
+#endif
 };
 
 ModelCache::ModelCache() : hashTable_()

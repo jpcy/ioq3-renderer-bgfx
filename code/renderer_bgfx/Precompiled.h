@@ -1038,14 +1038,17 @@ public:
 
 	static std::unique_ptr<Model> createMD3(const char *name);
 	static std::unique_ptr<Model> createMDC(const char *name);
+
+#if defined(ENGINE_IORTCW)
 	static std::unique_ptr<Model> createMDS(const char *name);
+#endif
 
 protected:
 	char name_[MAX_QPATH];
 
 private:
 	size_t index_;
-	Model *next_ = NULL;
+	Model *next_ = nullptr;
 
 	friend class ModelCache;
 };

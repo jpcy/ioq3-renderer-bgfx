@@ -49,6 +49,8 @@ If you have questions concerning this license or the applicable additional terms
 #include "Precompiled.h"
 #pragma hdrstop
 
+#if defined(ENGINE_IORTCW)
+
 namespace renderer {
 
 /*
@@ -287,9 +289,11 @@ private:
 	void calculateBones(const Entity &entity, int *boneList, int nBones) const;
 
 	static Cache s_cache_;
+	std::vector<uint8_t> data_;
 	std::vector<BoneInfo> boneInfo_;
 	std::vector<Frame> frames_;
 	std::vector<Surface> surfaces_;
+	std::vector<Material *> surfaceMaterials_;
 	std::vector<Tag> tags_;
 	int torsoParent_; // index of bone that is the parent of the torso
 };
@@ -309,6 +313,8 @@ Model_mds::Model_mds(const char *name)
 bool Model_mds::load(const ReadOnlyFile &file)
 {
 	const uint8_t *data = file.getData();
+	data_.resize(file.getLength());
+	memcpy(data_.data(), file.getData(), file.getLength());
 
 	// Header
 	auto fileHeader = (mdsHeader_t *)data;
@@ -373,6 +379,7 @@ bool Model_mds::load(const ReadOnlyFile &file)
 
 	// Surfaces
 	surfaces_.resize(fileHeader->numSurfaces);
+	surfaceMaterials_.resize(fileHeader->numSurfaces);
 	auto fileSurface = (mdsSurface_t *)(data + fileHeader->ofsSurfaces);
 
 	for (size_t i = 0; i < surfaces_.size(); i++)
@@ -382,7 +389,7 @@ bool Model_mds::load(const ReadOnlyFile &file)
 
 		if (fs.shader[0])
 		{
-			s.material = g_materialCache->findMaterial(fs.shader, MaterialLightmapId::None);
+			surfaceMaterials_[i] = s.material = g_materialCache->findMaterial(fs.shader, MaterialLightmapId::None);
 		}
 		else
 		{
@@ -419,7 +426,7 @@ Bounds Model_mds::getBounds() const
 bool Model_mds::isCulled(Entity *entity, const Frustum &cameraFrustum) const
 {
 	assert(entity);
-	return true;
+	return false;
 }
 
 int Model_mds::lerpTag(const char *name, const Entity &entity, int startIndex, Transform *transform) const
@@ -450,10 +457,102 @@ int Model_mds::lerpTag(const char *name, const Entity &entity, int startIndex, T
 	return -1;
 }
 
+static void LocalAddScaledMatrixTransformVectorTranslate(vec3 in, float s, const mat3 &mat, vec3 tr, vec3 &out)
+{
+	out[0] += s * (in[0] * mat[0][0] + in[1] * mat[0][1] + in[2] * mat[0][2] + tr[0]);
+	out[1] += s * (in[0] * mat[1][0] + in[1] * mat[1][1] + in[2] * mat[1][2] + tr[1]);
+	out[2] += s * (in[0] * mat[2][0] + in[1] * mat[2][1] + in[2] * mat[2][2] + tr[2]);
+}
+
 void Model_mds::render(const mat3 &sceneRotation, DrawCallList *drawCallList, Entity *entity)
 {
 	assert(drawCallList);
 	assert(entity);
+
+	// It is possible to have a bad frame while changing models.
+	const int frameIndex = Clamped(entity->frame, 0, (int)frames_.size() - 1);
+	const int oldFrameIndex = Clamped(entity->oldFrame, 0, (int)frames_.size() - 1);
+	const mat4 modelMatrix = mat4::transform(entity->rotation, entity->position);
+
+	auto header = (mdsHeader_t *)data_.data();
+	auto surface = (mdsSurface_t *)(data_.data() + header->ofsSurfaces);
+
+	for (int i = 0; i < header->numSurfaces; i++)
+	{
+		Material *mat = surfaceMaterials_[i];
+
+		if (entity->customMaterial > 0)
+		{
+			mat = g_materialCache->getMaterial(entity->customMaterial);
+		}
+		else if (entity->customSkin > 0)
+		{
+			Skin *skin = g_materialCache->getSkin(entity->customSkin);
+			Material *customMat = skin ? skin->findMaterial(surface->name) : nullptr;
+
+			if (customMat)
+				mat = customMat;
+		}
+
+		bgfx::TransientIndexBuffer tib;
+		bgfx::TransientVertexBuffer tvb;
+		assert(surface->numVerts > 0);
+		assert(surface->numTriangles > 0);
+
+		if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, surface->numVerts, &tib, surface->numTriangles * 3))
+		{
+			WarnOnce(WarnOnceId::TransientBuffer);
+			return;
+		}
+
+		auto indices = (uint16_t *)tib.data;
+		auto vertices = (Vertex *)tvb.data;
+		auto mdsIndices = (const int *)((uint8_t *)surface + surface->ofsTriangles);
+
+		for (int i = 0; i < surface->numTriangles * 3; i++)
+		{
+			indices[i] = mdsIndices[i];
+		}
+
+		calculateBones(*entity, (int *)((uint8_t *)surface + surface->ofsBoneReferences), surface->numBoneReferences);
+		auto mdsVertex = (const mdsVertex_t *)((uint8_t *)surface + surface->ofsVerts);
+
+		for (int i = 0; i < surface->numVerts; i++)
+		{
+			Vertex &v = vertices[i];
+			v.pos = vec3::empty;
+
+			for (int j = 0; j < mdsVertex->numWeights; j++)
+			{
+				const mdsWeight_t &weight = mdsVertex->weights[j];
+				const Bone &bone = s_cache_.bones[weight.boneIndex];
+				LocalAddScaledMatrixTransformVectorTranslate(weight.offset, weight.boneWeight, bone.rotation, bone.translation, v.pos);
+			}
+			
+			v.normal = mdsVertex->normal;
+			v.texCoord = mdsVertex->texCoords;
+			v.color = vec4::white;
+
+			// Move to the next vertex.
+			mdsVertex = (mdsVertex_t *)&mdsVertex->weights[mdsVertex->numWeights];
+		}
+
+		DrawCall dc;
+		dc.entity = entity;
+		dc.fogIndex = -1;
+		dc.material = mat;
+		dc.modelMatrix = modelMatrix;
+		dc.vb.type = DrawCall::BufferType::Transient;
+		dc.vb.transientHandle = tvb;
+		dc.vb.nVertices = surface->numVerts;
+		dc.ib.type = DrawCall::BufferType::Transient;
+		dc.ib.transientHandle = tib;
+		dc.ib.nIndices = surface->numTriangles * 3;
+		drawCallList->push_back(dc);
+
+		// Move to the next surface.
+		surface = (mdsSurface_t *)((uint8_t *)surface + surface->ofsEnd);
+	}
 }
 
 void Model_mds::recursiveBoneListAdd(int boneIndex, int *boneList, int *nBones) const
@@ -471,7 +570,7 @@ void Model_mds::recursiveBoneListAdd(int boneIndex, int *boneList, int *nBones) 
 
 // TTimo: const vec_t ** would require explicit casts for ANSI C conformance
 // see unix/const-arg.c in Wolf MP source
-static void Matrix4MultiplyInto3x3AndTranslation(const mat4wrapper &a, const mat4wrapper &b, mat3 &dst, vec3 t)
+static void Matrix4MultiplyInto3x3AndTranslation(const mat4wrapper &a, const mat4wrapper &b, mat3 &dst, vec3 &t)
 {
 	dst[0][0] = a[0][0] * b[0][0] + a[0][1] * b[1][0] + a[0][2] * b[2][0] + a[0][3] * b[3][0];
 	dst[0][1] = a[0][0] * b[0][1] + a[0][1] * b[1][1] + a[0][2] * b[2][1] + a[0][3] * b[3][1];
@@ -525,14 +624,16 @@ static void Matrix4FromScaledAxisPlusTranslation(const mat3 &axis, const float s
 	dst[3][3] = 1;
 }
 
-static void LocalScaledMatrixTransformVector(vec3 in, float s, const mat3 &mat, vec3 out)
+static vec3 LocalScaledMatrixTransformVector(vec3 in, float s, const mat3 &mat)
 {
+	vec3 out;
 	out[0] = (1.0f - s) * in[0] + s * (in[0] * mat[0][0] + in[1] * mat[0][1] + in[2] * mat[0][2]);
 	out[1] = (1.0f - s) * in[1] + s * (in[0] * mat[1][0] + in[1] * mat[1][1] + in[2] * mat[1][2]);
 	out[2] = (1.0f - s) * in[2] + s * (in[0] * mat[2][0] + in[1] * mat[2][1] + in[2] * mat[2][2]);
+	return out;
 }
 
-static void LocalAngleVector(const vec3 angles, vec3 forward)
+static vec3 LocalAngleVector(const vec3 angles)
 {
 	float LAVangle = angles[YAW] * ((float)M_PI * 2 / 360);
 	float sy = sin(LAVangle);
@@ -541,9 +642,11 @@ static void LocalAngleVector(const vec3 angles, vec3 forward)
 	float sp = sin(LAVangle);
 	float cp = cos(LAVangle);
 
+	vec3 forward;
 	forward[0] = cp * cy;
 	forward[1] = cp * sy;
 	forward[2] = -sp;
+	return forward;
 }
 
 #define SHORT2ANGLE( x )  ( ( x ) * ( 360.0f / 65536 ) )
@@ -664,9 +767,8 @@ void Model_mds::calculateBone(const Entity &entity, int boneIndex) const
 			*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
 			*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
 			*(s_cache_.pf++) = 0;
-			LocalAngleVector(s_cache_.angles, s_cache_.vec);
+			s_cache_.vec = LocalAngleVector(s_cache_.angles);
 			//LocalVectorMA(s_cache_.parentBone->translation, s_cache_.thisBoneInfo->parentDist, s_cache_.vec, s_cache_.bonePtr->translation);
-			s_cache_.bonePtr->translation = s_cache_.parentBone->translation + s_cache_.vec * s_cache_.thisBoneInfo->parentDist;
 		}
 		else
 		{
@@ -675,7 +777,7 @@ void Model_mds::calculateBone(const Entity &entity, int boneIndex) const
 			*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
 			*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
 			*(s_cache_.pf++) = 0;
-			LocalAngleVector(s_cache_.angles, s_cache_.vec);
+			s_cache_.vec = LocalAngleVector(s_cache_.angles);
 
 			if (s_cache_.isTorso)
 			{
@@ -684,7 +786,7 @@ void Model_mds::calculateBone(const Entity &entity, int boneIndex) const
 				*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
 				*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
 				*(s_cache_.pf++) = 0;
-				LocalAngleVector(s_cache_.tangles, s_cache_.v2);
+				s_cache_.v2 = LocalAngleVector(s_cache_.tangles);
 
 				// blend the angles together
 				s_cache_.vec = SLerp_Normal(s_cache_.vec, s_cache_.v2, s_cache_.thisBoneInfo->torsoWeight);
@@ -694,9 +796,9 @@ void Model_mds::calculateBone(const Entity &entity, int boneIndex) const
 			{
 				//LocalVectorMA(s_cache_.parentBone->translation, s_cache_.thisBoneInfo->parentDist, s_cache_.vec, s_cache_.bonePtr->translation);
 			}
-
-			s_cache_.bonePtr->translation = s_cache_.parentBone->translation + s_cache_.vec * s_cache_.thisBoneInfo->parentDist;
 		}
+
+		s_cache_.bonePtr->translation = s_cache_.parentBone->translation + s_cache_.vec * s_cache_.thisBoneInfo->parentDist;
 	}
 	else // just use the frame position
 	{
@@ -823,13 +925,13 @@ void Model_mds::calculateBoneLerp(const Entity &entity, int boneIndex) const
 		*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
 		*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
 		*(s_cache_.pf++) = 0;
-		LocalAngleVector(s_cache_.angles, s_cache_.v2); // new
+		s_cache_.v2 = LocalAngleVector(s_cache_.angles); // new
 
 		s_cache_.pf = &s_cache_.angles[0];
 		*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh2++));
 		*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh2++));
 		*(s_cache_.pf++) = 0;
-		LocalAngleVector(s_cache_.angles, s_cache_.vec); // old
+		s_cache_.vec = LocalAngleVector(s_cache_.angles); // old
 
 		// blend the angles together
 		if (s_cache_.fullTorso)
@@ -853,13 +955,13 @@ void Model_mds::calculateBoneLerp(const Entity &entity, int boneIndex) const
 			*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
 			*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
 			*(s_cache_.pf++) = 0;
-			LocalAngleVector(s_cache_.angles, s_cache_.v2); // new
+			s_cache_.v2 = LocalAngleVector(s_cache_.angles); // new
 
 			s_cache_.pf = &s_cache_.angles[0];
 			*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh2++));
 			*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh2++));
 			*(s_cache_.pf++) = 0;
-			LocalAngleVector(s_cache_.angles, s_cache_.vec); // old
+			s_cache_.vec = LocalAngleVector(s_cache_.angles); // old
 
 			// blend the angles together
 			s_cache_.v2 = SLerp_Normal(s_cache_.vec, s_cache_.v2, s_cache_.torsoFrontLerp);
@@ -894,6 +996,8 @@ void Model_mds::calculateBoneLerp(const Entity &entity, int boneIndex) const
 void Model_mds::calculateBones(const Entity &entity, int *boneList, int nBones) const
 {
 	assert(boneList);
+
+	memset(&s_cache_, 0, sizeof(s_cache_));
 
 	// If the entity has changed since the last time the bones were built, reset them
 	if (memcmp(&s_cache_.lastEntity, &entity, sizeof(Entity)))
@@ -1008,7 +1112,7 @@ void Model_mds::calculateBones(const Entity &entity, int *boneList, int nBones) 
 				// 1st multiply with the bone->matrix
 				// 2nd translation for rotation relative to bone around torso parent offset
 				//VectorSubtract(s_cache_.bonePtr->translation, s_cache_.torsoParentOffset, s_cache_.t);
-				vec3 t = s_cache_.bonePtr->translation - s_cache_.torsoParentOffset;
+				s_cache_.t = s_cache_.bonePtr->translation - s_cache_.torsoParentOffset;
 				Matrix4FromAxisPlusTranslation(s_cache_.bonePtr->rotation, s_cache_.t, s_cache_.m1);
 				// 3rd scaled rotation
 				// 4th translate back to torso parent offset
@@ -1021,20 +1125,19 @@ void Model_mds::calculateBones(const Entity &entity, int *boneList, int nBones) 
 
 				// multiply matrices to create one matrix to do all calculations
 				Matrix4MultiplyInto3x3AndTranslation(s_cache_.m2, s_cache_.m1, s_cache_.bonePtr->rotation, s_cache_.bonePtr->translation);
-
 			}
 			else // tags require special handling
 			{
 				// rotate each of the axis by the torsoAngles
-				LocalScaledMatrixTransformVector(s_cache_.bonePtr->rotation[0], s_cache_.thisBoneInfo->torsoWeight, s_cache_.torsoRotation, s_cache_.tempRotation[0]);
-				LocalScaledMatrixTransformVector(s_cache_.bonePtr->rotation[1], s_cache_.thisBoneInfo->torsoWeight, s_cache_.torsoRotation, s_cache_.tempRotation[1]);
-				LocalScaledMatrixTransformVector(s_cache_.bonePtr->rotation[2], s_cache_.thisBoneInfo->torsoWeight, s_cache_.torsoRotation, s_cache_.tempRotation[2]);
+				s_cache_.tempRotation[0] = LocalScaledMatrixTransformVector(s_cache_.bonePtr->rotation[0], s_cache_.thisBoneInfo->torsoWeight, s_cache_.torsoRotation);
+				s_cache_.tempRotation[1] = LocalScaledMatrixTransformVector(s_cache_.bonePtr->rotation[1], s_cache_.thisBoneInfo->torsoWeight, s_cache_.torsoRotation);
+				s_cache_.tempRotation[2] = LocalScaledMatrixTransformVector(s_cache_.bonePtr->rotation[2], s_cache_.thisBoneInfo->torsoWeight, s_cache_.torsoRotation);
 				s_cache_.bonePtr->rotation = s_cache_.tempRotation;
 
 				// rotate the translation around the torsoParent
 				//VectorSubtract(s_cache_.bonePtr->translation, s_cache_.torsoParentOffset, s_cache_.t);
 				s_cache_.t = s_cache_.bonePtr->translation - s_cache_.torsoParentOffset;
-				LocalScaledMatrixTransformVector(s_cache_.t, s_cache_.thisBoneInfo->torsoWeight, s_cache_.torsoRotation, s_cache_.bonePtr->translation);
+				s_cache_.bonePtr->translation = LocalScaledMatrixTransformVector(s_cache_.t, s_cache_.thisBoneInfo->torsoWeight, s_cache_.torsoRotation);
 				//VectorAdd(s_cache_.bonePtr->translation, s_cache_.torsoParentOffset, s_cache_.bonePtr->translation);
 				s_cache_.bonePtr->translation = s_cache_.bonePtr->translation + s_cache_.torsoParentOffset;
 			}
@@ -1046,3 +1149,5 @@ void Model_mds::calculateBones(const Entity &entity, int *boneList, int nBones) 
 }
 
 } // namespace renderer
+
+#endif // ENGINE_IORTCW
