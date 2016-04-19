@@ -260,35 +260,22 @@ private:
 		float torsoWeight;
 	};
 
-	struct Cache
+	struct Skeleton
 	{
+		Bone bones[MDS_MAX_BONES];
+		bool boneCalculated[MDS_MAX_BONES] = { false };
+		const Frame *frame, *oldFrame;
+		const Frame *torsoFrame, *oldTorsoFrame;
 		float frontLerp, backLerp;
 		float torsoFrontLerp, torsoBackLerp;
-		Bone bones[MDS_MAX_BONES], rawBones[MDS_MAX_BONES], oldBones[MDS_MAX_BONES];
-		char validBones[MDS_MAX_BONES];
-		char newBones[MDS_MAX_BONES];
-		Bone *bonePtr, *bone, *parentBone;
-		const BoneFrameCompressed *cBonePtr, *cTBonePtr, *cOldBonePtr, *cOldTBonePtr, *cBoneList, *cOldBoneList, *cBoneListTorso, *cOldBoneListTorso;
-		const BoneInfo /**boneInfo,*/ *thisBoneInfo, *parentBoneInfo;
-		short *sh, *sh2;
-		float *pf;
-		vec3 angles, tangles, torsoParentOffset;
-		mat3 torsoRotation, tempRotation;
-		vec3 vec, v2, dir;
-		float diff;
-		bool isTorso, fullTorso;
-		mat4wrapper m1, m2;
-		vec3 t;
-		Entity lastEntity;
-		int totalrv, totalrt, totalv, totalt;
 	};
 
 	void recursiveBoneListAdd(int boneIndex, int *boneList, int *nBones) const;
-	void calculateBone(const Entity &entity, int boneIndex) const;
-	void calculateBoneLerp(const Entity &entity, int boneIndex) const;
-	void calculateBones(const Entity &entity, int *boneList, int nBones) const;
+	Bone calculateBoneRaw(const Entity &entity, int boneIndex, const Skeleton &skeleton) const;
+	Bone calculateBoneLerp(const Entity &entity, int boneIndex, const Skeleton &skeleton) const;
+	Bone calculateBone(const Entity &entity, int boneIndex, const Skeleton &skeleton, bool lerp) const;
+	Skeleton calculateSkeleton(const Entity &entity, int *boneList, int nBones) const;
 
-	static Cache s_cache_;
 	std::vector<uint8_t> data_;
 	std::vector<BoneInfo> boneInfo_;
 	std::vector<Frame> frames_;
@@ -297,8 +284,6 @@ private:
 	std::vector<Tag> tags_;
 	int torsoParent_; // index of bone that is the parent of the torso
 };
-
-Model_mds::Cache Model_mds::s_cache_;
 
 std::unique_ptr<Model> Model::createMDS(const char *name)
 {
@@ -444,12 +429,12 @@ int Model_mds::lerpTag(const char *name, const Entity &entity, int startIndex, T
 			int nBones = 0;
 			recursiveBoneListAdd(tags_[i].boneIndex, boneList, &nBones);
 
-			// Calculate the bones.
-			calculateBones(entity, boneList, nBones);
+			// Calculate the skeleton.
+			Skeleton skeleton = calculateSkeleton(entity, boneList, nBones);
 
 			// Now extract the transform for the bone that represents our tag.
-			transform->position = s_cache_.bones[tag.boneIndex].translation;
-			transform->rotation = s_cache_.bones[tag.boneIndex].rotation;
+			transform->position = skeleton.bones[tag.boneIndex].translation;
+			transform->rotation = skeleton.bones[tag.boneIndex].rotation;
 			return i;
 		}
 	}
@@ -514,7 +499,7 @@ void Model_mds::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 			indices[i] = mdsIndices[i];
 		}
 
-		calculateBones(*entity, (int *)((uint8_t *)surface + surface->ofsBoneReferences), surface->numBoneReferences);
+		Skeleton skeleton = calculateSkeleton(*entity, (int *)((uint8_t *)surface + surface->ofsBoneReferences), surface->numBoneReferences);
 		auto mdsVertex = (const mdsVertex_t *)((uint8_t *)surface + surface->ofsVerts);
 
 		for (int i = 0; i < surface->numVerts; i++)
@@ -525,7 +510,7 @@ void Model_mds::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 			for (int j = 0; j < mdsVertex->numWeights; j++)
 			{
 				const mdsWeight_t &weight = mdsVertex->weights[j];
-				const Bone &bone = s_cache_.bones[weight.boneIndex];
+				const Bone &bone = skeleton.bones[weight.boneIndex];
 				LocalAddScaledMatrixTransformVectorTranslate(weight.offset, weight.boneWeight, bone.rotation, bone.translation, v.pos);
 			}
 			
@@ -650,7 +635,6 @@ static vec3 LocalAngleVector(const vec3 angles)
 }
 
 #define SHORT2ANGLE( x )  ( ( x ) * ( 360.0f / 65536 ) )
-#define ANGLES_SHORT_TO_FLOAT( pf, sh )     { *( pf++ ) = SHORT2ANGLE( *( sh++ ) ); *( pf++ ) = SHORT2ANGLE( *( sh++ ) ); *( pf++ ) = SHORT2ANGLE( *( sh++ ) ); }
 
 static vec3 SLerp_Normal(const vec3 from, const vec3 to, float tt)
 {
@@ -688,464 +672,385 @@ static float AngleNormalize180(float angle) {
 	return angle;
 }
 
-void Model_mds::calculateBone(const Entity &entity, int boneIndex) const
+Model_mds::Bone Model_mds::calculateBoneRaw(const Entity &entity, int boneIndex, const Skeleton &skeleton) const
 {
-	s_cache_.thisBoneInfo = &boneInfo_[boneIndex];
+	const BoneInfo &bi = boneInfo_[boneIndex];
+	bool isTorso = false, fullTorso = false;
+	const BoneFrameCompressed *compressedTorsoBone = nullptr;
 
-	if (s_cache_.thisBoneInfo->torsoWeight)
+	if (bi.torsoWeight)
 	{
-		s_cache_.cTBonePtr = &s_cache_.cBoneListTorso[boneIndex];
-		s_cache_.isTorso = true;
+		compressedTorsoBone = &skeleton.torsoFrame->boneFrames[boneIndex];
+		isTorso = true;
 
-		if (s_cache_.thisBoneInfo->torsoWeight == 1.0f)
+		if (bi.torsoWeight == 1.0f)
 		{
-			s_cache_.fullTorso = true;
+			fullTorso = true;
 		}
 	}
-	else
-	{
-		s_cache_.isTorso = false;
-		s_cache_.fullTorso = false;
-	}
 
-	s_cache_.cBonePtr = &s_cache_.cBoneList[boneIndex];
-	s_cache_.bonePtr = &s_cache_.bones[boneIndex];
+	const BoneFrameCompressed &compressedBone = skeleton.frame->boneFrames[boneIndex];
+	Bone bone;
 
 	// we can assume the parent has already been uncompressed for this frame + lerp
-	if (s_cache_.thisBoneInfo->parent >= 0)
+	const Bone *parentBone = nullptr;
+
+	if (bi.parent >= 0)
 	{
-		s_cache_.parentBone = &s_cache_.bones[s_cache_.thisBoneInfo->parent];
-		s_cache_.parentBoneInfo = &boneInfo_[s_cache_.thisBoneInfo->parent];
-	}
-	else
-	{
-		s_cache_.parentBone = nullptr;
-		s_cache_.parentBoneInfo = nullptr;
+		parentBone = &skeleton.bones[bi.parent];
 	}
 
 	// rotation
-	if (s_cache_.fullTorso)
+	vec3 angles;
+
+	if (fullTorso)
 	{
-		s_cache_.sh = (short *)s_cache_.cTBonePtr->angles;
-		s_cache_.pf = &s_cache_.angles[0];
-		ANGLES_SHORT_TO_FLOAT(s_cache_.pf, s_cache_.sh);
+		for (int i = 0; i < 3; i++)
+			angles[i] = SHORT2ANGLE(compressedTorsoBone->angles[i]);
 	}
 	else
 	{
-		s_cache_.sh = (short *)s_cache_.cBonePtr->angles;
-		s_cache_.pf = &s_cache_.angles[0];
-		ANGLES_SHORT_TO_FLOAT(s_cache_.pf, s_cache_.sh);
+		for (int i = 0; i < 3; i++)
+			angles[i] = SHORT2ANGLE(compressedBone.angles[i]);
 
-		if (s_cache_.isTorso)
+		if (isTorso)
 		{
-			s_cache_.sh = (short *)s_cache_.cTBonePtr->angles;
-			s_cache_.pf = &s_cache_.tangles[0];
-			ANGLES_SHORT_TO_FLOAT(s_cache_.pf, s_cache_.sh);
+			vec3 torsoAngles;
+
+			for (int i = 0; i < 3; i++)
+				torsoAngles[i] = SHORT2ANGLE(compressedTorsoBone->angles[i]);
 
 			// blend the angles together
-			for (int j = 0; j < 3; j++)
+			for (int i = 0; i < 3; i++)
 			{
-				s_cache_.diff = s_cache_.tangles[j] - s_cache_.angles[j];
+				float diff = torsoAngles[i] - angles[i];
 
-				if (fabs(s_cache_.diff) > 180)
-					s_cache_.diff = AngleNormalize180(s_cache_.diff);
+				if (fabs(diff) > 180)
+					diff = AngleNormalize180(diff);
 
-				s_cache_.angles[j] = s_cache_.angles[j] + s_cache_.thisBoneInfo->torsoWeight * s_cache_.diff;
+				angles[i] = angles[i] + bi.torsoWeight * diff;
 			}
 		}
 	}
 
-	s_cache_.bonePtr->rotation = mat3(s_cache_.angles);
+	bone.rotation = mat3(angles);
 
 	// translation
-	if (s_cache_.parentBone)
+	if (parentBone)
 	{
-		if (s_cache_.fullTorso)
+		vec3 vec;
+
+		if (fullTorso)
 		{
-			s_cache_.sh = (short *)s_cache_.cTBonePtr->ofsAngles;
-			s_cache_.pf = &s_cache_.angles[0];
-			*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
-			*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
-			*(s_cache_.pf++) = 0;
-			s_cache_.vec = LocalAngleVector(s_cache_.angles);
-			//LocalVectorMA(s_cache_.parentBone->translation, s_cache_.thisBoneInfo->parentDist, s_cache_.vec, s_cache_.bonePtr->translation);
+			angles[0] = SHORT2ANGLE(compressedTorsoBone->ofsAngles[0]);
+			angles[1] = SHORT2ANGLE(compressedTorsoBone->ofsAngles[1]);
+			angles[2] = 0;
+			vec = LocalAngleVector(angles);
 		}
 		else
 		{
-			s_cache_.sh = (short *)s_cache_.cBonePtr->ofsAngles;
-			s_cache_.pf = &s_cache_.angles[0];
-			*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
-			*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
-			*(s_cache_.pf++) = 0;
-			s_cache_.vec = LocalAngleVector(s_cache_.angles);
+			angles[0] = SHORT2ANGLE(compressedBone.ofsAngles[0]);
+			angles[1] = SHORT2ANGLE(compressedBone.ofsAngles[1]);
+			angles[2] = 0;
+			vec = LocalAngleVector(angles);
 
-			if (s_cache_.isTorso)
+			if (isTorso)
 			{
-				s_cache_.sh = (short *)s_cache_.cTBonePtr->ofsAngles;
-				s_cache_.pf = &s_cache_.tangles[0];
-				*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
-				*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
-				*(s_cache_.pf++) = 0;
-				s_cache_.v2 = LocalAngleVector(s_cache_.tangles);
+				vec3 torsoAngles;
+				torsoAngles[0] = SHORT2ANGLE(compressedTorsoBone->ofsAngles[0]);
+				torsoAngles[1] = SHORT2ANGLE(compressedTorsoBone->ofsAngles[1]);
+				torsoAngles[2] = 0;
+				vec3 v2 = LocalAngleVector(torsoAngles);
 
 				// blend the angles together
-				s_cache_.vec = SLerp_Normal(s_cache_.vec, s_cache_.v2, s_cache_.thisBoneInfo->torsoWeight);
-				//LocalVectorMA(s_cache_.parentBone->translation, s_cache_.thisBoneInfo->parentDist, s_cache_.vec, s_cache_.bonePtr->translation);
-			}
-			else // legs bone
-			{
-				//LocalVectorMA(s_cache_.parentBone->translation, s_cache_.thisBoneInfo->parentDist, s_cache_.vec, s_cache_.bonePtr->translation);
+				vec = SLerp_Normal(vec, v2, bi.torsoWeight);
 			}
 		}
 
-		s_cache_.bonePtr->translation = s_cache_.parentBone->translation + s_cache_.vec * s_cache_.thisBoneInfo->parentDist;
+		bone.translation = parentBone->translation + vec * bi.parentDist;
 	}
 	else // just use the frame position
 	{
-		s_cache_.bonePtr->translation = frames_[entity.frame].parentOffset;
+		bone.translation = frames_[entity.frame].parentOffset;
 	}
 
-	if (boneIndex == torsoParent_) // this is the torsoParent
-	{
-		s_cache_.torsoParentOffset = s_cache_.bonePtr->translation;
-	}
-	
-	s_cache_.validBones[boneIndex] = 1;
-	s_cache_.rawBones[boneIndex] = *s_cache_.bonePtr;
-	s_cache_.newBones[boneIndex] = 1;
+	return bone;
 }
 
-void Model_mds::calculateBoneLerp(const Entity &entity, int boneIndex) const
+Model_mds::Bone Model_mds::calculateBoneLerp(const Entity &entity, int boneIndex, const Skeleton &skeleton) const
 {
-	s_cache_.thisBoneInfo = &boneInfo_[boneIndex];
+	const BoneInfo &bi = boneInfo_[boneIndex];
+	const Bone *parentBone = nullptr;
 
-	if (s_cache_.thisBoneInfo->parent >= 0)
+	if (bi.parent >= 0)
 	{
-		s_cache_.parentBone = &s_cache_.bones[s_cache_.thisBoneInfo->parent];
-		s_cache_.parentBoneInfo = &boneInfo_[s_cache_.thisBoneInfo->parent];
-	}
-	else
-	{
-		s_cache_.parentBone = nullptr;
-		s_cache_.parentBoneInfo = nullptr;
+		parentBone = &skeleton.bones[bi.parent];
 	}
 
-	if (s_cache_.thisBoneInfo->torsoWeight)
-	{
-		s_cache_.cTBonePtr = &s_cache_.cBoneListTorso[boneIndex];
-		s_cache_.cOldTBonePtr = &s_cache_.cOldBoneListTorso[boneIndex];
-		s_cache_.isTorso = true;
+	bool isTorso = false, fullTorso = false;
+	const BoneFrameCompressed *compressedTorsoBone = nullptr, *oldCompressedTorsoBone = nullptr;
 
-		if (s_cache_.thisBoneInfo->torsoWeight == 1.0f)
-			s_cache_.fullTorso = true;
-	}
-	else
+	if (bi.torsoWeight)
 	{
-		s_cache_.isTorso = false;
-		s_cache_.fullTorso = false;
+		compressedTorsoBone = &skeleton.torsoFrame->boneFrames[boneIndex];
+		oldCompressedTorsoBone = &skeleton.oldTorsoFrame->boneFrames[boneIndex];
+		isTorso = true;
+
+		if (bi.torsoWeight == 1.0f)
+			fullTorso = true;
 	}
 
-	s_cache_.cBonePtr = &s_cache_.cBoneList[boneIndex];
-	s_cache_.cOldBonePtr = &s_cache_.cOldBoneList[boneIndex];
-	s_cache_.bonePtr = &s_cache_.bones[boneIndex];
-	s_cache_.newBones[boneIndex] = 1;
+	const BoneFrameCompressed &compressedBone = skeleton.frame->boneFrames[boneIndex];
+	const BoneFrameCompressed &oldCompressedBone = skeleton.oldFrame->boneFrames[boneIndex];
+	Bone bone;
 
 	// rotation (take into account 170 to -170 lerps, which need to take the shortest route)
-	if (s_cache_.fullTorso)
-	{
-		s_cache_.sh = (short *)s_cache_.cTBonePtr->angles;
-		s_cache_.sh2 = (short *)s_cache_.cOldTBonePtr->angles;
-		s_cache_.pf = &s_cache_.angles[0];
+	vec3 angles;
 
+	if (fullTorso)
+	{
 		for (int i = 0; i < 3; i++)
 		{
-			float a1 = SHORT2ANGLE(*(s_cache_.sh++));
-			float a2 = SHORT2ANGLE(*(s_cache_.sh2++));
-			s_cache_.diff = AngleNormalize180(a1 - a2);
-			*(s_cache_.pf++) = a1 - s_cache_.torsoBackLerp * s_cache_.diff;
+			const float a1 = SHORT2ANGLE(compressedTorsoBone->angles[i]);
+			const float a2 = SHORT2ANGLE(oldCompressedTorsoBone->angles[i]);
+			const float diff = AngleNormalize180(a1 - a2);
+			angles[i] = a1 - skeleton.torsoBackLerp * diff;
 		}
 	}
 	else
 	{
-		s_cache_.sh = (short *)s_cache_.cBonePtr->angles;
-		s_cache_.sh2 = (short *)s_cache_.cOldBonePtr->angles;
-		s_cache_.pf = &s_cache_.angles[0];
-
 		for (int i = 0; i < 3; i++)
 		{
-			float a1 = SHORT2ANGLE(*(s_cache_.sh++));
-			float a2 = SHORT2ANGLE(*(s_cache_.sh2++));
-			s_cache_.diff = AngleNormalize180(a1 - a2);
-			*(s_cache_.pf++) = a1 - s_cache_.backLerp * s_cache_.diff;
+			const float a1 = SHORT2ANGLE(compressedBone.angles[i]);
+			const float a2 = SHORT2ANGLE(oldCompressedBone.angles[i]);
+			const float diff = AngleNormalize180(a1 - a2);
+			angles[i] = a1 - skeleton.backLerp * diff;
 		}
 
-		if (s_cache_.isTorso)
+		if (isTorso)
 		{
-			s_cache_.sh = (short *)s_cache_.cTBonePtr->angles;
-			s_cache_.sh2 = (short *)s_cache_.cOldTBonePtr->angles;
-			s_cache_.pf = &s_cache_.tangles[0];
+			vec3 torsoAngles;
 
 			for (int i = 0; i < 3; i++)
 			{
-				float a1 = SHORT2ANGLE(*(s_cache_.sh++));
-				float a2 = SHORT2ANGLE(*(s_cache_.sh2++));
-				s_cache_.diff = AngleNormalize180(a1 - a2);
-				*(s_cache_.pf++) = a1 - s_cache_.torsoBackLerp * s_cache_.diff;
+				const float a1 = SHORT2ANGLE(compressedTorsoBone->angles[i]);
+				const float a2 = SHORT2ANGLE(oldCompressedTorsoBone->angles[i]);
+				const float diff = AngleNormalize180(a1 - a2);
+				torsoAngles[i] = a1 - skeleton.torsoBackLerp * diff;
 			}
 
 			// blend the angles together
 			for (int j = 0; j < 3; j++)
 			{
-				s_cache_.diff = s_cache_.tangles[j] - s_cache_.angles[j];
+				float diff = torsoAngles[j] - angles[j];
 
-				if (fabs(s_cache_.diff) > 180)
-					s_cache_.diff = AngleNormalize180(s_cache_.diff);
+				if (fabs(diff) > 180)
+					diff = AngleNormalize180(diff);
 
-				s_cache_.angles[j] = s_cache_.angles[j] + s_cache_.thisBoneInfo->torsoWeight * s_cache_.diff;
+				angles[j] = angles[j] + bi.torsoWeight * diff;
 			}
 		}
 	}
 
-	s_cache_.bonePtr->rotation = mat3(s_cache_.angles);
+	bone.rotation = mat3(angles);
 
-	if (s_cache_.parentBone)
+	if (parentBone)
 	{
-		if (s_cache_.fullTorso)
+		const short *sh1, *sh2;
+
+		if (fullTorso)
 		{
-			s_cache_.sh = (short *)s_cache_.cTBonePtr->ofsAngles;
-			s_cache_.sh2 = (short *)s_cache_.cOldTBonePtr->ofsAngles;
+			sh1 = compressedTorsoBone->ofsAngles;
+			sh2 = oldCompressedTorsoBone->ofsAngles;
 		}
 		else
 		{
-			s_cache_.sh = (short *)s_cache_.cBonePtr->ofsAngles;
-			s_cache_.sh2 = (short *)s_cache_.cOldBonePtr->ofsAngles;
+			sh1 = compressedBone.ofsAngles;
+			sh2 = oldCompressedBone.ofsAngles;
 		}
 
-		s_cache_.pf = &s_cache_.angles[0];
-		*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
-		*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
-		*(s_cache_.pf++) = 0;
-		s_cache_.v2 = LocalAngleVector(s_cache_.angles); // new
+		angles[0] = SHORT2ANGLE(sh1[0]);
+		angles[1] = SHORT2ANGLE(sh1[1]);
+		angles[2] = 0;
+		vec3 v2 = LocalAngleVector(angles); // new
 
-		s_cache_.pf = &s_cache_.angles[0];
-		*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh2++));
-		*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh2++));
-		*(s_cache_.pf++) = 0;
-		s_cache_.vec = LocalAngleVector(s_cache_.angles); // old
+		angles[0] = SHORT2ANGLE(sh2[0]);
+		angles[1] = SHORT2ANGLE(sh2[1]);
+		angles[2] = 0;
+		vec3 vec = LocalAngleVector(angles); // old
 
 		// blend the angles together
-		if (s_cache_.fullTorso)
+		vec3 dir;
+
+		if (fullTorso)
 		{
-			s_cache_.dir = SLerp_Normal(s_cache_.vec, s_cache_.v2, s_cache_.torsoFrontLerp);
+			dir = SLerp_Normal(vec, v2, skeleton.torsoFrontLerp);
 		}
 		else
 		{
-			s_cache_.dir = SLerp_Normal(s_cache_.vec, s_cache_.v2, s_cache_.frontLerp);
+			dir = SLerp_Normal(vec, v2, skeleton.frontLerp);
 		}
 
 		// translation
-		if (!s_cache_.fullTorso && s_cache_.isTorso)
+		if (!fullTorso && isTorso)
 		{
 			// partial legs/torso, need to lerp according to torsoWeight
 			// calc the torso frame
-			s_cache_.sh = (short *)s_cache_.cTBonePtr->ofsAngles;
-			s_cache_.sh2 = (short *)s_cache_.cOldTBonePtr->ofsAngles;
+			angles[0] = SHORT2ANGLE(compressedTorsoBone->ofsAngles[0]);
+			angles[1] = SHORT2ANGLE(compressedTorsoBone->ofsAngles[1]);
+			angles[2] = 0;
+			vec3 v2 = LocalAngleVector(angles); // new
 
-			s_cache_.pf = &s_cache_.angles[0];
-			*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
-			*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh++));
-			*(s_cache_.pf++) = 0;
-			s_cache_.v2 = LocalAngleVector(s_cache_.angles); // new
-
-			s_cache_.pf = &s_cache_.angles[0];
-			*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh2++));
-			*(s_cache_.pf++) = SHORT2ANGLE(*(s_cache_.sh2++));
-			*(s_cache_.pf++) = 0;
-			s_cache_.vec = LocalAngleVector(s_cache_.angles); // old
+			angles[0] = SHORT2ANGLE(oldCompressedTorsoBone->ofsAngles[0]);
+			angles[1] = SHORT2ANGLE(oldCompressedTorsoBone->ofsAngles[1]);
+			angles[2] = 0;
+			vec3 vec = LocalAngleVector(angles); // old
 
 			// blend the angles together
-			s_cache_.v2 = SLerp_Normal(s_cache_.vec, s_cache_.v2, s_cache_.torsoFrontLerp);
+			v2 = SLerp_Normal(vec, v2, skeleton.torsoFrontLerp);
 
 			// blend the torso/legs together
-			s_cache_.dir = SLerp_Normal(s_cache_.dir, s_cache_.v2, s_cache_.thisBoneInfo->torsoWeight);
+			dir = SLerp_Normal(dir, v2, bi.torsoWeight);
 		}
 
-		//LocalVectorMA(s_cache_.parentBone->translation, s_cache_.thisBoneInfo->parentDist, s_cache_.dir, s_cache_.bonePtr->translation);
-		s_cache_.bonePtr->translation = s_cache_.parentBone->translation + s_cache_.dir * s_cache_.thisBoneInfo->parentDist;
+		bone.translation = parentBone->translation + dir * bi.parentDist;
 	}
 	else
 	{
 		// just interpolate the frame positions
 		const Frame &frame = frames_[entity.frame], &oldFrame = frames_[entity.oldFrame];
-		s_cache_.bonePtr->translation[0] = s_cache_.frontLerp * frame.parentOffset[0] + s_cache_.backLerp * oldFrame.parentOffset[0];
-		s_cache_.bonePtr->translation[1] = s_cache_.frontLerp * frame.parentOffset[1] + s_cache_.backLerp * oldFrame.parentOffset[1];
-		s_cache_.bonePtr->translation[2] = s_cache_.frontLerp * frame.parentOffset[2] + s_cache_.backLerp * oldFrame.parentOffset[2];
+		bone.translation[0] = skeleton.frontLerp * frame.parentOffset[0] + skeleton.backLerp * oldFrame.parentOffset[0];
+		bone.translation[1] = skeleton.frontLerp * frame.parentOffset[1] + skeleton.backLerp * oldFrame.parentOffset[1];
+		bone.translation[2] = skeleton.frontLerp * frame.parentOffset[2] + skeleton.backLerp * oldFrame.parentOffset[2];
 	}
 
-	if (boneIndex == torsoParent_)
-	{
-		// this is the torsoParent
-		s_cache_.torsoParentOffset = s_cache_.bonePtr->translation;
-	}
-
-	s_cache_.validBones[boneIndex] = 1;
-	s_cache_.rawBones[boneIndex] = *s_cache_.bonePtr;
-	s_cache_.newBones[boneIndex] = 1;
+	return bone;
 }
 
-void Model_mds::calculateBones(const Entity &entity, int *boneList, int nBones) const
+Model_mds::Bone Model_mds::calculateBone(const Entity &entity, int boneIndex, const Skeleton &skeleton, bool lerp) const
+{
+	return lerp ? calculateBoneLerp(entity, boneIndex, skeleton) : calculateBoneRaw(entity, boneIndex, skeleton);
+}
+
+Model_mds::Skeleton Model_mds::calculateSkeleton(const Entity &entity, int *boneList, int nBones) const
 {
 	assert(boneList);
-
-	memset(&s_cache_, 0, sizeof(s_cache_));
-
-	// If the entity has changed since the last time the bones were built, reset them
-	if (memcmp(&s_cache_.lastEntity, &entity, sizeof(Entity)))
-	{
-		// Different, cached bones are not valid.
-		memset(s_cache_.validBones, 0, boneInfo_.size());
-		s_cache_.lastEntity = entity;
-		s_cache_.totalrv = s_cache_.totalrt = s_cache_.totalv = s_cache_.totalt = 0;
-	}
-
-	memset(s_cache_.newBones, 0, boneInfo_.size());
+	Skeleton skeleton;
 
 	if (entity.oldFrame == entity.frame)
 	{
-		s_cache_.backLerp = 0;
-		s_cache_.frontLerp = 1;
+		skeleton.backLerp = 0;
+		skeleton.frontLerp = 1;
 	}
 	else
 	{
-		s_cache_.backLerp = 1.0f - entity.lerp;
-		s_cache_.frontLerp = entity.lerp;
+		skeleton.backLerp = 1.0f - entity.lerp;
+		skeleton.frontLerp = entity.lerp;
 	}
 
 	if (entity.oldTorsoFrame == entity.torsoFrame)
 	{
-		s_cache_.torsoBackLerp = 0;
-		s_cache_.torsoFrontLerp = 1;
+		skeleton.torsoBackLerp = 0;
+		skeleton.torsoFrontLerp = 1;
 	}
 	else
 	{
-		s_cache_.torsoBackLerp = 1.0f - entity.torsoLerp;
-		s_cache_.torsoFrontLerp = entity.torsoLerp;
+		skeleton.torsoBackLerp = 1.0f - entity.torsoLerp;
+		skeleton.torsoFrontLerp = entity.torsoLerp;
 	}
 
-	const Frame &frame = frames_[entity.frame];
-	const Frame &oldFrame = frames_[entity.oldFrame];
-	const Frame *torsoFrame = entity.torsoFrame >= 0 && entity.torsoFrame < (int)frames_.size() ? &frames_[entity.torsoFrame] : nullptr;
-	const Frame *oldTorsoFrame = entity.oldTorsoFrame >= 0 && entity.oldTorsoFrame < (int)frames_.size() ? &frames_[entity.oldTorsoFrame] : nullptr;
+	
+	skeleton.frame = &frames_[entity.frame];
+	skeleton.oldFrame = &frames_[entity.oldFrame];
+	skeleton.torsoFrame = entity.torsoFrame >= 0 && entity.torsoFrame < (int)frames_.size() ? &frames_[entity.torsoFrame] : nullptr;
+	skeleton.oldTorsoFrame = entity.oldTorsoFrame >= 0 && entity.oldTorsoFrame < (int)frames_.size() ? &frames_[entity.oldTorsoFrame] : nullptr;
 
 	// Lerp all the needed bones (torsoParent is always the first bone in the list).
-	s_cache_.cBoneList = frame.boneFrames.data();
-	s_cache_.cBoneListTorso = torsoFrame ? torsoFrame->boneFrames.data() : nullptr;
 	int *boneRefs = boneList;
-	s_cache_.torsoRotation = entity.torsoRotation;
-	s_cache_.torsoRotation.transpose();
+	mat3 torsoRotation(entity.torsoRotation);
+	torsoRotation.transpose();
+	const bool lerp = skeleton.backLerp || skeleton.torsoBackLerp;
 
-	if (!s_cache_.backLerp && !s_cache_.torsoBackLerp)
+	for (int i = 0; i < nBones; i++, boneRefs++)
 	{
-		for (int i = 0; i < nBones; i++, boneRefs++)
+		if (skeleton.boneCalculated[*boneRefs])
+			continue;
+
+		// find our parent, and make sure it has been calculated
+		const int parentBoneIndex = boneInfo_[*boneRefs].parent;
+
+		if (parentBoneIndex >= 0 && !skeleton.boneCalculated[parentBoneIndex])
 		{
-			if (s_cache_.validBones[*boneRefs])
-			{
-				// this bone is still in the cache
-				s_cache_.bones[*boneRefs] = s_cache_.rawBones[*boneRefs];
-				continue;
-			}
-
-			// find our parent, and make sure it has been calculated
-			if ((boneInfo_[*boneRefs].parent >= 0) && (!s_cache_.validBones[boneInfo_[*boneRefs].parent] && !s_cache_.newBones[boneInfo_[*boneRefs].parent]))
-			{
-				calculateBone(entity, boneInfo_[*boneRefs].parent);
-			}
-
-			calculateBone(entity, *boneRefs);
+			skeleton.bones[parentBoneIndex] = calculateBone(entity, parentBoneIndex, skeleton, lerp);
+			skeleton.boneCalculated[parentBoneIndex] = true;
 		}
+
+		skeleton.bones[*boneRefs] = calculateBone(entity, *boneRefs, skeleton, lerp);
+		skeleton.boneCalculated[*boneRefs] = true;
 	}
-	else // interpolated
+
+	// Get the torso parent.
+	vec3 torsoParentOffset;
+	boneRefs = boneList;
+
+	for (int i = 0; i < nBones; i++, boneRefs++)
 	{
-		s_cache_.cOldBoneList = oldFrame.boneFrames.data();
-		s_cache_.cOldBoneListTorso = oldTorsoFrame ? oldTorsoFrame->boneFrames.data() : nullptr;
-
-		for (int i = 0; i < nBones; i++, boneRefs++)
+		if (*boneRefs == torsoParent_)
 		{
-			if (s_cache_.validBones[*boneRefs])
-			{
-				// this bone is still in the cache
-				s_cache_.bones[*boneRefs] = s_cache_.rawBones[*boneRefs];
-				continue;
-			}
-
-			// find our parent, and make sure it has been calculated
-			if ((boneInfo_[*boneRefs].parent >= 0) && (!s_cache_.validBones[boneInfo_[*boneRefs].parent] && !s_cache_.newBones[boneInfo_[*boneRefs].parent]))
-			{
-				calculateBoneLerp(entity, boneInfo_[*boneRefs].parent);
-			}
-
-			calculateBoneLerp(entity, *boneRefs);
+			torsoParentOffset = skeleton.bones[*boneRefs].translation;
 		}
 	}
 
 	// Adjust for torso rotations.
 	float torsoWeight = 0;
 	boneRefs = boneList;
+	mat4wrapper m2;
 
 	for (int i = 0; i < nBones; i++, boneRefs++)
 	{
-		s_cache_.thisBoneInfo = &boneInfo_[*boneRefs];
-		s_cache_.bonePtr = &s_cache_.bones[*boneRefs];
+		const BoneInfo &bi = boneInfo_[*boneRefs];
+		Bone *bone = &skeleton.bones[*boneRefs];
 
 		// add torso rotation
-		if (s_cache_.thisBoneInfo->torsoWeight > 0)
+		if (bi.torsoWeight > 0)
 		{
-			if (!s_cache_.newBones[*boneRefs])
-			{
-				// just copy it back from the previous calc
-				s_cache_.bones[*boneRefs] = s_cache_.oldBones[*boneRefs];
-				continue;
-			}
-
-			if (!(s_cache_.thisBoneInfo->flags & BONEFLAG_TAG))
+			if (!(bi.flags & BONEFLAG_TAG))
 			{
 				// 1st multiply with the bone->matrix
 				// 2nd translation for rotation relative to bone around torso parent offset
-				//VectorSubtract(s_cache_.bonePtr->translation, s_cache_.torsoParentOffset, s_cache_.t);
-				s_cache_.t = s_cache_.bonePtr->translation - s_cache_.torsoParentOffset;
-				Matrix4FromAxisPlusTranslation(s_cache_.bonePtr->rotation, s_cache_.t, s_cache_.m1);
+				const vec3 t = bone->translation - torsoParentOffset;
+				mat4wrapper m1;
+				Matrix4FromAxisPlusTranslation(bone->rotation, t, m1);
 				// 3rd scaled rotation
 				// 4th translate back to torso parent offset
 				// use previously created matrix if available for the same weight
-				if (torsoWeight != s_cache_.thisBoneInfo->torsoWeight)
+				if (torsoWeight != bi.torsoWeight)
 				{
-					Matrix4FromScaledAxisPlusTranslation(s_cache_.torsoRotation, s_cache_.thisBoneInfo->torsoWeight, s_cache_.torsoParentOffset, s_cache_.m2);
-					torsoWeight = s_cache_.thisBoneInfo->torsoWeight;
+					Matrix4FromScaledAxisPlusTranslation(torsoRotation, bi.torsoWeight, torsoParentOffset, m2);
+					torsoWeight = bi.torsoWeight;
 				}
 
 				// multiply matrices to create one matrix to do all calculations
-				Matrix4MultiplyInto3x3AndTranslation(s_cache_.m2, s_cache_.m1, s_cache_.bonePtr->rotation, s_cache_.bonePtr->translation);
+				Matrix4MultiplyInto3x3AndTranslation(m2, m1, bone->rotation, bone->translation);
 			}
 			else // tags require special handling
 			{
 				// rotate each of the axis by the torsoAngles
-				s_cache_.tempRotation[0] = LocalScaledMatrixTransformVector(s_cache_.bonePtr->rotation[0], s_cache_.thisBoneInfo->torsoWeight, s_cache_.torsoRotation);
-				s_cache_.tempRotation[1] = LocalScaledMatrixTransformVector(s_cache_.bonePtr->rotation[1], s_cache_.thisBoneInfo->torsoWeight, s_cache_.torsoRotation);
-				s_cache_.tempRotation[2] = LocalScaledMatrixTransformVector(s_cache_.bonePtr->rotation[2], s_cache_.thisBoneInfo->torsoWeight, s_cache_.torsoRotation);
-				s_cache_.bonePtr->rotation = s_cache_.tempRotation;
+				mat3 tempRotation;
+				tempRotation[0] = LocalScaledMatrixTransformVector(bone->rotation[0], bi.torsoWeight, torsoRotation);
+				tempRotation[1] = LocalScaledMatrixTransformVector(bone->rotation[1], bi.torsoWeight, torsoRotation);
+				tempRotation[2] = LocalScaledMatrixTransformVector(bone->rotation[2], bi.torsoWeight, torsoRotation);
+				bone->rotation = tempRotation;
 
 				// rotate the translation around the torsoParent
-				//VectorSubtract(s_cache_.bonePtr->translation, s_cache_.torsoParentOffset, s_cache_.t);
-				s_cache_.t = s_cache_.bonePtr->translation - s_cache_.torsoParentOffset;
-				s_cache_.bonePtr->translation = LocalScaledMatrixTransformVector(s_cache_.t, s_cache_.thisBoneInfo->torsoWeight, s_cache_.torsoRotation);
-				//VectorAdd(s_cache_.bonePtr->translation, s_cache_.torsoParentOffset, s_cache_.bonePtr->translation);
-				s_cache_.bonePtr->translation = s_cache_.bonePtr->translation + s_cache_.torsoParentOffset;
+				const vec3 t = bone->translation - torsoParentOffset;
+				bone->translation = LocalScaledMatrixTransformVector(t, bi.torsoWeight, torsoRotation);
+				bone->translation = bone->translation + torsoParentOffset;
 			}
 		}
 	}
 
-	// backup the final bones
-	memcpy(s_cache_.oldBones, s_cache_.bones, sizeof(s_cache_.bones[0]) * boneInfo_.size());
+	return skeleton;
 }
 
 } // namespace renderer
