@@ -74,12 +74,12 @@ MDS file format (Wolfenstein Skeletal Format)
 typedef struct {
 	int boneIndex;              // these are indexes into the boneReferences,
 	float boneWeight;           // not the global per-frame bone list
-	vec3_t offset;
+	vec3 offset;
 } mdsWeight_t;
 
 typedef struct {
-	vec3_t normal;
-	vec2_t texCoords;
+	vec3 normal;
+	vec2 texCoords;
 	int numWeights;
 	int fixedParent;            // stay equi-distant from this parent
 	float fixedDist;
@@ -127,17 +127,11 @@ typedef struct {
 	short ofsAngles[2];         // PITCH/YAW, head in this direction from parent to go to the offset position
 } mdsBoneFrameCompressed_t;
 
-// NOTE: this only used at run-time
 typedef struct {
-	float matrix[3][3];             // 3x3 rotation
-	vec3_t translation;             // translation vector
-} mdsBoneFrame_t;
-
-typedef struct {
-	vec3_t bounds[2];               // bounds of all surfaces of all LOD's for this frame
-	vec3_t localOrigin;             // midpoint of bounds, used for sphere cull
+	Bounds bounds;               // bounds of all surfaces of all LOD's for this frame
+	vec3 localOrigin;             // midpoint of bounds, used for sphere cull
 	float radius;                   // dist from localOrigin to corner
-	vec3_t parentOffset;            // one bone is an ascendant of all other bones, it starts the hierachy at this position
+	vec3 parentOffset;            // one bone is an ascendant of all other bones, it starts the hierachy at this position
 	mdsBoneFrameCompressed_t bones[1];              // [numBones]
 } mdsFrame_t;
 
@@ -222,50 +216,12 @@ private:
 		vec3 translation;
 	};
 
-	struct BoneInfo
-	{
-		int flags;
-		char name[MAX_QPATH];
-		int parent;
-		float parentDist;
-		float torsoWeight;
-	};
-
-	struct BoneFrameCompressed
-	{
-		short angles[4];
-		short ofsAngles[2];
-	};
-
-	struct Frame
-	{
-		std::vector<BoneFrameCompressed> boneFrames;
-		Bounds bounds;
-		vec3 parentOffset;
-		vec3 position;
-		float radius;
-	};
-
-	struct Surface
-	{
-		Material *material;
-		uint32_t nIndices;
-		uint32_t nVertices;
-	};
-
-	struct Tag
-	{
-		int boneIndex;
-		char name[MAX_QPATH];
-		float torsoWeight;
-	};
-
 	struct Skeleton
 	{
 		Bone bones[MDS_MAX_BONES];
 		bool boneCalculated[MDS_MAX_BONES] = { false };
-		const Frame *frame, *oldFrame;
-		const Frame *torsoFrame, *oldTorsoFrame;
+		const mdsFrame_t *frame, *oldFrame;
+		const mdsFrame_t *torsoFrame, *oldTorsoFrame;
 		float frontLerp, backLerp;
 		float torsoFrontLerp, torsoBackLerp;
 	};
@@ -277,12 +233,11 @@ private:
 	Skeleton calculateSkeleton(const Entity &entity, int *boneList, int nBones) const;
 
 	std::vector<uint8_t> data_;
-	std::vector<BoneInfo> boneInfo_;
-	std::vector<Frame> frames_;
-	std::vector<Surface> surfaces_;
+	const mdsHeader_t *header_;
+	const mdsBoneInfo_t *boneInfo_;
+	std::vector<const mdsFrame_t *> frames_; // Need to access frames by index.
 	std::vector<Material *> surfaceMaterials_;
-	std::vector<Tag> tags_;
-	int torsoParent_; // index of bone that is the parent of the torso
+	const mdsTag_t *tags_;
 };
 
 std::unique_ptr<Model> Model::createMDS(const char *name)
@@ -297,109 +252,49 @@ Model_mds::Model_mds(const char *name)
 
 bool Model_mds::load(const ReadOnlyFile &file)
 {
-	const uint8_t *data = file.getData();
 	data_.resize(file.getLength());
 	memcpy(data_.data(), file.getData(), file.getLength());
 
 	// Header
-	auto fileHeader = (mdsHeader_t *)data;
+	header_ = (mdsHeader_t *)data_.data();
 
-	if (fileHeader->ident != MDS_IDENT)
+	if (header_->ident != MDS_IDENT)
 	{
-		interface::PrintWarningf("Model %s: wrong ident (%i should be %i)\n", name_, fileHeader->ident, MDS_IDENT);
+		interface::PrintWarningf("Model %s: wrong ident (%i should be %i)\n", name_, header_->ident, MDS_IDENT);
 		return false;
 	}
 
-	if (fileHeader->version != MDS_VERSION)
+	if (header_->version != MDS_VERSION)
 	{
-		interface::PrintWarningf("Model %s: wrong version (%i should be %i)\n", name_, fileHeader->version, MDS_VERSION);
+		interface::PrintWarningf("Model %s: wrong version (%i should be %i)\n", name_, header_->version, MDS_VERSION);
 		return false;
 	}
 
-	if (fileHeader->numFrames < 1)
+	if (header_->numFrames < 1)
 	{
 		interface::PrintWarningf("Model %s: no frames\n", name_);
 		return false;
 	}
 
-	torsoParent_ = fileHeader->torsoParent;
-
-	// Bone info
-	boneInfo_.resize(fileHeader->numBones);
-
-	for (size_t i = 0; i < boneInfo_.size(); i++)
-	{
-		const auto &fbi = ((mdsBoneInfo_t *)(data + fileHeader->ofsBones))[i];
-		BoneInfo &bi = boneInfo_[i];
-		bi.flags = fbi.flags;
-		util::Strncpyz(bi.name, fbi.name, sizeof(bi.name));
-		bi.parent = fbi.parent;
-		bi.parentDist = fbi.parentDist;
-		bi.torsoWeight = fbi.torsoWeight;
-	}
-
-	// Frames
-	frames_.resize(fileHeader->numFrames);
+	boneInfo_ = (mdsBoneInfo_t *)(data_.data() + header_->ofsBones);
+	frames_.resize(header_->numFrames);
 
 	for (size_t i = 0; i < frames_.size(); i++)
 	{
-		const size_t frameSize = sizeof(mdsFrame_t) - sizeof(mdsBoneFrameCompressed_t) + fileHeader->numBones * sizeof(mdsBoneFrameCompressed_t);
-		const mdsFrame_t &ff = *((mdsFrame_t *)(data + fileHeader->ofsFrames + i * frameSize));
-		Frame &f = frames_[i];
-		f.boneFrames.resize(fileHeader->numBones);
-		f.bounds = Bounds(ff.bounds[0], ff.bounds[1]);
-		f.parentOffset = ff.parentOffset;
-		f.position = ff.localOrigin;
-		f.radius = ff.radius;
-
-		for (size_t j = 0; j < f.boneFrames.size(); j++)
-		{
-			//const mdsBoneFrameCompressed_t &fbfc = ((mdsBoneFrameCompressed_t *)((uint8_t *)&ff + sizeof(mdsFrame_t) - sizeof(mdsBoneFrameCompressed_t)))[j];
-			const mdsBoneFrameCompressed_t &fbfc = ff.bones[j];
-			BoneFrameCompressed &bfc = f.boneFrames[j];
-			memcpy(bfc.angles, fbfc.angles, sizeof(bfc.angles));
-			memcpy(bfc.ofsAngles, fbfc.ofsAngles, sizeof(bfc.ofsAngles));
-		}
+		const size_t frameSize = sizeof(mdsFrame_t) - sizeof(mdsBoneFrameCompressed_t) + header_->numBones * sizeof(mdsBoneFrameCompressed_t);
+		frames_[i] = (mdsFrame_t *)(data_.data() + header_->ofsFrames + i * frameSize);
 	}
 
-	// Surfaces
-	surfaces_.resize(fileHeader->numSurfaces);
-	surfaceMaterials_.resize(fileHeader->numSurfaces);
-	auto fileSurface = (mdsSurface_t *)(data + fileHeader->ofsSurfaces);
+	surfaceMaterials_.resize(header_->numSurfaces);
+	auto surface = (mdsSurface_t *)(data_.data() + header_->ofsSurfaces);
 
-	for (size_t i = 0; i < surfaces_.size(); i++)
+	for (size_t i = 0; i < surfaceMaterials_.size(); i++)
 	{
-		const auto &fs = *fileSurface;
-		Surface &s = surfaces_[i];
-
-		if (fs.shader[0])
-		{
-			surfaceMaterials_[i] = s.material = g_materialCache->findMaterial(fs.shader, MaterialLightmapId::None);
-		}
-		else
-		{
-			s.material = nullptr;
-		}
-
-		s.nIndices = int32_t(fs.numTriangles * 3);
-		s.nVertices = int32_t(fs.numVerts);
-
-		// Move to the next surface.
-		fileSurface = (mdsSurface_t *)((uint8_t *)fileSurface + fileSurface->ofsEnd);
+		surfaceMaterials_[i] = surface->shader[0] ? g_materialCache->findMaterial(surface->shader, MaterialLightmapId::None) : nullptr;
+		surface = (mdsSurface_t *)((uint8_t *)surface + surface->ofsEnd);
 	}
 
-	// Tags
-	tags_.resize(fileHeader->numTags);
-
-	for (size_t i = 0; i < tags_.size(); i++)
-	{
-		const auto &ft = ((mdsTag_t *)(data + fileHeader->ofsTags))[i];
-		Tag &t = tags_[i];
-		t.boneIndex = ft.boneIndex;
-		util::Strncpyz(t.name, ft.name, sizeof(t.name));
-		t.torsoWeight = ft.torsoWeight;
-	}
-
+	tags_ = (mdsTag_t *)(data_.data() + header_->ofsTags);
 	return true;
 }
 
@@ -418,9 +313,9 @@ int Model_mds::lerpTag(const char *name, const Entity &entity, int startIndex, T
 {
 	assert(transform);
 
-	for (int i = 0; i < (int)tags_.size(); i++)
+	for (int i = 0; i < header_->numTags; i++)
 	{
-		const Tag &tag = tags_[i];
+		const mdsTag_t &tag = tags_[i];
 
 		if (i >= startIndex && !strcmp(tags_[i].name, name))
 		{
@@ -674,13 +569,13 @@ static float AngleNormalize180(float angle) {
 
 Model_mds::Bone Model_mds::calculateBoneRaw(const Entity &entity, int boneIndex, const Skeleton &skeleton) const
 {
-	const BoneInfo &bi = boneInfo_[boneIndex];
+	const mdsBoneInfo_t &bi = boneInfo_[boneIndex];
 	bool isTorso = false, fullTorso = false;
-	const BoneFrameCompressed *compressedTorsoBone = nullptr;
+	const mdsBoneFrameCompressed_t *compressedTorsoBone = nullptr;
 
 	if (bi.torsoWeight)
 	{
-		compressedTorsoBone = &skeleton.torsoFrame->boneFrames[boneIndex];
+		compressedTorsoBone = &skeleton.torsoFrame->bones[boneIndex];
 		isTorso = true;
 
 		if (bi.torsoWeight == 1.0f)
@@ -689,7 +584,7 @@ Model_mds::Bone Model_mds::calculateBoneRaw(const Entity &entity, int boneIndex,
 		}
 	}
 
-	const BoneFrameCompressed &compressedBone = skeleton.frame->boneFrames[boneIndex];
+	const mdsBoneFrameCompressed_t &compressedBone = skeleton.frame->bones[boneIndex];
 	Bone bone;
 
 	// we can assume the parent has already been uncompressed for this frame + lerp
@@ -771,7 +666,7 @@ Model_mds::Bone Model_mds::calculateBoneRaw(const Entity &entity, int boneIndex,
 	}
 	else // just use the frame position
 	{
-		bone.translation = frames_[entity.frame].parentOffset;
+		bone.translation = frames_[entity.frame]->parentOffset;
 	}
 
 	return bone;
@@ -779,7 +674,7 @@ Model_mds::Bone Model_mds::calculateBoneRaw(const Entity &entity, int boneIndex,
 
 Model_mds::Bone Model_mds::calculateBoneLerp(const Entity &entity, int boneIndex, const Skeleton &skeleton) const
 {
-	const BoneInfo &bi = boneInfo_[boneIndex];
+	const mdsBoneInfo_t &bi = boneInfo_[boneIndex];
 	const Bone *parentBone = nullptr;
 
 	if (bi.parent >= 0)
@@ -788,20 +683,20 @@ Model_mds::Bone Model_mds::calculateBoneLerp(const Entity &entity, int boneIndex
 	}
 
 	bool isTorso = false, fullTorso = false;
-	const BoneFrameCompressed *compressedTorsoBone = nullptr, *oldCompressedTorsoBone = nullptr;
+	const mdsBoneFrameCompressed_t *compressedTorsoBone = nullptr, *oldCompressedTorsoBone = nullptr;
 
 	if (bi.torsoWeight)
 	{
-		compressedTorsoBone = &skeleton.torsoFrame->boneFrames[boneIndex];
-		oldCompressedTorsoBone = &skeleton.oldTorsoFrame->boneFrames[boneIndex];
+		compressedTorsoBone = &skeleton.torsoFrame->bones[boneIndex];
+		oldCompressedTorsoBone = &skeleton.oldTorsoFrame->bones[boneIndex];
 		isTorso = true;
 
 		if (bi.torsoWeight == 1.0f)
 			fullTorso = true;
 	}
 
-	const BoneFrameCompressed &compressedBone = skeleton.frame->boneFrames[boneIndex];
-	const BoneFrameCompressed &oldCompressedBone = skeleton.oldFrame->boneFrames[boneIndex];
+	const mdsBoneFrameCompressed_t &compressedBone = skeleton.frame->bones[boneIndex];
+	const mdsBoneFrameCompressed_t &oldCompressedBone = skeleton.oldFrame->bones[boneIndex];
 	Bone bone;
 
 	// rotation (take into account 170 to -170 lerps, which need to take the shortest route)
@@ -918,10 +813,10 @@ Model_mds::Bone Model_mds::calculateBoneLerp(const Entity &entity, int boneIndex
 	else
 	{
 		// just interpolate the frame positions
-		const Frame &frame = frames_[entity.frame], &oldFrame = frames_[entity.oldFrame];
-		bone.translation[0] = skeleton.frontLerp * frame.parentOffset[0] + skeleton.backLerp * oldFrame.parentOffset[0];
-		bone.translation[1] = skeleton.frontLerp * frame.parentOffset[1] + skeleton.backLerp * oldFrame.parentOffset[1];
-		bone.translation[2] = skeleton.frontLerp * frame.parentOffset[2] + skeleton.backLerp * oldFrame.parentOffset[2];
+		const mdsFrame_t *frame = frames_[entity.frame], *oldFrame = frames_[entity.oldFrame];
+		bone.translation[0] = skeleton.frontLerp * frame->parentOffset[0] + skeleton.backLerp * oldFrame->parentOffset[0];
+		bone.translation[1] = skeleton.frontLerp * frame->parentOffset[1] + skeleton.backLerp * oldFrame->parentOffset[1];
+		bone.translation[2] = skeleton.frontLerp * frame->parentOffset[2] + skeleton.backLerp * oldFrame->parentOffset[2];
 	}
 
 	return bone;
@@ -960,10 +855,10 @@ Model_mds::Skeleton Model_mds::calculateSkeleton(const Entity &entity, int *bone
 	}
 
 	
-	skeleton.frame = &frames_[entity.frame];
-	skeleton.oldFrame = &frames_[entity.oldFrame];
-	skeleton.torsoFrame = entity.torsoFrame >= 0 && entity.torsoFrame < (int)frames_.size() ? &frames_[entity.torsoFrame] : nullptr;
-	skeleton.oldTorsoFrame = entity.oldTorsoFrame >= 0 && entity.oldTorsoFrame < (int)frames_.size() ? &frames_[entity.oldTorsoFrame] : nullptr;
+	skeleton.frame = frames_[entity.frame];
+	skeleton.oldFrame = frames_[entity.oldFrame];
+	skeleton.torsoFrame = entity.torsoFrame >= 0 && entity.torsoFrame < (int)frames_.size() ? frames_[entity.torsoFrame] : nullptr;
+	skeleton.oldTorsoFrame = entity.oldTorsoFrame >= 0 && entity.oldTorsoFrame < (int)frames_.size() ? frames_[entity.oldTorsoFrame] : nullptr;
 
 	// Lerp all the needed bones (torsoParent is always the first bone in the list).
 	int *boneRefs = boneList;
@@ -995,7 +890,7 @@ Model_mds::Skeleton Model_mds::calculateSkeleton(const Entity &entity, int *bone
 
 	for (int i = 0; i < nBones; i++, boneRefs++)
 	{
-		if (*boneRefs == torsoParent_)
+		if (*boneRefs == header_->torsoParent)
 		{
 			torsoParentOffset = skeleton.bones[*boneRefs].translation;
 		}
@@ -1008,7 +903,7 @@ Model_mds::Skeleton Model_mds::calculateSkeleton(const Entity &entity, int *bone
 
 	for (int i = 0; i < nBones; i++, boneRefs++)
 	{
-		const BoneInfo &bi = boneInfo_[*boneRefs];
+		const mdsBoneInfo_t &bi = boneInfo_[*boneRefs];
 		Bone *bone = &skeleton.bones[*boneRefs];
 
 		// add torso rotation
