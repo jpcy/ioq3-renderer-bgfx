@@ -158,6 +158,16 @@ mat3 mat3::inverse() const
 	return m;
 }
 
+vec3 mat3::transform(const vec3 &v) const
+{
+	return vec3
+	(
+		rows_[0][0] * v.x + rows_[0][1] * v.y + rows_[0][2] * v.z,
+		rows_[1][0] * v.x + rows_[1][1] * v.y + rows_[1][2] * v.z,
+		rows_[2][0] * v.x + rows_[2][1] * v.y + rows_[2][2] * v.z
+	);
+}
+
 vec3 &mat3::operator[](size_t index)
 {
 	assert(index >= 0 && index <= 2);
@@ -168,15 +178,6 @@ const vec3 &mat3::operator[](size_t index) const
 {
 	assert(index >= 0 && index <= 2);
 	return rows_[index];
-}
-
-vec3 mat3::operator*(const vec3 &v) const
-{
-	vec3 result;
-	result += rows_[0] * v.x;
-	result += rows_[1] * v.y;
-	result += rows_[2] * v.z;
-	return result;
 }
 
 mat3 mat3::operator*(const mat3 &m) const
@@ -306,9 +307,12 @@ Bounds mat4::transform(const Bounds &bounds) const
 
 vec3 mat4::transform(const vec3 &v) const
 {
-	return vec3(e_[0] * v[0] + e_[4] * v[1] + e_[ 8] * v[2] + e_[12],
-					e_[1] * v[0] + e_[5] * v[1] + e_[ 9] * v[2] + e_[13],
-					e_[2] * v[0] + e_[6] * v[1] + e_[10] * v[2] + e_[14]);
+	return vec3
+	(
+		e_[0] * v[0] + e_[4] * v[1] + e_[ 8] * v[2] + e_[12],
+		e_[1] * v[0] + e_[5] * v[1] + e_[ 9] * v[2] + e_[13],
+		e_[2] * v[0] + e_[6] * v[1] + e_[10] * v[2] + e_[14]
+	);
 }
 
 vec4 mat4::transform(const vec4 &v) const
@@ -343,6 +347,21 @@ float mat4::determinate() const
 	}
 
 	return result;
+}
+
+void mat4::extract(mat3 *rotation, vec3 *translation) const
+{
+	if (rotation)
+	{
+		(*rotation)[0] = vec3(e_[0], e_[1], e_[2]);
+		(*rotation)[1] = vec3(e_[4], e_[5], e_[6]);
+		(*rotation)[2] = vec3(e_[8], e_[9], e_[10]);
+	}
+
+	if (translation)
+	{
+		*translation = vec3(e_[12], e_[13], e_[14]);
+	}
 }
 
 void mat4::copy(const mat4 &m)
@@ -400,7 +419,7 @@ void mat4::setupTransform(const mat3 &rot, const vec3 &origin)
 	e_[0] = rot[0][0]; e_[4] = rot[1][0]; e_[ 8] = rot[2][0]; e_[12] = origin[0];
 	e_[1] = rot[0][1]; e_[5] = rot[1][1]; e_[ 9] = rot[2][1]; e_[13] = origin[1];
 	e_[2] = rot[0][2]; e_[6] = rot[1][2]; e_[10] = rot[2][2]; e_[14] = origin[2];
-	e_[3] = 0;          e_[7] = 0;          e_[11] = 0;          e_[15] = 1;
+	e_[3] = 0;         e_[7] = 0;         e_[11] = 0;         e_[15] = 1;
 }
 
 void mat4::setupOrthographicProjection(int left, int right, int top, int bottom)

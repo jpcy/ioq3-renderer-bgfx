@@ -553,9 +553,9 @@ public:
 	void rotateAroundDirection(float yaw);
 	float determinate() const;
 	mat3 inverse() const;
+	vec3 transform(const vec3 &v) const;
 	vec3 &operator[](size_t index);
 	const vec3 &operator[](size_t index) const;
-	vec3 operator*(const vec3 &v) const;
 	mat3 operator*(const mat3 &m) const;
 
 	static mat3 rotation(float degrees, const vec3 &axis);
@@ -583,6 +583,7 @@ public:
 	vec4 transform(const vec4 &v) const;
 	vec3 transformNormal(const vec3 &n) const;
 	float determinate() const;
+	void extract(mat3 *rotation, vec3 *translation) const;
 
 	void copy(const mat4 &m);
 	void transpose();

@@ -183,21 +183,6 @@ typedef struct {
 	int ofsEnd;                     // end of file
 } mdsHeader_t;
 
-struct mat4wrapper
-{
-	const vec4 &operator[](size_t column) const
-	{
-		return *((vec4 *)&m[column * 4]);
-	}
-
-	vec4 &operator[](size_t column)
-	{
-		return *((vec4 *)&m[column * 4]);
-	}
-
-	mat4 m;
-};
-
 class Model_mds : public Model
 {
 public:
@@ -337,13 +322,6 @@ int Model_mds::lerpTag(const char *name, const Entity &entity, int startIndex, T
 	return -1;
 }
 
-static void LocalAddScaledMatrixTransformVectorTranslate(vec3 in, float s, const mat3 &mat, vec3 tr, vec3 &out)
-{
-	out[0] += s * (in[0] * mat[0][0] + in[1] * mat[0][1] + in[2] * mat[0][2] + tr[0]);
-	out[1] += s * (in[0] * mat[1][0] + in[1] * mat[1][1] + in[2] * mat[1][2] + tr[1]);
-	out[2] += s * (in[0] * mat[2][0] + in[1] * mat[2][1] + in[2] * mat[2][2] + tr[2]);
-}
-
 void Model_mds::render(const mat3 &sceneRotation, DrawCallList *drawCallList, Entity *entity)
 {
 	assert(drawCallList);
@@ -406,7 +384,7 @@ void Model_mds::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 			{
 				const mdsWeight_t &weight = mdsVertex->weights[j];
 				const Bone &bone = skeleton.bones[weight.boneIndex];
-				LocalAddScaledMatrixTransformVectorTranslate(weight.offset, weight.boneWeight, bone.rotation, bone.translation, v.pos);
+				v.pos += (bone.translation + bone.rotation.transform(weight.offset)) * weight.boneWeight;
 			}
 			
 			v.normal = mdsVertex->normal;
@@ -448,98 +426,26 @@ void Model_mds::recursiveBoneListAdd(int boneIndex, int *boneList, int *nBones) 
 	boneList[(*nBones)++] = boneIndex;
 }
 
-// TTimo: const vec_t ** would require explicit casts for ANSI C conformance
-// see unix/const-arg.c in Wolf MP source
-static void Matrix4MultiplyInto3x3AndTranslation(const mat4wrapper &a, const mat4wrapper &b, mat3 &dst, vec3 &t)
+static mat4 Matrix4Transform(const mat3 &rotation, vec3 translation)
 {
-	dst[0][0] = a[0][0] * b[0][0] + a[0][1] * b[1][0] + a[0][2] * b[2][0] + a[0][3] * b[3][0];
-	dst[0][1] = a[0][0] * b[0][1] + a[0][1] * b[1][1] + a[0][2] * b[2][1] + a[0][3] * b[3][1];
-	dst[0][2] = a[0][0] * b[0][2] + a[0][1] * b[1][2] + a[0][2] * b[2][2] + a[0][3] * b[3][2];
-	t[0] = a[0][0] * b[0][3] + a[0][1] * b[1][3] + a[0][2] * b[2][3] + a[0][3] * b[3][3];
-
-	dst[1][0] = a[1][0] * b[0][0] + a[1][1] * b[1][0] + a[1][2] * b[2][0] + a[1][3] * b[3][0];
-	dst[1][1] = a[1][0] * b[0][1] + a[1][1] * b[1][1] + a[1][2] * b[2][1] + a[1][3] * b[3][1];
-	dst[1][2] = a[1][0] * b[0][2] + a[1][1] * b[1][2] + a[1][2] * b[2][2] + a[1][3] * b[3][2];
-	t[1] = a[1][0] * b[0][3] + a[1][1] * b[1][3] + a[1][2] * b[2][3] + a[1][3] * b[3][3];
-
-	dst[2][0] = a[2][0] * b[0][0] + a[2][1] * b[1][0] + a[2][2] * b[2][0] + a[2][3] * b[3][0];
-	dst[2][1] = a[2][0] * b[0][1] + a[2][1] * b[1][1] + a[2][2] * b[2][1] + a[2][3] * b[3][1];
-	dst[2][2] = a[2][0] * b[0][2] + a[2][1] * b[1][2] + a[2][2] * b[2][2] + a[2][3] * b[3][2];
-	t[2] = a[2][0] * b[0][3] + a[2][1] * b[1][3] + a[2][2] * b[2][3] + a[2][3] * b[3][3];
+	// mat4::transform translation is 12,13,14
+	mat4 m;
+	m[0] = rotation[0][0]; m[4] = rotation[1][0]; m[8] = rotation[2][0];  m[12] = 0;
+	m[1] = rotation[0][1]; m[5] = rotation[1][1]; m[9] = rotation[2][1];  m[13] = 0;
+	m[2] = rotation[0][2]; m[6] = rotation[1][2]; m[10] = rotation[2][2]; m[14] = 0;
+	m[3] = translation[0]; m[7] = translation[1]; m[11] = translation[2]; m[15] = 1;
+	return m;
 }
 
-// can put an axis rotation followed by a translation directly into one matrix
-// TTimo: const vec_t ** would require explicit casts for ANSI C conformance
-// see unix/const-arg.c in Wolf MP source
-static void Matrix4FromAxisPlusTranslation(const mat3 &axis, const vec3 t, mat4wrapper &dst)
+static void Matrix4Extract(const mat4 &m, mat3 *rotation, vec3 *translation)
 {
-	int i, j;
-	for (i = 0; i < 3; i++) {
-		for (j = 0; j < 3; j++) {
-			dst[i][j] = axis[i][j];
-		}
-		dst[3][i] = 0;
-		dst[i][3] = t[i];
-	}
-	dst[3][3] = 1;
-}
-
-// can put a scaled axis rotation followed by a translation directly into one matrix
-// TTimo: const vec_t ** would require explicit casts for ANSI C conformance
-// see unix/const-arg.c in Wolf MP source
-static void Matrix4FromScaledAxisPlusTranslation(const mat3 &axis, const float scale, const vec3 t, mat4wrapper &dst)
-{
-	int i, j;
-
-	for (i = 0; i < 3; i++) {
-		for (j = 0; j < 3; j++) {
-			dst[i][j] = scale * axis[i][j];
-			if (i == j) {
-				dst[i][j] += 1.0f - scale;
-			}
-		}
-		dst[3][i] = 0;
-		dst[i][3] = t[i];
-	}
-	dst[3][3] = 1;
-}
-
-static vec3 LocalScaledMatrixTransformVector(vec3 in, float s, const mat3 &mat)
-{
-	vec3 out;
-	out[0] = (1.0f - s) * in[0] + s * (in[0] * mat[0][0] + in[1] * mat[0][1] + in[2] * mat[0][2]);
-	out[1] = (1.0f - s) * in[1] + s * (in[0] * mat[1][0] + in[1] * mat[1][1] + in[2] * mat[1][2]);
-	out[2] = (1.0f - s) * in[2] + s * (in[0] * mat[2][0] + in[1] * mat[2][1] + in[2] * mat[2][2]);
-	return out;
-}
-
-static vec3 LocalAngleVector(const vec3 angles)
-{
-	float LAVangle = angles[YAW] * ((float)M_PI * 2 / 360);
-	float sy = sin(LAVangle);
-	float cy = cos(LAVangle);
-	LAVangle = angles[PITCH] * ((float)M_PI * 2 / 360);
-	float sp = sin(LAVangle);
-	float cp = cos(LAVangle);
-
-	vec3 forward;
-	forward[0] = cp * cy;
-	forward[1] = cp * sy;
-	forward[2] = -sp;
-	return forward;
+	m.extract(rotation, nullptr);
+	(*translation)[0] = m[3];
+	(*translation)[1] = m[7];
+	(*translation)[2] = m[11];
 }
 
 #define SHORT2ANGLE( x )  ( ( x ) * ( 360.0f / 65536 ) )
-
-static vec3 SLerp_Normal(const vec3 from, const vec3 to, float tt)
-{
-	vec3 out;
-	const float ft = 1.0f - tt;
-	out[0] = from[0] * ft + to[0] * tt;
-	out[1] = from[1] * ft + to[1] * tt;
-	out[2] = from[2] * ft + to[2] * tt;
-	return out.normal();
-}
 
 /*
 =================
@@ -640,14 +546,14 @@ Model_mds::Bone Model_mds::calculateBoneRaw(const Entity &entity, int boneIndex,
 			angles[0] = SHORT2ANGLE(compressedTorsoBone->ofsAngles[0]);
 			angles[1] = SHORT2ANGLE(compressedTorsoBone->ofsAngles[1]);
 			angles[2] = 0;
-			vec = LocalAngleVector(angles);
+			angles.toAngleVectors(&vec);
 		}
 		else
 		{
 			angles[0] = SHORT2ANGLE(compressedBone.ofsAngles[0]);
 			angles[1] = SHORT2ANGLE(compressedBone.ofsAngles[1]);
 			angles[2] = 0;
-			vec = LocalAngleVector(angles);
+			angles.toAngleVectors(&vec);
 
 			if (isTorso)
 			{
@@ -655,10 +561,11 @@ Model_mds::Bone Model_mds::calculateBoneRaw(const Entity &entity, int boneIndex,
 				torsoAngles[0] = SHORT2ANGLE(compressedTorsoBone->ofsAngles[0]);
 				torsoAngles[1] = SHORT2ANGLE(compressedTorsoBone->ofsAngles[1]);
 				torsoAngles[2] = 0;
-				vec3 v2 = LocalAngleVector(torsoAngles);
+				vec3 v2;
+				torsoAngles.toAngleVectors(&v2);
 
 				// blend the angles together
-				vec = SLerp_Normal(vec, v2, bi.torsoWeight);
+				vec = vec3::lerp(vec, v2, bi.torsoWeight);
 			}
 		}
 
@@ -767,23 +674,25 @@ Model_mds::Bone Model_mds::calculateBoneLerp(const Entity &entity, int boneIndex
 		angles[0] = SHORT2ANGLE(sh1[0]);
 		angles[1] = SHORT2ANGLE(sh1[1]);
 		angles[2] = 0;
-		vec3 v2 = LocalAngleVector(angles); // new
+		vec3 v2;
+		angles.toAngleVectors(&v2); // new
 
 		angles[0] = SHORT2ANGLE(sh2[0]);
 		angles[1] = SHORT2ANGLE(sh2[1]);
 		angles[2] = 0;
-		vec3 vec = LocalAngleVector(angles); // old
+		vec3 vec;
+		angles.toAngleVectors(&vec); // old
 
 		// blend the angles together
 		vec3 dir;
 
 		if (fullTorso)
 		{
-			dir = SLerp_Normal(vec, v2, skeleton.torsoFrontLerp);
+			dir = vec3::lerp(vec, v2, skeleton.torsoFrontLerp);
 		}
 		else
 		{
-			dir = SLerp_Normal(vec, v2, skeleton.frontLerp);
+			dir = vec3::lerp(vec, v2, skeleton.frontLerp);
 		}
 
 		// translation
@@ -794,18 +703,20 @@ Model_mds::Bone Model_mds::calculateBoneLerp(const Entity &entity, int boneIndex
 			angles[0] = SHORT2ANGLE(compressedTorsoBone->ofsAngles[0]);
 			angles[1] = SHORT2ANGLE(compressedTorsoBone->ofsAngles[1]);
 			angles[2] = 0;
-			vec3 v2 = LocalAngleVector(angles); // new
+			vec3 v2;
+			angles.toAngleVectors(&v2); // new
 
 			angles[0] = SHORT2ANGLE(oldCompressedTorsoBone->ofsAngles[0]);
 			angles[1] = SHORT2ANGLE(oldCompressedTorsoBone->ofsAngles[1]);
 			angles[2] = 0;
-			vec3 vec = LocalAngleVector(angles); // old
+			vec3 vec;
+			angles.toAngleVectors(&vec); // old
 
 			// blend the angles together
-			v2 = SLerp_Normal(vec, v2, skeleton.torsoFrontLerp);
+			v2 = vec3::lerp(vec, v2, skeleton.torsoFrontLerp);
 
 			// blend the torso/legs together
-			dir = SLerp_Normal(dir, v2, bi.torsoWeight);
+			dir = vec3::lerp(dir, v2, bi.torsoWeight);
 		}
 
 		bone.translation = parentBone->translation + dir * bi.parentDist;
@@ -899,7 +810,7 @@ Model_mds::Skeleton Model_mds::calculateSkeleton(const Entity &entity, int *bone
 	// Adjust for torso rotations.
 	float torsoWeight = 0;
 	boneRefs = boneList;
-	mat4wrapper m2;
+	mat4 m2;
 
 	for (int i = 0; i < nBones; i++, boneRefs++)
 	{
@@ -914,33 +825,41 @@ Model_mds::Skeleton Model_mds::calculateSkeleton(const Entity &entity, int *bone
 				// 1st multiply with the bone->matrix
 				// 2nd translation for rotation relative to bone around torso parent offset
 				const vec3 t = bone->translation - torsoParentOffset;
-				mat4wrapper m1;
-				Matrix4FromAxisPlusTranslation(bone->rotation, t, m1);
+				mat4 m1 = Matrix4Transform(bone->rotation, t);
 				// 3rd scaled rotation
 				// 4th translate back to torso parent offset
 				// use previously created matrix if available for the same weight
 				if (torsoWeight != bi.torsoWeight)
 				{
-					Matrix4FromScaledAxisPlusTranslation(torsoRotation, bi.torsoWeight, torsoParentOffset, m2);
+					mat3 scaledRotation;
+
+					for (int j = 0; j < 3; j++)
+					{
+						for (int k = 0; k < 3; k++)
+						{
+							scaledRotation[j][k] = torsoRotation[j][k] * bi.torsoWeight;
+
+							if (j == k)
+								scaledRotation[j][k] += 1.0f - bi.torsoWeight;
+						}
+					}
+
+					m2 = Matrix4Transform(scaledRotation, torsoParentOffset);
 					torsoWeight = bi.torsoWeight;
 				}
 
 				// multiply matrices to create one matrix to do all calculations
-				Matrix4MultiplyInto3x3AndTranslation(m2, m1, bone->rotation, bone->translation);
+				Matrix4Extract(m1 * m2, &bone->rotation, &bone->translation);
 			}
 			else // tags require special handling
 			{
 				// rotate each of the axis by the torsoAngles
-				mat3 tempRotation;
-				tempRotation[0] = LocalScaledMatrixTransformVector(bone->rotation[0], bi.torsoWeight, torsoRotation);
-				tempRotation[1] = LocalScaledMatrixTransformVector(bone->rotation[1], bi.torsoWeight, torsoRotation);
-				tempRotation[2] = LocalScaledMatrixTransformVector(bone->rotation[2], bi.torsoWeight, torsoRotation);
-				bone->rotation = tempRotation;
+				for (int j = 0; j < 3; j++)
+					bone->rotation[j] = bone->rotation[j] * (1 - bi.torsoWeight) + torsoRotation.transform(bone->rotation[j]) * bi.torsoWeight;
 
 				// rotate the translation around the torsoParent
 				const vec3 t = bone->translation - torsoParentOffset;
-				bone->translation = LocalScaledMatrixTransformVector(t, bi.torsoWeight, torsoRotation);
-				bone->translation = bone->translation + torsoParentOffset;
+				bone->translation = t * (1 - bi.torsoWeight) + torsoRotation.transform(t) * bi.torsoWeight + torsoParentOffset;
 			}
 		}
 	}
