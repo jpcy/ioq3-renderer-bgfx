@@ -1004,7 +1004,7 @@ static int RE_LightForPoint(vec3_t point, vec3_t ambientLight, vec3_t directedLi
 
 static void RE_AddPolyToScene(qhandle_t hShader, int numVerts, const polyVert_t *verts)
 {
-	//main::AddPolyToScene(hShader, numVerts, verts, num);
+	main::AddPolyToScene(hShader, numVerts, verts, 1);
 }
 
 static void RE_AddPolysToScene(qhandle_t hShader, int numVerts, const polyVert_t *verts, int num)
@@ -1085,10 +1085,10 @@ static void RE_EndFrame(int *frontEndMsec, int *backEndMsec)
 	main::EndFrame();
 }
 
-static int RE_MarkFragments(int numPoints, const vec3_t *points, const vec3_t projection, int maxPoints, vec3_t pointBuffer, int maxFragments, markFragment_t *fragmentBuffer)
+static int RE_MarkFragments(int orientation, const vec3_t *points, const vec3_t projection, int maxPoints, vec3_t pointBuffer, int maxFragments, markFragment_t *fragmentBuffer)
 {
-	//if (world::IsLoaded())
-		//return world::MarkFragments(numPoints, (const vec3 *)points, projection, maxPoints, (vec3 *)pointBuffer, maxFragments, fragmentBuffer);
+	if (world::IsLoaded())
+		return world::MarkFragments(4, (const vec3 *)points, projection, maxPoints, (vec3 *)pointBuffer, maxFragments, fragmentBuffer);
 
 	return 0;
 }
