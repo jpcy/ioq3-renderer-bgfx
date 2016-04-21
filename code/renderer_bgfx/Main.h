@@ -157,8 +157,10 @@ private:
 	{
 		enum
 		{
-			UseClippingPlane = 1<<0,
-			UseStencilTest   = 1<<1
+			ContainsSkyboxPortal = 1<<0,
+			IsSkyboxPortal       = 1<<1,
+			UseClippingPlane     = 1<<2,
+			UseStencilTest       = 1<<3
 		};
 	};
 
@@ -285,6 +287,13 @@ private:
 	std::array<Shader, FragmentShaderId::Num> fragmentShaders_;
 	std::array<Shader, VertexShaderId::Num> vertexShaders_;
 	std::array<ShaderProgram, (int)ShaderProgramId::Num> shaderPrograms_;
+	/// @}
+
+	/// @name Skybox portals
+	/// @{
+	bool skyboxPortalEnabled_ = false;
+	SceneDefinition skyboxPortalScene_;
+	uint8_t skyboxPortalVisCacheId;
 	/// @}
 
 	/// @name SMAA

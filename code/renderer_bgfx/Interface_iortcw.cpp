@@ -1036,6 +1036,10 @@ static void RE_RenderScene(const refdef_t *fd)
 
 	if (fd->rdflags & RDF_HYPERSPACE)
 		scene.flags |= SceneDefinitionFlags::Hyperspace;
+	if (fd->rdflags & RDF_SKYBOXPORTAL)
+		scene.flags |= SceneDefinitionFlags::SkyboxPortal;
+	if (fd->rdflags & RDF_DRAWSKYBOX)
+		scene.flags |= SceneDefinitionFlags::ContainsSkyboxPortal;
 	if ((fd->rdflags & RDF_NOWORLDMODEL) == 0)
 		scene.flags |= SceneDefinitionFlags::World;
 

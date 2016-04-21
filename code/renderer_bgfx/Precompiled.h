@@ -1140,8 +1140,10 @@ struct SceneDefinitionFlags
 {
 	enum
 	{
-		Hyperspace = 1<<0,
-		World      = 1<<1
+		Hyperspace           = 1<<0,
+		SkyboxPortal         = 1<<1,
+		ContainsSkyboxPortal = 1<<2,
+		World                = 1<<3
 	};
 };
 

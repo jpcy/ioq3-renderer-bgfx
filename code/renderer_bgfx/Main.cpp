@@ -559,6 +559,7 @@ void Main::loadWorld(const char *name)
 	mainVisCacheId_ = world::CreateVisCache();
 	portalVisCacheId_ = world::CreateVisCache();
 	reflectionVisCacheId_ = world::CreateVisCache();
+	skyboxPortalVisCacheId = world::CreateVisCache();
 	dlightManager_->initializeGrid();
 }
 
@@ -622,6 +623,12 @@ void Main::renderScene(const SceneDefinition &scene)
 		bgfx::setViewClear(viewId, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, (c<<24)|(c<<16)|(c<<8)|0xff);
 		bgfx::touch(viewId);
 	}
+	else if (scene.flags & SceneDefinitionFlags::SkyboxPortal)
+	{
+		// Render the skybox portal as a camera in the containing scene.
+		skyboxPortalEnabled_ = true;
+		skyboxPortalScene_ = scene;
+	}
 	else
 	{
 		isWorldScene_ = (scene.flags & SceneDefinitionFlags::World) && world::IsLoaded();
@@ -640,7 +647,19 @@ void Main::renderScene(const SceneDefinition &scene)
 
 		// Render camera(s).
 		sceneRotation_ = scene.rotation;
-		renderCamera(mainVisCacheId_, scene.position, scene.position, sceneRotation_, rect, scene.fov, scene.areaMask);
+
+		if (skyboxPortalEnabled_)
+		{
+			renderCamera(skyboxPortalVisCacheId, skyboxPortalScene_.position, skyboxPortalScene_.position, skyboxPortalScene_.rotation, rect, skyboxPortalScene_.fov, skyboxPortalScene_.areaMask, Plane(), RenderCameraFlags::IsSkyboxPortal);
+			skyboxPortalEnabled_ = false;
+		}
+
+		int cameraFlags = 0;
+
+		if (scene.flags & SceneDefinitionFlags::ContainsSkyboxPortal)
+			cameraFlags |= RenderCameraFlags::ContainsSkyboxPortal;
+
+		renderCamera(mainVisCacheId_, scene.position, scene.position, sceneRotation_, rect, scene.fov, scene.areaMask, Plane(), cameraFlags);
 
 		if (isWorldScene_)
 		{
@@ -999,7 +1018,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 				// Render to the scene frame buffer with stencil testing.
 				isCameraMirrored_ = true;
-				renderCamera(reflectionVisCacheId_, pvsPosition, reflectionCamera.position, reflectionCamera.rotation, rect, fov, areaMask, reflectionPlane, RenderCameraFlags::UseClippingPlane | RenderCameraFlags::UseStencilTest);
+				renderCamera(reflectionVisCacheId_, pvsPosition, reflectionCamera.position, reflectionCamera.rotation, rect, fov, areaMask, reflectionPlane, flags | RenderCameraFlags::UseClippingPlane | RenderCameraFlags::UseStencilTest);
 				isCameraMirrored_ = false;
 
 				// Blit the scene frame buffer to the reflection frame buffer.
@@ -1025,7 +1044,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 			// Render the portal camera with stencil testing.
 			isCameraMirrored_ = isCameraMirrored;
-			renderCamera(portalVisCacheId_, pvsPosition, portalCamera.position, portalCamera.rotation, rect, fov, areaMask, portalPlane, RenderCameraFlags::UseClippingPlane | RenderCameraFlags::UseStencilTest);
+			renderCamera(portalVisCacheId_, pvsPosition, portalCamera.position, portalCamera.rotation, rect, fov, areaMask, portalPlane, flags | RenderCameraFlags::UseClippingPlane | RenderCameraFlags::UseStencilTest);
 			isCameraMirrored_ = false;
 		}
 	}
@@ -1035,7 +1054,10 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 	if (isWorldScene_)
 	{
-		Sky_Render(&drawCalls_, position, visCacheId, zMax);
+		// If dealing with skybox portals, only render the sky to the skybox portal, not the camera containing it.
+		if ((flags & RenderCameraFlags::IsSkyboxPortal) || (flags & RenderCameraFlags::ContainsSkyboxPortal) == 0)
+			Sky_Render(&drawCalls_, position, visCacheId, zMax);
+
 		world::Render(visCacheId, &drawCalls_, sceneRotation_);
 	}
 
