@@ -154,6 +154,7 @@ struct ConsoleVariables
 	ConsoleVariable brightness;
 	ConsoleVariable contrast;
 	ConsoleVariable gamma;
+	ConsoleVariable ignoreHardwareGamma;
 	ConsoleVariable saturation;
 	/// @}
 
@@ -1614,6 +1615,7 @@ namespace window
 	int GetHeight();
 	int IsFullscreen();
 	void Initialize();
+	void SetGamma(const uint8_t *red, const uint8_t *green, const uint8_t *blue);
 	void Shutdown();
 }
 
@@ -1649,6 +1651,8 @@ static const size_t g_funcTableSize2 = 10;
 static const size_t g_funcTableMask = g_funcTableSize - 1;
 static const int g_overbrightFactor = 2;
 static const float g_identityLight = 1.0f / g_overbrightFactor;
+static const size_t g_gammaTableSize = 256;
+static uint8_t g_gammaTable[g_gammaTableSize];
 
 extern ConsoleVariables g_cvars;
 extern const uint8_t *g_externalVisData;

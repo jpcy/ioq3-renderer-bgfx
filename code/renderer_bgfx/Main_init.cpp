@@ -147,6 +147,7 @@ void ConsoleVariables::initialize()
 	brightness = interface::Cvar_Get("r_brightness", "1", ConsoleVariableFlags::Archive);
 	contrast = interface::Cvar_Get("r_contrast", "1", ConsoleVariableFlags::Archive);
 	gamma = interface::Cvar_Get("r_gamma", "1", ConsoleVariableFlags::Archive);
+	ignoreHardwareGamma = interface::Cvar_Get("r_ignorehwgamma", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	saturation = interface::Cvar_Get("r_saturation", "1", ConsoleVariableFlags::Archive);
 
 	// Window
@@ -343,6 +344,9 @@ void Main::initialize()
 	// Create a window if we don't have one.
 	if (window::GetWidth() == 0)
 	{
+		window::Initialize();
+		setWindowGamma();
+
 		// Get the selected backend, and make sure it's actually supported.
 		bgfx::RendererType::Enum supportedBackends[bgfx::RendererType::Count];
 		const uint8_t nSupportedBackends = bgfx::getSupportedRenderers(supportedBackends);
@@ -367,8 +371,6 @@ void Main::initialize()
 				break;
 			}
 		}
-
-		window::Initialize();
 		
 		if (!bgfx::init(selectedBackend, 0, 0, &bgfxCallback))
 		{

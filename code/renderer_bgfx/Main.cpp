@@ -161,6 +161,14 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 			colorOut[1] = colorIn[1];
 			colorOut[2] = colorIn[0];
 			colorOut[3] = 255;
+
+			// Apply gamma correction.
+			if (!g_cvars.ignoreHardwareGamma.getBool())
+			{
+				colorOut[0] = g_gammaTable[colorOut[0]];
+				colorOut[1] = g_gammaTable[colorOut[1]];
+				colorOut[2] = g_gammaTable[colorOut[2]];
+			}
 		}
 	}
 
@@ -450,17 +458,26 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 	stretchPicViewId_ = UINT8_MAX;
 	uploadCinematic(w, h, cols, rows, data, client, dirty);
 	auto vertices = (Vertex *)tvb.data;
-	vertices[0].pos = { 0, 0, 0 }; vertices[0].texCoord = { 0, 0 }; vertices[0].color = vec4::white;
-	vertices[1].pos = { 1, 0, 0 }; vertices[1].texCoord = { 1, 0 }; vertices[1].color = vec4::white;
-	vertices[2].pos = { 1, 1, 0 }; vertices[2].texCoord = { 1, 1 }; vertices[2].color = vec4::white;
-	vertices[3].pos = { 0, 1, 0 }; vertices[3].texCoord = { 0, 1 }; vertices[3].color = vec4::white;
+	vertices[0].pos = { 0, 0, 0 }; vertices[0].texCoord = { 0, 0 };
+	vertices[1].pos = { 1, 0, 0 }; vertices[1].texCoord = { 1, 0 };
+	vertices[2].pos = { 1, 1, 0 }; vertices[2].texCoord = { 1, 1 };
+	vertices[3].pos = { 0, 1, 0 }; vertices[3].texCoord = { 0, 1 };
 	auto indices = (uint16_t *)tib.data;
 	indices[0] = 0; indices[1] = 1; indices[2] = 2;
 	indices[3] = 2; indices[4] = 3; indices[5] = 0;
 	bgfx::setVertexBuffer(&tvb);
 	bgfx::setIndexBuffer(&tib);
 	bgfx::setTexture(0, uniforms_->textureSampler.handle, Texture::getScratch(size_t(client))->getHandle());
-	matStageUniforms_->color.set(vec4::white);
+
+	if (g_cvars.ignoreHardwareGamma.getBool())
+	{
+		matStageUniforms_->color.set(vec4::white);
+	}
+	else
+	{
+		matStageUniforms_->color.set(vec4(g_identityLight, g_identityLight, g_identityLight, 1));
+	}
+	
 	bgfx::setState(BGFX_STATE_RGB_WRITE);
 	const uint8_t viewId = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), Rect(x, y, w, h), PushViewFlags::Sequential);
 	bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::TextureColor].handle);
@@ -836,6 +853,12 @@ void Main::endFrame()
 	{
 		debugDraw_ = DebugDrawFromString(g_cvars.debugDraw.getString());
 		g_cvars.debugDraw.clearModified();
+	}
+
+	if (g_cvars.gamma.isModified())
+	{
+		setWindowGamma();
+		g_cvars.gamma.clearModified();
 	}
 
 	if (g_cvars.debugText.getBool())
@@ -1682,6 +1705,28 @@ void Main::setTexelOffsetsDownsample4x4(int width, int height)
 	uniforms_->texelOffsets.set(offsets, num);
 }
 
+void Main::setWindowGamma()
+{
+	if (g_cvars.ignoreHardwareGamma.getBool())
+		return;
+		
+	const float gamma = math::Clamped(g_cvars.gamma.getFloat(), 0.5f, 3.0f);
+
+	for (size_t i = 0; i < g_gammaTableSize; i++)
+	{
+		int value = int(i);
+
+		if (gamma != 1.0f)
+		{
+			value = int(255 * pow(i / 255.0f, 1.0f / gamma) + 0.5f);
+		}
+
+		g_gammaTable[i] = math::Clamped(value * g_overbrightFactor, 0, 255);
+	}
+
+	window::SetGamma(g_gammaTable, g_gammaTable, g_gammaTable);
+}
+
 void Main::renderEntity(vec3 viewPosition, mat3 viewRotation, Frustum cameraFrustum, Entity *entity)
 {
 	assert(entity);
@@ -2005,6 +2050,10 @@ void Main::setupEntityLighting(Entity *entity)
 		entity->ambientLight += vec3(g_identityLight * 32);
 	}
 
+	// Clamp ambient.
+	for (int i = 0; i < 3; i++)
+		entity->ambientLight[i] = std::min(entity->ambientLight[i], g_identityLight * 255);
+
 	// Modify the light by dynamic lights.
 	if (!isWorldScene_)
 	{
@@ -2012,12 +2061,6 @@ void Main::setupEntityLighting(Entity *entity)
 	}
 
 	entity->lightDir.normalize();
-
-	// Clamp ambient.
-	for (size_t i = 0; i < 3; i++)
-	{
-		entity->ambientLight[i] = std::min(entity->ambientLight[i], g_identityLight * 255);
-	}
 }
 
 DebugDraw DebugDrawFromString(const char *s)

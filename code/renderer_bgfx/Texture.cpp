@@ -126,11 +126,10 @@ struct TextureCache
 		// With overbright bits active, we need an image which is some fraction of full color, for default lightmaps, etc.
 		image.width = image.height = defaultSize;
 		image.allocMemory();
-		const uint8_t identityLightByte = uint8_t(255 * g_identityLight);
 
 		for (int x = 0; x < defaultSize * defaultSize; x++)
 		{
-			image.memory->data[x * 4 + 0] = image.memory->data[x * 4 + 1] = image.memory->data[x * 4 + 2] = identityLightByte;
+			image.memory->data[x * 4 + 0] = image.memory->data[x * 4 + 1] = image.memory->data[x * 4 + 2] = uint8_t(255 * g_identityLight);
 			image.memory->data[x * 4 + 3] = 0xff;
 		}
 

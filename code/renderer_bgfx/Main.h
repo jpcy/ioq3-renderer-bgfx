@@ -174,6 +174,7 @@ private:
 	void renderToStencil(const uint8_t viewId);
 	void setTexelOffsetsDownsample2x2(int width, int height);
 	void setTexelOffsetsDownsample4x4(int width, int height);
+	void setWindowGamma();
 
 	/// @name Entity rendering
 	/// @{

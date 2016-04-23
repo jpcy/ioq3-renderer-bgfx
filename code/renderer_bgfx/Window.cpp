@@ -339,6 +339,52 @@ success:
 	bgfx::sdlSetWindow(SDL_window);
 }
 
+void SetGamma(const uint8_t *red, const uint8_t *green, const uint8_t *blue)
+{
+	uint16_t table[3][256];
+
+	//if (!glConfig.deviceSupportsGamma || r_ignorehwgamma->integer > 0)
+		//return;
+
+	for (int i = 0; i < 256; i++)
+	{
+		table[0][i] = (((uint16_t)red[i]) << 8) | red[i];
+		table[1][i] = (((uint16_t)green[i]) << 8) | green[i];
+		table[2][i] = (((uint16_t)blue[i]) << 8) | blue[i];
+	}
+
+#ifdef _WIN32
+	// Win2K and newer put this odd restriction on gamma ramps...
+	for (int j = 0; j < 3; j++)
+	{
+		for (int i = 0; i < 128; i++)
+		{
+			if (table[j][i] >((128 + i) << 8))
+				table[j][i] = (128 + i) << 8;
+		}
+
+		if (table[j][127] > 254 << 8)
+			table[j][127] = 254 << 8;
+	}
+#endif
+
+	// enforce constantly increasing
+	for (int j = 0; j < 3; j++)
+	{
+		for (int i = 1; i < 256; i++)
+		{
+			if (table[j][i] < table[j][i - 1])
+				table[j][i] = table[j][i - 1];
+		}
+	}
+
+	if (SDL_SetWindowGammaRamp(SDL_window, table[0], table[1], table[2]) < 0)
+	{
+		interface::PrintDeveloperf("SDL_SetWindowGammaRamp() failed: %s\n", SDL_GetError());
+	}
+}
+
+
 void Shutdown()
 {
 	interface::IN_Shutdown();
