@@ -163,14 +163,17 @@ void ConsoleVariables::initialize()
 
 static void TakeScreenshot(const char *extension)
 {
-	const bool silent = !strcmp(interface::Cmd_Argv(1), "silent");
 	static int lastNumber = -1;
 	char filename[MAX_OSPATH];
+
+	// Normally the "Wrote %s" message would be printed in this function, but since BGFX screenshots the next frame, that message would show up in the screenshot.
+	// Pass the silent arg by shoving it in the first character of the filename.
+	const char silent = !strcmp(interface::Cmd_Argv(1), "silent") ? 'y' : 'n';
 
 	if (interface::Cmd_Argc() == 2 && !silent)
 	{
 		// Explicit filename.
-		util::Sprintf(filename, MAX_OSPATH, "screenshots/%s.%s", interface::Cmd_Argv(1), extension);
+		util::Sprintf(filename, MAX_OSPATH, "%cscreenshots/%s.%s", silent, interface::Cmd_Argv(1), extension);
 	}
 	else
 	{
@@ -184,7 +187,7 @@ static void TakeScreenshot(const char *extension)
 		{
 			if (lastNumber < 0 || lastNumber > 9999)
 			{
-				util::Sprintf(filename, MAX_OSPATH, "screenshots/shot9999.%s", extension);
+				util::Sprintf(filename, MAX_OSPATH, "%cscreenshots/shot9999.%s", silent, extension);
 			}
 			else
 			{
@@ -195,10 +198,10 @@ static void TakeScreenshot(const char *extension)
 				int c = lastNumber / 10;
 				lastNumber -= c * 10;
 				int d = lastNumber;
-				util::Sprintf(filename, MAX_OSPATH, "screenshots/shot%i%i%i%i.%s", a, b, c, d, extension);
+				util::Sprintf(filename, MAX_OSPATH, "%cscreenshots/shot%i%i%i%i.%s", silent, a, b, c, d, extension);
 			}
 
-			if (!interface::FS_FileExists(filename))
+			if (!interface::FS_FileExists(filename + 1)) // Skip first char - silent arg.
 				break; // File doesn't exist.
 		}
 
@@ -212,9 +215,6 @@ static void TakeScreenshot(const char *extension)
 	}
 
 	bgfx::saveScreenShot(filename);
-
-	if (!silent)
-		interface::Printf("Wrote %s\n", filename);
 }
 
 static void Cmd_PrintMaterials()

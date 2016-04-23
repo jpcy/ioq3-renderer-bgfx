@@ -139,6 +139,8 @@ static void ImageWriteCallbackConst(void *context, const void *data, int size)
 void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _height, uint32_t _pitch, const void* _data, uint32_t _size, bool _yflip)
 {
 	const int nComponents = 4;
+	const bool silent = _filePath[0] == 'y';
+	_filePath++;
 	const char *extension = util::GetExtension(_filePath);
 	const bool writeAsPng = !util::Stricmp(extension, "png");
 	const uint32_t outputPitch = writeAsPng ? _pitch : _width * nComponents; // PNG can use any pitch, others can't.
@@ -207,6 +209,9 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 	{
 		interface::FS_WriteFile(_filePath, buffer.data->data(), buffer.bytesWritten);
 	}
+
+	if (!silent)
+		interface::Printf("Wrote %s\n", _filePath);
 }
 
 void BgfxCallback::captureBegin(uint32_t _width, uint32_t _height, uint32_t _pitch, bgfx::TextureFormat::Enum _format, bool _yflip)
