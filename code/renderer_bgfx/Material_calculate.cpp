@@ -548,7 +548,7 @@ void MaterialStage::calculateColors(vec4 *baseColor, vec4 *vertColor) const
 	}
 
 	// Multiply color by overbrightbits if this isn't a blend.
-	if (g_cvars.ignoreHardwareGamma.getBool() && g_overbrightFactor > 1
+	if (!g_hardwareGammaEnabled && g_overbrightFactor > 1
 		&& blendSrc != BGFX_STATE_BLEND_DST_COLOR
 		&& blendSrc != BGFX_STATE_BLEND_INV_DST_COLOR
 		&& blendDst != BGFX_STATE_BLEND_SRC_COLOR

@@ -343,9 +343,6 @@ void SetGamma(const uint8_t *red, const uint8_t *green, const uint8_t *blue)
 {
 	uint16_t table[3][256];
 
-	//if (!glConfig.deviceSupportsGamma || r_ignorehwgamma->integer > 0)
-		//return;
-
 	for (int i = 0; i < 256; i++)
 	{
 		table[0][i] = (((uint16_t)red[i]) << 8) | red[i];
@@ -380,7 +377,7 @@ void SetGamma(const uint8_t *red, const uint8_t *green, const uint8_t *blue)
 
 	if (SDL_SetWindowGammaRamp(SDL_window, table[0], table[1], table[2]) < 0)
 	{
-		interface::PrintDeveloperf("SDL_SetWindowGammaRamp() failed: %s\n", SDL_GetError());
+		interface::PrintWarningf("SDL_SetWindowGammaRamp() failed: %s\n", SDL_GetError());
 	}
 }
 

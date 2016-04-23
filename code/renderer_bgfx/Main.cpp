@@ -165,7 +165,7 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 			colorOut[3] = 255;
 
 			// Apply gamma correction.
-			if (!g_cvars.ignoreHardwareGamma.getBool())
+			if (g_hardwareGammaEnabled)
 			{
 				colorOut[0] = g_gammaTable[colorOut[0]];
 				colorOut[1] = g_gammaTable[colorOut[1]];
@@ -474,13 +474,13 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 	bgfx::setIndexBuffer(&tib);
 	bgfx::setTexture(0, uniforms_->textureSampler.handle, Texture::getScratch(size_t(client))->getHandle());
 
-	if (g_cvars.ignoreHardwareGamma.getBool())
+	if (g_hardwareGammaEnabled)
 	{
-		matStageUniforms_->color.set(vec4::white);
+		matStageUniforms_->color.set(vec4(g_identityLight, g_identityLight, g_identityLight, 1));
 	}
 	else
 	{
-		matStageUniforms_->color.set(vec4(g_identityLight, g_identityLight, g_identityLight, 1));
+		matStageUniforms_->color.set(vec4::white);
 	}
 	
 	bgfx::setState(BGFX_STATE_RGB_WRITE);
@@ -1712,7 +1712,7 @@ void Main::setTexelOffsetsDownsample4x4(int width, int height)
 
 void Main::setWindowGamma()
 {
-	if (g_cvars.ignoreHardwareGamma.getBool())
+	if (!g_hardwareGammaEnabled)
 		return;
 		
 	const float gamma = math::Clamped(g_cvars.gamma.getFloat(), 0.5f, 3.0f);

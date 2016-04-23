@@ -1652,8 +1652,9 @@ static const size_t g_funcTableMask = g_funcTableSize - 1;
 static const int g_overbrightFactor = 2;
 static const float g_identityLight = 1.0f / g_overbrightFactor;
 static const size_t g_gammaTableSize = 256;
-static uint8_t g_gammaTable[g_gammaTableSize];
 
+extern uint8_t g_gammaTable[g_gammaTableSize];
+extern bool g_hardwareGammaEnabled;
 extern ConsoleVariables g_cvars;
 extern const uint8_t *g_externalVisData;
 extern MaterialCache *g_materialCache;

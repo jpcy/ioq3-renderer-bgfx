@@ -58,6 +58,8 @@ bgfx::VertexDecl Vertex::decl;
 
 static std::unique_ptr<Main> s_main;
 
+uint8_t g_gammaTable[g_gammaTableSize];
+bool g_hardwareGammaEnabled;
 ConsoleVariables g_cvars;
 const uint8_t *g_externalVisData = nullptr;
 MaterialCache *g_materialCache = nullptr;
@@ -345,6 +347,7 @@ void Main::initialize()
 	if (window::GetWidth() == 0)
 	{
 		window::Initialize();
+		g_hardwareGammaEnabled = window::IsFullscreen() && !g_cvars.ignoreHardwareGamma.getBool();
 		setWindowGamma();
 
 		// Get the selected backend, and make sure it's actually supported.
