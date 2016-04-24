@@ -459,7 +459,7 @@ void World::load(const char *name)
 							const int lightmapX = (nAtlasedLightmaps % nLightmapsPerAtlas_) % nLightmapsPerDimension;
 							const int lightmapY = (nAtlasedLightmaps % nLightmapsPerAtlas_) / nLightmapsPerDimension;
 							const size_t destOffset = ((lightmapX * lightmapSize_ + x) + (lightmapY * lightmapSize_ + y) * lightmapAtlasSize_) * image.nComponents;
-							overbrightenColor(&srcData[srcOffset], &image.memory->data[destOffset]);
+							memcpy(&image.memory->data[destOffset], &srcData[srcOffset], 3);
 							image.memory->data[destOffset + 3] = 0xff;
 						}
 					}
@@ -517,13 +517,6 @@ void World::load(const char *name)
 		{
 			lightGridData_.resize(lump.filelen);
 			memcpy(lightGridData_.data(), &fileData_[lump.fileofs], lump.filelen);
-
-			// Deal with overbright bits.
-			for (int i = 0; i < numGridPoints; i++)
-			{
-				overbrightenColor(&lightGridData_[i * 8], &lightGridData_[i * 8]);
-				overbrightenColor(&lightGridData_[i * 8 + 3], &lightGridData_[i * 8 + 3]);
-			}
 		}
 	}
 
@@ -552,9 +545,13 @@ void World::load(const char *name)
 		v.texCoord = vec2(LittleFloat(fv.st[0]), LittleFloat(fv.st[1]));
 		v.texCoord2 = vec2(LittleFloat(fv.lightmap[0]), LittleFloat(fv.lightmap[1]));
 
-		uint8_t color[3];
-		overbrightenColor(fv.color, color);
-		v.color = util::ToLinear(vec4(color[0] / 255.0f, color[1] / 255.0f, color[2] / 255.0f, fv.color[3] / 255.0f));
+		v.color = util::ToLinear(vec4
+		(
+			fv.color[0] / 255.0f * (float)g_overbrightFactor,
+			fv.color[1] / 255.0f * (float)g_overbrightFactor,
+			fv.color[2] / 255.0f * (float)g_overbrightFactor,
+			fv.color[3] / 255.0f
+		));
 	}
 
 	// Indices

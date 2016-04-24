@@ -206,7 +206,7 @@ void main()
 
 	if (lightType == LIGHT_MAP)
 	{
-		diffuseLight = texture2D(u_LightSampler, v_texcoord1).rgb;
+		diffuseLight = texture2D(u_LightSampler, v_texcoord1).rgb * OVERBRIGHT_FACTOR;
 	}
 	else if (lightType == LIGHT_VECTOR)
 	{

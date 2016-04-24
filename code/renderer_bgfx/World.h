@@ -337,7 +337,6 @@ private:
 	int decalDuplicateSurfaceId_ = 0;
 
 	static bool surfaceCompare(const Surface *s1, const Surface *s2);
-	static void overbrightenColor(const uint8_t *in, uint8_t *out);
 	void setSurfaceGeometry(Surface *surface, const Vertex *vertices, int nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex);
 	void appendSkySurfaceGeometry(uint8_t visCacheId, size_t skyIndex, const Surface &surface);
 	Material *findMaterial(int materialIndex, int lightmapIndex);

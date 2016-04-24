@@ -414,12 +414,12 @@ void World::sampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLig
 
 		totalFactor += factor;
 
-		(*ambientLight)[0] += factor * data[0];
-		(*ambientLight)[1] += factor * data[1];
-		(*ambientLight)[2] += factor * data[2];
-		(*directedLight)[0] += factor * data[3];
-		(*directedLight)[1] += factor * data[4];
-		(*directedLight)[2] += factor * data[5];
+		(*ambientLight)[0] += factor * data[0] * g_overbrightFactor;
+		(*ambientLight)[1] += factor * data[1] * g_overbrightFactor;
+		(*ambientLight)[2] += factor * data[2] * g_overbrightFactor;
+		(*directedLight)[0] += factor * data[3] * g_overbrightFactor;
+		(*directedLight)[1] += factor * data[4] * g_overbrightFactor;
+		(*directedLight)[2] += factor * data[5] * g_overbrightFactor;
 
 		int lat = data[7];
 		int lng = data[6];
@@ -1317,31 +1317,6 @@ bool World::surfaceCompare(const Surface *s1, const Surface *s2)
 	}
 
 	return false;
-}
-
-void World::overbrightenColor(const uint8_t *in, uint8_t *out)
-{
-	assert(in);
-	assert(out);
-
-	// Shift the data based on overbright range.
-	int r = in[0] * g_overbrightFactor;
-	int g = in[1] * g_overbrightFactor;
-	int b = in[2] * g_overbrightFactor;
-
-	// Normalize by color instead of saturating to white.
-	if ((r | g | b) > 255)
-	{
-		int max = r > g ? r : g;
-		max = max > b ? max : b;
-		r = r * 255 / max;
-		g = g * 255 / max;
-		b = b * 255 / max;
-	}
-
-	out[0] = r;
-	out[1] = g;
-	out[2] = b;
 }
 
 void World::setSurfaceGeometry(Surface *surface, const Vertex *vertices, int nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex)
