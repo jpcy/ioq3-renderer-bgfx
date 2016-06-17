@@ -75,6 +75,7 @@ private:
 class World
 {
 public:
+	size_t getNumLightmaps() const;
 	const Texture *getLightmap(size_t index) const;
 	bool getEntityToken(char *buffer, int size);
 	bool hasLightGrid() const;

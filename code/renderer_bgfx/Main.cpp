@@ -824,6 +824,13 @@ void Main::endFrame()
 	{
 		debugDraw(dlightManager_->getLightsTexture(), 0, 0, ShaderProgramId::TextureSingleChannel);
 	}
+	else if (debugDraw_ == DebugDraw::Lightmap && world::IsLoaded())
+	{
+		for (size_t i = 0; i < world::GetNumLightmaps(); i++)
+		{
+			debugDraw(world::GetLightmap(i)->getHandle(), i);
+		}
+	}
 	else if (debugDraw_ == DebugDraw::Luminance && g_cvars.hdr.getBool())
 	{
 		for (int i = 0; i < nLuminanceFrameBuffers_; i++)
@@ -2074,6 +2081,8 @@ DebugDraw DebugDrawFromString(const char *s)
 		return DebugDraw::Depth;
 	else if (util::Stricmp(s, "dlight") == 0)
 		return DebugDraw::DynamicLight;
+	else if (util::Stricmp(s, "lightmap") == 0)
+		return DebugDraw::Lightmap;
 	else if (util::Stricmp(s, "lum") == 0)
 		return DebugDraw::Luminance;
 	else if (util::Stricmp(s, "reflection") == 0)

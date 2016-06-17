@@ -44,6 +44,7 @@ enum class DebugDraw
 	None,
 	Depth,
 	DynamicLight,
+	Lightmap,
 	Luminance,
 	Reflection,
 	SMAA

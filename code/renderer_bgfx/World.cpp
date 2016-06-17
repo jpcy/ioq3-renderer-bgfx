@@ -326,6 +326,11 @@ static void R_ChopPolyBehindPlane(int numInPoints, const vec3 *inPoints, int *nu
 	}
 }
 
+size_t World::getNumLightmaps() const
+{
+	return lightmapAtlases_.size();
+}
+
 const Texture *World::getLightmap(size_t index) const
 {
 	return index < lightmapAtlases_.size() ? lightmapAtlases_[index] : nullptr;
@@ -1526,6 +1531,12 @@ void Unload()
 bool IsLoaded()
 {
 	return s_world.get() != nullptr;
+}
+
+size_t GetNumLightmaps()
+{
+	assert(IsLoaded());
+	return s_world->getNumLightmaps();
 }
 
 const Texture *GetLightmap(size_t index)

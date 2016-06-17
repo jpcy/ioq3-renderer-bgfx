@@ -124,6 +124,7 @@ void ConsoleVariables::initialize()
 		"<empty>    None\n"
 		"depth      Linear depth\n"
 		"dlight     Dynamic light data\n"
+		"lightmap   Lightmaps\n"
 		"lum        Average and adapted luminance\n"
 		"reflection Planar reflection\n"
 		"smaa       SMAA edges and weights\n");

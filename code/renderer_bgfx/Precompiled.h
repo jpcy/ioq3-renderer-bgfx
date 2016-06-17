@@ -1624,6 +1624,7 @@ namespace world
 	void Load(const char *name);
 	void Unload();
 	bool IsLoaded();
+	size_t GetNumLightmaps();
 	const Texture *GetLightmap(size_t index);
 	bool GetEntityToken(char *buffer, int size);
 	bool HasLightGrid();
