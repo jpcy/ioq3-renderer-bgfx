@@ -49,6 +49,7 @@ If you have questions concerning this license or the applicable additional terms
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <memory>
 #include <vector>
 

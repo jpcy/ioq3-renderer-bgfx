@@ -94,8 +94,8 @@ void DynamicLightManager::initializeGrid()
 
 	for (size_t i = 0; i < 3; i++)
 	{
-		cellSize_[i] = std::max(minCellSize, (int)ceil(worldSize[i] / maxGridSize));
-		gridSize_[i] = std::min(maxGridSize, (uint8_t)ceil(worldSize[i] / cellSize_[i]));
+		cellSize_[i] = std::max(minCellSize, (int)std::ceil(worldSize[i] / maxGridSize));
+		gridSize_[i] = std::min(maxGridSize, (uint8_t)std::ceil(worldSize[i] / cellSize_[i]));
 		cellSize_[i] = int(worldSize[i] / gridSize_[i]);
 	}
 
@@ -240,7 +240,7 @@ void DynamicLightManager::updateTextures(int frameNo)
 	{
 		assert(indicesOffset < indicesTextureSize_ * indicesTextureSize_);
 		const uint16_t width = std::min(indicesOffset, indicesTextureSize_);
-		const uint16_t height = (uint16_t)ceil(indicesOffset / (float)indicesTextureSize_);
+		const uint16_t height = (uint16_t)std::ceil(indicesOffset / (float)indicesTextureSize_);
 		bgfx::updateTexture2D(indicesTexture_, 0, 0, 0, width, height, bgfx::makeRef(indicesTextureData_[buffer].data(), indicesOffset));
 	}
 
@@ -251,7 +251,7 @@ void DynamicLightManager::updateTextures(int frameNo)
 		const uint32_t texelSize = sizeof(float) * 4; // RGBA32F
 		const uint16_t nTexels = uint16_t(size / texelSize);
 		const uint16_t width = std::min(nTexels, lightsTextureSize_);
-		const uint16_t height = (uint16_t)ceil(nTexels / (float)lightsTextureSize_);
+		const uint16_t height = (uint16_t)std::ceil(nTexels / (float)lightsTextureSize_);
 		bgfx::updateTexture2D(lightsTexture_, 0, 0, 0, width, height, bgfx::makeRef(lights_[buffer], size));
 	}
 }
