@@ -138,7 +138,7 @@ struct ConsoleVariables
 	ConsoleVariable dynamicLightIntensity;
 	ConsoleVariable dynamicLightScale;
 	ConsoleVariable hdr;
-	ConsoleVariable hdrKey;
+	ConsoleVariable hdrExposure;
 	ConsoleVariable lerpTextureAnimation;
 	ConsoleVariable maxAnisotropy;
 	ConsoleVariable picmip;
@@ -1388,7 +1388,7 @@ struct Uniforms
 	Uniform_vec4 brightnessContrastGammaSaturation = "u_BrightnessContrastGammaSaturation";
 
 	/// @remarks Only x used.
-	Uniform_vec4 hdrKey = "u_HdrKey";
+	Uniform_vec4 hdrExposure = "u_HdrExposure";
 	/// @}
 
 	/// @name Texture samplers

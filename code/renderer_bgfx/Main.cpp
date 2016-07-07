@@ -732,7 +732,7 @@ void Main::renderScene(const SceneDefinition &scene)
 					Clamped(g_cvars.saturation.getFloat(), 0.0f, 3.0f)
 				));
 
-				uniforms_->hdrKey.set(vec4(Clamped(g_cvars.hdrKey.getFloat(), 0.01f, 0.2f), 0, 0, 0));
+				uniforms_->hdrExposure.set(vec4(g_cvars.hdrExposure.getFloat(), 0, 0, 0));
 				bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Color);
 				bgfx::setTexture(1, uniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[currentAdaptedLuminanceFB_].handle);
 				renderScreenSpaceQuad(aa_ == AntiAliasing::None ? defaultFb_ : sceneTempFb_, ShaderProgramId::ToneMap, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
