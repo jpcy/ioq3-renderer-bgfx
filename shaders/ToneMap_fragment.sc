@@ -4,7 +4,8 @@ $input v_texcoord0
 #include "Common.sh"
 
 SAMPLER2D(u_TextureSampler, 0);
-SAMPLER2D(u_AdaptedLuminanceSampler, 1);
+SAMPLER2D(u_BloomSampler, 1);
+SAMPLER2D(u_AdaptedLuminanceSampler, 2);
 
 uniform vec4 u_BrightnessContrastGammaSaturation;
 #define brightness u_BrightnessContrastGammaSaturation.x
@@ -12,7 +13,7 @@ uniform vec4 u_BrightnessContrastGammaSaturation;
 #define gamma u_BrightnessContrastGammaSaturation.z
 #define saturation u_BrightnessContrastGammaSaturation.w
 
-uniform vec4 u_HdrExposure; // only x used
+uniform vec4 u_Hdr_BloomScale_Exposure;
 
 // https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/
 vec3 ACESFilm(vec3 x)
@@ -29,8 +30,11 @@ void main()
 {
 	vec3 color = texture2D(u_TextureSampler, v_texcoord0).rgb;
 
+	// bloom
+	color += texture2D(u_BloomSampler, v_texcoord0).rgb * u_Hdr_BloomScale_Exposure.x;
+
 	// tone map
-	color = ACESFilm(color * u_HdrExposure.x);
+	color = ACESFilm(color * u_Hdr_BloomScale_Exposure.y);
 
 	// contrast and brightness
 	color = (color - 0.5) * contrast + 0.5 + brightness;

@@ -199,7 +199,6 @@ void main()
 	}
 #endif
 
-	gl_FragColor.a = alpha;
 	vec3 vertexColor = v_color0.rgb;
 	vec3 diffuseLight = vec3_splat(1.0);
 	int lightType = int(u_Light_Type_Emissive.x);
@@ -277,5 +276,20 @@ void main()
 	}
 #endif // USE_DYNAMIC_LIGHTS
 
-	gl_FragColor.rgb = diffuse.rgb * vertexColor * (diffuseLight + vec3_splat(u_Light_Type_Emissive.y));
+	vec4 fragColor = vec4(diffuse.rgb * vertexColor * (diffuseLight + vec3_splat(u_Light_Type_Emissive.y)), alpha);
+
+#if defined(USE_HDR)
+	gl_FragData[0] = fragColor;
+
+	if (lightType == LIGHT_NONE && u_ColorGen != CGEN_EXACT_VERTEX && u_ColorGen != CGEN_VERTEX)
+	{
+		gl_FragData[1] = fragColor;		
+	}
+	else
+	{
+		gl_FragData[1] = vec4_splat(0.0);
+	}
+#else
+	gl_FragColor = fragColor;
+#endif // USE_HDR
 }

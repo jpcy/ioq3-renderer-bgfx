@@ -517,7 +517,6 @@ void Main::loadWorld(const char *name)
 	const uint32_t rtClampFlags = BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP;
 	linearDepthFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::R16F);
 	bgfx::TextureHandle reflectionTexture;
-	bgfx::TextureHandle sceneTextures[SceneFrameBufferAttachment::Num];
 
 	if (g_cvars.hdr.getBool() != 0)
 	{
@@ -530,8 +529,18 @@ void Main::loadWorld(const char *name)
 			sceneTempFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::BGRA8, rtClampFlags);
 		}
 
-		sceneTextures[SceneFrameBufferAttachment::Color] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::RGBA16F, rtClampFlags);
-		sceneTextures[SceneFrameBufferAttachment::Depth] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT);
+		bgfx::TextureHandle sceneTextures[3];
+		sceneTextures[0] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::RGBA16F, rtClampFlags);
+		sceneTextures[1] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, rtClampFlags);
+		sceneTextures[2] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT);
+		sceneFb_.handle = bgfx::createFrameBuffer(3, sceneTextures, true);
+		sceneBloomAttachment_ = 1;
+		sceneDepthAttachment_ = 2;
+
+		for (size_t i = 0; i < nBloomFrameBuffers_; i++)
+		{
+			bloomFb_[i].handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Quarter, bgfx::TextureFormat::BGRA8, rtClampFlags);
+		}
 
 		for (size_t i = 0; i < nLuminanceFrameBuffers_; i++)
 		{
@@ -553,14 +562,15 @@ void Main::loadWorld(const char *name)
 		if (g_cvars.waterReflections.getBool())
 			reflectionTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
 
-		sceneTextures[SceneFrameBufferAttachment::Color] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
-		sceneTextures[SceneFrameBufferAttachment::Depth] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT | aaFlags);
+		bgfx::TextureHandle sceneTextures[2];
+		sceneTextures[0] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
+		sceneTextures[1] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT | aaFlags);
+		sceneFb_.handle = bgfx::createFrameBuffer(2, sceneTextures, true);
+		sceneDepthAttachment_ = 1;
 	}
 
 	if (g_cvars.waterReflections.getBool())
 		reflectionFb_.handle = bgfx::createFrameBuffer(1, &reflectionTexture); // Don't destroy the texture, that will be done by the texture cache.
-
-	sceneFb_.handle = bgfx::createFrameBuffer(SceneFrameBufferAttachment::Num, sceneTextures, true);
 
 	if (aa_ == AntiAliasing::SMAA)
 	{
@@ -688,6 +698,18 @@ void Main::renderScene(const SceneDefinition &scene)
 			// HDR.
 			if (g_cvars.hdr.getBool())
 			{
+				// Bloom.
+				const Rect bloomRect(0, 0, window::GetWidth() / 4, window::GetHeight() / 4);
+				bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle, sceneBloomAttachment_);
+				renderScreenSpaceQuad(bloomFb_[0], ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_, bloomRect);
+
+				for (int i = 0; i < 2; i++)
+				{
+					uniforms_->guassianBlurDirection.set(i == 0 ? vec4(1, 0, 0, 0) : vec4(0, 1, 0, 0));
+					bgfx::setTexture(0, uniforms_->textureSampler.handle, bloomFb_[i].handle);
+					renderScreenSpaceQuad(bloomFb_[!i], ShaderProgramId::GaussianBlur, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_, bloomRect);
+				}
+
 				// Luminance.
 				for (size_t i = 0; i < nLuminanceFrameBuffers_; i++)
 				{
@@ -697,7 +719,7 @@ void Main::renderScene(const SceneDefinition &scene)
 					{
 						programId = ShaderProgramId::Luminance;
 						setTexelOffsetsDownsample2x2(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]);
-						bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Color);
+						bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle);
 					}
 					else
 					{
@@ -732,9 +754,10 @@ void Main::renderScene(const SceneDefinition &scene)
 					Clamped(g_cvars.saturation.getFloat(), 0.0f, 3.0f)
 				));
 
-				uniforms_->hdrExposure.set(vec4(g_cvars.hdrExposure.getFloat(), 0, 0, 0));
-				bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Color);
-				bgfx::setTexture(1, uniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[currentAdaptedLuminanceFB_].handle);
+				uniforms_->hdr_BloomScale_Exposure.set(vec4(g_cvars.hdrBloomScale.getFloat(), g_cvars.hdrExposure.getFloat(), 0, 0));
+				bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle);
+				bgfx::setTexture(1, uniforms_->bloomSampler.handle, bloomFb_[0].handle);
+				bgfx::setTexture(2, uniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[currentAdaptedLuminanceFB_].handle);
 				renderScreenSpaceQuad(aa_ == AntiAliasing::None ? defaultFb_ : sceneTempFb_, ShaderProgramId::ToneMap, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
 			}
 
@@ -746,7 +769,7 @@ void Main::renderScene(const SceneDefinition &scene)
 				}
 				else
 				{
-					bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Color);
+					bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle);
 				}
 
 				renderScreenSpaceQuad(defaultFb_, ShaderProgramId::FXAA, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
@@ -762,7 +785,7 @@ void Main::renderScene(const SceneDefinition &scene)
 				}
 				else
 				{
-					bgfx::setTexture(0, uniforms_->smaaColorSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Color);
+					bgfx::setTexture(0, uniforms_->smaaColorSampler.handle, sceneFb_.handle);
 				}
 
 				renderScreenSpaceQuad(smaaEdgesFb_, ShaderProgramId::SMAAEdgeDetection, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_COLOR, isTextureOriginBottomLeft_);
@@ -780,7 +803,7 @@ void Main::renderScene(const SceneDefinition &scene)
 				}
 				else
 				{
-					bgfx::setTexture(0, uniforms_->smaaColorSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Color);
+					bgfx::setTexture(0, uniforms_->smaaColorSampler.handle, sceneFb_.handle);
 				}
 
 				bgfx::setTexture(1, uniforms_->smaaBlendSampler.handle, smaaBlendFb_.handle);
@@ -789,7 +812,7 @@ void Main::renderScene(const SceneDefinition &scene)
 			else
 			{
 				// Blit scene.
-				bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Color);
+				bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle);
 				renderScreenSpaceQuad(defaultFb_, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
 			}
 		}
@@ -816,7 +839,13 @@ void Main::endFrame()
 		bgfx::touch(viewId);
 	}
 
-	if (debugDraw_ == DebugDraw::Depth)
+	if (debugDraw_ == DebugDraw::Bloom)
+	{
+		debugDraw(sceneFb_, sceneBloomAttachment_);
+		debugDraw(bloomFb_[0], 0, 1);
+		debugDraw(bloomFb_[1], 0, 2);
+	}
+	else if (debugDraw_ == DebugDraw::Depth)
 	{
 		debugDraw(linearDepthFb_);
 	}
@@ -835,10 +864,10 @@ void Main::endFrame()
 	{
 		for (int i = 0; i < nLuminanceFrameBuffers_; i++)
 		{
-			debugDraw(luminanceFrameBuffers_[i], i);
+			debugDraw(luminanceFrameBuffers_[i], 0, i);
 		}
 
-		debugDraw(adaptedLuminanceFB_[currentAdaptedLuminanceFB_], 0, 1);
+		debugDraw(adaptedLuminanceFB_[currentAdaptedLuminanceFB_], 0, 0, 1);
 	}
 	else if (debugDraw_ == DebugDraw::Reflection)
 	{
@@ -846,8 +875,8 @@ void Main::endFrame()
 	}
 	else if (debugDraw_ == DebugDraw::SMAA && aa_ == AntiAliasing::SMAA)
 	{
-		debugDraw(smaaEdgesFb_, 0, 0, ShaderProgramId::TextureSingleChannel);
-		debugDraw(smaaBlendFb_, 1, 0, ShaderProgramId::TextureSingleChannel);
+		debugDraw(smaaEdgesFb_, 0, 0, 0, ShaderProgramId::TextureSingleChannel);
+		debugDraw(smaaBlendFb_, 0, 1, 0, ShaderProgramId::TextureSingleChannel);
 	}
 
 	uint32_t debug = 0;
@@ -893,9 +922,9 @@ bool Main::sampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, v
 	return true;
 }
 
-void Main::debugDraw(const FrameBuffer &texture, int x, int y, ShaderProgramId::Enum program)
+void Main::debugDraw(const FrameBuffer &texture, uint8_t attachment, int x, int y, ShaderProgramId::Enum program)
 {
-	bgfx::setTexture(0, uniforms_->textureSampler.handle, texture.handle);
+	bgfx::setTexture(0, uniforms_->textureSampler.handle, texture.handle, attachment);
 	renderScreenSpaceQuad(defaultFb_, program, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_, Rect(g_cvars.debugDrawSize.getInt() * x, g_cvars.debugDrawSize.getInt() * y, g_cvars.debugDrawSize.getInt(), g_cvars.debugDrawSize.getInt()));
 }
 
@@ -1057,7 +1086,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				isCameraMirrored_ = false;
 
 				// Blit the scene frame buffer to the reflection frame buffer.
-				bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Color);
+				bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle);
 				renderScreenSpaceQuad(reflectionFb_, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
 			}
 		}
@@ -1200,7 +1229,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 		// Read depth, write linear depth.
 		uniforms_->depthRange.set(vec4(0, 0, zMin, zMax));
-		bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle, SceneFrameBufferAttachment::Depth);
+		bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle, sceneDepthAttachment_);
 		renderScreenSpaceQuad(linearDepthFb_, ShaderProgramId::LinearDepth, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
 	}
 
@@ -1363,6 +1392,11 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (mat->polygonOffset || dc.zOffset > 0 || dc.zScale > 0)
 			{
 				shaderVariant |= GenericShaderProgramVariant::DepthRange;
+			}
+
+			if (g_cvars.hdr.getBool())
+			{
+				shaderVariant |= GenericShaderProgramVariant::HDR;
 			}
 
 			bgfx::setState(state);
@@ -2077,7 +2111,9 @@ void Main::setupEntityLighting(Entity *entity)
 
 DebugDraw DebugDrawFromString(const char *s)
 {
-	if (util::Stricmp(s, "depth") == 0)
+	if (util::Stricmp(s, "bloom") == 0)
+		return DebugDraw::Bloom;
+	else if (util::Stricmp(s, "depth") == 0)
 		return DebugDraw::Depth;
 	else if (util::Stricmp(s, "dlight") == 0)
 		return DebugDraw::DynamicLight;

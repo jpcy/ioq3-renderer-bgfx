@@ -138,6 +138,7 @@ struct ConsoleVariables
 	ConsoleVariable dynamicLightIntensity;
 	ConsoleVariable dynamicLightScale;
 	ConsoleVariable hdr;
+	ConsoleVariable hdrBloomScale;
 	ConsoleVariable hdrExposure;
 	ConsoleVariable lerpTextureAnimation;
 	ConsoleVariable maxAnisotropy;
@@ -1386,9 +1387,10 @@ struct Uniforms
 	/// @name HDR
 	/// @{
 	Uniform_vec4 brightnessContrastGammaSaturation = "u_BrightnessContrastGammaSaturation";
+	Uniform_vec4 guassianBlurDirection = "u_GuassianBlurDirection";
 
 	/// @remarks Only x used.
-	Uniform_vec4 hdrExposure = "u_HdrExposure";
+	Uniform_vec4 hdr_BloomScale_Exposure = "u_Hdr_BloomScale_Exposure";
 	/// @}
 
 	/// @name Texture samplers
@@ -1396,6 +1398,8 @@ struct Uniforms
 
 	/// General purpose sampler.
 	Uniform_int textureSampler = "u_TextureSampler";
+
+	Uniform_int bloomSampler = "u_BloomSampler";
 
 	Uniform_int luminanceSampler = "u_LuminanceSampler";
 	Uniform_int adaptedLuminanceSampler = "u_AdaptedLuminanceSampler";

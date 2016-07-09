@@ -122,6 +122,7 @@ void ConsoleVariables::initialize()
 	debugDraw = interface::Cvar_Get("r_debugDraw", "", 0);
 	debugDraw.setDescription(
 		"<empty>    None\n"
+		"bloom      HDR bloom\n"
 		"depth      Linear depth\n"
 		"dlight     Dynamic light data\n"
 		"lightmap   Lightmaps\n"
@@ -133,6 +134,7 @@ void ConsoleVariables::initialize()
 	dynamicLightIntensity = interface::Cvar_Get("r_dynamicLightIntensity", "1", ConsoleVariableFlags::Archive);
 	dynamicLightScale = interface::Cvar_Get("r_dynamicLightScale", "0.7", ConsoleVariableFlags::Archive);
 	hdr = interface::Cvar_Get("r_hdr", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	hdrBloomScale = interface::Cvar_Get("r_hdrBloomScale", "0.5", ConsoleVariableFlags::Archive);
 	hdrExposure = interface::Cvar_Get("r_hdrExposure", "0.7", ConsoleVariableFlags::Archive);
 	lerpTextureAnimation = interface::Cvar_Get("r_lerpTextureAnimation", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	maxAnisotropy = interface::Cvar_Get("r_maxAnisotropy", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
@@ -481,6 +483,7 @@ void Main::initialize()
 	};
 
 	programMap[ShaderProgramId::FXAA] = { FragmentShaderId::FXAA, VertexShaderId::Texture };
+	programMap[ShaderProgramId::GaussianBlur] = { FragmentShaderId::GaussianBlur, VertexShaderId::Texture };
 
 	// Sync with GenericShaderProgramVariant. Order matters - fragment first.
 	for (int y = 0; y < GenericVertexShaderVariant::Num; y++)
@@ -514,7 +517,7 @@ void Main::initialize()
 		if (aa_ != AntiAliasing::SMAA && (i == ShaderProgramId::SMAABlendingWeightCalculation || i == ShaderProgramId::SMAAEdgeDetection || i == ShaderProgramId::SMAANeighborhoodBlending))
 			continue;
 
-		if (g_cvars.hdr.getBool() == 0 && (i == ShaderProgramId::AdaptedLuminance || i == ShaderProgramId::Luminance || i == ShaderProgramId::LuminanceDownsample || i == ShaderProgramId::ToneMap))
+		if (g_cvars.hdr.getBool() == 0 && (i == ShaderProgramId::AdaptedLuminance || i == ShaderProgramId::Luminance || i == ShaderProgramId::LuminanceDownsample || i == ShaderProgramId::GaussianBlur || i == ShaderProgramId::ToneMap))
 			continue;
 
 		Shader &fragment = fragmentShaders_[programMap[i].frag];

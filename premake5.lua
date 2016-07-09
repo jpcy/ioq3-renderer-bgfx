@@ -29,6 +29,22 @@ newaction
 				if b == 1 or b == 2 or b == 4 then return true end
 			elseif a == 8 then
 				if b == 8 then return true end
+			elseif a == 9 then
+				if b == 1 or b == 8 then return true end
+			elseif a == 10 then
+				if b == 2 or b == 8 then return true end
+			elseif a == 11 then
+				if b == 1 or b == 2 or b == 8 then return true end
+			elseif a == 12 then
+				if b == 4 or b == 8 then return true end
+			elseif a == 13 then
+				if b == 1 or b == 4 or b == 8 then return true end
+			elseif a == 14 then
+				if b == 2 or b == 4 or b == 8 then return true end
+			elseif a == 15 then
+				if b == 1 or b == 2 or b == 4 or b == 8 then return true end
+			elseif a == 16 then
+				if b == 16 then return true end
 			end
 			
 			return false
@@ -190,6 +206,7 @@ newaction
 		{
 			{ "AlphaTest", "USE_ALPHA_TEST" },
 			{ "DynamicLights", "USE_DYNAMIC_LIGHTS" },
+			{ "HDR", "USE_HDR" },
 			{ "SoftSprite", "USE_SOFT_SPRITE" }
 		}
 		
@@ -205,6 +222,7 @@ newaction
 			{ "Depth", depthFragmentVariants },
 			{ "Fog" },
 			{ "FXAA" },
+			{ "GaussianBlur" },
 			{ "Generic", genericFragmentVariants },
 			{ "LinearDepth" },
 			{ "Luminance" },

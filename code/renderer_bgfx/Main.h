@@ -42,6 +42,7 @@ enum class AntiAliasing
 enum class DebugDraw
 {
 	None,
+	Bloom,
 	Depth,
 	DynamicLight,
 	Lightmap,
@@ -113,12 +114,13 @@ private:
 			// Fragment
 			AlphaTest     = 1 << 0,
 			DynamicLights = 1 << 1,
-			SoftSprite    = 1 << 2,
+			HDR           = 1 << 2,
+			SoftSprite    = 1 << 3,
 
 			// Vertex
-			DepthRange    = 1 << 3,
+			DepthRange    = 1 << 4,
 
-			Num           = 1 << 4
+			Num           = 1 << 5
 		};
 	};
 
@@ -131,6 +133,7 @@ private:
 			Depth,
 			Fog = Depth + DepthShaderProgramVariant::Num,
 			FXAA = Fog + FogShaderProgramVariant::Num,
+			GaussianBlur,
 			Generic,
 			LinearDepth = Generic + GenericShaderProgramVariant::Num,
 			Luminance,
@@ -165,7 +168,7 @@ private:
 		};
 	};
 
-	void debugDraw(const FrameBuffer &texture, int x = 0, int y = 0, ShaderProgramId::Enum program = ShaderProgramId::Texture);
+	void debugDraw(const FrameBuffer &texture, uint8_t attachment = 0, int x = 0, int y = 0, ShaderProgramId::Enum program = ShaderProgramId::Texture);
 	void debugDraw(bgfx::TextureHandle texture, int x = 0, int y = 0, ShaderProgramId::Enum program = ShaderProgramId::Texture);
 	uint8_t pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags = 0);
 	void flushStretchPics();
@@ -221,21 +224,15 @@ private:
 
 	/// @name Framebuffers
 	/// @{
-	struct SceneFrameBufferAttachment
-	{
-		enum
-		{
-			Color,
-			Depth,
-			Num
-		};
-	};
-
 	static const FrameBuffer defaultFb_;
 	FrameBuffer linearDepthFb_;
 	FrameBuffer reflectionFb_;
 	FrameBuffer sceneFb_;
 	FrameBuffer sceneTempFb_;
+	uint8_t sceneBloomAttachment_;
+	uint8_t sceneDepthAttachment_;
+	static const size_t nBloomFrameBuffers_ = 2;
+	FrameBuffer bloomFb_[nBloomFrameBuffers_];
 	/// @}
 
 	/// @name HDR luminance
