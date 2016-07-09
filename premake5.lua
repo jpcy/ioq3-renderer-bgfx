@@ -217,7 +217,6 @@ newaction
 		
 		local fragmentShaders =
 		{
-			{ "AdaptedLuminance" },
 			{ "Color" },
 			{ "Depth", depthFragmentVariants },
 			{ "Fog" },
@@ -225,8 +224,6 @@ newaction
 			{ "GaussianBlur" },
 			{ "Generic", genericFragmentVariants },
 			{ "LinearDepth" },
-			{ "Luminance" },
-			{ "LuminanceDownsample" },
 			{ "SMAABlendingWeightCalculation" },
 			{ "SMAAEdgeDetection" },
 			{ "SMAANeighborhoodBlending" },

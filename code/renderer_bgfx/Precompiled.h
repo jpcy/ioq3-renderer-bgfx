@@ -1400,10 +1400,6 @@ struct Uniforms
 	Uniform_int textureSampler = "u_TextureSampler";
 
 	Uniform_int bloomSampler = "u_BloomSampler";
-
-	Uniform_int luminanceSampler = "u_LuminanceSampler";
-	Uniform_int adaptedLuminanceSampler = "u_AdaptedLuminanceSampler";
-
 	Uniform_int smaaColorSampler = "u_SmaaColorSampler";
 	Uniform_int smaaEdgesSampler = "u_SmaaEdgesSampler";
 	Uniform_int smaaAreaSampler = "u_SmaaAreaSampler";

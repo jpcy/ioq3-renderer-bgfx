@@ -126,7 +126,6 @@ void ConsoleVariables::initialize()
 		"depth      Linear depth\n"
 		"dlight     Dynamic light data\n"
 		"lightmap   Lightmaps\n"
-		"lum        Average and adapted luminance\n"
 		"reflection Planar reflection\n"
 		"smaa       SMAA edges and weights\n");
 	debugDrawSize = interface::Cvar_Get("r_debugDrawSize", "256", ConsoleVariableFlags::Archive);
@@ -452,7 +451,6 @@ void Main::initialize()
 
 	// Map shader programs to their vertex and fragment shaders.
 	std::array<ShaderProgramIdMap, ShaderProgramId::Num> programMap;
-	programMap[ShaderProgramId::AdaptedLuminance] = { FragmentShaderId::AdaptedLuminance, VertexShaderId::Texture };
 	programMap[ShaderProgramId::Color]            = { FragmentShaderId::Color, VertexShaderId::Color };
 	programMap[ShaderProgramId::Depth]            = { FragmentShaderId::Depth, VertexShaderId::Depth };
 
@@ -497,8 +495,6 @@ void Main::initialize()
 	}
 
 	programMap[ShaderProgramId::LinearDepth]          = { FragmentShaderId::LinearDepth, VertexShaderId::Texture };
-	programMap[ShaderProgramId::Luminance]            = { FragmentShaderId::Luminance, VertexShaderId::Texture };
-	programMap[ShaderProgramId::LuminanceDownsample]  = { FragmentShaderId::LuminanceDownsample, VertexShaderId::Texture };
 	programMap[ShaderProgramId::SMAABlendingWeightCalculation] = { FragmentShaderId::SMAABlendingWeightCalculation, VertexShaderId::SMAABlendingWeightCalculation };
 	programMap[ShaderProgramId::SMAAEdgeDetection]    = { FragmentShaderId::SMAAEdgeDetection, VertexShaderId::SMAAEdgeDetection };
 	programMap[ShaderProgramId::SMAANeighborhoodBlending] = { FragmentShaderId::SMAANeighborhoodBlending, VertexShaderId::SMAANeighborhoodBlending };
@@ -517,7 +513,7 @@ void Main::initialize()
 		if (aa_ != AntiAliasing::SMAA && (i == ShaderProgramId::SMAABlendingWeightCalculation || i == ShaderProgramId::SMAAEdgeDetection || i == ShaderProgramId::SMAANeighborhoodBlending))
 			continue;
 
-		if (g_cvars.hdr.getBool() == 0 && (i == ShaderProgramId::AdaptedLuminance || i == ShaderProgramId::Luminance || i == ShaderProgramId::LuminanceDownsample || i == ShaderProgramId::GaussianBlur || i == ShaderProgramId::ToneMap))
+		if (g_cvars.hdr.getBool() == 0 && (i == ShaderProgramId::GaussianBlur || i == ShaderProgramId::ToneMap))
 			continue;
 
 		Shader &fragment = fragmentShaders_[programMap[i].frag];

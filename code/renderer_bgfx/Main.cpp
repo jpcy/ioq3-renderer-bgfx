@@ -541,14 +541,6 @@ void Main::loadWorld(const char *name)
 		{
 			bloomFb_[i].handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Quarter, bgfx::TextureFormat::BGRA8, rtClampFlags);
 		}
-
-		for (size_t i = 0; i < nLuminanceFrameBuffers_; i++)
-		{
-			luminanceFrameBuffers_[i].handle = bgfx::createFrameBuffer(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i], bgfx::TextureFormat::R16F);
-		}
-
-		adaptedLuminanceFB_[0].handle = bgfx::createFrameBuffer(1, 1, bgfx::TextureFormat::R16F);
-		adaptedLuminanceFB_[1].handle = bgfx::createFrameBuffer(1, 1, bgfx::TextureFormat::R16F);
 	}
 	else
 	{
@@ -710,40 +702,6 @@ void Main::renderScene(const SceneDefinition &scene)
 					renderScreenSpaceQuad(bloomFb_[!i], ShaderProgramId::GaussianBlur, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_, bloomRect);
 				}
 
-				// Luminance.
-				for (size_t i = 0; i < nLuminanceFrameBuffers_; i++)
-				{
-					ShaderProgramId::Enum programId;
-
-					if (i == 0)
-					{
-						programId = ShaderProgramId::Luminance;
-						setTexelOffsetsDownsample2x2(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]);
-						bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle);
-					}
-					else
-					{
-						programId = ShaderProgramId::LuminanceDownsample;
-						setTexelOffsetsDownsample4x4(luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]);
-						bgfx::setTexture(0, uniforms_->textureSampler.handle, luminanceFrameBuffers_[i - 1].handle);
-					}
-
-					renderScreenSpaceQuad(luminanceFrameBuffers_[i], programId, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_, Rect(0, 0, luminanceFrameBufferSizes_[i], luminanceFrameBufferSizes_[i]));
-				}
-
-				// Luminance adaptation.
-				if (lastAdaptedLuminanceTime_ <= 0)
-				{
-					lastAdaptedLuminanceTime_ = floatTime_;
-				}
-
-				matUniforms_->time.set(vec4(floatTime_ - lastAdaptedLuminanceTime_, 0, 0, 0));
-				lastAdaptedLuminanceTime_ = floatTime_;
-				bgfx::setTexture(0, uniforms_->luminanceSampler.handle, luminanceFrameBuffers_[nLuminanceFrameBuffers_ - 1].handle);
-				bgfx::setTexture(1, uniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[1 - currentAdaptedLuminanceFB_].handle);
-				renderScreenSpaceQuad(adaptedLuminanceFB_[currentAdaptedLuminanceFB_], ShaderProgramId::AdaptedLuminance, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
-				currentAdaptedLuminanceFB_ = 1 - currentAdaptedLuminanceFB_;
-
 				// Tonemap.
 				// Clamp to sane values.
 				uniforms_->brightnessContrastGammaSaturation.set(vec4
@@ -757,7 +715,6 @@ void Main::renderScene(const SceneDefinition &scene)
 				uniforms_->hdr_BloomScale_Exposure.set(vec4(g_cvars.hdrBloomScale.getFloat(), g_cvars.hdrExposure.getFloat(), 0, 0));
 				bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle);
 				bgfx::setTexture(1, uniforms_->bloomSampler.handle, bloomFb_[0].handle);
-				bgfx::setTexture(2, uniforms_->adaptedLuminanceSampler.handle, adaptedLuminanceFB_[currentAdaptedLuminanceFB_].handle);
 				renderScreenSpaceQuad(aa_ == AntiAliasing::None ? defaultFb_ : sceneTempFb_, ShaderProgramId::ToneMap, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
 			}
 
@@ -859,15 +816,6 @@ void Main::endFrame()
 		{
 			debugDraw(world::GetLightmap(i)->getHandle(), i);
 		}
-	}
-	else if (debugDraw_ == DebugDraw::Luminance && g_cvars.hdr.getBool())
-	{
-		for (int i = 0; i < nLuminanceFrameBuffers_; i++)
-		{
-			debugDraw(luminanceFrameBuffers_[i], 0, i);
-		}
-
-		debugDraw(adaptedLuminanceFB_[currentAdaptedLuminanceFB_], 0, 0, 1);
 	}
 	else if (debugDraw_ == DebugDraw::Reflection)
 	{
@@ -2119,8 +2067,6 @@ DebugDraw DebugDrawFromString(const char *s)
 		return DebugDraw::DynamicLight;
 	else if (util::Stricmp(s, "lightmap") == 0)
 		return DebugDraw::Lightmap;
-	else if (util::Stricmp(s, "lum") == 0)
-		return DebugDraw::Luminance;
 	else if (util::Stricmp(s, "reflection") == 0)
 		return DebugDraw::Reflection;
 	else if (util::Stricmp(s, "smaa") == 0)

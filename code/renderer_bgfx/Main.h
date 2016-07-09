@@ -46,7 +46,6 @@ enum class DebugDraw
 	Depth,
 	DynamicLight,
 	Lightmap,
-	Luminance,
 	Reflection,
 	SMAA
 };
@@ -128,7 +127,6 @@ private:
 	{
 		enum Enum
 		{
-			AdaptedLuminance,
 			Color,
 			Depth,
 			Fog = Depth + DepthShaderProgramVariant::Num,
@@ -136,8 +134,6 @@ private:
 			GaussianBlur,
 			Generic,
 			LinearDepth = Generic + GenericShaderProgramVariant::Num,
-			Luminance,
-			LuminanceDownsample,
 			SMAABlendingWeightCalculation,
 			SMAAEdgeDetection,
 			SMAANeighborhoodBlending,
@@ -233,16 +229,6 @@ private:
 	uint8_t sceneDepthAttachment_;
 	static const size_t nBloomFrameBuffers_ = 2;
 	FrameBuffer bloomFb_[nBloomFrameBuffers_];
-	/// @}
-
-	/// @name HDR luminance
-	/// @{
-	static const size_t nLuminanceFrameBuffers_ = 5;
-	FrameBuffer luminanceFrameBuffers_[nLuminanceFrameBuffers_];
-	const int luminanceFrameBufferSizes_[nLuminanceFrameBuffers_] = { 128, 64, 16, 4, 1 };
-	FrameBuffer adaptedLuminanceFB_[2];
-	int currentAdaptedLuminanceFB_ = 0;
-	float lastAdaptedLuminanceTime_ = 0;
 	/// @}
 
 	/// @name Noise
