@@ -827,6 +827,14 @@ void Main::endFrame()
 		debugDraw(smaaBlendFb_, 0, 1, 0, ShaderProgramId::TextureSingleChannel);
 	}
 
+#ifdef USE_PROFILER
+	PROFILE_END // Frame
+	if (g_cvars.debugText.getBool())
+		profiler::Print();
+	profiler::BeginFrame(frameNo_ + 1);
+	PROFILE_BEGIN(Frame)
+#endif
+
 	uint32_t debug = 0;
 
 	if (g_cvars.bgfx_stats.getBool())

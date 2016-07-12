@@ -128,9 +128,11 @@ void DynamicLightManager::initializeGrid()
 void DynamicLightManager::updateTextures(int frameNo)
 {
 	assert(world::IsLoaded());
+	PROFILE_SCOPED(DynamicLightManager::updateTextures)
 	const int buffer = frameNo % BGFX_NUM_BUFFER_FRAMES;
 
 	// Assign lights to cells.
+	PROFILE_BEGIN(AssignLights)
 	assignedLights_.clear();
 
 	for (uint8_t i = 0; i < nLights_; i++)
@@ -184,6 +186,7 @@ void DynamicLightManager::updateTextures(int frameNo)
 			}
 		}
 	}
+	PROFILE_END // AssignLights
 
 	// Sort the assigned lights.
 	std::sort(assignedLights_.begin(), assignedLights_.end());

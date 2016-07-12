@@ -80,6 +80,7 @@ extern "C"
 #include "bx/debug.h"
 #include "bx/fpumath.h"
 #include "bx/string.h"
+#include "bx/timer.h"
 
 #define BGFX_NUM_BUFFER_FRAMES 3
 
@@ -1116,6 +1117,30 @@ struct Patch
 
 Patch *Patch_Subdivide(int width, int height, const Vertex *points);
 void Patch_Free(Patch *grid);
+
+#ifdef USE_PROFILER
+namespace profiler
+{
+	void BeginFrame(int frameNo);
+	void Print();
+	void BeginEntry(const char *name);
+	void EndEntry();
+
+	struct ScopedEntry
+	{
+		ScopedEntry(const char *name) { BeginEntry(name); }
+		~ScopedEntry() { EndEntry(); }
+	};
+}
+#define PROFILE_SCOPED(x) profiler::ScopedEntry _profiler_x(#x);
+#define PROFILE_BEGIN(x) profiler::BeginEntry(#x);
+#define PROFILE_END profiler::EndEntry();
+#else
+#define PROFILER_INITIALIZE
+#define PROFILE_SCOPED(x)
+#define PROFILE_BEGIN(x)
+#define PROFILE_END
+#endif
 
 class ReadOnlyFile
 {

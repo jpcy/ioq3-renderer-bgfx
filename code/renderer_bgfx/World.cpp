@@ -1019,7 +1019,7 @@ void Load(const char *name)
 
 	// Light grid. Models must be parsed first.
 	{
-		assert(modelDefs_.size() > 0);
+		assert(s_world->modelDefs.size() > 0);
 		lump_t &lump = header->lumps[LUMP_LIGHTGRID];
 
 		s_world->lightGridInverseSize.x = 1.0f / s_world->lightGridSize.x;

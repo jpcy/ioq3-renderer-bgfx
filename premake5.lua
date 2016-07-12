@@ -418,7 +418,7 @@ if os.is("windows") then
 end
 
 solution "renderer_bgfx"
-	configurations { "Release", "Debug" }
+	configurations { "Release", "Debug", "Profile" }
 	location "build"
 	
 	if os.is64bit() and not os.is("windows") then
@@ -446,14 +446,17 @@ solution "renderer_bgfx"
 	configuration { "Debug", "x86_64" }
 		targetdir "build/bin_x64_debug"
 		
-	configuration "Release"
+	configuration "Profile"
+		defines "USE_PROFILER"
+		
+	configuration "Release or Profile"
 		optimize "Full"
 		defines "NDEBUG"
 		
-	configuration { "Release", "x86" }
+	configuration { "Release or Profile", "x86" }
 		targetdir "build/bin_x86"
 		
-	configuration { "Release", "x86_64" }
+	configuration { "Release or Profile", "x86_64" }
 		targetdir "build/bin_x64"
 		
 	configuration "vs*"
