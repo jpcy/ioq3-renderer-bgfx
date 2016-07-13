@@ -394,6 +394,9 @@ void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
 
 void Main::debugPrint(const char *text)
 {
+	if (!g_cvars.debugText.getBool())
+		return;
+
 	const uint16_t fontHeight = 16;
 	const uint16_t maxY = window::GetHeight() / fontHeight;
 	const uint16_t columnWidth = 32;

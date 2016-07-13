@@ -134,6 +134,7 @@ void DynamicLightManager::updateTextures(int frameNo)
 	// Assign lights to cells.
 	PROFILE_BEGIN(AssignLights)
 	assignedLights_.clear();
+	const float cellRadius = vec3::distance(vec3::empty, vec3((float)cellSize_.x, (float)cellSize_.y, (float)cellSize_.z)) / 2.0f;
 
 	for (uint8_t i = 0; i < nLights_; i++)
 	{
@@ -141,9 +142,9 @@ void DynamicLightManager::updateTextures(int frameNo)
 		vec3b min(gridSize_.x, gridSize_.y, gridSize_.z);
 		vec3b max;
 
+		// Coarse culling.
 		// Get the cell positions at the sphere AABB corners.
 		// The min/max will be the range of cells this light touches.
-		// This is very imprecise, but simple.
 		// For capsules, use the start and end positions.
 		for (int j = 0; j < (dl.position_type.w == DynamicLight::Point ? 1 : 2); j++)
 		{
@@ -181,6 +182,27 @@ void DynamicLightManager::updateTextures(int frameNo)
 			{
 				for (uint8_t z = min.z; z <= max.z; z++)
 				{
+					// Finer grained culling.
+					// Check cells against light radius for point lights.
+					// Capsule lights use radius from the closest point on the capsule light segment.
+					vec3 cellCenter;
+					cellCenter.x = -gridOffset_.x + x * cellSize_.x + cellSize_.x / 2.0f;
+					cellCenter.y = -gridOffset_.y + y * cellSize_.y + cellSize_.y / 2.0f;
+					cellCenter.z = -gridOffset_.z + z * cellSize_.z + cellSize_.z / 2.0f;
+					vec3 comparePosition;
+
+					if (dl.position_type.w == DynamicLight::Point)
+					{
+						comparePosition = dl.position_type.xyz();
+					}
+					else if (dl.position_type.w == DynamicLight::Capsule)
+					{
+						comparePosition = math::ClosestPointOnLineSegment(dl.position_type.xyz(), dl.capsuleEnd.xyz(), cellCenter);
+					}
+
+					if (vec3::distance(cellCenter, comparePosition) > cellRadius + dl.color_radius.w)
+						continue;
+
 					assignedLights_.push_back(encodeAssignedLight(vec3b(x, y, z), i));
 				}
 			}

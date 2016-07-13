@@ -373,6 +373,18 @@ private:
 	vec3 projectOnPlane(const vec3 &normal) const;
 };
 
+// From http://stackoverflow.com/a/9557244
+inline vec3 ClosestPointOnLineSegment(vec3 A, vec3 B, vec3 P)
+{
+	vec3 AP = P - A;       //Vector from A to P   
+    vec3 AB = B - A;       //Vector from A to B  
+
+    float magnitudeAB = AB.length() * AB.length();     //Magnitude of AB vector (it's length squared)     
+    float ABAPproduct = vec3::dotProduct(AP, AB);    //The DOT product of a_to_p and a_to_b     
+    float distance = ABAPproduct / magnitudeAB; //The normalized "distance" from a to your closest point  
+	return A + AB * Clamped(distance, 0.0f, 1.0f);
+}
+
 class vec3i
 {
 public:
