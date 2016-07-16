@@ -72,6 +72,19 @@ static const char *s_reflectiveMaterialNames[] =
 	"textures/liquids/clear_calm1"
 };
 
+static const char *s_forceBloomTextureNames[] =
+{
+	//"textures/sfx/electric2.blend.tga",
+	"textures/sfx/fire_ctfblue.tga",
+	"textures/sfx/fire_ctfred.tga",
+	"textures/sfx/firegorre.tga",
+	"textures/sfx/fireswirl2blue.tga",
+	"textures/sfx/hologirl.tga",
+	//"textures/sfx/proto_zzzt.tga",
+	//"textures/sfx/proto_zzztblu.tga",
+	"textures/sfx/proto_zzztblu2.tga"
+};
+
 void Initialize()
 {
 	s_meta = Meta();
@@ -178,10 +191,11 @@ void OnMaterialCreate(Material *material)
 			if (!texture)
 				break;
 
-			if (!util::Stricmp(texture->getName(), "textures/sfx/fireswirl2blue.tga"))
+			// Force bloom.
+			for (int k = 0; k < BX_COUNTOF(s_forceBloomTextureNames); k++)
 			{
-				stage.emissiveLight = 2;
-				break;
+				if (!util::Stricmp(texture->getName(), s_forceBloomTextureNames[k]))
+					stage.forceBloom = true;
 			}
 		}
 	}

@@ -1223,7 +1223,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			matStageUniforms_->alphaTest.set(vec4::empty);
 			matStageUniforms_->baseColor.set(vec4::white);
 			matStageUniforms_->generators.set(vec4::empty);
-			matStageUniforms_->light_Type_Emissive.set(vec4::empty);
+			matStageUniforms_->lightType.set(vec4::empty);
 			matStageUniforms_->vertexColor.set(vec4::black);
 			const int sky_texorder[6] = { 0, 2, 1, 3, 4, 5 };
 			bgfx::setTexture(TextureUnit::Diffuse, matStageUniforms_->diffuseSampler.handle, mat->sky.outerbox[sky_texorder[dc.skyboxSide]]->getHandle());
@@ -1356,6 +1356,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (g_cvars.hdr.getBool())
 			{
 				shaderVariant |= GenericShaderProgramVariant::HDR;
+				uniforms_->bloom_Disable_Force.set(vec4(stage.disableBloom ? 1.0f : 0.0f, stage.forceBloom ? 1.0f : 0.0f, 0.0f, 0.0f));
 			}
 
 			bgfx::setState(state);

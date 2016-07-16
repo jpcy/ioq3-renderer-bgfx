@@ -31,6 +31,10 @@ uniform vec4 u_DynamicLight_Num_Intensity; // x is the number of dynamic lights,
 uniform vec4 u_DynamicLightTextureSizes_Cells_Indices_Lights; // w not used
 #endif
 
+#if defined(USE_HDR)
+uniform vec4 u_Bloom_Disable_Force;
+#endif
+
 uniform vec4 u_Animation_Enabled_Fraction; // only x and y used
 uniform vec4 u_PortalClip;
 uniform vec4 u_PortalPlane;
@@ -48,7 +52,7 @@ uniform vec4 u_AmbientLight;
 uniform vec4 u_NormalScale;
 uniform vec4 u_SpecularScale;
 
-uniform vec4 u_Light_Type_Emissive; // only x and y used
+uniform vec4 u_LightType; // only x used
 
 #if defined(USE_DYNAMIC_LIGHTS)
 struct DynamicLight
@@ -201,7 +205,7 @@ void main()
 
 	vec3 vertexColor = v_color0.rgb;
 	vec3 diffuseLight = vec3_splat(1.0);
-	int lightType = int(u_Light_Type_Emissive.x);
+	int lightType = int(u_LightType.x);
 
 	if (lightType == LIGHT_MAP)
 	{
@@ -276,18 +280,18 @@ void main()
 	}
 #endif // USE_DYNAMIC_LIGHTS
 
-	vec4 fragColor = vec4(diffuse.rgb * vertexColor * (diffuseLight + vec3_splat(u_Light_Type_Emissive.y)), alpha);
+	vec4 fragColor = vec4(diffuse.rgb * vertexColor * diffuseLight, alpha);
 
 #if defined(USE_HDR)
 	gl_FragData[0] = fragColor;
 
-	if (lightType == LIGHT_NONE && u_ColorGen != CGEN_EXACT_VERTEX && u_ColorGen != CGEN_VERTEX)
+	if (int(u_Bloom_Disable_Force.y) != 0 || (int(u_Bloom_Disable_Force.x) == 0 && lightType == LIGHT_NONE && u_ColorGen != CGEN_EXACT_VERTEX && u_ColorGen != CGEN_VERTEX))
 	{
 		gl_FragData[1] = fragColor;		
 	}
 	else
 	{
-		gl_FragData[1] = vec4_splat(0.0);
+		gl_FragData[1] = vec4(0.0, 0.0, 0.0, fragColor.a);
 	}
 #else
 	gl_FragColor = fragColor;

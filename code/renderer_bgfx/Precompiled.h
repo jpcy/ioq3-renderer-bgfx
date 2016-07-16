@@ -814,7 +814,8 @@ struct MaterialStage
 
 	MaterialStageType type = MaterialStageType::ColorMap;
 	MaterialLight light = MaterialLight::None;
-	float emissiveLight = 0;
+	bool disableBloom = false;
+	bool forceBloom = false;
 
 	vec4 normalScale;
 	vec4 specularScale;
@@ -1414,7 +1415,10 @@ struct Uniforms
 	Uniform_vec4 brightnessContrastGammaSaturation = "u_BrightnessContrastGammaSaturation";
 	Uniform_vec4 guassianBlurDirection = "u_GuassianBlurDirection";
 
-	/// @remarks Only x used.
+	/// @remarks Only x and y used.
+	Uniform_vec4 bloom_Disable_Force = "u_Bloom_Disable_Force";
+
+	/// @remarks Only x and y used.
 	Uniform_vec4 hdr_BloomScale_Exposure = "u_Hdr_BloomScale_Exposure";
 	/// @}
 
@@ -1490,8 +1494,8 @@ struct Uniforms_MaterialStage
 	Uniform_vec4 specularScale = "u_SpecularScale";
 	Uniform_vec4 enableTextures = "u_EnableTextures";
 
-	/// @remarks x is the light type (MaterialLight), y is the material stage emissive light.
-	Uniform_vec4 light_Type_Emissive = "u_Light_Type_Emissive";
+	/// @remarks x is the light type (MaterialLight).
+	Uniform_vec4 lightType = "u_LightType";
 
 	struct Generators
 	{
