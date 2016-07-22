@@ -1,4 +1,4 @@
-function createRendererProject(engine, bgfxPath, bxPath, rendererPath, sdlIncludeDir, sdlLib32, sdlLib64)
+function rendererProject(engine, bgfxPath, bxPath, rendererPath)
 	project "renderer_bgfx"
 	kind "SharedLib"
 	language "C++"
@@ -100,7 +100,6 @@ function createRendererProject(engine, bgfxPath, bxPath, rendererPath, sdlInclud
 		
 	configuration "windows"
 		defines { "BGFX_CONFIG_RENDERER_DIRECT3D11=1", "BGFX_CONFIG_RENDERER_DIRECT3D12=1" }
-		includedirs(sdlIncludeDir)
 		links { "d3dcompiler", "gdi32", "OpenGL32", "psapi" }
 		
 	configuration { "windows", "gmake" }
@@ -122,12 +121,6 @@ function createRendererProject(engine, bgfxPath, bxPath, rendererPath, sdlInclud
 	configuration { "windows", "gmake", "mingw=mingw-w64", "x86_64" }
 		gccprefix "x86_64-w64-mingw32-"
 
-	configuration { "windows", "x86" }
-		links(sdlLib32)
-		
-	configuration { "windows", "x86_64" }
-		links(sdlLib64)
-	
 	configuration {}
 	
 	filter("files:not " .. path.getrelative(path.getabsolute("."), path.join(rendererPath, "code/renderer_bgfx/*.cpp")))

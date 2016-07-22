@@ -466,13 +466,20 @@ solution "renderer_bgfx"
 		defines { "_WIN64", "__WIN64__" }
 		
 dofile("renderer_bgfx.lua")
+rendererProject(_OPTIONS["engine"], BGFX_PATH, BX_PATH, RENDERER_PATH)
 
 if os.is("windows") then
 	if _OPTIONS["engine"] == "ioq3" then
-		createRendererProject(_OPTIONS["engine"], BGFX_PATH, BX_PATH, RENDERER_PATH, path.join(IOQ3_PATH, "code/SDL2/include"), path.join(IOQ3_PATH, "code/libs/win32/libSDL2"), path.join(IOQ3_PATH, "code/libs/win64/libSDL264"))
+		includedirs(path.join(IOQ3_PATH, "code/SDL2/include"))
+		configuration "x86"
+			links(path.join(IOQ3_PATH, "code/libs/win32/libSDL2"))
+		configuration "x86_64"
+			links(path.join(IOQ3_PATH, "code/libs/win64/libSDL264"))
 	elseif _OPTIONS["engine"] == "iortcw" then
-		createRendererProject(_OPTIONS["engine"], BGFX_PATH, BX_PATH, RENDERER_PATH, path.join(IORTCW_PATH, "SP/code/SDL2/include"), path.join(IORTCW_PATH, "SP/code/libs/win32/libSDL2"), path.join(IORTCW_PATH, "SP/code/libs/win64/libSDL264"))
+		includedirs(path.join(IORTCW_PATH, "SP/code/SDL2/include"))
+		configuration "x86"
+			links(path.join(IORTCW_PATH, "SP/code/libs/win32/libSDL2"))
+		configuration "x86_64"
+			links(path.join(IORTCW_PATH, "SP/code/libs/win64/libSDL264"))
 	end
-else
-	createRendererProject(_OPTIONS["engine"], BGFX_PATH, BX_PATH, RENDERER_PATH, nil, nil, nil)
 end
