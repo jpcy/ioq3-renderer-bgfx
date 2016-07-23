@@ -52,6 +52,7 @@ If you have questions concerning this license or the applicable additional terms
 #include <cmath>
 #include <memory>
 #include <vector>
+#include "float.h"
 
 #if !defined(_MSC_VER) && __cplusplus < 201402L
 namespace std {
@@ -83,6 +84,11 @@ extern "C"
 #include "bx/timer.h"
 
 #define BGFX_NUM_BUFFER_FRAMES 3
+
+#if defined(USE_LIGHT_BAKER)
+#include "embree2/rtcore.h"
+#include "embree2/rtcore_ray.h"
+#endif
 
 #include "../math/Math.h"
 using namespace math;
@@ -430,6 +436,16 @@ struct IndexBuffer
 	bgfx::IndexBufferHandle handle;
 };
 
+#if defined(USE_LIGHT_BAKER)
+namespace light_baker
+{
+	void Start();
+	void Stop();
+	bool IsRunning();
+	void Update(int frameNo);
+}
+#endif
+
 namespace main
 {
 	void AddDynamicLightToScene(const DynamicLight &light);
@@ -451,6 +467,7 @@ namespace main
 	void RenderScene(const SceneDefinition &scene);
 	bool SampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
 	void SetColor(vec4 c);
+	const SunLight &GetSunLight();
 	void SetSunLight(const SunLight &sunLight); 
 	void Shutdown(bool destroyWindow);
 	void UploadCinematic(int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);
@@ -1540,7 +1557,7 @@ namespace util
 	string will be returned if the next token is
 	a newline.
 	*/
-	char *Parse(char **data_p, bool allowLineBreaks);
+	char *Parse(char **data_p, bool allowLineBreaks = true);
 
 	/*
 	The next token should be an open brace or set depth to 1 if already parsed it.
@@ -1651,14 +1668,42 @@ namespace window
 
 namespace world
 {
+	struct LightEntity
+	{
+		vec4 color;
+		float intensity;
+		bool linearAttenuation;
+		vec3 position;
+		int spawnFlags;
+	};
+
+	struct Surface
+	{
+		int contentFlags;
+		int surfaceFlags;
+		bool isValid;
+		Material *material;
+		int nIndices;
+		const uint16_t *indices;
+		int vertexBufferIndex;
+	};
+
 	void Load(const char *name);
 	void Unload();
 	bool IsLoaded();
-	size_t GetNumLightmaps();
-	const Texture *GetLightmap(size_t index);
+	int GetNumLightEntities();
+	const LightEntity &GetLightEntity(int index);
+	int GetLightmapSize();
+	int GetNumLightmaps();
+	Texture *GetLightmap(int index);
+	int GetNumSurfaces();
+	Surface GetSurface(int index);
+	int GetNumVertexBuffers();
+	const std::vector<Vertex> &GetVertexBuffer(int index);
 	bool GetEntityToken(char *buffer, int size);
 	bool HasLightGrid();
 	void SampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
+	bool InPvs(vec3 position);
 	bool InPvs(vec3 position1, vec3 position2);
 	int FindFogIndex(vec3 position, float radius);
 	int FindFogIndex(const Bounds &bounds);

@@ -1,4 +1,14 @@
 function rendererProject(engine, bgfxPath, bxPath, rendererPath)
+	-- Find embree
+	embreeIncludeDir = nil
+	embreeLib = nil
+	dirs = os.matchdirs(path.join(path.join(rendererPath, ".."), "embree*"))
+	if dirs and dirs[1] then
+		print("Found Embree at " .. dirs[1])
+		embreeIncludeDir = path.join(dirs[1], "include")
+		embreeLib = path.join(dirs[1], "lib/embree")
+	end
+	
 	project "renderer_bgfx"
 	kind "SharedLib"
 	language "C++"
@@ -13,6 +23,10 @@ function rendererProject(engine, bgfxPath, bxPath, rendererPath)
 		"BGFX_CONFIG_RENDERER_OPENGL=31",
 		"USE_RENDERER_DLOPEN"
 	}
+	
+	if embreeIncludeDir and embreeLib then
+		defines "USE_LIGHT_BAKER"
+	end
 
 	files
 	{
@@ -34,6 +48,10 @@ function rendererProject(engine, bgfxPath, bxPath, rendererPath)
 		path.join(bgfxPath, "3rdparty/khronos"),
 		path.join(rendererPath, "code/stb")
 	}
+	
+	if embreeIncludeDir then
+		includedirs(embreeIncludeDir)
+	end
 	
 	vpaths
 	{
@@ -101,6 +119,10 @@ function rendererProject(engine, bgfxPath, bxPath, rendererPath)
 	configuration "windows"
 		defines { "BGFX_CONFIG_RENDERER_DIRECT3D11=1", "BGFX_CONFIG_RENDERER_DIRECT3D12=1" }
 		links { "d3dcompiler", "gdi32", "OpenGL32", "psapi" }
+		
+		if embreeLib then
+			links(embreeLib)
+		end
 		
 	configuration { "windows", "gmake" }
 		includedirs(path.join(bxPath, "include/compat/mingw"))

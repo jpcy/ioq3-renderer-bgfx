@@ -66,6 +66,7 @@ public:
 
 	void registerFont(const char *fontName, int pointSize, fontInfo_t *font);
 	void setColor(vec4 c) { stretchPicColor_ = c; }
+	const SunLight &getSunLight() const { return sunLight_; }
 	void setSunLight(const SunLight &sunLight) { sunLight_ = sunLight; }
 	void debugPrint(const char *text);
 	void drawBounds(const Bounds &bounds);

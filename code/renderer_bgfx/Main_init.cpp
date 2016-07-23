@@ -221,6 +221,13 @@ static void TakeScreenshot(const char *extension)
 	bgfx::saveScreenShot(filename);
 }
 
+#if defined(USE_LIGHT_BAKER)
+static void Cmd_BakeLights()
+{
+	light_baker::Start();
+}
+#endif
+
 static void Cmd_PrintMaterials()
 {
 	if (g_materialCache)
@@ -279,6 +286,9 @@ Main::Main()
 
 	softSpritesEnabled_ = g_cvars.softSprites.getBool() && !(aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x);
 
+#if defined(USE_LIGHT_BAKER)
+	interface::Cmd_Add("r_bakeLights", Cmd_BakeLights);
+#endif
 	interface::Cmd_Add("r_printMaterials", Cmd_PrintMaterials);
 	interface::Cmd_Add("screenshot", Cmd_Screenshot);
 	interface::Cmd_Add("screenshotJPEG", Cmd_ScreenshotJPEG);
@@ -328,6 +338,9 @@ Main::~Main()
 			bgfx::destroyTexture(smaaSearchTex_);
 	}
 
+#if defined(USE_LIGHT_BAKER)
+	interface::Cmd_Remove("r_bakeLights");
+#endif
 	interface::Cmd_Remove("r_printMaterials");
 	interface::Cmd_Remove("screenshot");
 	interface::Cmd_Remove("screenshotJPEG");
@@ -646,6 +659,11 @@ void SetColor(vec4 c)
 	s_main->setColor(c);
 }
 
+const SunLight &GetSunLight()
+{
+	return s_main->getSunLight();
+}
+
 void SetSunLight(const SunLight &sunLight)
 {
 	s_main->setSunLight(sunLight);
@@ -653,6 +671,9 @@ void SetSunLight(const SunLight &sunLight)
 
 void Shutdown(bool destroyWindow)
 {
+#if defined(USE_LIGHT_BAKER)
+	light_baker::Stop();
+#endif
 	world::Unload();
 	s_main.reset(nullptr);
 

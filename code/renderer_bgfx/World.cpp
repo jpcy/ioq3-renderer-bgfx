@@ -435,9 +435,11 @@ struct World
 	};
 
 	std::vector<Fog> fogs;
+
+	std::vector<LightEntity> lightEntities;
 	const int lightmapSize = 128;
 	int lightmapAtlasSize;
-	std::vector<const Texture *> lightmapAtlases;
+	std::vector<Texture *> lightmapAtlases;
 	int nLightmapsPerAtlas;
 	vec3 lightGridSize = { 64, 64, 128 };
 	vec3 lightGridInverseSize;
@@ -751,6 +753,25 @@ static void SetSurfaceGeometry(World::Surface *surface, const Vertex *vertices, 
 	}
 }
 
+struct EntityKVP
+{
+	char key[MAX_TOKEN_CHARS];
+	char value[MAX_TOKEN_CHARS];
+};
+
+static const char *FindEntityKeyValue(const std::vector<EntityKVP> &kvps, const char *key, const char *defaultValue = nullptr)
+{
+	for (const EntityKVP &kvp : kvps)
+	{
+		if (!util::Stricmp(kvp.key, key))
+		{
+			return kvp.value;
+		}
+	}
+
+	return defaultValue;
+}
+
 void Load(const char *name)
 {
 	s_world = std::make_unique<World>();
@@ -821,36 +842,97 @@ void Load(const char *name)
 		strcpy(s_world->entityString.data(), p);
 		s_world->entityParsePoint = s_world->entityString.data();
 
-		char *token = util::Parse(&p, true);
+		// KVP values we care about.
+		std::vector<EntityKVP> entityKVPs;
+		bool parsingEntity = false;
 
-		if (*token && *token == '{')
+		for (;;)
 		{
-			for (;;)
+			char *token = util::Parse(&p);
+
+			if (!token[0])
+				break; // End of entity string.
+
+			if (*token == '{') // Start of entity definition.
 			{
-				// Parse key.
-				token = util::Parse(&p, true);
-
-				if (!*token || *token == '}')
-					break;
-
-				char keyname[MAX_TOKEN_CHARS];
-				util::Strncpyz(keyname, token, sizeof(keyname));
-
-				// Parse value.
-				token = util::Parse(&p, true);
-
-				if (!*token || *token == '}')
-					break;
-
-				char value[MAX_TOKEN_CHARS];
-				util::Strncpyz(value, token, sizeof(value));
-
-				// Check for a different light grid size.
-				if (!util::Stricmp(keyname, "gridsize"))
+				if (parsingEntity)
 				{
-					sscanf(value, "%f %f %f", &s_world->lightGridSize.x, &s_world->lightGridSize.y, &s_world->lightGridSize.z);
-					continue;
+					interface::PrintWarningf("Stray '{' when parsing entity string\n");
+					break;
 				}
+
+				parsingEntity = true;
+				entityKVPs.clear();
+			}
+			else if (*token == '}') // End of entity definition.
+			{
+				if (!parsingEntity)
+				{
+					interface::PrintWarningf("Stray '}' when parsing entity string\n");
+					break;
+				}
+
+				parsingEntity = false;
+
+				// Process entity.
+				const char *classname = FindEntityKeyValue(entityKVPs, "classname", "");
+
+				if (!util::Stricmp(classname, "worldspawn"))
+				{
+					// Check for a different light grid size.
+					const char *gridsize = FindEntityKeyValue(entityKVPs, "gridsize");
+
+					if (gridsize)
+						sscanf(gridsize, "%f %f %f", &s_world->lightGridSize.x, &s_world->lightGridSize.y, &s_world->lightGridSize.z);
+				}
+				else if (!util::Stricmp(classname, "light"))
+				{
+					if (FindEntityKeyValue(entityKVPs, "target"))
+						continue; // ignore spotlights for now
+
+					LightEntity light;
+					const char *color = FindEntityKeyValue(entityKVPs, "_color");
+					
+					if (color)
+					{
+						vec3 rgb;
+						sscanf(color, "%f %f %f", &rgb.r, &rgb.g, &rgb.b);
+
+						// Normalize. See q3map ColorNormalize.
+						const float max = std::max(rgb.r, std::max(rgb.g, rgb.b));
+						light.color = vec4(rgb * (1.0f / max), 1);
+					}
+					else
+					{
+						light.color = vec4::white;
+					}
+
+					light.intensity = (float)atof(FindEntityKeyValue(entityKVPs, "light", "300"));
+					const char *origin = FindEntityKeyValue(entityKVPs, "origin");
+
+					if (!origin)
+						continue;
+
+					sscanf(origin, "%f %f %f", &light.position.x, &light.position.y, &light.position.z);
+					light.spawnFlags = atoi(FindEntityKeyValue(entityKVPs, "spawnflags", "0"));
+					s_world->lightEntities.push_back(light);
+				}
+			}
+			else
+			{
+				// Parse KVP.
+				EntityKVP kvp;
+				util::Strncpyz(kvp.key, token, sizeof(kvp.key));
+				token = util::Parse(&p);
+
+				if (!token[0])
+				{
+					interface::PrintWarningf("Empty KVP in entity string. Key is \"%s\"\n", kvp.key);
+					break;
+				}
+
+				util::Strncpyz(kvp.value, token, sizeof(kvp.value));
+				entityKVPs.push_back(kvp);
 			}
 		}
 	}
@@ -1397,14 +1479,58 @@ static void R_ChopPolyBehindPlane(int numInPoints, const vec3 *inPoints, int *nu
 	}
 }
 
-size_t GetNumLightmaps()
+int GetNumLightEntities()
 {
-	return s_world->lightmapAtlases.size();
+	return (int)s_world->lightEntities.size();
 }
 
-const Texture *GetLightmap(size_t index)
+const LightEntity &GetLightEntity(int index)
 {
-	return index < s_world->lightmapAtlases.size() ? s_world->lightmapAtlases[index] : nullptr;
+	return s_world->lightEntities[index];
+}
+
+int GetLightmapSize()
+{
+	return s_world->lightmapAtlasSize;
+}
+
+int GetNumLightmaps()
+{
+	return (int)s_world->lightmapAtlases.size();
+}
+
+Texture *GetLightmap(int index)
+{
+	return index < (int)s_world->lightmapAtlases.size() ? s_world->lightmapAtlases[index] : nullptr;
+}
+
+int GetNumSurfaces()
+{
+	return (int)s_world->surfaces.size();
+}
+
+Surface GetSurface(int index)
+{
+	const World::Surface &surface = s_world->surfaces[index];
+	Surface result;
+	result.contentFlags = surface.contentFlags;
+	result.surfaceFlags = surface.flags;
+	result.isValid = (surface.type != World::SurfaceType::Ignore && surface.type != World::SurfaceType::Flare);
+	result.material = surface.material;
+	result.nIndices = (int)surface.indices.size();
+	result.indices = surface.indices.data();
+	result.vertexBufferIndex = (int)surface.bufferIndex;
+	return result;
+}
+
+int GetNumVertexBuffers()
+{
+	return (int)s_world->currentGeometryBuffer + 1;
+}
+
+const std::vector<Vertex> &GetVertexBuffer(int index)
+{
+	return s_world->vertices[index];
 }
 
 bool GetEntityToken(char *buffer, int size)
@@ -1537,6 +1663,11 @@ static World::Node *LeafFromPosition(vec3 pos)
 	}
 
 	return node;
+}
+
+bool InPvs(vec3 position)
+{
+	return LeafFromPosition(position)->cluster != -1;
 }
 
 bool InPvs(vec3 position1, vec3 position2)

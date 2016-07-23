@@ -475,6 +475,14 @@ public:
 		return vec4(x * value, y * value, z * value, w * value);
 	}
 
+	void operator+=(const vec4 &v)
+	{
+		x += v.x;
+		y += v.y;
+		z += v.z;
+		w += v.w;
+	}
+
 	void operator*=(float value)
 	{
 		x *= value;
