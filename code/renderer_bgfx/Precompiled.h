@@ -439,7 +439,7 @@ struct IndexBuffer
 #if defined(USE_LIGHT_BAKER)
 namespace light_baker
 {
-	void Start();
+	void Start(int nSamples);
 	void Stop();
 	bool IsRunning();
 	void Update(int frameNo);

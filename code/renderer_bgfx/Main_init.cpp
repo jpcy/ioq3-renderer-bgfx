@@ -224,7 +224,14 @@ static void TakeScreenshot(const char *extension)
 #if defined(USE_LIGHT_BAKER)
 static void Cmd_BakeLights()
 {
-	light_baker::Start();
+	int nSamples = 1;
+
+	if (interface::Cmd_Argc() > 1)
+	{
+		nSamples = atoi(interface::Cmd_Argv(1));
+	}
+
+	light_baker::Start(nSamples);
 }
 #endif
 

@@ -101,6 +101,11 @@ inline float Lerp(float from, float to, float fraction)
 	return from + (to - from) * fraction;
 }
 
+inline float RandomFloat(float min, float max)
+{
+	return min + rand() / (RAND_MAX / (max - min));
+}
+
 typedef union {
 	float f;
 	int i;

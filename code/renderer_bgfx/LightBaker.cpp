@@ -391,6 +391,8 @@ struct LightBaker
 	SDL_Thread *thread;
 #endif
 
+	int nSamples;
+	static const int maxSamples = 16;
 	int textureUploadFrameNo; // lightmap textures were uploaded this frame
 	int nLuxelsProcessed;
 	std::vector<Lightmap> lightmaps;
@@ -594,6 +596,22 @@ static int Thread(void *data)
 			lightmap.triangleIds[i] = UINT32_MAX;
 	}
 
+	// Setup jitter.
+	srand(1);
+	std::array<vec3, LightBaker::maxSamples> dirJitter, posJitter;
+
+	for (int si = 1; si < s_lightBaker->nSamples; si++) // index 0 left as (0, 0, 0)
+	{
+		const vec2 dirJitterRange(-0.1f, 0.1f);
+		const vec2 posJitterRange(-2.0f, 2.0f);
+
+		for (int i = 0; i < 3; i++)
+		{
+			dirJitter[si][i] = math::RandomFloat(dirJitterRange.x, dirJitterRange.y);
+			posJitter[si][i] = math::RandomFloat(posJitterRange.x, posJitterRange.y);
+		}
+	}
+
 	// Iterate surfaces.
 	const SunLight &sunLight = main::GetSunLight();
 	const float maxRayLength = world::GetBounds().toRadius() * 2; // World bounding sphere circumference.
@@ -669,56 +687,67 @@ static int Thread(void *data)
 				for (int li = 0; li < world::GetNumLightEntities(); li++)
 				{
 					const world::LightEntity &light = world::GetLightEntity(li);
-					vec3 dir(light.position - samplePosition);
-					const float distance = dir.normalize();
-					//const float pointScale = 7500.0f;
-					const float pointScale = 7500.0f / 255.0f;
-					const float intensity = light.intensity * pointScale;
-					const float envelope = intensity;
+					float totalAttenuation = 0;
 
-					if (distance >= envelope)
-						continue;
+					for (int si = 0; si < s_lightBaker->nSamples; si++)
+					{
+						vec3 dir(light.position + posJitter[si] - samplePosition); // Jitter light position.
+						const float distance = dir.normalize();
+						//const float pointScale = 7500.0f;
+						const float pointScale = 7500.0f / 255.0f;
+						const float intensity = light.intensity * pointScale;
+						const float envelope = intensity;
 
-					// Inverse distance-squared attenuation.
-					float attenuation = intensity / (distance * distance);
-					// Linear attenuation.
-					//const float attenuation = 1.0f - distance / light.intensity;
+						if (distance >= envelope)
+							continue;
 
-					if (attenuation <= 0)
-						continue;
+						// Inverse distance-squared attenuation.
+						float attenuation = intensity / (distance * distance);
+						// Linear attenuation.
+						//const float attenuation = 1.0f - distance / light.intensity;
 
-					attenuation *= vec3::dotProduct(sampleNormal, dir);
+						if (attenuation <= 0)
+							continue;
 
-					if (attenuation <= 0)
-						continue;
+						attenuation *= vec3::dotProduct(sampleNormal, dir);
 
-					RTCRay ray;
-					const vec3 org(samplePosition + sampleNormal * 0.1f);
-					ray.org[0] = org.x;
-					ray.org[1] = org.y;
-					ray.org[2] = org.z;
-					ray.tnear = 0;
-					ray.tfar = distance;
-					ray.dir[0] = dir.x;
-					ray.dir[1] = dir.y;
-					ray.dir[2] = dir.z;
-					ray.geomID = RTC_INVALID_GEOMETRY_ID;
-					ray.primID = RTC_INVALID_GEOMETRY_ID;
-					ray.mask = -1;
-					ray.time = 0;
+						if (attenuation <= 0)
+							continue;
 
-					rtcOccluded(s_lightBaker->embreeScene, ray);
+						RTCRay ray;
+						const vec3 org(samplePosition + sampleNormal * 0.1f);
+						ray.org[0] = org.x;
+						ray.org[1] = org.y;
+						ray.org[2] = org.z;
+						ray.tnear = 0;
+						ray.tfar = distance;
+						ray.dir[0] = dir.x;
+						ray.dir[1] = dir.y;
+						ray.dir[2] = dir.z;
+						ray.geomID = RTC_INVALID_GEOMETRY_ID;
+						ray.primID = RTC_INVALID_GEOMETRY_ID;
+						ray.mask = -1;
+						ray.time = 0;
 
-					if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
-						continue; // hit
+						rtcOccluded(s_lightBaker->embreeScene, ray);
+
+						if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
+							continue; // hit
+
+						totalAttenuation += attenuation * (1.0f / s_lightBaker->nSamples);
+					}
 					
-					WriteLightmapData(surface.material->lightmapIndex, ctx, vec4(light.color.rgb() * attenuation, 1.0f), (uint32_t)nTrianglesProcessed);
+					if (totalAttenuation > 0)
+						WriteLightmapData(surface.material->lightmapIndex, ctx, vec4(light.color.rgb() * totalAttenuation, 1.0f), (uint32_t)nTrianglesProcessed);
 				}
 
 				// Sunlight.
+				float attenuation = 0;
+
+				for (int si = 0; si < s_lightBaker->nSamples; si++)
 				{
 					RTCRay ray;
-					const vec3 dir(sunLight.direction);
+					const vec3 dir(sunLight.direction + dirJitter[si]); // Jitter light direction.
 					const vec3 org(samplePosition + sampleNormal * 0.1f); // push out from the surface a little
 					ray.org[0] = org.x;
 					ray.org[1] = org.y;
@@ -738,9 +767,9 @@ static int Thread(void *data)
 					{
 						bool hitSky = false;
 
-						for (size_t i = 0; i < skyFaces.size(); i++)
+						for (size_t sfi = 0; sfi < skyFaces.size(); sfi++)
 						{
-							if (skyFaces[i] == ray.primID)
+							if (skyFaces[sfi] == ray.primID)
 							{
 								hitSky = true;
 								break;
@@ -748,14 +777,12 @@ static int Thread(void *data)
 						}
 
 						if (hitSky)
-						{
-							const float attenuation = vec3::dotProduct(sampleNormal, dir);
-
-							if (attenuation > 0)
-								WriteLightmapData(surface.material->lightmapIndex, ctx, vec4(sunLight.light * attenuation, 1.0f), (uint32_t)nTrianglesProcessed);
-						}
+							attenuation += vec3::dotProduct(sampleNormal, dir) * (1.0f / s_lightBaker->nSamples);
 					}
 				}
+
+				if (attenuation > 0)
+					WriteLightmapData(surface.material->lightmapIndex, ctx, vec4(sunLight.light * attenuation, 1.0f), (uint32_t)nTrianglesProcessed);
 			}
 
 			nTrianglesProcessed += 1;
@@ -816,12 +843,13 @@ static int Thread(void *data)
 	return 0;
 }
 
-void Start()
+void Start(int nSamples)
 {
 	if (s_lightBaker.get() || !world::IsLoaded())
 		return;
 
 	s_lightBaker = std::make_unique<LightBaker>();
+	s_lightBaker->nSamples = math::Clamped(nSamples, 1, LightBaker::maxSamples);
 #ifdef USE_LIGHT_BAKER_THREAD
 	s_lightBaker->mutex = SDL_CreateMutex();
 
