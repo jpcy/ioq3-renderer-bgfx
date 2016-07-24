@@ -669,7 +669,8 @@ static int Thread(void *data)
 				for (int li = 0; li < world::GetNumLightEntities(); li++)
 				{
 					const world::LightEntity &light = world::GetLightEntity(li);
-					const float distance = fabs(vec3::distance(samplePosition, light.position));
+					vec3 dir(light.position - samplePosition);
+					const float distance = dir.normalize();
 					//const float pointScale = 7500.0f;
 					const float pointScale = 7500.0f / 255.0f;
 					const float intensity = light.intensity * pointScale;
@@ -679,21 +680,25 @@ static int Thread(void *data)
 						continue;
 
 					// Inverse distance-squared attenuation.
-					const float attenuation = intensity / (distance * distance);
+					float attenuation = intensity / (distance * distance);
 					// Linear attenuation.
 					//const float attenuation = 1.0f - distance / light.intensity;
 
 					if (attenuation <= 0)
 						continue;
 
+					attenuation *= vec3::dotProduct(sampleNormal, dir);
+
+					if (attenuation <= 0)
+						continue;
+
 					RTCRay ray;
-					vec3 dir(light.position - samplePosition);
 					const vec3 org(samplePosition + sampleNormal * 0.1f);
 					ray.org[0] = org.x;
 					ray.org[1] = org.y;
 					ray.org[2] = org.z;
 					ray.tnear = 0;
-					ray.tfar = dir.normalize();
+					ray.tfar = distance;
 					ray.dir[0] = dir.x;
 					ray.dir[1] = dir.y;
 					ray.dir[2] = dir.z;
@@ -713,7 +718,7 @@ static int Thread(void *data)
 				// Sunlight.
 				{
 					RTCRay ray;
-					vec3 dir(sunLight.direction);
+					const vec3 dir(sunLight.direction);
 					const vec3 org(samplePosition + sampleNormal * 0.1f); // push out from the surface a little
 					ray.org[0] = org.x;
 					ray.org[1] = org.y;
@@ -743,7 +748,12 @@ static int Thread(void *data)
 						}
 
 						if (hitSky)
-							WriteLightmapData(surface.material->lightmapIndex, ctx, vec4(sunLight.light, 1.0f), (uint32_t)nTrianglesProcessed);
+						{
+							const float attenuation = vec3::dotProduct(sampleNormal, dir);
+
+							if (attenuation > 0)
+								WriteLightmapData(surface.material->lightmapIndex, ctx, vec4(sunLight.light * attenuation, 1.0f), (uint32_t)nTrianglesProcessed);
+						}
 					}
 				}
 			}
