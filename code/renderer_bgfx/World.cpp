@@ -436,7 +436,7 @@ struct World
 
 	std::vector<Fog> fogs;
 
-	std::vector<LightEntity> lightEntities;
+	std::vector<StaticLight> lightEntities;
 	const int lightmapSize = 128;
 	int lightmapAtlasSize;
 	std::vector<Texture *> lightmapAtlases;
@@ -890,7 +890,7 @@ void Load(const char *name)
 					if (FindEntityKeyValue(entityKVPs, "target"))
 						continue; // ignore spotlights for now
 
-					LightEntity light;
+					StaticLight light;
 					const char *color = FindEntityKeyValue(entityKVPs, "_color");
 					
 					if (color)
@@ -1484,7 +1484,7 @@ int GetNumLightEntities()
 	return (int)s_world->lightEntities.size();
 }
 
-const LightEntity &GetLightEntity(int index)
+const StaticLight &GetLightEntity(int index)
 {
 	return s_world->lightEntities[index];
 }

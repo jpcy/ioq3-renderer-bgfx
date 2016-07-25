@@ -1267,6 +1267,28 @@ void Sky_InitializeTexCoords(float heightCloud);
 
 void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, uint8_t visCacheId, float zMax);
 
+struct StaticLightFlags
+{
+	enum
+	{
+		LinearAttenuation   = 1<<0,
+		AngleAttenuation    = 1<<1,
+		DistanceAttenuation = 1<<2,
+		DefaultMask         = AngleAttenuation | DistanceAttenuation
+	};
+};
+
+struct StaticLight
+{
+	vec4 color;
+	float envelope;
+	int flags;
+	float intensity;
+	float photons;
+	vec3 position;
+	int spawnFlags;
+};
+
 struct SunLight
 {
 	SunLight() { direction.normalize(); }
@@ -1668,15 +1690,6 @@ namespace window
 
 namespace world
 {
-	struct LightEntity
-	{
-		vec4 color;
-		float intensity;
-		bool linearAttenuation;
-		vec3 position;
-		int spawnFlags;
-	};
-
 	struct Surface
 	{
 		int contentFlags;
@@ -1692,7 +1705,7 @@ namespace world
 	void Unload();
 	bool IsLoaded();
 	int GetNumLightEntities();
-	const LightEntity &GetLightEntity(int index);
+	const StaticLight &GetLightEntity(int index);
 	int GetLightmapSize();
 	int GetNumLightmaps();
 	Texture *GetLightmap(int index);

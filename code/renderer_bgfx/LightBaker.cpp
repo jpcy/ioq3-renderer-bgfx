@@ -19,6 +19,33 @@ along with Quake III Arena source code; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
 */
+/* -------------------------------------------------------------------------------
+
+   Copyright (C) 1999-2007 id Software, Inc. and contributors.
+   For a list of contributors, see the accompanying CONTRIBUTORS file.
+
+   This file is part of GtkRadiant.
+
+   GtkRadiant is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
+
+   GtkRadiant is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with GtkRadiant; if not, write to the Free Software
+   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+
+   ----------------------------------------------------------------------------------
+
+   This code has been altered significantly from its original form, to support
+   several games based on the Quake III Arena engine, in the form of "Q3Map2."
+
+   ------------------------------------------------------------------------------- */
 /***********************************************************
 * A single header file OpenGL lightmapping library         *
 * https://github.com/ands/lightmapper                      *
@@ -612,6 +639,51 @@ static int Thread(void *data)
 		}
 	}
 
+	// Setup lights.
+	std::vector<StaticLight> lights;
+	lights.resize(world::GetNumLightEntities());
+	const float pointScale = 7500.0f;
+	const float linearScale = 1.0f / 8000.0f;
+
+	for (int li = 0; li < world::GetNumLightEntities(); li++)
+	{
+		StaticLight &light = lights[li];
+		light = world::GetLightEntity(li);
+		light.flags = StaticLightFlags::DefaultMask;
+
+		// From q3map2 CreateEntityLights.
+		if (light.spawnFlags & 1)
+		{
+			// Linear attenuation.
+			light.flags |= StaticLightFlags::LinearAttenuation;
+			light.flags &= ~StaticLightFlags::AngleAttenuation;
+		}
+
+		if (light.spawnFlags & 2)
+		{
+			// No angle attenuation.
+			light.flags &= ~StaticLightFlags::AngleAttenuation;
+		}
+
+		light.photons = light.intensity * pointScale;
+
+		// Setup envelope. From q3map2 SetupEnvelopes.
+		const float falloffTolerance = 1.0f;
+
+		if (!(light.flags & StaticLightFlags::DistanceAttenuation))
+		{
+			light.envelope = FLT_MAX;
+		}
+		else if (light.flags & StaticLightFlags::LinearAttenuation)
+		{
+			light.envelope = light.photons * linearScale - falloffTolerance;
+		}
+		else
+		{
+			light.envelope = sqrt(light.photons / falloffTolerance);
+		}
+	}
+
 	// Iterate surfaces.
 	const SunLight &sunLight = main::GetSunLight();
 	const float maxRayLength = world::GetBounds().toRadius() * 2; // World bounding sphere circumference.
@@ -684,35 +756,43 @@ static int Thread(void *data)
 				const vec3 samplePosition(&ctx.sample.position.x);
 				const vec3 sampleNormal(-vec3(&ctx.sample.direction.x));
 
-				for (int li = 0; li < world::GetNumLightEntities(); li++)
+				for (StaticLight &light : lights)
 				{
-					const world::LightEntity &light = world::GetLightEntity(li);
 					float totalAttenuation = 0;
 
 					for (int si = 0; si < s_lightBaker->nSamples; si++)
 					{
 						vec3 dir(light.position + posJitter[si] - samplePosition); // Jitter light position.
-						const float distance = dir.normalize();
-						//const float pointScale = 7500.0f;
-						const float pointScale = 7500.0f / 255.0f;
-						const float intensity = light.intensity * pointScale;
-						const float envelope = intensity;
+						float distance = dir.normalize();
+						const float envelope = light.photons;
 
 						if (distance >= envelope)
 							continue;
 
-						// Inverse distance-squared attenuation.
-						float attenuation = intensity / (distance * distance);
-						// Linear attenuation.
-						//const float attenuation = 1.0f - distance / light.intensity;
+						distance = std::max(distance, 16.0f); // clamp the distance to prevent super hot spots
+						float attenuation = 0;
 
+						if (light.flags & StaticLightFlags::LinearAttenuation)
+						{
+							//attenuation = 1.0f - distance / light.intensity;
+							attenuation = std::max(0.0f, light.photons * linearScale - distance);
+						}
+						else
+						{
+							// Inverse distance-squared attenuation.
+							attenuation = light.photons / (distance * distance);
+						}
+						
 						if (attenuation <= 0)
 							continue;
 
-						attenuation *= vec3::dotProduct(sampleNormal, dir);
+						if (light.flags & StaticLightFlags::AngleAttenuation)
+						{
+							attenuation *= vec3::dotProduct(sampleNormal, dir);
 
-						if (attenuation <= 0)
-							continue;
+							if (attenuation <= 0)
+								continue;
+						}
 
 						RTCRay ray;
 						const vec3 org(samplePosition + sampleNormal * 0.1f);
@@ -782,7 +862,7 @@ static int Thread(void *data)
 				}
 
 				if (attenuation > 0)
-					WriteLightmapData(surface.material->lightmapIndex, ctx, vec4(sunLight.light * attenuation, 1.0f), (uint32_t)nTrianglesProcessed);
+					WriteLightmapData(surface.material->lightmapIndex, ctx, vec4(sunLight.light * attenuation * 255.0f, 1.0f), (uint32_t)nTrianglesProcessed);
 			}
 
 			nTrianglesProcessed += 1;
@@ -828,12 +908,12 @@ static int Thread(void *data)
 			const float max = std::max(src.r, std::max(src.g, src.b));
 			vec3 color(src.rgb());
 
-			if (max > 1.0f)
-				color *= 1.0f / max;
+			if (max > 255.0f)
+				color *= 255.0f / max;
 
-			dest[0] = uint8_t(color[0] * 255.0f);
-			dest[1] = uint8_t(color[1] * 255.0f);
-			dest[2] = uint8_t(color[2] * 255.0f);
+			dest[0] = uint8_t(color[0]);
+			dest[1] = uint8_t(color[1]);
+			dest[2] = uint8_t(color[2]);
 			dest[3] = 255;
 		}
 	}
