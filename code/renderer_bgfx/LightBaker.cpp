@@ -512,7 +512,7 @@ static void WriteLightmapData(int lightmapIndex, const lm_context &ctx, vec4 col
 	else if (lightmapTriangleId != triangleId)
 		return;
 
-	lightmap.color[pixelOffset] += color;
+	lightmap.color[pixelOffset] = color;
 }
 
 static bool DoesSurfaceOccludeLight(const world::Surface &surface)
@@ -520,6 +520,16 @@ static bool DoesSurfaceOccludeLight(const world::Surface &surface)
 	// Translucent surfaces (e.g. flames) shouldn't occlude.
 	// Not handling alpha-testing yet.
 	return surface.isValid && (surface.contentFlags & CONTENTS_TRANSLUCENT) == 0 && (surface.surfaceFlags & SURF_ALPHASHADOW) == 0;
+}
+
+static vec3 ParseColorString(const char *color)
+{
+	vec3 rgb;
+	sscanf(color, "%f %f %f", &rgb.r, &rgb.g, &rgb.b);
+
+	// Normalize. See q3map ColorNormalize.
+	const float max = std::max(rgb.r, std::max(rgb.g, rgb.b));
+	return rgb * (1.0f / max);
 }
 
 static int CheckEmbreeError(const char *lastFunctionName)
@@ -640,6 +650,7 @@ static int Thread(void *data)
 	}
 
 	// Setup lights.
+	vec3 ambientLight;
 	std::vector<StaticLight> lights;
 	const float pointScale = 7500.0f;
 	const float linearScale = 1.0f / 8000.0f;
@@ -649,7 +660,17 @@ static int Thread(void *data)
 		const world::Entity &entity = world::GetEntity(i);
 		const char *classname = entity.findValue("classname", "");
 
-		if (util::Stricmp(classname, "light"))
+		if (!util::Stricmp(classname, "worldspawn"))
+		{
+			const char *color = entity.findValue("_color");
+			const char *ambient = entity.findValue("ambient");
+					
+			if (color && ambient)
+				ambientLight = ParseColorString(color) * (float)atof(ambient);
+
+			continue;
+		}
+		else if (util::Stricmp(classname, "light"))
 			continue;
 
 		StaticLight light;
@@ -657,12 +678,7 @@ static int Thread(void *data)
 					
 		if (color)
 		{
-			vec3 rgb;
-			sscanf(color, "%f %f %f", &rgb.r, &rgb.g, &rgb.b);
-
-			// Normalize. See q3map ColorNormalize.
-			const float max = std::max(rgb.r, std::max(rgb.g, rgb.b));
-			light.color = vec4(rgb * (1.0f / max), 1);
+			light.color = vec4(ParseColorString(color), 1);
 		}
 		else
 		{
@@ -808,8 +824,9 @@ static int Thread(void *data)
 					break;
 
 				s_lightBaker->nLuxelsProcessed++;
+				vec3 luxelColor = ambientLight;
 
-				// Accumulate entity lights.
+				// Entity lights.
 				const vec3 samplePosition(&ctx.sample.position.x);
 				const vec3 sampleNormal(-vec3(&ctx.sample.direction.x));
 
@@ -905,7 +922,7 @@ static int Thread(void *data)
 					}
 					
 					if (totalAttenuation > 0)
-						WriteLightmapData(surface.material->lightmapIndex, ctx, vec4(light.color.rgb() * totalAttenuation, 1.0f), (uint32_t)nTrianglesProcessed);
+						luxelColor += light.color.rgb() * totalAttenuation;
 				}
 
 				// Sunlight.
@@ -949,7 +966,9 @@ static int Thread(void *data)
 				}
 
 				if (attenuation > 0)
-					WriteLightmapData(surface.material->lightmapIndex, ctx, vec4(sunLight.light * attenuation * 255.0f, 1.0f), (uint32_t)nTrianglesProcessed);
+					luxelColor += sunLight.light * attenuation * 255.0f;
+
+				WriteLightmapData(surface.material->lightmapIndex, ctx, vec4(luxelColor, 1.0f), (uint32_t)nTrianglesProcessed);
 			}
 
 			nTrianglesProcessed += 1;
