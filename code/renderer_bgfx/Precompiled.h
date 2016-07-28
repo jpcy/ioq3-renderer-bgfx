@@ -1274,6 +1274,7 @@ struct StaticLightFlags
 		LinearAttenuation   = 1<<0,
 		AngleAttenuation    = 1<<1,
 		DistanceAttenuation = 1<<2,
+		Spotlight           = 1<<3,
 		DefaultMask         = AngleAttenuation | DistanceAttenuation
 	};
 };
@@ -1286,7 +1287,8 @@ struct StaticLight
 	float intensity;
 	float photons;
 	vec3 position;
-	int spawnFlags;
+	float radius;
+	vec3 targetPosition;
 };
 
 struct SunLight
@@ -1690,6 +1692,20 @@ namespace window
 
 namespace world
 {
+	struct EntityKVP
+	{
+		char key[128];
+		char value[128];
+	};
+
+	struct Entity
+	{
+		std::array<EntityKVP, 32> kvps;
+		size_t nKvps;
+
+		const char *findValue(const char *key, const char *defaultValue = nullptr) const;
+	};
+
 	struct Surface
 	{
 		int contentFlags;
@@ -1704,8 +1720,8 @@ namespace world
 	void Load(const char *name);
 	void Unload();
 	bool IsLoaded();
-	int GetNumLightEntities();
-	const StaticLight &GetLightEntity(int index);
+	size_t GetNumEntities();
+	const Entity &GetEntity(size_t index);
 	int GetLightmapSize();
 	int GetNumLightmaps();
 	Texture *GetLightmap(int index);
@@ -1726,7 +1742,7 @@ namespace world
 	Bounds GetBounds(uint8_t visCacheId);
 	size_t GetNumSkies(uint8_t visCacheId);
 	void GetSky(uint8_t visCacheId, size_t index, Material **material, const std::vector<Vertex> **vertices);
-	bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, Plane *portalPlane);
+	bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<renderer::Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, Plane *portalPlane);
 	bool CalculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, Transform *camera, Plane *plane);
 	void RenderPortal(uint8_t visCacheId, DrawCallList *drawCallList);
 	void RenderReflective(uint8_t visCacheId, DrawCallList *drawCallList);

@@ -208,6 +208,19 @@ typedef struct {
 
 static const int MAX_VERTS_ON_POLY = 64;
 
+const char *Entity::findValue(const char *key, const char *defaultValue) const
+{
+	for (size_t i = 0; i < nKvps; i++)
+	{
+		const EntityKVP &kvp = kvps[i];
+
+		if (!util::Stricmp(kvp.key, key))
+			return kvp.value;
+	}
+
+	return defaultValue;
+}
+
 class WorldModel : public Model
 {
 public:
@@ -215,9 +228,9 @@ public:
 	bool load(const ReadOnlyFile &file) override { return true; }
 	Bounds getBounds() const override { return bounds_; }
 	Material *getMaterial(size_t surfaceNo) const override;
-	bool isCulled(Entity *entity, const Frustum &cameraFrustum) const override;
-	int lerpTag(const char *name, const Entity &entity, int startIndex, Transform *transform) const override { return -1; }
-	void render(const mat3 &scenRotation, DrawCallList *drawCallList, Entity *entity) override;
+	bool isCulled(renderer::Entity *entity, const Frustum &cameraFrustum) const override;
+	int lerpTag(const char *name, const renderer::Entity &entity, int startIndex, Transform *transform) const override { return -1; }
+	void render(const mat3 &scenRotation, DrawCallList *drawCallList, renderer::Entity *entity) override;
 	void addPatchSurface(size_t index, Material *material, int width, int height, const Vertex *points, int lightmapIndex, int nLightmapTilesPerDimension);
 	void addSurface(size_t index, Material *material, const Vertex *vertices, size_t nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex, int nLightmapTilesPerDimension);
 	void batchSurfaces();
@@ -389,7 +402,7 @@ struct World
 
 		struct Portal
 		{
-			const Entity *entity;
+			const renderer::Entity *entity;
 			bool isMirror;
 			Plane plane;
 			Surface *surface;
@@ -436,7 +449,7 @@ struct World
 
 	std::vector<Fog> fogs;
 
-	std::vector<StaticLight> lightEntities;
+	std::vector<Entity> entities;
 	const int lightmapSize = 128;
 	int lightmapAtlasSize;
 	std::vector<Texture *> lightmapAtlases;
@@ -539,12 +552,12 @@ Material *WorldModel::getMaterial(size_t surfaceNo) const
 	return surface.material;
 }
 
-bool WorldModel::isCulled(Entity *entity, const Frustum &cameraFrustum) const
+bool WorldModel::isCulled(renderer::Entity *entity, const Frustum &cameraFrustum) const
 {
 	return cameraFrustum.clipBounds(bounds_, mat4::transform(entity->rotation, entity->position)) == Frustum::ClipResult::Outside;
 }
 
-void WorldModel::render(const mat3 &scenRotation, DrawCallList *drawCallList, Entity *entity)
+void WorldModel::render(const mat3 &scenRotation, DrawCallList *drawCallList, renderer::Entity *entity)
 {
 	assert(drawCallList);
 	assert(entity);
@@ -753,25 +766,6 @@ static void SetSurfaceGeometry(World::Surface *surface, const Vertex *vertices, 
 	}
 }
 
-struct EntityKVP
-{
-	char key[MAX_TOKEN_CHARS];
-	char value[MAX_TOKEN_CHARS];
-};
-
-static const char *FindEntityKeyValue(const std::vector<EntityKVP> &kvps, const char *key, const char *defaultValue = nullptr)
-{
-	for (const EntityKVP &kvp : kvps)
-	{
-		if (!util::Stricmp(kvp.key, key))
-		{
-			return kvp.value;
-		}
-	}
-
-	return defaultValue;
-}
-
 void Load(const char *name)
 {
 	s_world = std::make_unique<World>();
@@ -833,107 +827,80 @@ void Load(const char *name)
 	}
 
 	// Entities
+	lump_t &lump = header->lumps[LUMP_ENTITIES];
+
+	// Store for reference by the cgame.
+	s_world->entityString.resize(lump.filelen + 1);
+	strcpy(s_world->entityString.data(), (char *)&fileData[lump.fileofs]);
+	s_world->entityParsePoint = s_world->entityString.data();
+		
+	// Parse.
+	char *p = s_world->entityString.data();
+	bool parsingEntity = false;
+	Entity entity;
+
+	for (;;)
 	{
-		lump_t &lump = header->lumps[LUMP_ENTITIES];
-		auto p = (char *)(&fileData[lump.fileofs]);
+		char *token = util::Parse(&p);
 
-		// Store for reference by the cgame.
-		s_world->entityString.resize(lump.filelen + 1);
-		strcpy(s_world->entityString.data(), p);
-		s_world->entityParsePoint = s_world->entityString.data();
+		if (!token[0])
+			break; // End of entity string.
 
-		// KVP values we care about.
-		std::vector<EntityKVP> entityKVPs;
-		bool parsingEntity = false;
-
-		for (;;)
+		if (*token == '{') // Start of entity definition.
 		{
-			char *token = util::Parse(&p);
+			if (parsingEntity)
+			{
+				interface::PrintWarningf("Stray '{' when parsing entity string\n");
+				break;
+			}
+
+			parsingEntity = true;
+			entity.nKvps = 0;
+		}
+		else if (*token == '}') // End of entity definition.
+		{
+			if (!parsingEntity)
+			{
+				interface::PrintWarningf("Stray '}' when parsing entity string\n");
+				break;
+			}
+
+			parsingEntity = false;
+			s_world->entities.push_back(entity);
+
+			// Process entity.
+			const char *classname = entity.findValue("classname", "");
+
+			if (!util::Stricmp(classname, "worldspawn"))
+			{
+				// Check for a different light grid size.
+				const char *gridsize = entity.findValue("gridsize");
+
+				if (gridsize)
+					sscanf(gridsize, "%f %f %f", &s_world->lightGridSize.x, &s_world->lightGridSize.y, &s_world->lightGridSize.z);
+			}
+		}
+		else
+		{
+			// Parse KVP.
+			if (entity.nKvps == entity.kvps.size())
+			{
+				interface::PrintWarningf("Exceeded max entity KVPs\n");
+				break;
+			}
+
+			EntityKVP &kvp = entity.kvps[entity.nKvps];
+			util::Strncpyz(kvp.key, token, sizeof(kvp.key));
+			token = util::Parse(&p);
 
 			if (!token[0])
-				break; // End of entity string.
-
-			if (*token == '{') // Start of entity definition.
 			{
-				if (parsingEntity)
-				{
-					interface::PrintWarningf("Stray '{' when parsing entity string\n");
-					break;
-				}
-
-				parsingEntity = true;
-				entityKVPs.clear();
+				interface::PrintWarningf("Empty KVP in entity string. Key is \"%s\"\n", kvp.key);
+				break;
 			}
-			else if (*token == '}') // End of entity definition.
-			{
-				if (!parsingEntity)
-				{
-					interface::PrintWarningf("Stray '}' when parsing entity string\n");
-					break;
-				}
 
-				parsingEntity = false;
-
-				// Process entity.
-				const char *classname = FindEntityKeyValue(entityKVPs, "classname", "");
-
-				if (!util::Stricmp(classname, "worldspawn"))
-				{
-					// Check for a different light grid size.
-					const char *gridsize = FindEntityKeyValue(entityKVPs, "gridsize");
-
-					if (gridsize)
-						sscanf(gridsize, "%f %f %f", &s_world->lightGridSize.x, &s_world->lightGridSize.y, &s_world->lightGridSize.z);
-				}
-				else if (!util::Stricmp(classname, "light"))
-				{
-					if (FindEntityKeyValue(entityKVPs, "target"))
-						continue; // ignore spotlights for now
-
-					StaticLight light;
-					const char *color = FindEntityKeyValue(entityKVPs, "_color");
-					
-					if (color)
-					{
-						vec3 rgb;
-						sscanf(color, "%f %f %f", &rgb.r, &rgb.g, &rgb.b);
-
-						// Normalize. See q3map ColorNormalize.
-						const float max = std::max(rgb.r, std::max(rgb.g, rgb.b));
-						light.color = vec4(rgb * (1.0f / max), 1);
-					}
-					else
-					{
-						light.color = vec4::white;
-					}
-
-					light.intensity = (float)atof(FindEntityKeyValue(entityKVPs, "light", "300"));
-					const char *origin = FindEntityKeyValue(entityKVPs, "origin");
-
-					if (!origin)
-						continue;
-
-					sscanf(origin, "%f %f %f", &light.position.x, &light.position.y, &light.position.z);
-					light.spawnFlags = atoi(FindEntityKeyValue(entityKVPs, "spawnflags", "0"));
-					s_world->lightEntities.push_back(light);
-				}
-			}
-			else
-			{
-				// Parse KVP.
-				EntityKVP kvp;
-				util::Strncpyz(kvp.key, token, sizeof(kvp.key));
-				token = util::Parse(&p);
-
-				if (!token[0])
-				{
-					interface::PrintWarningf("Empty KVP in entity string. Key is \"%s\"\n", kvp.key);
-					break;
-				}
-
-				util::Strncpyz(kvp.value, token, sizeof(kvp.value));
-				entityKVPs.push_back(kvp);
-			}
+			util::Strncpyz(kvp.value, token, sizeof(kvp.value));
+			entity.nKvps++;
 		}
 	}
 
@@ -1479,14 +1446,14 @@ static void R_ChopPolyBehindPlane(int numInPoints, const vec3 *inPoints, int *nu
 	}
 }
 
-int GetNumLightEntities()
+size_t GetNumEntities()
 {
-	return (int)s_world->lightEntities.size();
+	return (int)s_world->entities.size();
 }
 
-const StaticLight &GetLightEntity(int index)
+const Entity &GetEntity(size_t index)
 {
-	return s_world->lightEntities[index];
+	return s_world->entities[index];
 }
 
 int GetLightmapSize()
@@ -2040,7 +2007,7 @@ void GetSky(uint8_t visCacheId, size_t index, Material **material, const std::ve
 	}
 }
 
-bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, Plane *portalPlane)
+bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<renderer::Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, Plane *portalPlane)
 {
 	assert(pvsPosition);
 	assert(portalCamera);
@@ -2082,11 +2049,11 @@ bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mai
 
 		// Locate the portal entity closest to this plane.
 		// Origin will be the origin of the portal, oldorigin will be the origin of the camera.
-		const Entity *portalEntity = nullptr;
+		const renderer::Entity *portalEntity = nullptr;
 
 		for (size_t j = 0; j < entities.size(); j++)
 		{
-			const Entity &entity = entities[j];
+			const renderer::Entity &entity = entities[j];
 
 			if (entity.type == EntityType::Portal)
 			{

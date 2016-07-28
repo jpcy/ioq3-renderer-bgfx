@@ -641,31 +641,86 @@ static int Thread(void *data)
 
 	// Setup lights.
 	std::vector<StaticLight> lights;
-	lights.resize(world::GetNumLightEntities());
 	const float pointScale = 7500.0f;
 	const float linearScale = 1.0f / 8000.0f;
 
-	for (int li = 0; li < world::GetNumLightEntities(); li++)
+	for (size_t i = 0; i < world::GetNumEntities(); i++)
 	{
-		StaticLight &light = lights[li];
-		light = world::GetLightEntity(li);
+		const world::Entity &entity = world::GetEntity(i);
+		const char *classname = entity.findValue("classname", "");
+
+		if (util::Stricmp(classname, "light"))
+			continue;
+
+		StaticLight light;
+		const char *color = entity.findValue("_color");
+					
+		if (color)
+		{
+			vec3 rgb;
+			sscanf(color, "%f %f %f", &rgb.r, &rgb.g, &rgb.b);
+
+			// Normalize. See q3map ColorNormalize.
+			const float max = std::max(rgb.r, std::max(rgb.g, rgb.b));
+			light.color = vec4(rgb * (1.0f / max), 1);
+		}
+		else
+		{
+			light.color = vec4::white;
+		}
+
+		light.intensity = (float)atof(entity.findValue("light", "300"));
+		light.photons = light.intensity * pointScale;
+		const char *origin = entity.findValue("origin");
+
+		if (!origin)
+			continue;
+
+		sscanf(origin, "%f %f %f", &light.position.x, &light.position.y, &light.position.z);
+		light.radius = (float)atof(entity.findValue("radius", "64"));
+		const int spawnFlags = atoi(entity.findValue("spawnflags", "0"));
 		light.flags = StaticLightFlags::DefaultMask;
 
 		// From q3map2 CreateEntityLights.
-		if (light.spawnFlags & 1)
+		if (spawnFlags & 1)
 		{
 			// Linear attenuation.
 			light.flags |= StaticLightFlags::LinearAttenuation;
 			light.flags &= ~StaticLightFlags::AngleAttenuation;
 		}
 
-		if (light.spawnFlags & 2)
+		if (spawnFlags & 2)
 		{
 			// No angle attenuation.
 			light.flags &= ~StaticLightFlags::AngleAttenuation;
 		}
 
-		light.photons = light.intensity * pointScale;
+		// Find target (spotlights).
+		const char *target = entity.findValue("target");
+
+		if (target)
+		{
+			// Spotlights always use angle attenuation, never linear.
+			light.flags |= StaticLightFlags::Spotlight | StaticLightFlags::AngleAttenuation;
+			light.flags &= ~StaticLightFlags::LinearAttenuation;
+
+			for (size_t j = 0; j < world::GetNumEntities(); j++)
+			{
+				const world::Entity &targetEntity = world::GetEntity(j);
+				const char *targetName = targetEntity.findValue("targetname");
+
+				if (targetName && !util::Stricmp(targetName, target))
+				{
+					const char *origin = targetEntity.findValue("origin");
+
+					if (!origin)
+						continue;
+
+					sscanf(origin, "%f %f %f", &light.targetPosition.x, &light.targetPosition.y, &light.targetPosition.z);
+					break;
+				}
+			}
+		}
 
 		// Setup envelope. From q3map2 SetupEnvelopes.
 		const float falloffTolerance = 1.0f;
@@ -682,6 +737,8 @@ static int Thread(void *data)
 		{
 			light.envelope = sqrt(light.photons / falloffTolerance);
 		}
+
+		lights.push_back(light);
 	}
 
 	// Iterate surfaces.
@@ -763,6 +820,7 @@ static int Thread(void *data)
 					for (int si = 0; si < s_lightBaker->nSamples; si++)
 					{
 						vec3 dir(light.position + posJitter[si] - samplePosition); // Jitter light position.
+						const vec3 displacement(dir);
 						float distance = dir.normalize();
 						const float envelope = light.photons;
 
@@ -792,6 +850,35 @@ static int Thread(void *data)
 
 							if (attenuation <= 0)
 								continue;
+						}
+
+						if (light.flags & StaticLightFlags::Spotlight)
+						{
+							vec3 normal(light.targetPosition - (light.position + posJitter[si]));
+							float coneLength = normal.normalize();
+
+							if (coneLength <= 0)
+								coneLength = 64;
+
+							const float radiusByDist = (light.radius + 16) / coneLength;
+							const float distByNormal = -vec3::dotProduct(displacement, normal);
+
+							if (distByNormal < 0)
+								continue;
+							
+							const vec3 pointAtDist(light.position + posJitter[si] + normal * distByNormal);
+							const float radiusAtDist = radiusByDist * distByNormal;
+							const vec3 distToSample(samplePosition - pointAtDist);
+							const float sampleRadius = distToSample.length();
+
+							// outside the cone
+							if (sampleRadius >= radiusAtDist)
+								continue;
+
+							if (sampleRadius > (radiusAtDist - 32.0f))
+							{
+								attenuation *= (radiusAtDist - sampleRadius) / 32.0f;
+							}
 						}
 
 						RTCRay ray;
