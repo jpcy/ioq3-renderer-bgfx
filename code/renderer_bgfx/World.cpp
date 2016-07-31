@@ -231,8 +231,8 @@ public:
 	bool isCulled(renderer::Entity *entity, const Frustum &cameraFrustum) const override;
 	int lerpTag(const char *name, const renderer::Entity &entity, int startIndex, Transform *transform) const override { return -1; }
 	void render(const mat3 &scenRotation, DrawCallList *drawCallList, renderer::Entity *entity) override;
-	void addPatchSurface(size_t index, Material *material, int width, int height, const Vertex *points, int lightmapIndex, int nLightmapTilesPerDimension);
-	void addSurface(size_t index, Material *material, const Vertex *vertices, size_t nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex, int nLightmapTilesPerDimension);
+	void addPatchSurface(size_t index, Material *material, int width, int height, const Vertex *points, int lightmapIndex, vec2i lightmapAtlasSize);
+	void addSurface(size_t index, Material *material, const Vertex *vertices, size_t nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex, vec2i lightmapAtlasSize);
 	void batchSurfaces();
 
 private:
@@ -451,7 +451,7 @@ struct World
 
 	std::vector<Entity> entities;
 	const int lightmapSize = 128;
-	int lightmapAtlasSize;
+	vec2i lightmapAtlasSize; // In cells. e.g. 2x2 is 256x256 (lightmapSize).
 	std::vector<Texture *> lightmapAtlases;
 	int nLightmapsPerAtlas;
 	vec3 lightGridSize = { 64, 64, 128 };
@@ -511,13 +511,13 @@ struct World
 
 static std::unique_ptr<World> s_world;
 
-static vec2 AtlasTexCoord(vec2 uv, int index, int nTilesPerDimension)
+static vec2 AtlasTexCoord(vec2 uv, int index, vec2i lightmapAtlasSize)
 {
-	const int tileX = index % nTilesPerDimension;
-	const int tileY = index / nTilesPerDimension;
+	const int tileX = index % lightmapAtlasSize.x;
+	const int tileY = index / lightmapAtlasSize.x;
 	vec2 result;
-	result.u = (tileX / (float)nTilesPerDimension) + (uv.u / (float)nTilesPerDimension);
-	result.v = (tileY / (float)nTilesPerDimension) + (uv.v / (float)nTilesPerDimension);
+	result.u = (tileX / (float)lightmapAtlasSize.x) + (uv.u / (float)lightmapAtlasSize.x);
+	result.v = (tileY / (float)lightmapAtlasSize.y) + (uv.v / (float)lightmapAtlasSize.y);
 	return result;
 }
 
@@ -579,14 +579,14 @@ void WorldModel::render(const mat3 &scenRotation, DrawCallList *drawCallList, re
 	}
 }
 
-void WorldModel::addPatchSurface(size_t index, Material *material, int width, int height, const Vertex *points, int lightmapIndex, int nLightmapTilesPerDimension)
+void WorldModel::addPatchSurface(size_t index, Material *material, int width, int height, const Vertex *points, int lightmapIndex, vec2i lightmapAtlasSize)
 {
 	Patch *patch = Patch_Subdivide(width, height, points);
-	addSurface(index, material, patch->verts, patch->numVerts, patch->indexes, patch->numIndexes, lightmapIndex, nLightmapTilesPerDimension);
+	addSurface(index, material, patch->verts, patch->numVerts, patch->indexes, patch->numIndexes, lightmapIndex, lightmapAtlasSize);
 	Patch_Free(patch);
 }
 
-void WorldModel::addSurface(size_t index, Material *material, const Vertex *vertices, size_t nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex, int nLightmapTilesPerDimension)
+void WorldModel::addSurface(size_t index, Material *material, const Vertex *vertices, size_t nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex, vec2i lightmapAtlasSize)
 {
 	// Create a temp surface.
 	TempSurface &ts = tempSurfaces_[index];
@@ -606,7 +606,7 @@ void WorldModel::addSurface(size_t index, Material *material, const Vertex *vert
 		Vertex *v = &tempVertices_[ts.firstVertex + i];
 
 		if (lightmapIndex >= 0)
-			v->texCoord2 = AtlasTexCoord(v->texCoord2, lightmapIndex, nLightmapTilesPerDimension);
+			v->texCoord2 = AtlasTexCoord(v->texCoord2, lightmapIndex, lightmapAtlasSize);
 	}
 
 	tempIndices_.resize(tempIndices_.size() + nIndices);
@@ -746,7 +746,7 @@ static void SetSurfaceGeometry(World::Surface *surface, const Vertex *vertices, 
 
 		if (lightmapIndex >= 0 && !s_world->lightmapAtlases.empty())
 		{
-			v->texCoord2 = AtlasTexCoord(v->texCoord2, lightmapIndex % s_world->nLightmapsPerAtlas, s_world->lightmapAtlasSize / s_world->lightmapSize);
+			v->texCoord2 = AtlasTexCoord(v->texCoord2, lightmapIndex % s_world->nLightmapsPerAtlas, s_world->lightmapAtlasSize);
 		}
 	}
 
@@ -998,26 +998,43 @@ void Load(const char *name)
 
 		if (nLightmaps)
 		{
-			// Calculate the smallest square POT atlas size.
-			// 1024 is 4MB, 2048 is 16MB. Anything over 1024 is likely to waste a lot of memory for empty space, so use multiple pages in that case.
-			const int sr = (int)ceil(sqrtf((float)nLightmaps));
-			s_world->lightmapAtlasSize = 1;
+			// Figure out how atlas dimensions by packing lightmaps into cells.
+			const int maxCells = 4; // 4x128 = 512
 
-			while (s_world->lightmapAtlasSize < sr)
-				s_world->lightmapAtlasSize *= 2;
+			if (nLightmaps <= maxCells)
+			{
+				// Simple case.
+				s_world->lightmapAtlasSize.x = (int)nLightmaps;
+				s_world->lightmapAtlasSize.y = 1;
+			}
+			else
+			{
+				if ((nLightmaps & (nLightmaps - 1)) == 0)
+				{
+					// Power of two. Use square size.
+					s_world->lightmapAtlasSize.x = s_world->lightmapAtlasSize.y = (int)ceil(sqrtf((float)nLightmaps));
+				}
+				else
+				{
+					s_world->lightmapAtlasSize.x = std::min(maxCells, (int)nLightmaps);
+					s_world->lightmapAtlasSize.y = (int)ceil(nLightmaps / (float)s_world->lightmapAtlasSize.x);
+				}
+			}
 
-			s_world->lightmapAtlasSize = std::min(1024, s_world->lightmapAtlasSize * s_world->lightmapSize);
-			s_world->nLightmapsPerAtlas = (int)pow(s_world->lightmapAtlasSize / s_world->lightmapSize, 2);
+			s_world->lightmapAtlasSize.x = std::min(s_world->lightmapAtlasSize.x, maxCells);
+			s_world->lightmapAtlasSize.y = std::min(s_world->lightmapAtlasSize.y, maxCells);
+			s_world->nLightmapsPerAtlas = s_world->lightmapAtlasSize.x * s_world->lightmapAtlasSize.y;
 			s_world->lightmapAtlases.resize((size_t)ceil(nLightmaps / (float)s_world->nLightmapsPerAtlas));
 
 			// Pack lightmaps into atlas(es).
+			interface::Printf("Packing %d lightmaps into %d atlas(es) sized %dx%d.\n", nLightmaps, s_world->lightmapAtlases.size(), s_world->lightmapAtlasSize.x * s_world->lightmapSize, s_world->lightmapAtlasSize.y * s_world->lightmapSize);
 			size_t lightmapIndex = 0;
 
 			for (size_t i = 0; i < s_world->lightmapAtlases.size(); i++)
 			{
 				Image image;
-				image.width = s_world->lightmapAtlasSize;
-				image.height = s_world->lightmapAtlasSize;
+				image.width = s_world->lightmapAtlasSize.x * s_world->lightmapSize;
+				image.height = s_world->lightmapAtlasSize.y * s_world->lightmapSize;
 				image.nComponents = 4;
 				image.allocMemory();
 				int nAtlasedLightmaps = 0;
@@ -1030,10 +1047,9 @@ void Load(const char *name)
 						for (int x = 0; x < s_world->lightmapSize; x++)
 						{
 							const size_t srcOffset = (x + y * s_world->lightmapSize) * 3;
-							const int nLightmapsPerDimension = s_world->lightmapAtlasSize / s_world->lightmapSize;
-							const int lightmapX = (nAtlasedLightmaps % s_world->nLightmapsPerAtlas) % nLightmapsPerDimension;
-							const int lightmapY = (nAtlasedLightmaps % s_world->nLightmapsPerAtlas) / nLightmapsPerDimension;
-							const size_t destOffset = ((lightmapX * s_world->lightmapSize + x) + (lightmapY * s_world->lightmapSize + y) * s_world->lightmapAtlasSize) * image.nComponents;
+							const int lightmapX = (nAtlasedLightmaps % s_world->nLightmapsPerAtlas) % s_world->lightmapAtlasSize.x;
+							const int lightmapY = (nAtlasedLightmaps % s_world->nLightmapsPerAtlas) / s_world->lightmapAtlasSize.x;
+							const size_t destOffset = ((lightmapX * s_world->lightmapSize + x) + (lightmapY * s_world->lightmapSize + y) * (s_world->lightmapAtlasSize.x * s_world->lightmapSize)) * image.nComponents;
 							memcpy(&image.memory->data[destOffset], &srcData[srcOffset], 3);
 							image.memory->data[destOffset + 3] = 0xff;
 						}
@@ -1230,11 +1246,11 @@ void Load(const char *name)
 
 			if (type == MST_PLANAR || type == MST_TRIANGLE_SOUP)
 			{
-				model->addSurface(j, material, &vertices[LittleLong(fs.firstVert)], LittleLong(fs.numVerts), &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex, s_world->lightmapAtlasSize / s_world->lightmapSize);
+				model->addSurface(j, material, &vertices[LittleLong(fs.firstVert)], LittleLong(fs.numVerts), &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex, s_world->lightmapAtlasSize);
 			}
 			else if (type == MST_PATCH)
 			{
-				model->addPatchSurface(j, material, LittleLong(fs.patchWidth), LittleLong(fs.patchHeight), &vertices[LittleLong(fs.firstVert)], lightmapIndex, s_world->lightmapAtlasSize / s_world->lightmapSize);
+				model->addPatchSurface(j, material, LittleLong(fs.patchWidth), LittleLong(fs.patchHeight), &vertices[LittleLong(fs.firstVert)], lightmapIndex, s_world->lightmapAtlasSize);
 			}
 		}
 
@@ -1456,9 +1472,9 @@ const Entity &GetEntity(size_t index)
 	return s_world->entities[index];
 }
 
-int GetLightmapSize()
+vec2i GetLightmapSize()
 {
-	return s_world->lightmapAtlasSize;
+	return vec2i(s_world->lightmapAtlasSize.x * s_world->lightmapSize, s_world->lightmapAtlasSize.y * s_world->lightmapSize);
 }
 
 int GetNumLightmaps()
@@ -1468,7 +1484,7 @@ int GetNumLightmaps()
 
 Texture *GetLightmap(int index)
 {
-	return index < (int)s_world->lightmapAtlases.size() ? s_world->lightmapAtlases[index] : nullptr;
+	return (index >= 0 && index < (int)s_world->lightmapAtlases.size()) ? s_world->lightmapAtlases[index] : nullptr;
 }
 
 int GetNumSurfaces()

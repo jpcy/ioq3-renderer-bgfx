@@ -501,7 +501,7 @@ static void SetStatus(LightBaker::Status status, int progress = 0)
 static void AccumulateLightmapData(int lightmapIndex, const lm_context &ctx, vec4 color)
 {
 	LightBaker::Lightmap &lightmap = s_lightBaker->lightmaps[lightmapIndex];
-	const size_t pixelOffset = ctx.rasterizer.x + ctx.rasterizer.y * world::GetLightmapSize();
+	const size_t pixelOffset = ctx.rasterizer.x + ctx.rasterizer.y * world::GetLightmapSize().x;
 	lightmap.color[pixelOffset] += color;
 }
 
@@ -609,14 +609,14 @@ static int Thread(void *data)
 	CHECK_EMBREE_ERROR(rtcCommit);
 
 	// Allocate lightmap memory.
-	const int lightmapSize = world::GetLightmapSize();
+	const vec2i lightmapSize = world::GetLightmapSize();
 	s_lightBaker->lightmaps.resize(world::GetNumLightmaps());
 
 	for (LightBaker::Lightmap &lightmap : s_lightBaker->lightmaps)
 	{
-		lightmap.color.resize(lightmapSize * lightmapSize);
+		lightmap.color.resize(lightmapSize.x * lightmapSize.y);
 		memset(lightmap.color.data(), 0, lightmap.color.size());
-		lightmap.colorBytes.resize(lightmapSize * lightmapSize * 4);
+		lightmap.colorBytes.resize(lightmapSize.x * lightmapSize.y * 4);
 	}
 
 	// Setup jitter.
@@ -772,8 +772,8 @@ static int Thread(void *data)
 				ctx.triangle.p[i].x = v.pos.x;
 				ctx.triangle.p[i].y = v.pos.y;
 				ctx.triangle.p[i].z = v.pos.z;
-				ctx.triangle.uv[i].x = v.texCoord2.x * lightmapSize;
-				ctx.triangle.uv[i].y = v.texCoord2.y * lightmapSize;
+				ctx.triangle.uv[i].x = v.texCoord2.x * lightmapSize.x;
+				ctx.triangle.uv[i].y = v.texCoord2.y * lightmapSize.y;
 
 				// update bounds on lightmap
 				uvMin = lm_min2(uvMin, ctx.triangle.uv[i]);
@@ -785,8 +785,8 @@ static int Thread(void *data)
 			lm_vec2 bbMax = lm_ceil2(uvMax);
 			ctx.rasterizer.minx = ctx.rasterizer.x = lm_maxi((int)bbMin.x - 1, 0);
 			ctx.rasterizer.miny = ctx.rasterizer.y = lm_maxi((int)bbMin.y - 1, 0);
-			ctx.rasterizer.maxx = lm_mini((int)bbMax.x + 1, lightmapSize);
-			ctx.rasterizer.maxy = lm_mini((int)bbMax.y + 1, lightmapSize);
+			ctx.rasterizer.maxx = lm_mini((int)bbMax.x + 1, lightmapSize.x);
+			ctx.rasterizer.maxy = lm_mini((int)bbMax.y + 1, lightmapSize.y);
 			assert(ctx.rasterizer.minx < ctx.rasterizer.maxx && ctx.rasterizer.miny < ctx.rasterizer.maxy);
 
 			// Rasterize.
@@ -988,16 +988,16 @@ static int Thread(void *data)
 #define DILATE
 #ifdef DILATE
 	std::vector<vec4> dilatedLightmap;
-	dilatedLightmap.resize(lightmapSize * lightmapSize);
+	dilatedLightmap.resize(lightmapSize.x * lightmapSize.y);
 #endif
 
 	for (LightBaker::Lightmap &lightmap : s_lightBaker->lightmaps)
 	{
 #ifdef DILATE
-		lmImageDilate(&lightmap.color[0].x, &dilatedLightmap[0].x, lightmapSize, lightmapSize, 4);
+		lmImageDilate(&lightmap.color[0].x, &dilatedLightmap[0].x, lightmapSize.x, lightmapSize.y, 4);
 #endif
 
-		for (int i = 0; i < lightmapSize * lightmapSize; i++)
+		for (int i = 0; i < lightmapSize.x * lightmapSize.y; i++)
 		{
 #ifdef DILATE
 			const vec4 &src = dilatedLightmap[i];
@@ -1092,12 +1092,12 @@ void Update(int frameNo)
 	else if (status == LightBaker::Status::WaitingForTextureUpload)
 	{
 		// Worker thread has finished. Update lightmap textures.
-		const int lightmapSize = world::GetLightmapSize();
+		const vec2i lightmapSize = world::GetLightmapSize();
 
 		for (int i = 0; i < world::GetNumLightmaps(); i++)
 		{
 			Texture *lightmap = world::GetLightmap(i);
-			lightmap->update(bgfx::makeRef(s_lightBaker->lightmaps[i].colorBytes.data(), lightmapSize * lightmapSize * 4), 0, 0, lightmapSize, lightmapSize);
+			lightmap->update(bgfx::makeRef(s_lightBaker->lightmaps[i].colorBytes.data(), lightmapSize.x * lightmapSize.y * 4), 0, 0, lightmapSize.x, lightmapSize.y);
 		}
 
 		s_lightBaker->textureUploadFrameNo = frameNo;

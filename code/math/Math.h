@@ -233,6 +233,27 @@ public:
 	union { float y, v; };
 };
 
+class vec2i
+{
+public:
+	vec2i() : x(0), y(0) {}
+	vec2i(int x, int y) : x(x), y(y) {}
+
+	int &operator[](size_t index)
+	{
+		assert(index >= 0 && index <= 1);
+		return (&x)[index];
+	}
+
+	const int &operator[](size_t index) const
+	{
+		assert(index >= 0 && index <= 1);
+		return (&x)[index];
+	}
+
+	int x, y;
+};
+
 class vec3
 {
 public:

@@ -1722,7 +1722,7 @@ namespace world
 	bool IsLoaded();
 	size_t GetNumEntities();
 	const Entity &GetEntity(size_t index);
-	int GetLightmapSize();
+	vec2i GetLightmapSize();
 	int GetNumLightmaps();
 	Texture *GetLightmap(int index);
 	int GetNumSurfaces();
