@@ -400,7 +400,6 @@ struct LightBaker
 	{
 		std::vector<vec4> color;
 		std::vector<uint8_t> colorBytes;
-		std::vector<uint32_t> triangleIds;
 	};
 
 	enum class Status
@@ -499,20 +498,11 @@ static void SetStatus(LightBaker::Status status, int progress = 0)
 #endif
 }
 
-static void WriteLightmapData(int lightmapIndex, const lm_context &ctx, vec4 color, uint32_t triangleId)
+static void AccumulateLightmapData(int lightmapIndex, const lm_context &ctx, vec4 color)
 {
 	LightBaker::Lightmap &lightmap = s_lightBaker->lightmaps[lightmapIndex];
 	const size_t pixelOffset = ctx.rasterizer.x + ctx.rasterizer.y * world::GetLightmapSize();
-
-	// Don't write to the same pixel with different triangles.
-	uint32_t &lightmapTriangleId = lightmap.triangleIds[pixelOffset];
-
-	if (lightmapTriangleId == UINT32_MAX)
-		lightmapTriangleId = triangleId;
-	else if (lightmapTriangleId != triangleId)
-		return;
-
-	lightmap.color[pixelOffset] = color;
+	lightmap.color[pixelOffset] += color;
 }
 
 static bool DoesSurfaceOccludeLight(const world::Surface &surface)
@@ -627,10 +617,6 @@ static int Thread(void *data)
 		lightmap.color.resize(lightmapSize * lightmapSize);
 		memset(lightmap.color.data(), 0, lightmap.color.size());
 		lightmap.colorBytes.resize(lightmapSize * lightmapSize * 4);
-		lightmap.triangleIds.resize(lightmapSize * lightmapSize);
-
-		for (size_t i = 0; i < lightmap.triangleIds.size(); i++)
-			lightmap.triangleIds[i] = UINT32_MAX;
 	}
 
 	// Setup jitter.
@@ -968,7 +954,7 @@ static int Thread(void *data)
 				if (attenuation > 0)
 					luxelColor += sunLight.light * attenuation * 255.0f;
 
-				WriteLightmapData(surface.material->lightmapIndex, ctx, vec4(luxelColor, 1.0f), (uint32_t)nTrianglesProcessed);
+				AccumulateLightmapData(surface.material->lightmapIndex, ctx, vec4(luxelColor, 1.0f));
 			}
 
 			nTrianglesProcessed += 1;
@@ -985,6 +971,16 @@ static int Thread(void *data)
 			// Check for cancelling.
 			if (GetStatus() == LightBaker::Status::Cancelled)
 				return 1;
+		}
+	}
+
+	// Average accumulated lightmap data. Different triangles may have written to the same texel.
+	for (LightBaker::Lightmap &lightmap : s_lightBaker->lightmaps)
+	{
+		for (vec4 &color : lightmap.color)
+		{
+			if (color.a > 1)
+				color = vec4(color.rgb() / color.a, 1.0f);
 		}
 	}
 
