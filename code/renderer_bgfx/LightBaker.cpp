@@ -394,6 +394,14 @@ void lmImageDilate(const float *image, float *outImage, int w, int h, int c)
 
 #define USE_LIGHT_BAKER_THREAD
 
+struct FaceFlags
+{
+	enum
+	{
+		Sky = 1<<0
+	};
+};
+
 struct LightBaker
 {
 	struct Lightmap
@@ -582,7 +590,8 @@ static int Thread(void *data)
 	auto triangles = (vec3i *)rtcMapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_INDEX_BUFFER);
 	CHECK_EMBREE_ERROR(rtcMapBuffer);
 	size_t faceIndex = 0;
-	std::vector<unsigned int> skyFaces;
+	std::vector<uint8_t> faceFlags;
+	faceFlags.resize(totalOccluderTriangles);
 
 	for (int si = 0; si < world::GetNumSurfaces(); si++)
 	{
@@ -594,7 +603,7 @@ static int Thread(void *data)
 		for (int si = 0; si < surface.nIndices; si += 3)
 		{
 			if (surface.material->isSky)
-				skyFaces.push_back(faceIndex);
+				faceFlags[faceIndex] |= FaceFlags::Sky;
 
 			triangles[faceIndex].x = surface.indices[si + 0];
 			triangles[faceIndex].y = surface.indices[si + 1];
@@ -933,21 +942,9 @@ static int Thread(void *data)
 					ray.time = 0;
 					rtcIntersect(s_lightBaker->embreeScene, ray);
 
-					if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
+					if (ray.geomID != RTC_INVALID_GEOMETRY_ID && (faceFlags[ray.primID] & FaceFlags::Sky))
 					{
-						bool hitSky = false;
-
-						for (size_t sfi = 0; sfi < skyFaces.size(); sfi++)
-						{
-							if (skyFaces[sfi] == ray.primID)
-							{
-								hitSky = true;
-								break;
-							}
-						}
-
-						if (hitSky)
-							attenuation += vec3::dotProduct(sampleNormal, dir) * (1.0f / s_lightBaker->nSamples);
+						attenuation += vec3::dotProduct(sampleNormal, dir) * (1.0f / s_lightBaker->nSamples);
 					}
 				}
 
