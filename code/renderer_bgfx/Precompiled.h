@@ -1308,8 +1308,9 @@ struct TextureFlags
 	{
 		None        = 0,
 		Mipmap      = 1<<0,
-		Picmip      = 1<<1,
-		ClampToEdge = 1<<2,
+		Mutable     = 1<<1,
+		Picmip      = 1<<2,
+		ClampToEdge = 1<<3,
 	};
 };
 

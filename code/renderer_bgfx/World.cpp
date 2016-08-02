@@ -1063,7 +1063,7 @@ void Load(const char *name)
 						break;
 				}
 
-				s_world->lightmapAtlases[i] = Texture::create(util::VarArgs("*lightmap%d", (int)i), image, TextureFlags::ClampToEdge);
+				s_world->lightmapAtlases[i] = Texture::create(util::VarArgs("*lightmap%d", (int)i), image, TextureFlags::ClampToEdge | TextureFlags::Mutable);
 			}
 		}
 	}

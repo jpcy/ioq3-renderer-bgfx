@@ -42,7 +42,14 @@ struct TextureImpl
 		nMips = image.nMips;
 		this->flags = flags;
 		this->format = format;
-		handle = bgfx::createTexture2D(width, height, nMips, format, calculateBgfxFlags(), image.memory);
+
+		// Create with data: immutable. Create without data: mutable, update whenever.
+		handle = bgfx::createTexture2D(width, height, nMips, format, calculateBgfxFlags(), (flags & TextureFlags::Mutable) ? nullptr : image.memory);
+
+		if (flags & TextureFlags::Mutable)
+		{
+			update(image.memory, 0, 0, width, height);
+		}
 	}
 
 	void initialize(const char *name, bgfx::TextureHandle handle)
