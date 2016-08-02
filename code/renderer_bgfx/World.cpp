@@ -730,7 +730,7 @@ static void SetSurfaceGeometry(World::Surface *surface, const Vertex *vertices, 
 	if (bufferVertices->size() + nVertices >= UINT16_MAX)
 	{
 		if (++s_world->currentGeometryBuffer == s_world->s_maxWorldGeometryBuffers)
-		interface::Error("Not enough world vertex buffers");
+			interface::Error("Not enough world vertex buffers");
 
 		bufferVertices = &s_world->vertices[s_world->currentGeometryBuffer];
 	}

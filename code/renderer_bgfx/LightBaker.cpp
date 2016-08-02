@@ -453,6 +453,11 @@ struct LightBaker
 	}
 };
 
+struct Triangle
+{
+	uint32_t indices[3];
+};
+
 static std::unique_ptr<LightBaker> s_lightBaker;
 
 static const char *s_embreeErrorStrings[] =
@@ -567,27 +572,42 @@ static int Thread(void *data)
 			totalLightmappedTriangles += surface.nIndices / 3;
 	}
 
+	// Count total vertices.
+	int totalVertices = 0;
+
+	for (int i = 0; i < world::GetNumVertexBuffers(); i++)
+	{
+		totalVertices += (int)world::GetVertexBuffer(i).size();
+	}
+
 	// Setup embree.
+	// Indices are 32-bit. The World representation uses 16-bit indices, with multiple vertex buffers on large maps that don't fit into one. Combine those here.
 	s_lightBaker->embreeDevice = rtcNewDevice();
 	CHECK_EMBREE_ERROR(rtcNewDevice)
 	s_lightBaker->embreeScene = rtcDeviceNewScene(s_lightBaker->embreeDevice, RTC_SCENE_STATIC, RTC_INTERSECT1);
 	CHECK_EMBREE_ERROR(rtcDeviceNewScene)
-	const std::vector<Vertex> &worldVertices = world::GetVertexBuffer(0);
-	unsigned int embreeMesh = rtcNewTriangleMesh(s_lightBaker->embreeScene, RTC_GEOMETRY_STATIC, totalOccluderTriangles, worldVertices.size());
+	unsigned int embreeMesh = rtcNewTriangleMesh(s_lightBaker->embreeScene, RTC_GEOMETRY_STATIC, totalOccluderTriangles, totalVertices);
 	CHECK_EMBREE_ERROR(rtcNewTriangleMesh);
 
 	auto vertices = (vec4 *)rtcMapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_VERTEX_BUFFER);
 	CHECK_EMBREE_ERROR(rtcMapBuffer);
+	size_t currentVertex = 0;
 
-	for (size_t vi = 0; vi < worldVertices.size(); vi++)
+	for (int i = 0; i < world::GetNumVertexBuffers(); i++)
 	{
-		vertices[vi] = worldVertices[vi].pos;
+		const std::vector<Vertex> &worldVertices = world::GetVertexBuffer(i);
+
+		for (size_t vi = 0; vi < worldVertices.size(); vi++)
+		{
+			vertices[currentVertex] = worldVertices[vi].pos;
+			currentVertex++;
+		}
 	}
 
 	rtcUnmapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_VERTEX_BUFFER);
 	CHECK_EMBREE_ERROR(rtcUnmapBuffer);
 
-	auto triangles = (vec3i *)rtcMapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_INDEX_BUFFER);
+	auto triangles = (Triangle *)rtcMapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_INDEX_BUFFER);
 	CHECK_EMBREE_ERROR(rtcMapBuffer);
 	size_t faceIndex = 0;
 	std::vector<uint8_t> faceFlags;
@@ -600,14 +620,20 @@ static int Thread(void *data)
 		if (!DoesSurfaceOccludeLight(surface))
 			continue;
 
-		for (int si = 0; si < surface.nIndices; si += 3)
+		// Adjust for combining multiple vertex buffers.
+		uint32_t indexOffset = 0;
+
+		for (int i = 0; i < surface.vertexBufferIndex; i++)
+			indexOffset += (uint32_t)world::GetVertexBuffer(i).size();
+
+		for (int i = 0; i < surface.nIndices; i += 3)
 		{
 			if (surface.material->isSky)
 				faceFlags[faceIndex] |= FaceFlags::Sky;
 
-			triangles[faceIndex].x = surface.indices[si + 0];
-			triangles[faceIndex].y = surface.indices[si + 1];
-			triangles[faceIndex].z = surface.indices[si + 2];
+			triangles[faceIndex].indices[0] = indexOffset + surface.indices[i + 0];
+			triangles[faceIndex].indices[1] = indexOffset + surface.indices[i + 1];
+			triangles[faceIndex].indices[2] = indexOffset + surface.indices[i + 2];
 			faceIndex++;
 		}
 	}
@@ -624,7 +650,6 @@ static int Thread(void *data)
 	for (LightBaker::Lightmap &lightmap : s_lightBaker->lightmaps)
 	{
 		lightmap.color.resize(lightmapSize.x * lightmapSize.y);
-		memset(lightmap.color.data(), 0, lightmap.color.size());
 		lightmap.colorBytes.resize(lightmapSize.x * lightmapSize.y * 4);
 	}
 
@@ -1093,8 +1118,9 @@ void Update(int frameNo)
 
 		for (int i = 0; i < world::GetNumLightmaps(); i++)
 		{
-			Texture *lightmap = world::GetLightmap(i);
-			lightmap->update(bgfx::makeRef(s_lightBaker->lightmaps[i].colorBytes.data(), lightmapSize.x * lightmapSize.y * 4), 0, 0, lightmapSize.x, lightmapSize.y);
+			const LightBaker::Lightmap &lightmap = s_lightBaker->lightmaps[i];
+			Texture *texture = world::GetLightmap(i);
+			texture->update(bgfx::makeRef(lightmap.colorBytes.data(), lightmap.colorBytes.size()), 0, 0, lightmapSize.x, lightmapSize.y);
 		}
 
 		s_lightBaker->textureUploadFrameNo = frameNo;
