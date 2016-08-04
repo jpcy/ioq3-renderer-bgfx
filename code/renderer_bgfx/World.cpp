@@ -221,52 +221,6 @@ const char *Entity::findValue(const char *key, const char *defaultValue) const
 	return defaultValue;
 }
 
-class WorldModel : public Model
-{
-public:
-	WorldModel(int index, size_t nSurfaces, Bounds bounds);
-	bool load(const ReadOnlyFile &file) override { return true; }
-	Bounds getBounds() const override { return bounds_; }
-	Material *getMaterial(size_t surfaceNo) const override;
-	bool isCulled(renderer::Entity *entity, const Frustum &cameraFrustum) const override;
-	int lerpTag(const char *name, const renderer::Entity &entity, int startIndex, Transform *transform) const override { return -1; }
-	void render(const mat3 &scenRotation, DrawCallList *drawCallList, renderer::Entity *entity) override;
-	void addPatchSurface(size_t index, Material *material, int width, int height, const Vertex *points, int lightmapIndex, vec2i lightmapAtlasSize);
-	void addSurface(size_t index, Material *material, const Vertex *vertices, size_t nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex, vec2i lightmapAtlasSize);
-	void batchSurfaces();
-
-private:
-	struct Surface
-	{
-		Material *material;
-		uint32_t firstIndex;
-		uint32_t nIndices;
-	};
-
-	Bounds bounds_;
-	std::vector<Surface> surfaces_;
-	VertexBuffer vertexBuffer_;
-	uint32_t nVertices_;
-	IndexBuffer indexBuffer_;
-
-	/// @remarks Not used after surfaces are batched.
-	struct TempSurface
-	{
-		/// @remarks Temp surfaces with no material are ignored.
-		Material *material = nullptr;
-
-		uint32_t firstVertex;
-		uint32_t nVertices;
-		uint32_t firstIndex;
-		uint32_t nIndices;
-		bool batched;
-	};
-
-	std::vector<TempSurface> tempSurfaces_;
-	std::vector<Vertex> tempVertices_;
-	std::vector<uint16_t> tempIndices_;
-};
-
 struct World
 {
 	static const size_t s_maxWorldGeometryBuffers = 8;
@@ -479,7 +433,7 @@ struct World
 
 	std::vector<ModelDef> modelDefs;
 
-	/// First model surfaces.
+	/// All model surfaces.
 	std::vector<Surface> surfaces;
 
 	VertexBuffer vertexBuffers[s_maxWorldGeometryBuffers];
@@ -521,185 +475,193 @@ static vec2 AtlasTexCoord(vec2 uv, int index, vec2i lightmapAtlasSize)
 	return result;
 }
 
-WorldModel::WorldModel(int index, size_t nSurfaces, Bounds bounds) : tempSurfaces_(nSurfaces), bounds_(bounds)
+static bool SurfaceCompare(const World::Surface *s1, const World::Surface *s2)
 {
-	util::Sprintf(name_, sizeof(name_), "*%d", index);
-}
-
-Material *WorldModel::getMaterial(size_t surfaceNo) const
-{
-	// if it's out of range, return the first surface
-	if (surfaceNo >= (int)surfaces_.size())
-		surfaceNo = 0;
-
-	const Surface &surface = surfaces_[surfaceNo];
-
-	if (surface.material->lightmapIndex > MaterialLightmapId::None)
+	if (s1->material->index < s2->material->index)
 	{
-		bool mipRawImage = true;
-
-		// Get mipmap info for original texture.
-		Texture *texture = Texture::get(surface.material->name);
-
-		if (texture)
-			mipRawImage = (texture->getFlags() & TextureFlags::Mipmap) != 0;
-
-		Material *mat = g_materialCache->findMaterial(surface.material->name, MaterialLightmapId::None, mipRawImage);
-		mat->stages[0].rgbGen = MaterialColorGen::LightingDiffuse; // (SA) new
-		return mat;
+		return true;
 	}
-
-	return surface.material;
-}
-
-bool WorldModel::isCulled(renderer::Entity *entity, const Frustum &cameraFrustum) const
-{
-	return cameraFrustum.clipBounds(bounds_, mat4::transform(entity->rotation, entity->position)) == Frustum::ClipResult::Outside;
-}
-
-void WorldModel::render(const mat3 &scenRotation, DrawCallList *drawCallList, renderer::Entity *entity)
-{
-	assert(drawCallList);
-	assert(entity);
-	const mat4 modelMatrix = mat4::transform(entity->rotation, entity->position);
-
-	for (Surface &surface : surfaces_)
+	else if (s1->material->index == s2->material->index)
 	{
-		DrawCall dc;
-		dc.entity = entity;
-		dc.material = surface.material;
-		dc.modelMatrix = modelMatrix;
-		dc.vb.type = dc.ib.type = DrawCall::BufferType::Static;
-		dc.vb.staticHandle = vertexBuffer_.handle;
-		dc.vb.nVertices = nVertices_;
-		dc.ib.staticHandle = indexBuffer_.handle;
-		dc.ib.firstIndex = surface.firstIndex;
-		dc.ib.nIndices = surface.nIndices;
-		drawCallList->push_back(dc);
-	}
-}
-
-void WorldModel::addPatchSurface(size_t index, Material *material, int width, int height, const Vertex *points, int lightmapIndex, vec2i lightmapAtlasSize)
-{
-	Patch *patch = Patch_Subdivide(width, height, points);
-	addSurface(index, material, patch->verts, patch->numVerts, patch->indexes, patch->numIndexes, lightmapIndex, lightmapAtlasSize);
-	Patch_Free(patch);
-}
-
-void WorldModel::addSurface(size_t index, Material *material, const Vertex *vertices, size_t nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex, vec2i lightmapAtlasSize)
-{
-	// Create a temp surface.
-	TempSurface &ts = tempSurfaces_[index];
-	ts.material = material;
-	ts.firstVertex = (uint32_t)tempVertices_.size();
-	ts.nVertices = (uint32_t)nVertices;
-	ts.firstIndex = (uint32_t)tempIndices_.size();
-	ts.nIndices = (uint32_t)nIndices;
-	ts.batched = false;
-
-	// Append the geometry.
-	tempVertices_.resize(tempVertices_.size() + nVertices);
-	memcpy(&tempVertices_[ts.firstVertex], vertices, nVertices * sizeof(*vertices));
-
-	for (size_t i = 0; i < nVertices; i++)
-	{
-		Vertex *v = &tempVertices_[ts.firstVertex + i];
-
-		if (lightmapIndex >= 0)
-			v->texCoord2 = AtlasTexCoord(v->texCoord2, lightmapIndex, lightmapAtlasSize);
-	}
-
-	tempIndices_.resize(tempIndices_.size() + nIndices);
-	memcpy(&tempIndices_[ts.firstIndex], indices, nIndices * sizeof(*indices));
-}
-
-void WorldModel::batchSurfaces()
-{
-	if (tempVertices_.empty() || tempIndices_.empty())
-		return;
-
-	// Allocate buffers for the batched geometry.
-	const bgfx::Memory *verticesMem = bgfx::alloc(uint32_t(sizeof(Vertex) * tempVertices_.size()));
-	auto vertices = (Vertex *)verticesMem->data;
-	const bgfx::Memory *indicesMem = bgfx::alloc(uint32_t(sizeof(uint16_t) * tempIndices_.size()));
-	auto indices = (uint16_t *)indicesMem->data;
-	uint32_t currentVertex = 0, currentIndex = 0;
-
-	for (;;)
-	{
-		Material *material = nullptr;
-
-		// Get the material from the first temp surface that hasn't been batched.
-		for (const TempSurface &ts : tempSurfaces_)
+		if (s1->fogIndex < s2->fogIndex)
 		{
-			if (!ts.material)
+			return true;
+		}
+		else if (s1->fogIndex == s2->fogIndex)
+		{
+			if (s1->bufferIndex < s2->bufferIndex)
+				return true;
+		}
+	}
+
+	return false;
+}
+
+class WorldModel : public Model
+{
+public:
+	WorldModel::WorldModel(int index) : index_(index)
+	{
+		util::Sprintf(name_, sizeof(name_), "*%d", index_);
+	}
+
+	bool load(const ReadOnlyFile &file) override
+	{
+		return true;
+	}
+
+	Bounds getBounds() const override
+	{
+		return s_world->modelDefs[index_].bounds;
+	}
+
+	Material *getMaterial(size_t surfaceNo) const override
+	{
+		const World::ModelDef &def = s_world->modelDefs[index_];
+
+		// if it's out of range, return the first surface
+		if (surfaceNo >= (int)def.nSurfaces)
+			surfaceNo = 0;
+
+		const World::Surface &surface = s_world->surfaces[def.firstSurface + surfaceNo];
+
+		if (surface.material->lightmapIndex > MaterialLightmapId::None)
+		{
+			bool mipRawImage = true;
+
+			// Get mipmap info for original texture.
+			Texture *texture = Texture::get(surface.material->name);
+
+			if (texture)
+				mipRawImage = (texture->getFlags() & TextureFlags::Mipmap) != 0;
+
+			Material *mat = g_materialCache->findMaterial(surface.material->name, MaterialLightmapId::None, mipRawImage);
+			mat->stages[0].rgbGen = MaterialColorGen::LightingDiffuse; // (SA) new
+			return mat;
+		}
+
+		return surface.material;
+	}
+
+	bool isCulled(renderer::Entity *entity, const Frustum &cameraFrustum) const override
+	{
+		return cameraFrustum.clipBounds(getBounds(), mat4::transform(entity->rotation, entity->position)) == Frustum::ClipResult::Outside;
+	}
+
+	int lerpTag(const char *name, const renderer::Entity &entity, int startIndex, Transform *transform) const override
+	{
+		return -1;
+	}
+
+	void render(const mat3 &scenRotation, DrawCallList *drawCallList, renderer::Entity *entity) override
+	{
+		assert(drawCallList);
+		assert(entity);
+		const mat4 modelMatrix = mat4::transform(entity->rotation, entity->position);
+
+		for (const BatchedSurface &surface : batchedSurfaces_)
+		{
+			DrawCall dc;
+			dc.entity = entity;
+			dc.flags = 0;
+			dc.fogIndex = surface.fogIndex;
+			dc.material = surface.material;
+			dc.modelMatrix = modelMatrix;
+			dc.vb.type = DrawCall::BufferType::Static;
+			dc.vb.staticHandle = s_world->vertexBuffers[surface.bufferIndex].handle;
+			dc.vb.nVertices = (uint32_t)s_world->vertices[surface.bufferIndex].size();
+			dc.ib.type = DrawCall::BufferType::Static;
+			dc.ib.staticHandle = indexBuffers_[surface.bufferIndex].handle;
+			dc.ib.firstIndex = surface.firstIndex;
+			dc.ib.nIndices = surface.nIndices;
+			drawCallList->push_back(dc);
+		}
+	}
+
+	void buildGeometry()
+	{
+		const World::ModelDef &def = s_world->modelDefs[index_];
+
+		// Grab surfaces we aren't ignoring and sort them.
+		std::vector<const World::Surface *> surfaces;
+
+		for (size_t i = 0; i < def.nSurfaces; i++)
+		{
+			const World::Surface &surface = s_world->surfaces[def.firstSurface + i];
+
+			// Ignore flares.
+			if (surface.type == World::SurfaceType::Ignore || surface.type == World::SurfaceType::Flare)
 				continue;
 
-			if (!ts.batched)
+			surfaces.push_back(&surface);
+		}
+
+		std::sort(surfaces.begin(), surfaces.end(), SurfaceCompare);
+
+		// Batch surfaces.
+		size_t firstSurface = 0;
+
+		for (size_t i = 0; i < surfaces.size(); i++)
+		{
+			const World::Surface *surface = surfaces[i];
+			const bool isLast = i == surfaces.size() - 1;
+			const World::Surface *nextSurface = isLast ? nullptr : surfaces[i + 1];
+
+			// Create new batch on certain surface state changes.
+			if (!nextSurface || nextSurface->material != surface->material || nextSurface->fogIndex != surface->fogIndex || nextSurface->bufferIndex != surface->bufferIndex)
 			{
-				material = ts.material;
-				break;
+				BatchedSurface bs;
+				bs.fogIndex = surface->fogIndex;
+				bs.material = surface->material;
+
+				// Grab the indices for all surfaces in this batch.
+				bs.bufferIndex = surface->bufferIndex;
+				std::vector<uint16_t> &indices = indices_[bs.bufferIndex];
+				bs.firstIndex = (uint32_t)indices.size();
+				bs.nIndices = 0;
+
+				for (size_t j = firstSurface; j <= i; j++)
+				{
+					const World::Surface *s = surfaces[j];
+					const size_t copyIndex = indices.size();
+					indices.resize(indices.size() + s->indices.size());
+					memcpy(&indices[copyIndex], &s->indices[0], s->indices.size() * sizeof(uint16_t));
+					bs.nIndices += (uint32_t)s->indices.size();
+				}
+
+				batchedSurfaces_.push_back(bs);
+				firstSurface = i + 1;
 			}
 		}
 
-		// Stop when all temp surfaces are batched.
-		if (!material)
-			break;
-
-		// Find a batched surface with the same material.
-		Surface *surface = nullptr;
-
-		for (Surface &s : surfaces_)
+		// Create static index buffers.
+		for (size_t i = 0; i < s_world->currentGeometryBuffer + 1; i++)
 		{
-			if (s.material == material)
-			{
-				surface = &s;
-				break;
-			}
-		}
+			IndexBuffer &ib = indexBuffers_[i];
+			std::vector<uint16_t> &indices = indices_[i];
 
-		// If not found, create one.
-		if (!surface)
-		{
-			Surface s;
-			s.material = material;
-			s.firstIndex = currentIndex;
-			s.nIndices = 0;
-			surfaces_.push_back(s);
-			surface = &surfaces_.back();
-		}
-
-		// Batch all temp surfaces with this material.
-		for (TempSurface &ts : tempSurfaces_)
-		{
-			if (!ts.material || ts.material != material)
+			if (indices.empty())
 				continue;
 
-			memcpy(&vertices[currentVertex], &tempVertices_[ts.firstVertex], sizeof(Vertex) * ts.nVertices);
-
-			for (size_t i = 0; i < ts.nIndices; i++)
-			{
-				// Make indices absolute.
-				indices[currentIndex + i] = currentVertex + tempIndices_[ts.firstIndex + i];
-			}
-
-			surface->nIndices += ts.nIndices;
-			currentVertex += ts.nVertices;
-			currentIndex += ts.nIndices;
-			ts.batched = true;
+			ib.handle = bgfx::createIndexBuffer(bgfx::makeRef(indices.data(), uint32_t(indices.size() * sizeof(uint16_t))));
 		}
 	}
 
-	// Create vertex and index buffers.
-	vertexBuffer_.handle = bgfx::createVertexBuffer(verticesMem, Vertex::decl);
-	nVertices_ = (uint32_t)tempVertices_.size();
-	indexBuffer_.handle = bgfx::createIndexBuffer(indicesMem);
+private:
+	struct BatchedSurface
+	{
+		Material *material;
+		int fogIndex;
+		size_t bufferIndex;
+		uint32_t firstIndex;
+		uint32_t nIndices;
+	};
 
-	// Clear temp state.
-	tempSurfaces_.clear();
-	tempVertices_.clear();
-	tempIndices_.clear();
-}
+	int index_;
+	std::vector<BatchedSurface> batchedSurfaces_;
+	std::vector<uint16_t> indices_[World::s_maxWorldGeometryBuffers];
+	IndexBuffer indexBuffers_[World::s_maxWorldGeometryBuffers];
+};
 
 static Material *FindMaterial(int materialIndex, int lightmapIndex)
 {
@@ -1155,7 +1117,7 @@ void Load(const char *name)
 	}
 
 	// Surfaces
-	s_world->surfaces.resize(s_world->modelDefs[0].nSurfaces);
+	s_world->surfaces.resize(header->lumps[LUMP_SURFACES].filelen / sizeof(dsurface_t));
 	auto fileSurfaces = (const dsurface_t *)(fileData + header->lumps[LUMP_SURFACES].fileofs);
 
 	for (size_t i = 0; i < s_world->surfaces.size(); i++)
@@ -1226,35 +1188,11 @@ void Load(const char *name)
 		}
 	}
 
-	// Model surfaces
+	// Create brush models.
 	for (size_t i = 1; i < s_world->modelDefs.size(); i++)
 	{
-		const World::ModelDef &md = s_world->modelDefs[i];
-		auto model = std::make_unique<WorldModel>((int)i, md.nSurfaces, md.bounds);
-
-		for (size_t j = 0; j < md.nSurfaces; j++)
-		{
-			const dsurface_t &fs = fileSurfaces[md.firstSurface + j];
-			const int type = LittleLong(fs.surfaceType);
-			int lightmapIndex = LittleLong(fs.lightmapNum);
-			Material *material = FindMaterial(LittleLong(fs.shaderNum), lightmapIndex);
-
-			if (!s_world->lightmapAtlases.empty())
-			{
-				lightmapIndex = lightmapIndex % s_world->nLightmapsPerAtlas;
-			}
-
-			if (type == MST_PLANAR || type == MST_TRIANGLE_SOUP)
-			{
-				model->addSurface(j, material, &vertices[LittleLong(fs.firstVert)], LittleLong(fs.numVerts), &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex, s_world->lightmapAtlasSize);
-			}
-			else if (type == MST_PATCH)
-			{
-				model->addPatchSurface(j, material, LittleLong(fs.patchWidth), LittleLong(fs.patchHeight), &vertices[LittleLong(fs.firstVert)], lightmapIndex, s_world->lightmapAtlasSize);
-			}
-		}
-
-		model->batchSurfaces();
+		auto model = std::make_unique<WorldModel>((int)i);
+		model->buildGeometry();
 		g_modelCache->addModel(std::move(model));
 	}
 
@@ -1489,7 +1427,7 @@ Texture *GetLightmap(int index)
 
 int GetNumSurfaces()
 {
-	return (int)s_world->surfaces.size();
+	return (int)s_world->modelDefs[0].nSurfaces;
 }
 
 Surface GetSurface(int index)
@@ -2305,28 +2243,6 @@ uint8_t CreateVisCache()
 	return uint8_t(s_world->visCaches.size() - 1);
 }
 
-static bool SurfaceCompare(const World::Surface *s1, const World::Surface *s2)
-{
-	if (s1->material->index < s2->material->index)
-	{
-		return true;
-	}
-	else if (s1->material->index == s2->material->index)
-	{
-		if (s1->fogIndex < s2->fogIndex)
-		{
-			return true;
-		}
-		else if (s1->fogIndex == s2->fogIndex)
-		{
-			if (s1->bufferIndex < s2->bufferIndex)
-				return true;
-		}
-	}
-
-	return false;
-}
-
 static void AppendSkySurfaceGeometry(uint8_t visCacheId, size_t skyIndex, const World::Surface &surface)
 {
 	std::unique_ptr<World::VisCache> &visCache = s_world->visCaches[visCacheId];
@@ -2385,11 +2301,6 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 			for (int j = 0; j < leaf.nSurfaces; j++)
 			{
 				const int si = s_world->leafSurfaces[leaf.firstSurface + j];
-
-				// Ignore surfaces in models.
-				if (si < 0 || si >= (int)s_world->surfaces.size())
-					continue;
-					
 				World::Surface &surface = s_world->surfaces[si];
 
 				// Don't add duplicates.
