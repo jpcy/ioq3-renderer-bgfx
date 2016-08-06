@@ -1425,14 +1425,20 @@ Texture *GetLightmap(int index)
 	return (index >= 0 && index < (int)s_world->lightmapAtlases.size()) ? s_world->lightmapAtlases[index] : nullptr;
 }
 
-int GetNumSurfaces()
+int GetNumModels()
 {
-	return (int)s_world->modelDefs[0].nSurfaces;
+	return (int)s_world->modelDefs.size();
 }
 
-Surface GetSurface(int index)
+int GetNumSurfaces(int modelIndex)
 {
-	const World::Surface &surface = s_world->surfaces[index];
+	return (int)s_world->modelDefs[modelIndex].nSurfaces;
+}
+
+Surface GetSurface(int modelIndex, int surfaceIndex)
+{
+	// surfaceIndex arg is relative to the models' first surface
+	const World::Surface &surface = s_world->surfaces[s_world->modelDefs[modelIndex].firstSurface + surfaceIndex];
 	Surface result;
 	result.contentFlags = surface.contentFlags;
 	result.surfaceFlags = surface.flags;

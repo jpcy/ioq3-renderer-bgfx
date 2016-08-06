@@ -1726,8 +1726,9 @@ namespace world
 	vec2i GetLightmapSize();
 	int GetNumLightmaps();
 	Texture *GetLightmap(int index);
-	int GetNumSurfaces();
-	Surface GetSurface(int index);
+	int GetNumModels();
+	int GetNumSurfaces(int modelIndex);
+	Surface GetSurface(int modelIndex, int surfaceIndex);
 	int GetNumVertexBuffers();
 	const std::vector<Vertex> &GetVertexBuffer(int index);
 	bool GetEntityToken(char *buffer, int size);

@@ -557,19 +557,23 @@ static int Thread(void *data)
 	int progress = 0;
 
 	// Count surface triangles for prealloc and so progress can be accurately measured.
+	// Non-0 world models (e.g. doors) may be lightmapped, but don't occlude.
 	int totalOccluderTriangles = 0, totalLightmappedTriangles = 0;
 
-	for (int si = 0; si < world::GetNumSurfaces(); si++)
+	for (int mi = 0; mi < world::GetNumModels(); mi++)
 	{
-		world::Surface surface = world::GetSurface(si);
-
-		if (DoesSurfaceOccludeLight(surface))
+		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
 		{
-			totalOccluderTriangles += surface.nIndices / 3;
-		}
+			world::Surface surface = world::GetSurface(mi, si);
 
-		if (surface.isValid && surface.material->lightmapIndex >= 0)
-			totalLightmappedTriangles += surface.nIndices / 3;
+			if (mi == 0 && DoesSurfaceOccludeLight(surface))
+			{
+				totalOccluderTriangles += surface.nIndices / 3;
+			}
+
+			if (surface.isValid && surface.material->lightmapIndex >= 0)
+				totalLightmappedTriangles += surface.nIndices / 3;
+		}
 	}
 
 	// Count total vertices.
@@ -613,9 +617,9 @@ static int Thread(void *data)
 	std::vector<uint8_t> faceFlags;
 	faceFlags.resize(totalOccluderTriangles);
 
-	for (int si = 0; si < world::GetNumSurfaces(); si++)
+	for (int si = 0; si < world::GetNumSurfaces(0); si++)
 	{
-		world::Surface surface = world::GetSurface(si);
+		world::Surface surface = world::GetSurface(0, si);
 
 		if (!DoesSurfaceOccludeLight(surface))
 			continue;
@@ -783,148 +787,183 @@ static int Thread(void *data)
 	int nTrianglesProcessed = 0;
 	s_lightBaker->nLuxelsProcessed = 0;
 
-	for (int si = 0; si < world::GetNumSurfaces(); si++)
+	for (int mi = 0; mi < world::GetNumModels(); mi++)
 	{
-		world::Surface surface = world::GetSurface(si);
-
-		// Ignore surfaces that aren't lightmapped.
-		if (!surface.isValid || surface.material->lightmapIndex < 0)
-			continue;
-
-		// Iterate surface triangles.
-		const std::vector<Vertex> &vertices = world::GetVertexBuffer(surface.vertexBufferIndex);
-
-		for (int ti = 0; ti < surface.nIndices / 3; ti++)
+		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
 		{
-			// Setup rasterizer.
-			lm_context ctx;
-			lm_vec2 uvMin = lm_v2(FLT_MAX, FLT_MAX), uvMax = lm_v2(-FLT_MAX, -FLT_MAX);
+			world::Surface surface = world::GetSurface(mi, si);
 
-			for (int i = 0; i < 3; i++)
+			// Ignore surfaces that aren't lightmapped.
+			if (!surface.isValid || surface.material->lightmapIndex < 0)
+				continue;
+
+			// Iterate surface triangles.
+			const std::vector<Vertex> &vertices = world::GetVertexBuffer(surface.vertexBufferIndex);
+
+			for (int ti = 0; ti < surface.nIndices / 3; ti++)
 			{
-				const Vertex &v = vertices[surface.indices[ti * 3 + i]];
-				ctx.triangle.p[i].x = v.pos.x;
-				ctx.triangle.p[i].y = v.pos.y;
-				ctx.triangle.p[i].z = v.pos.z;
-				ctx.triangle.uv[i].x = v.texCoord2.x * lightmapSize.x;
-				ctx.triangle.uv[i].y = v.texCoord2.y * lightmapSize.y;
+				// Setup rasterizer.
+				lm_context ctx;
+				lm_vec2 uvMin = lm_v2(FLT_MAX, FLT_MAX), uvMax = lm_v2(-FLT_MAX, -FLT_MAX);
 
-				// update bounds on lightmap
-				uvMin = lm_min2(uvMin, ctx.triangle.uv[i]);
-				uvMax = lm_max2(uvMax, ctx.triangle.uv[i]);
-			}
-
-			// Calculate area of interest (on lightmap) for conservative rasterization.
-			lm_vec2 bbMin = lm_floor2(uvMin);
-			lm_vec2 bbMax = lm_ceil2(uvMax);
-			ctx.rasterizer.minx = ctx.rasterizer.x = lm_maxi((int)bbMin.x - 1, 0);
-			ctx.rasterizer.miny = ctx.rasterizer.y = lm_maxi((int)bbMin.y - 1, 0);
-			ctx.rasterizer.maxx = lm_mini((int)bbMax.x + 1, lightmapSize.x);
-			ctx.rasterizer.maxy = lm_mini((int)bbMax.y + 1, lightmapSize.y);
-			assert(ctx.rasterizer.minx < ctx.rasterizer.maxx && ctx.rasterizer.miny < ctx.rasterizer.maxy);
-
-			// Rasterize.
-			bool startedSampling = false;
-
-			for (;;)
-			{
-				lm_bool gotSample;
-
-				if (!startedSampling)
+				for (int i = 0; i < 3; i++)
 				{
-					gotSample = lm_findFirstConservativeTriangleRasterizerPosition(&ctx);
-					startedSampling = true;
-				}
-				else
-				{
-					gotSample = lm_findNextConservativeTriangleRasterizerPosition(&ctx);
+					const Vertex &v = vertices[surface.indices[ti * 3 + i]];
+					ctx.triangle.p[i].x = v.pos.x;
+					ctx.triangle.p[i].y = v.pos.y;
+					ctx.triangle.p[i].z = v.pos.z;
+					ctx.triangle.uv[i].x = v.texCoord2.x * lightmapSize.x;
+					ctx.triangle.uv[i].y = v.texCoord2.y * lightmapSize.y;
+
+					// update bounds on lightmap
+					uvMin = lm_min2(uvMin, ctx.triangle.uv[i]);
+					uvMax = lm_max2(uvMax, ctx.triangle.uv[i]);
 				}
 
-				if (!gotSample)
-					break;
+				// Calculate area of interest (on lightmap) for conservative rasterization.
+				lm_vec2 bbMin = lm_floor2(uvMin);
+				lm_vec2 bbMax = lm_ceil2(uvMax);
+				ctx.rasterizer.minx = ctx.rasterizer.x = lm_maxi((int)bbMin.x - 1, 0);
+				ctx.rasterizer.miny = ctx.rasterizer.y = lm_maxi((int)bbMin.y - 1, 0);
+				ctx.rasterizer.maxx = lm_mini((int)bbMax.x + 1, lightmapSize.x);
+				ctx.rasterizer.maxy = lm_mini((int)bbMax.y + 1, lightmapSize.y);
+				assert(ctx.rasterizer.minx < ctx.rasterizer.maxx && ctx.rasterizer.miny < ctx.rasterizer.maxy);
 
-				s_lightBaker->nLuxelsProcessed++;
-				vec3 luxelColor = ambientLight;
+				// Rasterize.
+				bool startedSampling = false;
 
-				// Entity lights.
-				const vec3 samplePosition(&ctx.sample.position.x);
-				const vec3 sampleNormal(-vec3(&ctx.sample.direction.x));
-
-				for (StaticLight &light : lights)
+				for (;;)
 				{
-					float totalAttenuation = 0;
+					lm_bool gotSample;
+
+					if (!startedSampling)
+					{
+						gotSample = lm_findFirstConservativeTriangleRasterizerPosition(&ctx);
+						startedSampling = true;
+					}
+					else
+					{
+						gotSample = lm_findNextConservativeTriangleRasterizerPosition(&ctx);
+					}
+
+					if (!gotSample)
+						break;
+
+					s_lightBaker->nLuxelsProcessed++;
+					vec3 luxelColor = ambientLight;
+
+					// Entity lights.
+					const vec3 samplePosition(&ctx.sample.position.x);
+					const vec3 sampleNormal(-vec3(&ctx.sample.direction.x));
+
+					for (StaticLight &light : lights)
+					{
+						float totalAttenuation = 0;
+
+						for (int si = 0; si < s_lightBaker->nSamples; si++)
+						{
+							vec3 dir(light.position + posJitter[si] - samplePosition); // Jitter light position.
+							const vec3 displacement(dir);
+							float distance = dir.normalize();
+							const float envelope = light.photons;
+
+							if (distance >= envelope)
+								continue;
+
+							distance = std::max(distance, 16.0f); // clamp the distance to prevent super hot spots
+							float attenuation = 0;
+
+							if (light.flags & StaticLightFlags::LinearAttenuation)
+							{
+								//attenuation = 1.0f - distance / light.intensity;
+								attenuation = std::max(0.0f, light.photons * linearScale - distance);
+							}
+							else
+							{
+								// Inverse distance-squared attenuation.
+								attenuation = light.photons / (distance * distance);
+							}
+						
+							if (attenuation <= 0)
+								continue;
+
+							if (light.flags & StaticLightFlags::AngleAttenuation)
+							{
+								attenuation *= vec3::dotProduct(sampleNormal, dir);
+
+								if (attenuation <= 0)
+									continue;
+							}
+
+							if (light.flags & StaticLightFlags::Spotlight)
+							{
+								vec3 normal(light.targetPosition - (light.position + posJitter[si]));
+								float coneLength = normal.normalize();
+
+								if (coneLength <= 0)
+									coneLength = 64;
+
+								const float radiusByDist = (light.radius + 16) / coneLength;
+								const float distByNormal = -vec3::dotProduct(displacement, normal);
+
+								if (distByNormal < 0)
+									continue;
+							
+								const vec3 pointAtDist(light.position + posJitter[si] + normal * distByNormal);
+								const float radiusAtDist = radiusByDist * distByNormal;
+								const vec3 distToSample(samplePosition - pointAtDist);
+								const float sampleRadius = distToSample.length();
+
+								// outside the cone
+								if (sampleRadius >= radiusAtDist)
+									continue;
+
+								if (sampleRadius > (radiusAtDist - 32.0f))
+								{
+									attenuation *= (radiusAtDist - sampleRadius) / 32.0f;
+								}
+							}
+
+							RTCRay ray;
+							const vec3 org(samplePosition + sampleNormal * 0.1f);
+							ray.org[0] = org.x;
+							ray.org[1] = org.y;
+							ray.org[2] = org.z;
+							ray.tnear = 0;
+							ray.tfar = distance;
+							ray.dir[0] = dir.x;
+							ray.dir[1] = dir.y;
+							ray.dir[2] = dir.z;
+							ray.geomID = RTC_INVALID_GEOMETRY_ID;
+							ray.primID = RTC_INVALID_GEOMETRY_ID;
+							ray.mask = -1;
+							ray.time = 0;
+
+							rtcOccluded(s_lightBaker->embreeScene, ray);
+
+							if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
+								continue; // hit
+
+							totalAttenuation += attenuation * (1.0f / s_lightBaker->nSamples);
+						}
+					
+						if (totalAttenuation > 0)
+							luxelColor += light.color.rgb() * totalAttenuation;
+					}
+
+					// Sunlight.
+					float attenuation = 0;
 
 					for (int si = 0; si < s_lightBaker->nSamples; si++)
 					{
-						vec3 dir(light.position + posJitter[si] - samplePosition); // Jitter light position.
-						const vec3 displacement(dir);
-						float distance = dir.normalize();
-						const float envelope = light.photons;
-
-						if (distance >= envelope)
-							continue;
-
-						distance = std::max(distance, 16.0f); // clamp the distance to prevent super hot spots
-						float attenuation = 0;
-
-						if (light.flags & StaticLightFlags::LinearAttenuation)
-						{
-							//attenuation = 1.0f - distance / light.intensity;
-							attenuation = std::max(0.0f, light.photons * linearScale - distance);
-						}
-						else
-						{
-							// Inverse distance-squared attenuation.
-							attenuation = light.photons / (distance * distance);
-						}
-						
-						if (attenuation <= 0)
-							continue;
-
-						if (light.flags & StaticLightFlags::AngleAttenuation)
-						{
-							attenuation *= vec3::dotProduct(sampleNormal, dir);
-
-							if (attenuation <= 0)
-								continue;
-						}
-
-						if (light.flags & StaticLightFlags::Spotlight)
-						{
-							vec3 normal(light.targetPosition - (light.position + posJitter[si]));
-							float coneLength = normal.normalize();
-
-							if (coneLength <= 0)
-								coneLength = 64;
-
-							const float radiusByDist = (light.radius + 16) / coneLength;
-							const float distByNormal = -vec3::dotProduct(displacement, normal);
-
-							if (distByNormal < 0)
-								continue;
-							
-							const vec3 pointAtDist(light.position + posJitter[si] + normal * distByNormal);
-							const float radiusAtDist = radiusByDist * distByNormal;
-							const vec3 distToSample(samplePosition - pointAtDist);
-							const float sampleRadius = distToSample.length();
-
-							// outside the cone
-							if (sampleRadius >= radiusAtDist)
-								continue;
-
-							if (sampleRadius > (radiusAtDist - 32.0f))
-							{
-								attenuation *= (radiusAtDist - sampleRadius) / 32.0f;
-							}
-						}
-
 						RTCRay ray;
-						const vec3 org(samplePosition + sampleNormal * 0.1f);
+						const vec3 dir(sunLight.direction + dirJitter[si]); // Jitter light direction.
+						const vec3 org(samplePosition + sampleNormal * 0.1f); // push out from the surface a little
 						ray.org[0] = org.x;
 						ray.org[1] = org.y;
 						ray.org[2] = org.z;
 						ray.tnear = 0;
-						ray.tfar = distance;
+						ray.tfar = maxRayLength;
 						ray.dir[0] = dir.x;
 						ray.dir[1] = dir.y;
 						ray.dir[2] = dir.z;
@@ -932,67 +971,35 @@ static int Thread(void *data)
 						ray.primID = RTC_INVALID_GEOMETRY_ID;
 						ray.mask = -1;
 						ray.time = 0;
+						rtcIntersect(s_lightBaker->embreeScene, ray);
 
-						rtcOccluded(s_lightBaker->embreeScene, ray);
-
-						if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
-							continue; // hit
-
-						totalAttenuation += attenuation * (1.0f / s_lightBaker->nSamples);
+						if (ray.geomID != RTC_INVALID_GEOMETRY_ID && (faceFlags[ray.primID] & FaceFlags::Sky))
+						{
+							attenuation += vec3::dotProduct(sampleNormal, dir) * (1.0f / s_lightBaker->nSamples);
+						}
 					}
-					
-					if (totalAttenuation > 0)
-						luxelColor += light.color.rgb() * totalAttenuation;
+
+					if (attenuation > 0)
+						luxelColor += sunLight.light * attenuation * 255.0f;
+
+					AccumulateLightmapData(surface.material->lightmapIndex, ctx, vec4(luxelColor, 1.0f));
 				}
 
-				// Sunlight.
-				float attenuation = 0;
+				nTrianglesProcessed += 1;
 
-				for (int si = 0; si < s_lightBaker->nSamples; si++)
+				// Update progress.
+				const int newProgress = int(nTrianglesProcessed / (float)totalLightmappedTriangles * 100.0f);
+
+				if (newProgress != progress)
 				{
-					RTCRay ray;
-					const vec3 dir(sunLight.direction + dirJitter[si]); // Jitter light direction.
-					const vec3 org(samplePosition + sampleNormal * 0.1f); // push out from the surface a little
-					ray.org[0] = org.x;
-					ray.org[1] = org.y;
-					ray.org[2] = org.z;
-					ray.tnear = 0;
-					ray.tfar = maxRayLength;
-					ray.dir[0] = dir.x;
-					ray.dir[1] = dir.y;
-					ray.dir[2] = dir.z;
-					ray.geomID = RTC_INVALID_GEOMETRY_ID;
-					ray.primID = RTC_INVALID_GEOMETRY_ID;
-					ray.mask = -1;
-					ray.time = 0;
-					rtcIntersect(s_lightBaker->embreeScene, ray);
-
-					if (ray.geomID != RTC_INVALID_GEOMETRY_ID && (faceFlags[ray.primID] & FaceFlags::Sky))
-					{
-						attenuation += vec3::dotProduct(sampleNormal, dir) * (1.0f / s_lightBaker->nSamples);
-					}
+					progress = newProgress;
+					SetStatus(LightBaker::Status::Running, progress);
 				}
 
-				if (attenuation > 0)
-					luxelColor += sunLight.light * attenuation * 255.0f;
-
-				AccumulateLightmapData(surface.material->lightmapIndex, ctx, vec4(luxelColor, 1.0f));
+				// Check for cancelling.
+				if (GetStatus() == LightBaker::Status::Cancelled)
+					return 1;
 			}
-
-			nTrianglesProcessed += 1;
-
-			// Update progress.
-			const int newProgress = int(nTrianglesProcessed / (float)totalLightmappedTriangles * 100.0f);
-
-			if (newProgress != progress)
-			{
-				progress = newProgress;
-				SetStatus(LightBaker::Status::Running, progress);
-			}
-
-			// Check for cancelling.
-			if (GetStatus() == LightBaker::Status::Cancelled)
-				return 1;
 		}
 	}
 
