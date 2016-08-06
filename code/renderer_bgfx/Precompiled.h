@@ -409,7 +409,7 @@ struct FrameBuffer
 struct Image
 {
 	Image() {}
-	Image(const char *filename, int flags = 0);
+	void load(const char *filename, int flags = 0);
 	void calculateNumMips();
 	void allocMemory();
 
@@ -895,7 +895,7 @@ public:
 // the same name, we don't try looking for it again
 
 	bool explicitlyDefined = false;		// found in a .shader file
-
+	float surfaceLight = 0; // area light
 	unsigned int surfaceFlags = 0;			// if explicitlyDefined, this will have SURF_* flags
 	unsigned int contentFlags = 0;
 
@@ -1605,6 +1605,7 @@ namespace util
 	vec3 MirroredVector(const vec3 in, const Transform &surface, const Transform &camera);
 
 	char *SkipPath(char *pathname);
+	const char *GetFilename(const char *name);
 	const char *GetExtension(const char *name);
 	void StripExtension(const char *in, char *out, int destsize);
 

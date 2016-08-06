@@ -61,6 +61,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Precompiled.h"
 #pragma hdrstop
 
+#include "stb_image_resize.h"
+#include "stb_image_write.h"
+
 #if defined(USE_LIGHT_BAKER)
 
 #undef Status // unknown source. affects linux build.
@@ -404,6 +407,13 @@ struct FaceFlags
 
 struct LightBaker
 {
+	struct AreaLightTexture
+	{
+		const Material *material;
+		int width, height, nComponents;
+		std::vector<uint8_t> data;
+	};
+
 	struct Lightmap
 	{
 		std::vector<vec4> color;
@@ -425,6 +435,7 @@ struct LightBaker
 	SDL_Thread *thread;
 #endif
 
+	std::vector<AreaLightTexture> areaLightTextures;
 	int nSamples;
 	static const int maxSamples = 16;
 	int textureUploadFrameNo; // lightmap textures were uploaded this frame
@@ -1061,6 +1072,55 @@ void Start(int nSamples)
 
 	s_lightBaker = std::make_unique<LightBaker>();
 	s_lightBaker->nSamples = math::Clamped(nSamples, 1, LightBaker::maxSamples);
+
+	// Load area light surface textures into main memory.
+	for (int mi = 0; mi < world::GetNumModels(); mi++)
+	{
+		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
+		{
+			world::Surface surface = world::GetSurface(mi, si);
+
+			if (surface.material->surfaceLight <= 0)
+				continue;
+
+			// Check cache.
+			LightBaker::AreaLightTexture *texture = nullptr;
+
+			for (LightBaker::AreaLightTexture &alt : s_lightBaker->areaLightTextures)
+			{
+				if (alt.material == surface.material)
+				{
+					texture = &alt;
+					break;
+				}
+			}
+
+			if (texture)
+				continue; // In cache.
+
+			// Grab the first texture for now.
+			Image image;
+			const char *filename = surface.material->stages[0].bundles[0].textures[0]->getName();
+			image.load(filename);
+
+			if (!image.memory)
+				continue;
+
+			// Downscale the image.
+			s_lightBaker->areaLightTextures.push_back(LightBaker::AreaLightTexture());
+			texture = &s_lightBaker->areaLightTextures[s_lightBaker->areaLightTextures.size() - 1];
+			texture->material = surface.material;
+			texture->width = texture->height = 16;
+			texture->nComponents = image.nComponents;
+			texture->data.resize(texture->width * texture->height * texture->nComponents);
+			stbir_resize_uint8(image.memory->data, image.width, image.height, 0, texture->data.data(), texture->width, texture->height, 0, image.nComponents);
+			// FIXME: image memory leak
+#if 0
+			stbi_write_tga(util::GetFilename(filename), texture->width, texture->height, texture->nComponents, texture->data.data());
+#endif
+		}
+	}
+
 #ifdef USE_LIGHT_BAKER_THREAD
 	s_lightBaker->mutex = SDL_CreateMutex();
 

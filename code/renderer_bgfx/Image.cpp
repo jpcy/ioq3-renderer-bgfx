@@ -155,7 +155,7 @@ static void FinalizeImage(Image *image, uint8_t *data, int flags)
 /// If the filename extension is omitted, all supported extensions will be tried until one exists.
 /// 
 /// In either circumstance, if a file exists but the image doesn't load (e.g. the image is corrupt), other file extensions won't be tried.
-Image::Image(const char *filename, int flags)
+void Image::load(const char *filename, int flags)
 {
 	memory = nullptr;
 

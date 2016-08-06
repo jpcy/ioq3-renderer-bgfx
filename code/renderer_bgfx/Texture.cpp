@@ -243,7 +243,8 @@ struct TextureCache
 			imageFlags |= Image::Flags::Picmip;
 		}
 
-		Image image(name, imageFlags);
+		Image image;
+		image.load(name, imageFlags);
 
 		if (!image.memory)
 			return nullptr;
