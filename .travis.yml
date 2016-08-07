@@ -1,6 +1,10 @@
 language: cpp
 compiler: gcc
 
+branches:
+  only:
+    -master
+
 install:
   - sudo apt-add-repository ppa:ubuntu-toolchain-r/test -y
   - sudo apt-add-repository ppa:zoogie/sdl2-snapshots -y
