@@ -1099,11 +1099,10 @@ void Start(int nSamples)
 				continue; // In cache.
 
 			// Grab the first texture for now.
-			Image image;
 			const char *filename = surface.material->stages[0].bundles[0].textures[0]->getName();
-			image.load(filename);
+			Image image = LoadImage(filename);
 
-			if (!image.memory)
+			if (!image.data)
 				continue;
 
 			// Downscale the image.
@@ -1113,8 +1112,8 @@ void Start(int nSamples)
 			texture->width = texture->height = 16;
 			texture->nComponents = image.nComponents;
 			texture->data.resize(texture->width * texture->height * texture->nComponents);
-			stbir_resize_uint8(image.memory->data, image.width, image.height, 0, texture->data.data(), texture->width, texture->height, 0, image.nComponents);
-			// FIXME: image memory leak
+			stbir_resize_uint8(image.data, image.width, image.height, 0, texture->data.data(), texture->width, texture->height, 0, image.nComponents);
+			image.release(image.data, nullptr);
 #if 0
 			stbi_write_tga(util::GetFilename(filename), texture->width, texture->height, texture->nComponents, texture->data.data());
 #endif

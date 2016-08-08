@@ -43,12 +43,19 @@ struct TextureImpl
 		this->flags = flags;
 		this->format = format;
 
+		const bgfx::Memory *mem = nullptr;
+
+		if (image.data)
+		{
+			mem = bgfx::makeRef(image.data, image.dataSize, image.release);
+		}
+
 		// Create with data: immutable. Create without data: mutable, update whenever.
-		handle = bgfx::createTexture2D(width, height, nMips, format, calculateBgfxFlags(), (flags & TextureFlags::Mutable) ? nullptr : image.memory);
+		handle = bgfx::createTexture2D(width, height, nMips, format, calculateBgfxFlags(), (flags & TextureFlags::Mutable) ? nullptr : mem);
 
 		if (flags & TextureFlags::Mutable)
 		{
-			update(image.memory, 0, 0, width, height);
+			update(mem, 0, 0, width, height);
 		}
 	}
 
@@ -101,55 +108,49 @@ struct TextureCache
 	size_t nTextures = 0;
 	static const size_t hashTableSize = 1024;
 	TextureImpl *hashTable[hashTableSize];
+	static const int defaultImageSize = 16;
+	static const uint32_t defaultImageDataSize = defaultImageSize * defaultImageSize * 4;
+	uint8_t defaultImageData[defaultImageDataSize];
+	uint8_t whiteImageData[defaultImageDataSize];
+	uint8_t identityLightImageData[defaultImageDataSize];
 	TextureImpl *defaultTexture, *identityLightTexture, *whiteTexture;
-	std::array<TextureImpl *, 32> scratchTextures;
+	static const size_t nScratchTextures = 32;
+	uint8_t scratchImageData[nScratchTextures][defaultImageDataSize];
+	std::array<TextureImpl *, nScratchTextures> scratchTextures;
 
 	TextureCache() : hashTable()
 	{
 		// Default texture (black box with white border).
-		const int defaultSize = 16;
-		Image image;
-		image.width = image.height = defaultSize;
-		image.nComponents = 4;
-		image.allocMemory();
-		memset(image.memory->data, 32, image.memory->size);
+		memset(defaultImageData, 32, defaultImageDataSize);
 
-		for (int x = 0; x < defaultSize; x++)
+		for (int x = 0; x < defaultImageSize; x++)
 		{
-			*((uint32_t *)&image.memory->data[x * defaultSize * 4]) = 0xffffffff;
-			*((uint32_t *)&image.memory->data[x * 4]) = 0xffffffff;
-			*((uint32_t *)&image.memory->data[(defaultSize - 1 + x * defaultSize) * 4]) = 0xffffffff;
-			*((uint32_t *)&image.memory->data[(x + (defaultSize - 1) * defaultSize) * 4]) = 0xffffffff;
+			*((uint32_t *)&defaultImageData[x * defaultImageSize * 4]) = 0xffffffff;
+			*((uint32_t *)&defaultImageData[x * 4]) = 0xffffffff;
+			*((uint32_t *)&defaultImageData[(defaultImageSize - 1 + x * defaultImageSize) * 4]) = 0xffffffff;
+			*((uint32_t *)&defaultImageData[(x + (defaultImageSize - 1) * defaultImageSize) * 4]) = 0xffffffff;
 		}
 
-		defaultTexture = createTexture("*default", image, TextureFlags::Mipmap, bgfx::TextureFormat::RGBA8);
+		defaultTexture = createTexture("*default", CreateImage(defaultImageSize, defaultImageSize, 4, defaultImageData), TextureFlags::Mipmap, bgfx::TextureFormat::RGBA8);
 
 		// White texture.
-		image.width = image.height = 8;
-		image.allocMemory();
-		memset(image.memory->data, 255, image.memory->size);
-		whiteTexture = createTexture("*white", image, 0, bgfx::TextureFormat::RGBA8);
+		memset(whiteImageData, 255, defaultImageDataSize);
+		whiteTexture = createTexture("*white", CreateImage(defaultImageSize, defaultImageSize, 4, whiteImageData), 0, bgfx::TextureFormat::RGBA8);
 
 		// With overbright bits active, we need an image which is some fraction of full color, for default lightmaps, etc.
-		image.width = image.height = defaultSize;
-		image.allocMemory();
-
-		for (int x = 0; x < defaultSize * defaultSize; x++)
+		for (int x = 0; x < defaultImageSize * defaultImageSize; x++)
 		{
-			image.memory->data[x * 4 + 0] = image.memory->data[x * 4 + 1] = image.memory->data[x * 4 + 2] = uint8_t(255 * g_identityLight);
-			image.memory->data[x * 4 + 3] = 0xff;
+			identityLightImageData[x * 4 + 0] = identityLightImageData[x * 4 + 1] = identityLightImageData[x * 4 + 2] = uint8_t(255 * g_identityLight);
+			identityLightImageData[x * 4 + 3] = 0xff;
 		}
 
-		identityLightTexture = createTexture("*identityLight", image, 0, bgfx::TextureFormat::RGBA8);
+		identityLightTexture = createTexture("*identityLight", CreateImage(defaultImageSize, defaultImageSize, 4, identityLightImageData), 0, bgfx::TextureFormat::RGBA8);
 
 		// Scratch textures.
-		image.width = image.height = defaultSize;
-
 		for (size_t i = 0; i < scratchTextures.size(); i++)
 		{
-			image.allocMemory();
-			memset(image.memory->data, 0, image.memory->size);
-			scratchTextures[i] = createTexture("*scratch", image, TextureFlags::Picmip | TextureFlags::ClampToEdge, bgfx::TextureFormat::RGBA8);
+			memset(scratchImageData[i], 0, defaultImageDataSize);
+			scratchTextures[i] = createTexture("*scratch", CreateImage(defaultImageSize, defaultImageSize, 4, scratchImageData[i]), TextureFlags::Picmip | TextureFlags::ClampToEdge, bgfx::TextureFormat::RGBA8);
 		}
 	}
 
@@ -235,18 +236,17 @@ struct TextureCache
 
 		if (flags & (TextureFlags::Mipmap | TextureFlags::Picmip))
 		{
-			imageFlags |= Image::Flags::GenerateMipmaps;
+			imageFlags |= ImageFlags::GenerateMipmaps;
 		}
 
 		if (flags & TextureFlags::Picmip)
 		{
-			imageFlags |= Image::Flags::Picmip;
+			imageFlags |= ImageFlags::Picmip;
 		}
 
-		Image image;
-		image.load(name, imageFlags);
+		Image image = LoadImage(name, imageFlags);
 
-		if (!image.memory)
+		if (!image.data)
 			return nullptr;
 
 		return createTexture(name, image, flags, bgfx::TextureFormat::RGBA8);

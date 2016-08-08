@@ -95,6 +95,7 @@ using namespace math;
 #include "Interface.h"
 #include "../../shaders/SharedDefines.sh"
 
+#undef LoadImage
 #undef major
 #undef minor
 #undef None
@@ -406,28 +407,28 @@ struct FrameBuffer
 	bgfx::FrameBufferHandle handle;
 };
 
+struct ImageFlags
+{
+	enum
+	{
+		GenerateMipmaps    = 1<<0,
+		Picmip             = 1<<1
+	};
+};
+
 struct Image
 {
-	Image() {}
-	void load(const char *filename, int flags = 0);
-	void calculateNumMips();
-	void allocMemory();
-
-	struct Flags
-	{
-		enum
-		{
-			GenerateMipmaps    = 1<<0,
-			Picmip             = 1<<1
-		};
-	};
-
-	const bgfx::Memory *memory = nullptr;
 	int width = 0;
 	int height = 0;
 	int nComponents = 0;
 	int nMips = 1;
+	uint8_t *data = nullptr;
+	uint32_t dataSize = 0;
+	bgfx::ReleaseFn release = nullptr;
 };
+
+Image CreateImage(int width, int height, int nComponents, uint8_t *data, int flags = 0);
+Image LoadImage(const char *filename, int flags = 0);
 
 struct IndexBuffer
 {

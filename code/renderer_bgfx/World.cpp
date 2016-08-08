@@ -500,7 +500,7 @@ static bool SurfaceCompare(const World::Surface *s1, const World::Surface *s2)
 class WorldModel : public Model
 {
 public:
-	WorldModel::WorldModel(int index) : index_(index)
+	WorldModel(int index) : index_(index)
 	{
 		util::Sprintf(name_, sizeof(name_), "*%d", index_);
 	}
@@ -726,6 +726,11 @@ static void SetSurfaceGeometry(World::Surface *surface, const Vertex *vertices, 
 	{
 		surface->indices[i] = indices[i] + startVertex;
 	}
+}
+
+static void ReleaseLightmapAtlasImage(void *data, void *userData)
+{
+	free(data);
 }
 
 void Load(const char *name)
@@ -998,7 +1003,9 @@ void Load(const char *name)
 				image.width = s_world->lightmapAtlasSize.x * s_world->lightmapSize;
 				image.height = s_world->lightmapAtlasSize.y * s_world->lightmapSize;
 				image.nComponents = 4;
-				image.allocMemory();
+				image.dataSize = image.width * image.height * image.nComponents;
+				image.data = (uint8_t *)malloc(image.dataSize);
+				image.release = ReleaseLightmapAtlasImage;
 				int nAtlasedLightmaps = 0;
 
 				for (;;)
@@ -1012,8 +1019,8 @@ void Load(const char *name)
 							const int lightmapX = (nAtlasedLightmaps % s_world->nLightmapsPerAtlas) % s_world->lightmapAtlasSize.x;
 							const int lightmapY = (nAtlasedLightmaps % s_world->nLightmapsPerAtlas) / s_world->lightmapAtlasSize.x;
 							const size_t destOffset = ((lightmapX * s_world->lightmapSize + x) + (lightmapY * s_world->lightmapSize + y) * (s_world->lightmapAtlasSize.x * s_world->lightmapSize)) * image.nComponents;
-							memcpy(&image.memory->data[destOffset], &srcData[srcOffset], 3);
-							image.memory->data[destOffset + 3] = 0xff;
+							memcpy(&image.data[destOffset], &srcData[srcOffset], 3);
+							image.data[destOffset + 3] = 0xff;
 						}
 					}
 
