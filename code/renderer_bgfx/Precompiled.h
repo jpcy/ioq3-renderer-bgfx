@@ -1711,6 +1711,7 @@ namespace world
 
 	struct Surface
 	{
+		Bounds bounds;
 		int contentFlags;
 		int surfaceFlags;
 		bool isValid;

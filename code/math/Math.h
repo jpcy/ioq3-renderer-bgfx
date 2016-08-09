@@ -501,6 +501,11 @@ public:
 		return vec4(x * value, y * value, z * value, w * value);
 	}
 
+	vec4 operator/(float value) const
+	{
+		return vec4(x / value, y / value, z / value, w / value);
+	}
+
 	void operator+=(const vec4 &v)
 	{
 		x += v.x;
@@ -515,6 +520,14 @@ public:
 		y *= value;
 		z *= value;
 		w *= value;
+	}
+
+	void operator/=(float value)
+	{
+		x /= value;
+		y /= value;
+		z /= value;
+		w /= value;
 	}
 
 	bool equals(const vec4 &v, float epsilon = 0.001f) const

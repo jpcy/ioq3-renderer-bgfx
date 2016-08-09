@@ -412,6 +412,8 @@ struct LightBaker
 		const Material *material;
 		int width, height, nComponents;
 		std::vector<uint8_t> data;
+		vec4 normalizedColor;
+		vec4 averageColor;
 	};
 
 	struct Lightmap
@@ -470,6 +472,8 @@ struct Triangle
 };
 
 static std::unique_ptr<LightBaker> s_lightBaker;
+static const float pointScale = 7500.0f;
+static const float linearScale = 1.0f / 8000.0f;
 
 static const char *s_embreeErrorStrings[] =
 {
@@ -562,6 +566,27 @@ static int CheckEmbreeError(const char *lastFunctionName)
 
 #define CHECK_EMBREE_ERROR(name) { const int r = CheckEmbreeError(#name); if (r) return r; }
 
+void SetupLightEnvelope(StaticLight *light)
+{
+	assert(light);
+
+	// Setup envelope. From q3map2 SetupEnvelopes.
+	const float falloffTolerance = 1.0f;
+
+	if (!(light->flags & StaticLightFlags::DistanceAttenuation))
+	{
+		light->envelope = FLT_MAX;
+	}
+	else if (light->flags & StaticLightFlags::LinearAttenuation)
+	{
+		light->envelope = light->photons * linearScale - falloffTolerance;
+	}
+	else
+	{
+		light->envelope = sqrt(light->photons / falloffTolerance);
+	}
+}
+
 static int Thread(void *data)
 {
 	SetStatus(LightBaker::Status::Running);
@@ -585,6 +610,33 @@ static int Thread(void *data)
 			if (surface.isValid && surface.material->lightmapIndex >= 0)
 				totalLightmappedTriangles += surface.nIndices / 3;
 		}
+	}
+
+	// Do some area light processing.
+	for (LightBaker::AreaLightTexture &texture : s_lightBaker->areaLightTextures)
+	{
+		// Calculate colors from the texture.
+		// See q3map2 LoadShaderImages
+		vec4 color;
+
+		for (int i = 0; i < texture.width * texture.height; i++)
+		{
+			const uint8_t *c = &texture.data[i * texture.nComponents];
+			color += vec4(c[0], c[1], c[2], c[3]);
+		}
+
+		const float max = std::max(color.r, std::max(color.g, color.b));
+
+		if (max == 0)
+		{
+			texture.normalizedColor = vec4::white;
+		}
+		else
+		{
+			texture.normalizedColor = vec4(color.xyz() / max, 1.0f);
+		}
+
+		texture.averageColor = color / float(texture.width * texture.height);
 	}
 
 	// Count total vertices.
@@ -687,8 +739,6 @@ static int Thread(void *data)
 	// Setup lights.
 	vec3 ambientLight;
 	std::vector<StaticLight> lights;
-	const float pointScale = 7500.0f;
-	const float linearScale = 1.0f / 8000.0f;
 
 	for (size_t i = 0; i < world::GetNumEntities(); i++)
 	{
@@ -773,23 +823,43 @@ static int Thread(void *data)
 			}
 		}
 
-		// Setup envelope. From q3map2 SetupEnvelopes.
-		const float falloffTolerance = 1.0f;
-
-		if (!(light.flags & StaticLightFlags::DistanceAttenuation))
-		{
-			light.envelope = FLT_MAX;
-		}
-		else if (light.flags & StaticLightFlags::LinearAttenuation)
-		{
-			light.envelope = light.photons * linearScale - falloffTolerance;
-		}
-		else
-		{
-			light.envelope = sqrt(light.photons / falloffTolerance);
-		}
-
+		SetupLightEnvelope(&light);
 		lights.push_back(light);
+	}
+
+	// Setup area lights.
+	for (int mi = 0; mi < world::GetNumModels(); mi++)
+	{
+		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
+		{
+			world::Surface surface = world::GetSurface(mi, si);
+
+			if (surface.material->surfaceLight <= 0)
+				continue;
+
+			// autosprite materials become point lights.
+			if (surface.material->hasAutoSpriteDeform())
+			{
+				const LightBaker::AreaLightTexture *texture = nullptr;
+
+				for (const LightBaker::AreaLightTexture &alt : s_lightBaker->areaLightTextures)
+				{
+					if (alt.material == surface.material)
+					{
+						texture = &alt;
+						break;
+					}
+				}
+
+				StaticLight light;
+				light.color = texture ? texture->normalizedColor : vec4::white;
+				light.flags = StaticLightFlags::DefaultMask;
+				light.photons = surface.material->surfaceLight * pointScale;
+				light.position = surface.bounds.midpoint();
+				SetupLightEnvelope(&light);
+				lights.push_back(light);
+			}
+		}
 	}
 
 	// Iterate surfaces.
@@ -1074,6 +1144,7 @@ void Start(int nSamples)
 	s_lightBaker->nSamples = math::Clamped(nSamples, 1, LightBaker::maxSamples);
 
 	// Load area light surface textures into main memory.
+	// Need to do this on the main thread.
 	for (int mi = 0; mi < world::GetNumModels(); mi++)
 	{
 		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
@@ -1109,7 +1180,7 @@ void Start(int nSamples)
 			s_lightBaker->areaLightTextures.push_back(LightBaker::AreaLightTexture());
 			texture = &s_lightBaker->areaLightTextures[s_lightBaker->areaLightTextures.size() - 1];
 			texture->material = surface.material;
-			texture->width = texture->height = 16;
+			texture->width = texture->height = 32;
 			texture->nComponents = image.nComponents;
 			texture->data.resize(texture->width * texture->height * texture->nComponents);
 			stbir_resize_uint8(image.data, image.width, image.height, 0, texture->data.data(), texture->width, texture->height, 0, image.nComponents);

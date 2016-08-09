@@ -1182,6 +1182,14 @@ void Load(const char *name)
 			const int firstVertex = LittleLong(fs.firstVert);
 			const int nVertices = LittleLong(fs.numVerts);
 			SetSurfaceGeometry(&s, &vertices[firstVertex], nVertices, &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex);
+
+			// Setup cullinfo.
+			s.cullinfo.bounds.setupForAddingPoints();
+
+			for (int i = 0; i < nVertices; i++)
+			{
+				s.cullinfo.bounds.addPoint(vertices[firstVertex + i].pos);
+			}
 		}
 		else if (type == MST_PATCH)
 		{
@@ -1447,6 +1455,7 @@ Surface GetSurface(int modelIndex, int surfaceIndex)
 	// surfaceIndex arg is relative to the models' first surface
 	const World::Surface &surface = s_world->surfaces[s_world->modelDefs[modelIndex].firstSurface + surfaceIndex];
 	Surface result;
+	result.bounds = surface.cullinfo.bounds;
 	result.contentFlags = surface.contentFlags;
 	result.surfaceFlags = surface.flags;
 	result.isValid = (surface.type != World::SurfaceType::Ignore && surface.type != World::SurfaceType::Flare);
