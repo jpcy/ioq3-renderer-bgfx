@@ -416,6 +416,22 @@ struct LightBaker
 		vec4 averageColor;
 	};
 
+	struct AreaLightSample
+	{
+		vec3 position;
+		vec2 texCoord;
+		float photons;
+	};
+
+	struct AreaLight
+	{
+		int modelIndex;
+		int surfaceIndex;
+		//Material *material;
+		const AreaLightTexture *texture;
+		std::vector<AreaLightSample> samples;
+	};
+
 	struct Lightmap
 	{
 		std::vector<vec4> color;
@@ -472,6 +488,8 @@ struct Triangle
 };
 
 static std::unique_ptr<LightBaker> s_lightBaker;
+static std::vector<LightBaker::AreaLight> s_areaLights;
+static const float areaScale = 0.25f;
 static const float pointScale = 7500.0f;
 static const float linearScale = 1.0f / 8000.0f;
 
@@ -566,7 +584,7 @@ static int CheckEmbreeError(const char *lastFunctionName)
 
 #define CHECK_EMBREE_ERROR(name) { const int r = CheckEmbreeError(#name); if (r) return r; }
 
-void SetupLightEnvelope(StaticLight *light)
+static void SetupLightEnvelope(StaticLight *light)
 {
 	assert(light);
 
@@ -585,6 +603,17 @@ void SetupLightEnvelope(StaticLight *light)
 	{
 		light->envelope = sqrt(light->photons / falloffTolerance);
 	}
+}
+
+static const LightBaker::AreaLightTexture *FindAreaLightTexture(const Material *material)
+{
+	for (const LightBaker::AreaLightTexture &alt : s_lightBaker->areaLightTextures)
+	{
+		if (alt.material == material)
+			return &alt;
+	}
+
+	return nullptr;
 }
 
 static int Thread(void *data)
@@ -828,6 +857,9 @@ static int Thread(void *data)
 	}
 
 	// Setup area lights.
+	//std::vector<LightBaker::AreaLight> areaLights;
+	s_areaLights.clear();
+
 	for (int mi = 0; mi < world::GetNumModels(); mi++)
 	{
 		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
@@ -837,20 +869,11 @@ static int Thread(void *data)
 			if (surface.material->surfaceLight <= 0)
 				continue;
 
+			const LightBaker::AreaLightTexture *texture = FindAreaLightTexture(surface.material);
+
 			// autosprite materials become point lights.
 			if (surface.material->hasAutoSpriteDeform())
 			{
-				const LightBaker::AreaLightTexture *texture = nullptr;
-
-				for (const LightBaker::AreaLightTexture &alt : s_lightBaker->areaLightTextures)
-				{
-					if (alt.material == surface.material)
-					{
-						texture = &alt;
-						break;
-					}
-				}
-
 				StaticLight light;
 				light.color = texture ? texture->normalizedColor : vec4::white;
 				light.flags = StaticLightFlags::DefaultMask;
@@ -858,7 +881,39 @@ static int Thread(void *data)
 				light.position = surface.bounds.midpoint();
 				SetupLightEnvelope(&light);
 				lights.push_back(light);
+				continue;
 			}
+
+			LightBaker::AreaLight light;
+			light.modelIndex = mi;
+			light.surfaceIndex = si;
+			light.texture = texture;
+			const std::vector<Vertex> &vertices = world::GetVertexBuffer(surface.vertexBufferIndex);
+
+			// Create one sample per triangle at the midpoint.
+			for (int i = 0; i < surface.nIndices; i += 3)
+			{
+				const Vertex *v[3];
+				v[0] = &vertices[surface.indices[i + 0]];
+				v[1] = &vertices[surface.indices[i + 1]];
+				v[2] = &vertices[surface.indices[i + 2]];
+
+				// From q3map2 RadSubdivideDiffuseLight
+				const float area = vec3::crossProduct(v[1]->pos - v[0]->pos, v[2]->pos - v[0]->pos).length();
+
+				if (area < 1.0f)
+					continue;
+
+				LightBaker::AreaLightSample sample;
+				sample.position = (v[0]->pos + v[1]->pos + v[2]->pos) / 3.0f;
+				const vec3 normal((v[0]->normal + v[1]->normal + v[2]->normal) / 3.0f);
+				sample.position += normal * 0.1f; // push out a little
+				sample.texCoord = (v[0]->texCoord + v[1]->texCoord + v[2]->texCoord) / 3.0f;
+				sample.photons = surface.material->surfaceLight * area * areaScale;
+				light.samples.push_back(std::move(sample));
+			}
+
+			s_areaLights.push_back(std::move(light));
 		}
 	}
 
@@ -937,6 +992,7 @@ static int Thread(void *data)
 					const vec3 samplePosition(&ctx.sample.position.x);
 					const vec3 sampleNormal(-vec3(&ctx.sample.direction.x));
 
+#if 1
 					for (StaticLight &light : lights)
 					{
 						float totalAttenuation = 0;
@@ -1031,7 +1087,9 @@ static int Thread(void *data)
 						if (totalAttenuation > 0)
 							luxelColor += light.color.rgb() * totalAttenuation;
 					}
+#endif
 
+#if 1
 					// Sunlight.
 					float attenuation = 0;
 
@@ -1061,7 +1119,57 @@ static int Thread(void *data)
 					}
 
 					if (attenuation > 0)
-						luxelColor += sunLight.light * attenuation * 255.0f;
+						luxelColor += sunLight.light * attenuation * 255.0;
+#endif
+
+					// Area lights.
+					for (const LightBaker::AreaLight &areaLight : s_areaLights)
+					{
+						for (const LightBaker::AreaLightSample &areaLightSample : areaLight.samples)
+						{
+							vec3 dir(areaLightSample.position - samplePosition);
+							const float distance = dir.normalize();
+
+							// Angle attenuation.
+							float attenuation = vec3::dotProduct(sampleNormal, dir);
+
+							if (areaLight.texture->material->cullType == MaterialCullType::TwoSided)
+							{
+								// Handle two-sided surfaces.
+								attenuation = fabs(attenuation);
+							}
+							else if (attenuation <= 0)
+								continue;
+
+							// Inverse distance-squared attenuation.
+							attenuation *= areaLightSample.photons / (distance * distance);
+							
+							if (attenuation <= 0)
+								continue;
+
+							RTCRay ray;
+							const vec3 org(samplePosition + sampleNormal * 0.1f);
+							ray.org[0] = org.x;
+							ray.org[1] = org.y;
+							ray.org[2] = org.z;
+							ray.tnear = 0;
+							ray.tfar = distance * 0.9f; // FIXME: should check for exact hit instead?
+							ray.dir[0] = dir.x;
+							ray.dir[1] = dir.y;
+							ray.dir[2] = dir.z;
+							ray.geomID = RTC_INVALID_GEOMETRY_ID;
+							ray.primID = RTC_INVALID_GEOMETRY_ID;
+							ray.mask = -1;
+							ray.time = 0;
+
+							rtcOccluded(s_lightBaker->embreeScene, ray);
+
+							if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
+								continue; // hit
+
+							luxelColor += areaLight.texture->normalizedColor.rgb() * attenuation;
+						}
+					}
 
 					AccumulateLightmapData(surface.material->lightmapIndex, ctx, vec4(luxelColor, 1.0f));
 				}
@@ -1239,7 +1347,15 @@ bool IsRunning()
 void Update(int frameNo)
 {
 	if (!s_lightBaker.get())
+	{
+		for (size_t i = 0; i < s_areaLights.size(); i++)
+		{
+			for (size_t j = 0; j < s_areaLights[i].samples.size(); j++)
+				main::DrawAxis(s_areaLights[i].samples[j].position);
+		}
+
 		return;
+	}
 
 	int progress;
 	LightBaker::Status status = GetStatus(&progress);

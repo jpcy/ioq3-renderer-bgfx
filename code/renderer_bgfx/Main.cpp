@@ -410,6 +410,11 @@ void Main::debugPrint(const char *text)
 	debugTextY++;
 }
 
+void Main::drawAxis(vec3 position)
+{
+	sceneDebugAxis_.push_back(position);
+}
+
 void Main::drawBounds(const Bounds &bounds)
 {
 	sceneDebugBounds_.push_back(bounds);

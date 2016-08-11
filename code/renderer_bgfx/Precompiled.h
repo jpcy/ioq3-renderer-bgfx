@@ -453,6 +453,7 @@ namespace main
 	void AddEntityToScene(const Entity &entity);
 	void AddPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int nPolys);
 	void DebugPrint(const char *format, ...);
+	void DrawAxis(vec3 position);
 	void DrawBounds(const Bounds &bounds);
 	void DrawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex);
 	void DrawStretchPicGradient(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex, vec4 gradientColor);

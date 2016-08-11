@@ -39,7 +39,6 @@ static void Stbi_LoadImage(const char *filename, const uint8_t *fileBuffer, size
 {
 	assert(fileBuffer);
 	assert(image);
-	assert(image->memory == nullptr);
 
 	int width = 0;
 	int height = 0;

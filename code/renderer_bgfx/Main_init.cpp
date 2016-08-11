@@ -590,6 +590,11 @@ void DebugPrint(const char *format, ...)
 	s_main->debugPrint(text);
 }
 
+void DrawAxis(vec3 position)
+{
+	s_main->drawAxis(position);
+}
+
 void DrawBounds(const Bounds &bounds)
 {
 	s_main->drawBounds(bounds);
