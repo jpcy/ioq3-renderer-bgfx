@@ -270,7 +270,7 @@ bool Material::parse(char **text)
 				clampTime = (float)atof(token);
 			}
 		}
-		else if (!util::Stricmpn(token, "q3map_surfacelight", 5))
+		else if (!util::Stricmp(token, "q3map_surfacelight"))
 		{
 			token = util::Parse(text, false);
 			surfaceLight = (float)atof(token);
