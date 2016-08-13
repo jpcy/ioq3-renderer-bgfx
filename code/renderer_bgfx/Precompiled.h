@@ -85,11 +85,6 @@ extern "C"
 
 #define BGFX_NUM_BUFFER_FRAMES 3
 
-#if defined(USE_LIGHT_BAKER)
-#include "embree2/rtcore.h"
-#include "embree2/rtcore_ray.h"
-#endif
-
 #include "../math/Math.h"
 using namespace math;
 #include "Interface.h"
@@ -437,7 +432,6 @@ struct IndexBuffer
 	bgfx::IndexBufferHandle handle;
 };
 
-#if defined(USE_LIGHT_BAKER)
 namespace light_baker
 {
 	void Start(int nSamples);
@@ -445,7 +439,6 @@ namespace light_baker
 	bool IsRunning();
 	void Update(int frameNo);
 }
-#endif
 
 namespace main
 {

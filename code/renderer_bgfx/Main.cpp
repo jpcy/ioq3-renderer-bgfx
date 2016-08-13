@@ -394,11 +394,7 @@ void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
 
 void Main::debugPrint(const char *text)
 {
-#if defined(USE_LIGHT_BAKER)
 	if (!g_cvars.debugText.getBool() && !light_baker::IsRunning())
-#else
-	if (!g_cvars.debugText.getBool())
-#endif
 		return;
 
 	const uint16_t fontHeight = 16;
@@ -799,9 +795,7 @@ void Main::renderScene(const SceneDefinition &scene)
 void Main::endFrame()
 {
 	flushStretchPics();
-#if defined(USE_LIGHT_BAKER)
 	light_baker::Update(frameNo_);
-#endif
 
 	if (firstFreeViewId_ == 0)
 	{
@@ -858,10 +852,8 @@ void Main::endFrame()
 	if (g_cvars.debugText.getBool())
 		debug |= BGFX_DEBUG_TEXT;
 
-#if defined(USE_LIGHT_BAKER)
 	if (light_baker::IsRunning())
 		debug |= BGFX_DEBUG_TEXT;
-#endif
 
 	bgfx::setDebug(debug);
 	bgfx::frame();
@@ -878,11 +870,7 @@ void Main::endFrame()
 		g_cvars.gamma.clearModified();
 	}
 
-#if defined(USE_LIGHT_BAKER)
 	if (g_cvars.debugText.getBool() || light_baker::IsRunning())
-#else
-	if (g_cvars.debugText.getBool())
-#endif
 	{
 		bgfx::dbgTextClear();
 		debugTextY = 0;

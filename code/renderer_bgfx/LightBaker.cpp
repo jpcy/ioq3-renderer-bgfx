@@ -61,15 +61,42 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Precompiled.h"
 #pragma hdrstop
 
+#include "../embree2/rtcore.h"
+#include "../embree2/rtcore_ray.h"
 #include "stb_image_resize.h"
 #include "stb_image_write.h"
-
-#if defined(USE_LIGHT_BAKER)
 
 #undef Status // unknown source. affects linux build.
 
 namespace renderer {
 namespace light_baker {
+
+extern "C"
+{
+	typedef RTCDevice (*EmbreeNewDevice)(const char* cfg);
+	typedef void (*EmbreeDeleteDevice)(RTCDevice device);
+	typedef RTCError (*EmbreeDeviceGetError)(RTCDevice device);
+	typedef RTCScene (*EmbreeDeviceNewScene)(RTCDevice device, RTCSceneFlags flags, RTCAlgorithmFlags aflags);
+	typedef void (*EmbreeDeleteScene)(RTCScene scene);
+	typedef unsigned (*EmbreeNewTriangleMesh)(RTCScene scene, RTCGeometryFlags flags, size_t numTriangles, size_t numVertices, size_t numTimeSteps);
+	typedef void* (*EmbreeMapBuffer)(RTCScene scene, unsigned geomID, RTCBufferType type);
+	typedef void (*EmbreeUnmapBuffer)(RTCScene scene, unsigned geomID, RTCBufferType type);
+	typedef void (*EmbreeCommit)(RTCScene scene);
+	typedef void (*EmbreeOccluded)(RTCScene scene, RTCRay& ray);
+	typedef void (*EmbreeIntersect)(RTCScene scene, RTCRay& ray);
+
+	static EmbreeNewDevice embreeNewDevice = nullptr;
+	static EmbreeDeleteDevice embreeDeleteDevice = nullptr;
+	static EmbreeDeviceGetError embreeDeviceGetError = nullptr;
+	static EmbreeDeviceNewScene embreeDeviceNewScene = nullptr;
+	static EmbreeDeleteScene embreeDeleteScene = nullptr;
+	static EmbreeNewTriangleMesh embreeNewTriangleMesh = nullptr;
+	static EmbreeMapBuffer embreeMapBuffer = nullptr;
+	static EmbreeUnmapBuffer embreeUnmapBuffer = nullptr;
+	static EmbreeCommit embreeCommit = nullptr;
+	static EmbreeOccluded embreeOccluded = nullptr;
+	static EmbreeIntersect embreeIntersect = nullptr;
+}
 
 typedef int lm_bool;
 #define LM_FALSE 0
@@ -483,10 +510,10 @@ struct LightBaker
 			SDL_DestroyMutex(mutex);
 #endif
 		if (embreeScene)
-			rtcDeleteScene(embreeScene);
+			embreeDeleteScene(embreeScene);
 
 		if (embreeDevice)
-			rtcDeleteDevice(embreeDevice);
+			embreeDeleteDevice(embreeDevice);
 	}
 };
 
@@ -579,7 +606,7 @@ static vec3 ParseColorString(const char *color)
 
 static int CheckEmbreeError(const char *lastFunctionName)
 {
-	RTCError error = rtcDeviceGetError(s_lightBaker->embreeDevice);
+	RTCError error = embreeDeviceGetError(s_lightBaker->embreeDevice);
 
 	if (error != RTC_NO_ERROR)
 	{
@@ -750,15 +777,15 @@ static int Thread(void *data)
 
 	// Setup embree.
 	// Indices are 32-bit. The World representation uses 16-bit indices, with multiple vertex buffers on large maps that don't fit into one. Combine those here.
-	s_lightBaker->embreeDevice = rtcNewDevice();
-	CHECK_EMBREE_ERROR(rtcNewDevice)
-	s_lightBaker->embreeScene = rtcDeviceNewScene(s_lightBaker->embreeDevice, RTC_SCENE_STATIC, RTC_INTERSECT1);
-	CHECK_EMBREE_ERROR(rtcDeviceNewScene)
-	unsigned int embreeMesh = rtcNewTriangleMesh(s_lightBaker->embreeScene, RTC_GEOMETRY_STATIC, totalOccluderTriangles, totalVertices);
-	CHECK_EMBREE_ERROR(rtcNewTriangleMesh);
+	s_lightBaker->embreeDevice = embreeNewDevice(nullptr);
+	CHECK_EMBREE_ERROR(embreeNewDevice)
+	s_lightBaker->embreeScene = embreeDeviceNewScene(s_lightBaker->embreeDevice, RTC_SCENE_STATIC, RTC_INTERSECT1);
+	CHECK_EMBREE_ERROR(embreeDeviceNewScene)
+	unsigned int embreeMesh = embreeNewTriangleMesh(s_lightBaker->embreeScene, RTC_GEOMETRY_STATIC, totalOccluderTriangles, totalVertices, 1);
+	CHECK_EMBREE_ERROR(embreeNewTriangleMesh);
 
-	auto vertices = (vec4 *)rtcMapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_VERTEX_BUFFER);
-	CHECK_EMBREE_ERROR(rtcMapBuffer);
+	auto vertices = (vec4 *)embreeMapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_VERTEX_BUFFER);
+	CHECK_EMBREE_ERROR(embreeMapBuffer);
 	size_t currentVertex = 0;
 
 	for (int i = 0; i < world::GetNumVertexBuffers(); i++)
@@ -772,11 +799,11 @@ static int Thread(void *data)
 		}
 	}
 
-	rtcUnmapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_VERTEX_BUFFER);
-	CHECK_EMBREE_ERROR(rtcUnmapBuffer);
+	embreeUnmapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_VERTEX_BUFFER);
+	CHECK_EMBREE_ERROR(embreeUnmapBuffer);
 
-	auto triangles = (Triangle *)rtcMapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_INDEX_BUFFER);
-	CHECK_EMBREE_ERROR(rtcMapBuffer);
+	auto triangles = (Triangle *)embreeMapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_INDEX_BUFFER);
+	CHECK_EMBREE_ERROR(embreeMapBuffer);
 	size_t faceIndex = 0;
 	std::vector<uint8_t> faceFlags;
 	faceFlags.resize(totalOccluderTriangles);
@@ -806,10 +833,10 @@ static int Thread(void *data)
 		}
 	}
 
-	rtcUnmapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_INDEX_BUFFER);
-	CHECK_EMBREE_ERROR(rtcUnmapBuffer);
-	rtcCommit(s_lightBaker->embreeScene);
-	CHECK_EMBREE_ERROR(rtcCommit);
+	embreeUnmapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_INDEX_BUFFER);
+	CHECK_EMBREE_ERROR(embreeUnmapBuffer);
+	embreeCommit(s_lightBaker->embreeScene);
+	CHECK_EMBREE_ERROR(embreeCommit);
 
 	// Allocate lightmap memory.
 	const vec2i lightmapSize = world::GetLightmapSize();
@@ -1152,7 +1179,7 @@ static int Thread(void *data)
 							ray.mask = -1;
 							ray.time = 0;
 
-							rtcOccluded(s_lightBaker->embreeScene, ray);
+							embreeOccluded(s_lightBaker->embreeScene, ray);
 
 							if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
 								continue; // hit
@@ -1186,7 +1213,7 @@ static int Thread(void *data)
 						ray.primID = RTC_INVALID_GEOMETRY_ID;
 						ray.mask = -1;
 						ray.time = 0;
-						rtcIntersect(s_lightBaker->embreeScene, ray);
+						embreeIntersect(s_lightBaker->embreeScene, ray);
 
 						if (ray.geomID != RTC_INVALID_GEOMETRY_ID && (faceFlags[ray.primID] & FaceFlags::Sky))
 						{
@@ -1237,7 +1264,7 @@ static int Thread(void *data)
 							ray.mask = -1;
 							ray.time = 0;
 
-							rtcOccluded(s_lightBaker->embreeScene, ray);
+							embreeOccluded(s_lightBaker->embreeScene, ray);
 
 							if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
 								continue; // hit
@@ -1319,10 +1346,36 @@ static int Thread(void *data)
 	return 0;
 }
 
+#define EMBREE_FUNCTION(func, type, name) func = (type)SDL_LoadFunction(so, name); if (!func) { interface::PrintWarningf("Error loading Embree function %s\n", name); return; }
+
 void Start(int nSamples)
 {
 	if (s_lightBaker.get() || !world::IsLoaded())
 		return;
+
+	// Load embree library if not already loaded.
+	if (!embreeNewDevice)
+	{
+		void *so = SDL_LoadObject("embree.dll");
+
+		if (!so)
+		{
+			interface::PrintWarningf("%s\n", SDL_GetError());
+			return;
+		}
+
+		EMBREE_FUNCTION(embreeNewDevice, EmbreeNewDevice, "rtcNewDevice");
+		EMBREE_FUNCTION(embreeDeleteDevice, EmbreeDeleteDevice, "rtcDeleteDevice");
+		EMBREE_FUNCTION(embreeDeviceGetError, EmbreeDeviceGetError, "rtcDeviceGetError");
+		EMBREE_FUNCTION(embreeDeviceNewScene, EmbreeDeviceNewScene, "rtcDeviceNewScene");
+		EMBREE_FUNCTION(embreeDeleteScene, EmbreeDeleteScene, "rtcDeleteScene");
+		EMBREE_FUNCTION(embreeNewTriangleMesh, EmbreeNewTriangleMesh, "rtcNewTriangleMesh");
+		EMBREE_FUNCTION(embreeMapBuffer, EmbreeMapBuffer, "rtcMapBuffer");
+		EMBREE_FUNCTION(embreeUnmapBuffer, EmbreeUnmapBuffer, "rtcUnmapBuffer");
+		EMBREE_FUNCTION(embreeCommit, EmbreeCommit, "rtcCommit");
+		EMBREE_FUNCTION(embreeOccluded, EmbreeOccluded, "rtcOccluded");
+		EMBREE_FUNCTION(embreeIntersect, EmbreeIntersect, "rtcIntersect");
+	}
 
 	s_lightBaker = std::make_unique<LightBaker>();
 	s_lightBaker->nSamples = math::Clamped(nSamples, 1, LightBaker::maxSamples);
@@ -1471,5 +1524,3 @@ void Update(int frameNo)
 
 } // namespace light_baker
 } // namespace renderer
-
-#endif // USE_LIGHT_BAKER
