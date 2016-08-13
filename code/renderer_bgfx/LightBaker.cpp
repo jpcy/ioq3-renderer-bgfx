@@ -405,6 +405,13 @@ struct FaceFlags
 	};
 };
 
+struct Winding
+{
+	static const int maxPoints = 8;
+	vec3 p[maxPoints];
+	int numpoints;
+};
+
 struct LightBaker
 {
 	struct AreaLightTexture
@@ -421,6 +428,7 @@ struct LightBaker
 		vec3 position;
 		vec2 texCoord;
 		float photons;
+		Winding winding;
 	};
 
 	struct AreaLight
@@ -490,6 +498,7 @@ struct Triangle
 static std::unique_ptr<LightBaker> s_lightBaker;
 static std::vector<LightBaker::AreaLight> s_areaLights;
 static const float areaScale = 0.25f;
+static const float formFactorValueScale = 3.0f;
 static const float pointScale = 7500.0f;
 static const float linearScale = 1.0f / 8000.0f;
 
@@ -614,6 +623,69 @@ static const LightBaker::AreaLightTexture *FindAreaLightTexture(const Material *
 	}
 
 	return nullptr;
+}
+
+/*
+   PointToPolygonFormFactor()
+   calculates the area over a point/normal hemisphere a winding covers
+   ydnar: fixme: there has to be a faster way to calculate this
+   without the expensive per-vert sqrts and transcendental functions
+   ydnar 2002-09-30: added -faster switch because only 19% deviance > 10%
+   between this and the approximation
+ */
+
+#define ONE_OVER_2PI    0.159154942f    //% (1.0f / (2.0f * 3.141592657f))
+
+static float PointToPolygonFormFactor(vec3 point, vec3 normal, const Winding &w)
+{
+	/* this is expensive */
+	vec3 dirs[Winding::maxPoints];
+
+	for (int i = 0; i < w.numpoints; i++)
+	{
+		dirs[i] = (w.p[i] - point).normal();
+	}
+
+	/* duplicate first vertex to avoid mod operation */
+	dirs[w.numpoints] = dirs[0];
+
+	/* calculcate relative area */
+	float total = 0;
+
+	for (int i = 0; i < w.numpoints; i++)
+	{
+		/* get a triangle */
+		float dot = vec3::dotProduct(dirs[i], dirs[i + 1]);
+
+		/* roundoff can cause slight creep, which gives an IND from acos */
+		if ( dot > 1.0f ) {
+			dot = 1.0f;
+		}
+		else if ( dot < -1.0f ) {
+			dot = -1.0f;
+		}
+
+		/* get the angle */
+		const float angle = acos(dot);
+
+		vec3 triNormal = vec3::crossProduct(dirs[i], dirs[i + 1]);
+
+		if (triNormal.normalize() < 0.0001f)
+			continue;
+
+		const float facing = vec3::dotProduct(normal, triNormal);
+		total += facing * angle;
+
+		/* ydnar: this was throwing too many errors with radiosity + crappy maps. ignoring it. */
+		if ( total > 6.3f || total < -6.3f ) {
+			return 0.0f;
+		}
+	}
+
+	/* now in the range of 0 to 1 over the entire incoming hemisphere */
+	//%	total /= (2.0f * 3.141592657f);
+	total *= ONE_OVER_2PI;
+	return total;
 }
 
 static int Thread(void *data)
@@ -909,7 +981,12 @@ static int Thread(void *data)
 				const vec3 normal((v[0]->normal + v[1]->normal + v[2]->normal) / 3.0f);
 				sample.position += normal * 0.1f; // push out a little
 				sample.texCoord = (v[0]->texCoord + v[1]->texCoord + v[2]->texCoord) / 3.0f;
-				sample.photons = surface.material->surfaceLight * area * areaScale;
+				//sample.photons = surface.material->surfaceLight * area * areaScale;
+				sample.photons = surface.material->surfaceLight * formFactorValueScale * areaScale;
+				sample.winding.numpoints = 3;
+				sample.winding.p[0] = v[0]->pos;
+				sample.winding.p[1] = v[1]->pos;
+				sample.winding.p[2] = v[2]->pos;
 				light.samples.push_back(std::move(sample));
 			}
 
@@ -1002,9 +1079,8 @@ static int Thread(void *data)
 							vec3 dir(light.position + posJitter[si] - samplePosition); // Jitter light position.
 							const vec3 displacement(dir);
 							float distance = dir.normalize();
-							const float envelope = light.photons;
 
-							if (distance >= envelope)
+							if (distance >= light.envelope)
 								continue;
 
 							distance = std::max(distance, 16.0f); // clamp the distance to prevent super hot spots
@@ -1122,6 +1198,7 @@ static int Thread(void *data)
 						luxelColor += sunLight.light * attenuation * 255.0;
 #endif
 
+#if 1
 					// Area lights.
 					for (const LightBaker::AreaLight &areaLight : s_areaLights)
 					{
@@ -1130,21 +1207,19 @@ static int Thread(void *data)
 							vec3 dir(areaLightSample.position - samplePosition);
 							const float distance = dir.normalize();
 
-							// Angle attenuation.
-							float attenuation = vec3::dotProduct(sampleNormal, dir);
-
-							if (areaLight.texture->material->cullType == MaterialCullType::TwoSided)
-							{
-								// Handle two-sided surfaces.
-								attenuation = fabs(attenuation);
-							}
-							else if (attenuation <= 0)
+							// Check if light is behind the sample point.
+							// Ignore two-sided surfaces.
+							float angle = vec3::dotProduct(sampleNormal, dir);
+							
+							if (areaLight.texture->material->cullType != MaterialCullType::TwoSided && angle <= 0)
 								continue;
 
-							// Inverse distance-squared attenuation.
-							attenuation *= areaLightSample.photons / (distance * distance);
-							
-							if (attenuation <= 0)
+							float factor = PointToPolygonFormFactor(samplePosition, sampleNormal, areaLightSample.winding);
+
+							if (areaLight.texture->material->cullType == MaterialCullType::TwoSided)
+								factor = fabs(factor);
+
+							if (factor <= 0)
 								continue;
 
 							RTCRay ray;
@@ -1167,9 +1242,10 @@ static int Thread(void *data)
 							if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
 								continue; // hit
 
-							luxelColor += areaLight.texture->normalizedColor.rgb() * attenuation;
+							luxelColor += areaLight.texture->normalizedColor.rgb() * areaLightSample.photons * factor;
 						}
 					}
+#endif
 
 					AccumulateLightmapData(surface.material->lightmapIndex, ctx, vec4(luxelColor, 1.0f));
 				}
