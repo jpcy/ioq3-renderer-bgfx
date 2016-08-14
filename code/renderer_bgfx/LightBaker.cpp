@@ -62,7 +62,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #pragma hdrstop
 
 #ifdef __GNUC__
+#ifndef __forceinline
 #define __forceinline
+#endif
 #endif
 #include "../embree2/rtcore.h"
 #include "../embree2/rtcore_ray.h"
@@ -1388,7 +1390,7 @@ void Start(int nSamples)
 	}
 
 	s_lightBaker = std::make_unique<LightBaker>();
-	s_lightBaker->nSamples = math::Clamped(nSamples, 1, LightBaker::maxSamples);
+	s_lightBaker->nSamples = math::Clamped(nSamples, 1, (int)LightBaker::maxSamples);
 
 	// Load area light surface textures into main memory.
 	// Need to do this on the main thread.
