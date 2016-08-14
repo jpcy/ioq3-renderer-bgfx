@@ -1765,7 +1765,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 		else
 		{
 			ds.deformationSpread = 100.0f;
-			interface::PrintWarningf("'%s': illegal div value of 0 in deformVertexes command for shader '%s'\n", name);
+			interface::PrintWarningf("'%s': illegal div value of 0 in deformVertexes command\n", name);
 		}
 
 		ds.deformationWave = parseWaveForm(text);

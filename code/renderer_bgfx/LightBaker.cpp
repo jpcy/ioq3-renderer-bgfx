@@ -61,12 +61,22 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Precompiled.h"
 #pragma hdrstop
 
+#ifdef __GNUC__
+#define __forceinline
+#endif
 #include "../embree2/rtcore.h"
 #include "../embree2/rtcore_ray.h"
+
 #include "stb_image_resize.h"
 #include "stb_image_write.h"
 
 #undef Status // unknown source. affects linux build.
+
+#if defined(WIN32)
+#define EMBREE_LIB "embree.dll"
+#else
+#define EMBREE_LIB "libembree.so"
+#endif
 
 namespace renderer {
 namespace light_baker {
@@ -1356,7 +1366,7 @@ void Start(int nSamples)
 	// Load embree library if not already loaded.
 	if (!embreeNewDevice)
 	{
-		void *so = SDL_LoadObject("embree.dll");
+		void *so = SDL_LoadObject(EMBREE_LIB);
 
 		if (!so)
 		{

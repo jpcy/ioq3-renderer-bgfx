@@ -994,7 +994,7 @@ void Load(const char *name)
 			s_world->lightmapAtlases.resize((size_t)ceil(nLightmaps / (float)s_world->nLightmapsPerAtlas));
 
 			// Pack lightmaps into atlas(es).
-			interface::Printf("Packing %d lightmaps into %d atlas(es) sized %dx%d.\n", nLightmaps, s_world->lightmapAtlases.size(), s_world->lightmapAtlasSize.x * s_world->lightmapSize, s_world->lightmapAtlasSize.y * s_world->lightmapSize);
+			interface::Printf("Packing %d lightmaps into %d atlas(es) sized %dx%d.\n", (int)nLightmaps, (int)s_world->lightmapAtlases.size(), s_world->lightmapAtlasSize.x * s_world->lightmapSize, s_world->lightmapAtlasSize.y * s_world->lightmapSize);
 			size_t lightmapIndex = 0;
 
 			for (size_t i = 0; i < s_world->lightmapAtlases.size(); i++)
