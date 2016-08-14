@@ -270,6 +270,11 @@ bool Material::parse(char **text)
 				clampTime = (float)atof(token);
 			}
 		}
+		else if (!util::Stricmp(token, "q3map_surfacelight"))
+		{
+			token = util::Parse(text, false);
+			surfaceLight = (float)atof(token);
+		}
 		// skip stuff that only the q3map needs
 		else if (!util::Stricmpn(token, "q3map", 5))
 		{
@@ -1760,7 +1765,7 @@ MaterialDeformStage Material::parseDeform(char **text) const
 		else
 		{
 			ds.deformationSpread = 100.0f;
-			interface::PrintWarningf("'%s': illegal div value of 0 in deformVertexes command for shader '%s'\n", name);
+			interface::PrintWarningf("'%s': illegal div value of 0 in deformVertexes command\n", name);
 		}
 
 		ds.deformationWave = parseWaveForm(text);

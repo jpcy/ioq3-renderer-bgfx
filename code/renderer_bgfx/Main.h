@@ -66,8 +66,10 @@ public:
 
 	void registerFont(const char *fontName, int pointSize, fontInfo_t *font);
 	void setColor(vec4 c) { stretchPicColor_ = c; }
+	const SunLight &getSunLight() const { return sunLight_; }
 	void setSunLight(const SunLight &sunLight) { sunLight_ = sunLight; }
 	void debugPrint(const char *text);
+	void drawAxis(vec3 position);
 	void drawBounds(const Bounds &bounds);
 	void drawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex);
 	void drawStretchPicGradient(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex, vec4 gradientColor);

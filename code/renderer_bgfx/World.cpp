@@ -208,51 +208,18 @@ typedef struct {
 
 static const int MAX_VERTS_ON_POLY = 64;
 
-class WorldModel : public Model
+const char *Entity::findValue(const char *key, const char *defaultValue) const
 {
-public:
-	WorldModel(int index, size_t nSurfaces, Bounds bounds);
-	bool load(const ReadOnlyFile &file) override { return true; }
-	Bounds getBounds() const override { return bounds_; }
-	Material *getMaterial(size_t surfaceNo) const override;
-	bool isCulled(Entity *entity, const Frustum &cameraFrustum) const override;
-	int lerpTag(const char *name, const Entity &entity, int startIndex, Transform *transform) const override { return -1; }
-	void render(const mat3 &scenRotation, DrawCallList *drawCallList, Entity *entity) override;
-	void addPatchSurface(size_t index, Material *material, int width, int height, const Vertex *points, int lightmapIndex, int nLightmapTilesPerDimension);
-	void addSurface(size_t index, Material *material, const Vertex *vertices, size_t nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex, int nLightmapTilesPerDimension);
-	void batchSurfaces();
-
-private:
-	struct Surface
+	for (size_t i = 0; i < nKvps; i++)
 	{
-		Material *material;
-		uint32_t firstIndex;
-		uint32_t nIndices;
-	};
+		const EntityKVP &kvp = kvps[i];
 
-	Bounds bounds_;
-	std::vector<Surface> surfaces_;
-	VertexBuffer vertexBuffer_;
-	uint32_t nVertices_;
-	IndexBuffer indexBuffer_;
+		if (!util::Stricmp(kvp.key, key))
+			return kvp.value;
+	}
 
-	/// @remarks Not used after surfaces are batched.
-	struct TempSurface
-	{
-		/// @remarks Temp surfaces with no material are ignored.
-		Material *material = nullptr;
-
-		uint32_t firstVertex;
-		uint32_t nVertices;
-		uint32_t firstIndex;
-		uint32_t nIndices;
-		bool batched;
-	};
-
-	std::vector<TempSurface> tempSurfaces_;
-	std::vector<Vertex> tempVertices_;
-	std::vector<uint16_t> tempIndices_;
-};
+	return defaultValue;
+}
 
 struct World
 {
@@ -389,7 +356,7 @@ struct World
 
 		struct Portal
 		{
-			const Entity *entity;
+			const renderer::Entity *entity;
 			bool isMirror;
 			Plane plane;
 			Surface *surface;
@@ -435,9 +402,11 @@ struct World
 	};
 
 	std::vector<Fog> fogs;
+
+	std::vector<Entity> entities;
 	const int lightmapSize = 128;
-	int lightmapAtlasSize;
-	std::vector<const Texture *> lightmapAtlases;
+	vec2i lightmapAtlasSize; // In cells. e.g. 2x2 is 256x256 (lightmapSize).
+	std::vector<Texture *> lightmapAtlases;
 	int nLightmapsPerAtlas;
 	vec3 lightGridSize = { 64, 64, 128 };
 	vec3 lightGridInverseSize;
@@ -464,7 +433,7 @@ struct World
 
 	std::vector<ModelDef> modelDefs;
 
-	/// First model surfaces.
+	/// All model surfaces.
 	std::vector<Surface> surfaces;
 
 	VertexBuffer vertexBuffers[s_maxWorldGeometryBuffers];
@@ -496,195 +465,203 @@ struct World
 
 static std::unique_ptr<World> s_world;
 
-static vec2 AtlasTexCoord(vec2 uv, int index, int nTilesPerDimension)
+static vec2 AtlasTexCoord(vec2 uv, int index, vec2i lightmapAtlasSize)
 {
-	const int tileX = index % nTilesPerDimension;
-	const int tileY = index / nTilesPerDimension;
+	const int tileX = index % lightmapAtlasSize.x;
+	const int tileY = index / lightmapAtlasSize.x;
 	vec2 result;
-	result.u = (tileX / (float)nTilesPerDimension) + (uv.u / (float)nTilesPerDimension);
-	result.v = (tileY / (float)nTilesPerDimension) + (uv.v / (float)nTilesPerDimension);
+	result.u = (tileX / (float)lightmapAtlasSize.x) + (uv.u / (float)lightmapAtlasSize.x);
+	result.v = (tileY / (float)lightmapAtlasSize.y) + (uv.v / (float)lightmapAtlasSize.y);
 	return result;
 }
 
-WorldModel::WorldModel(int index, size_t nSurfaces, Bounds bounds) : tempSurfaces_(nSurfaces), bounds_(bounds)
+static bool SurfaceCompare(const World::Surface *s1, const World::Surface *s2)
 {
-	util::Sprintf(name_, sizeof(name_), "*%d", index);
-}
-
-Material *WorldModel::getMaterial(size_t surfaceNo) const
-{
-	// if it's out of range, return the first surface
-	if (surfaceNo >= (int)surfaces_.size())
-		surfaceNo = 0;
-
-	const Surface &surface = surfaces_[surfaceNo];
-
-	if (surface.material->lightmapIndex > MaterialLightmapId::None)
+	if (s1->material->index < s2->material->index)
 	{
-		bool mipRawImage = true;
-
-		// Get mipmap info for original texture.
-		Texture *texture = Texture::get(surface.material->name);
-
-		if (texture)
-			mipRawImage = (texture->getFlags() & TextureFlags::Mipmap) != 0;
-
-		Material *mat = g_materialCache->findMaterial(surface.material->name, MaterialLightmapId::None, mipRawImage);
-		mat->stages[0].rgbGen = MaterialColorGen::LightingDiffuse; // (SA) new
-		return mat;
+		return true;
 	}
-
-	return surface.material;
-}
-
-bool WorldModel::isCulled(Entity *entity, const Frustum &cameraFrustum) const
-{
-	return cameraFrustum.clipBounds(bounds_, mat4::transform(entity->rotation, entity->position)) == Frustum::ClipResult::Outside;
-}
-
-void WorldModel::render(const mat3 &scenRotation, DrawCallList *drawCallList, Entity *entity)
-{
-	assert(drawCallList);
-	assert(entity);
-	const mat4 modelMatrix = mat4::transform(entity->rotation, entity->position);
-
-	for (Surface &surface : surfaces_)
+	else if (s1->material->index == s2->material->index)
 	{
-		DrawCall dc;
-		dc.entity = entity;
-		dc.material = surface.material;
-		dc.modelMatrix = modelMatrix;
-		dc.vb.type = dc.ib.type = DrawCall::BufferType::Static;
-		dc.vb.staticHandle = vertexBuffer_.handle;
-		dc.vb.nVertices = nVertices_;
-		dc.ib.staticHandle = indexBuffer_.handle;
-		dc.ib.firstIndex = surface.firstIndex;
-		dc.ib.nIndices = surface.nIndices;
-		drawCallList->push_back(dc);
-	}
-}
-
-void WorldModel::addPatchSurface(size_t index, Material *material, int width, int height, const Vertex *points, int lightmapIndex, int nLightmapTilesPerDimension)
-{
-	Patch *patch = Patch_Subdivide(width, height, points);
-	addSurface(index, material, patch->verts, patch->numVerts, patch->indexes, patch->numIndexes, lightmapIndex, nLightmapTilesPerDimension);
-	Patch_Free(patch);
-}
-
-void WorldModel::addSurface(size_t index, Material *material, const Vertex *vertices, size_t nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex, int nLightmapTilesPerDimension)
-{
-	// Create a temp surface.
-	TempSurface &ts = tempSurfaces_[index];
-	ts.material = material;
-	ts.firstVertex = (uint32_t)tempVertices_.size();
-	ts.nVertices = (uint32_t)nVertices;
-	ts.firstIndex = (uint32_t)tempIndices_.size();
-	ts.nIndices = (uint32_t)nIndices;
-	ts.batched = false;
-
-	// Append the geometry.
-	tempVertices_.resize(tempVertices_.size() + nVertices);
-	memcpy(&tempVertices_[ts.firstVertex], vertices, nVertices * sizeof(*vertices));
-
-	for (size_t i = 0; i < nVertices; i++)
-	{
-		Vertex *v = &tempVertices_[ts.firstVertex + i];
-
-		if (lightmapIndex >= 0)
-			v->texCoord2 = AtlasTexCoord(v->texCoord2, lightmapIndex, nLightmapTilesPerDimension);
-	}
-
-	tempIndices_.resize(tempIndices_.size() + nIndices);
-	memcpy(&tempIndices_[ts.firstIndex], indices, nIndices * sizeof(*indices));
-}
-
-void WorldModel::batchSurfaces()
-{
-	if (tempVertices_.empty() || tempIndices_.empty())
-		return;
-
-	// Allocate buffers for the batched geometry.
-	const bgfx::Memory *verticesMem = bgfx::alloc(uint32_t(sizeof(Vertex) * tempVertices_.size()));
-	auto vertices = (Vertex *)verticesMem->data;
-	const bgfx::Memory *indicesMem = bgfx::alloc(uint32_t(sizeof(uint16_t) * tempIndices_.size()));
-	auto indices = (uint16_t *)indicesMem->data;
-	uint32_t currentVertex = 0, currentIndex = 0;
-
-	for (;;)
-	{
-		Material *material = nullptr;
-
-		// Get the material from the first temp surface that hasn't been batched.
-		for (const TempSurface &ts : tempSurfaces_)
+		if (s1->fogIndex < s2->fogIndex)
 		{
-			if (!ts.material)
+			return true;
+		}
+		else if (s1->fogIndex == s2->fogIndex)
+		{
+			if (s1->bufferIndex < s2->bufferIndex)
+				return true;
+		}
+	}
+
+	return false;
+}
+
+class WorldModel : public Model
+{
+public:
+	WorldModel(int index) : index_(index)
+	{
+		util::Sprintf(name_, sizeof(name_), "*%d", index_);
+	}
+
+	bool load(const ReadOnlyFile &file) override
+	{
+		return true;
+	}
+
+	Bounds getBounds() const override
+	{
+		return s_world->modelDefs[index_].bounds;
+	}
+
+	Material *getMaterial(size_t surfaceNo) const override
+	{
+		const World::ModelDef &def = s_world->modelDefs[index_];
+
+		// if it's out of range, return the first surface
+		if (surfaceNo >= (int)def.nSurfaces)
+			surfaceNo = 0;
+
+		const World::Surface &surface = s_world->surfaces[def.firstSurface + surfaceNo];
+
+		if (surface.material->lightmapIndex > MaterialLightmapId::None)
+		{
+			bool mipRawImage = true;
+
+			// Get mipmap info for original texture.
+			Texture *texture = Texture::get(surface.material->name);
+
+			if (texture)
+				mipRawImage = (texture->getFlags() & TextureFlags::Mipmap) != 0;
+
+			Material *mat = g_materialCache->findMaterial(surface.material->name, MaterialLightmapId::None, mipRawImage);
+			mat->stages[0].rgbGen = MaterialColorGen::LightingDiffuse; // (SA) new
+			return mat;
+		}
+
+		return surface.material;
+	}
+
+	bool isCulled(renderer::Entity *entity, const Frustum &cameraFrustum) const override
+	{
+		return cameraFrustum.clipBounds(getBounds(), mat4::transform(entity->rotation, entity->position)) == Frustum::ClipResult::Outside;
+	}
+
+	int lerpTag(const char *name, const renderer::Entity &entity, int startIndex, Transform *transform) const override
+	{
+		return -1;
+	}
+
+	void render(const mat3 &scenRotation, DrawCallList *drawCallList, renderer::Entity *entity) override
+	{
+		assert(drawCallList);
+		assert(entity);
+		const mat4 modelMatrix = mat4::transform(entity->rotation, entity->position);
+
+		for (const BatchedSurface &surface : batchedSurfaces_)
+		{
+			DrawCall dc;
+			dc.entity = entity;
+			dc.flags = 0;
+			dc.fogIndex = surface.fogIndex;
+			dc.material = surface.material;
+			dc.modelMatrix = modelMatrix;
+			dc.vb.type = DrawCall::BufferType::Static;
+			dc.vb.staticHandle = s_world->vertexBuffers[surface.bufferIndex].handle;
+			dc.vb.nVertices = (uint32_t)s_world->vertices[surface.bufferIndex].size();
+			dc.ib.type = DrawCall::BufferType::Static;
+			dc.ib.staticHandle = indexBuffers_[surface.bufferIndex].handle;
+			dc.ib.firstIndex = surface.firstIndex;
+			dc.ib.nIndices = surface.nIndices;
+			drawCallList->push_back(dc);
+		}
+	}
+
+	void buildGeometry()
+	{
+		const World::ModelDef &def = s_world->modelDefs[index_];
+
+		// Grab surfaces we aren't ignoring and sort them.
+		std::vector<const World::Surface *> surfaces;
+
+		for (size_t i = 0; i < def.nSurfaces; i++)
+		{
+			const World::Surface &surface = s_world->surfaces[def.firstSurface + i];
+
+			// Ignore flares.
+			if (surface.type == World::SurfaceType::Ignore || surface.type == World::SurfaceType::Flare)
 				continue;
 
-			if (!ts.batched)
+			surfaces.push_back(&surface);
+		}
+
+		std::sort(surfaces.begin(), surfaces.end(), SurfaceCompare);
+
+		// Batch surfaces.
+		size_t firstSurface = 0;
+
+		for (size_t i = 0; i < surfaces.size(); i++)
+		{
+			const World::Surface *surface = surfaces[i];
+			const bool isLast = i == surfaces.size() - 1;
+			const World::Surface *nextSurface = isLast ? nullptr : surfaces[i + 1];
+
+			// Create new batch on certain surface state changes.
+			if (!nextSurface || nextSurface->material != surface->material || nextSurface->fogIndex != surface->fogIndex || nextSurface->bufferIndex != surface->bufferIndex)
 			{
-				material = ts.material;
-				break;
+				BatchedSurface bs;
+				bs.fogIndex = surface->fogIndex;
+				bs.material = surface->material;
+
+				// Grab the indices for all surfaces in this batch.
+				bs.bufferIndex = surface->bufferIndex;
+				std::vector<uint16_t> &indices = indices_[bs.bufferIndex];
+				bs.firstIndex = (uint32_t)indices.size();
+				bs.nIndices = 0;
+
+				for (size_t j = firstSurface; j <= i; j++)
+				{
+					const World::Surface *s = surfaces[j];
+					const size_t copyIndex = indices.size();
+					indices.resize(indices.size() + s->indices.size());
+					memcpy(&indices[copyIndex], &s->indices[0], s->indices.size() * sizeof(uint16_t));
+					bs.nIndices += (uint32_t)s->indices.size();
+				}
+
+				batchedSurfaces_.push_back(bs);
+				firstSurface = i + 1;
 			}
 		}
 
-		// Stop when all temp surfaces are batched.
-		if (!material)
-			break;
-
-		// Find a batched surface with the same material.
-		Surface *surface = nullptr;
-
-		for (Surface &s : surfaces_)
+		// Create static index buffers.
+		for (size_t i = 0; i < s_world->currentGeometryBuffer + 1; i++)
 		{
-			if (s.material == material)
-			{
-				surface = &s;
-				break;
-			}
-		}
+			IndexBuffer &ib = indexBuffers_[i];
+			std::vector<uint16_t> &indices = indices_[i];
 
-		// If not found, create one.
-		if (!surface)
-		{
-			Surface s;
-			s.material = material;
-			s.firstIndex = currentIndex;
-			s.nIndices = 0;
-			surfaces_.push_back(s);
-			surface = &surfaces_.back();
-		}
-
-		// Batch all temp surfaces with this material.
-		for (TempSurface &ts : tempSurfaces_)
-		{
-			if (!ts.material || ts.material != material)
+			if (indices.empty())
 				continue;
 
-			memcpy(&vertices[currentVertex], &tempVertices_[ts.firstVertex], sizeof(Vertex) * ts.nVertices);
-
-			for (size_t i = 0; i < ts.nIndices; i++)
-			{
-				// Make indices absolute.
-				indices[currentIndex + i] = currentVertex + tempIndices_[ts.firstIndex + i];
-			}
-
-			surface->nIndices += ts.nIndices;
-			currentVertex += ts.nVertices;
-			currentIndex += ts.nIndices;
-			ts.batched = true;
+			ib.handle = bgfx::createIndexBuffer(bgfx::makeRef(indices.data(), uint32_t(indices.size() * sizeof(uint16_t))));
 		}
 	}
 
-	// Create vertex and index buffers.
-	vertexBuffer_.handle = bgfx::createVertexBuffer(verticesMem, Vertex::decl);
-	nVertices_ = (uint32_t)tempVertices_.size();
-	indexBuffer_.handle = bgfx::createIndexBuffer(indicesMem);
+private:
+	struct BatchedSurface
+	{
+		Material *material;
+		int fogIndex;
+		size_t bufferIndex;
+		uint32_t firstIndex;
+		uint32_t nIndices;
+	};
 
-	// Clear temp state.
-	tempSurfaces_.clear();
-	tempVertices_.clear();
-	tempIndices_.clear();
-}
+	int index_;
+	std::vector<BatchedSurface> batchedSurfaces_;
+	std::vector<uint16_t> indices_[World::s_maxWorldGeometryBuffers];
+	IndexBuffer indexBuffers_[World::s_maxWorldGeometryBuffers];
+};
 
 static Material *FindMaterial(int materialIndex, int lightmapIndex)
 {
@@ -715,7 +692,7 @@ static void SetSurfaceGeometry(World::Surface *surface, const Vertex *vertices, 
 	if (bufferVertices->size() + nVertices >= UINT16_MAX)
 	{
 		if (++s_world->currentGeometryBuffer == s_world->s_maxWorldGeometryBuffers)
-		interface::Error("Not enough world vertex buffers");
+			interface::Error("Not enough world vertex buffers");
 
 		bufferVertices = &s_world->vertices[s_world->currentGeometryBuffer];
 	}
@@ -731,7 +708,7 @@ static void SetSurfaceGeometry(World::Surface *surface, const Vertex *vertices, 
 
 		if (lightmapIndex >= 0 && !s_world->lightmapAtlases.empty())
 		{
-			v->texCoord2 = AtlasTexCoord(v->texCoord2, lightmapIndex % s_world->nLightmapsPerAtlas, s_world->lightmapAtlasSize / s_world->lightmapSize);
+			v->texCoord2 = AtlasTexCoord(v->texCoord2, lightmapIndex % s_world->nLightmapsPerAtlas, s_world->lightmapAtlasSize);
 		}
 	}
 
@@ -749,6 +726,11 @@ static void SetSurfaceGeometry(World::Surface *surface, const Vertex *vertices, 
 	{
 		surface->indices[i] = indices[i] + startVertex;
 	}
+}
+
+static void ReleaseLightmapAtlasImage(void *data, void *userData)
+{
+	free(data);
 }
 
 void Load(const char *name)
@@ -812,46 +794,80 @@ void Load(const char *name)
 	}
 
 	// Entities
+	lump_t &lump = header->lumps[LUMP_ENTITIES];
+
+	// Store for reference by the cgame.
+	s_world->entityString.resize(lump.filelen + 1);
+	strcpy(s_world->entityString.data(), (char *)&fileData[lump.fileofs]);
+	s_world->entityParsePoint = s_world->entityString.data();
+		
+	// Parse.
+	char *p = s_world->entityString.data();
+	bool parsingEntity = false;
+	Entity entity;
+
+	for (;;)
 	{
-		lump_t &lump = header->lumps[LUMP_ENTITIES];
-		auto p = (char *)(&fileData[lump.fileofs]);
+		char *token = util::Parse(&p);
 
-		// Store for reference by the cgame.
-		s_world->entityString.resize(lump.filelen + 1);
-		strcpy(s_world->entityString.data(), p);
-		s_world->entityParsePoint = s_world->entityString.data();
+		if (!token[0])
+			break; // End of entity string.
 
-		char *token = util::Parse(&p, true);
-
-		if (*token && *token == '{')
+		if (*token == '{') // Start of entity definition.
 		{
-			for (;;)
+			if (parsingEntity)
 			{
-				// Parse key.
-				token = util::Parse(&p, true);
-
-				if (!*token || *token == '}')
-					break;
-
-				char keyname[MAX_TOKEN_CHARS];
-				util::Strncpyz(keyname, token, sizeof(keyname));
-
-				// Parse value.
-				token = util::Parse(&p, true);
-
-				if (!*token || *token == '}')
-					break;
-
-				char value[MAX_TOKEN_CHARS];
-				util::Strncpyz(value, token, sizeof(value));
-
-				// Check for a different light grid size.
-				if (!util::Stricmp(keyname, "gridsize"))
-				{
-					sscanf(value, "%f %f %f", &s_world->lightGridSize.x, &s_world->lightGridSize.y, &s_world->lightGridSize.z);
-					continue;
-				}
+				interface::PrintWarningf("Stray '{' when parsing entity string\n");
+				break;
 			}
+
+			parsingEntity = true;
+			entity.nKvps = 0;
+		}
+		else if (*token == '}') // End of entity definition.
+		{
+			if (!parsingEntity)
+			{
+				interface::PrintWarningf("Stray '}' when parsing entity string\n");
+				break;
+			}
+
+			parsingEntity = false;
+			s_world->entities.push_back(entity);
+
+			// Process entity.
+			const char *classname = entity.findValue("classname", "");
+
+			if (!util::Stricmp(classname, "worldspawn"))
+			{
+				// Check for a different light grid size.
+				const char *gridsize = entity.findValue("gridsize");
+
+				if (gridsize)
+					sscanf(gridsize, "%f %f %f", &s_world->lightGridSize.x, &s_world->lightGridSize.y, &s_world->lightGridSize.z);
+			}
+		}
+		else
+		{
+			// Parse KVP.
+			if (entity.nKvps == entity.kvps.size())
+			{
+				interface::PrintWarningf("Exceeded max entity KVPs\n");
+				break;
+			}
+
+			EntityKVP &kvp = entity.kvps[entity.nKvps];
+			util::Strncpyz(kvp.key, token, sizeof(kvp.key));
+			token = util::Parse(&p);
+
+			if (!token[0])
+			{
+				interface::PrintWarningf("Empty KVP in entity string. Key is \"%s\"\n", kvp.key);
+				break;
+			}
+
+			util::Strncpyz(kvp.value, token, sizeof(kvp.value));
+			entity.nKvps++;
 		}
 	}
 
@@ -949,28 +965,47 @@ void Load(const char *name)
 
 		if (nLightmaps)
 		{
-			// Calculate the smallest square POT atlas size.
-			// 1024 is 4MB, 2048 is 16MB. Anything over 1024 is likely to waste a lot of memory for empty space, so use multiple pages in that case.
-			const int sr = (int)ceil(sqrtf((float)nLightmaps));
-			s_world->lightmapAtlasSize = 1;
+			// Figure out how atlas dimensions by packing lightmaps into cells.
+			const int maxCells = 4; // 4x128 = 512
 
-			while (s_world->lightmapAtlasSize < sr)
-				s_world->lightmapAtlasSize *= 2;
+			if (nLightmaps <= maxCells)
+			{
+				// Simple case.
+				s_world->lightmapAtlasSize.x = (int)nLightmaps;
+				s_world->lightmapAtlasSize.y = 1;
+			}
+			else
+			{
+				if ((nLightmaps & (nLightmaps - 1)) == 0)
+				{
+					// Power of two. Use square size.
+					s_world->lightmapAtlasSize.x = s_world->lightmapAtlasSize.y = (int)ceil(sqrtf((float)nLightmaps));
+				}
+				else
+				{
+					s_world->lightmapAtlasSize.x = std::min(maxCells, (int)nLightmaps);
+					s_world->lightmapAtlasSize.y = (int)ceil(nLightmaps / (float)s_world->lightmapAtlasSize.x);
+				}
+			}
 
-			s_world->lightmapAtlasSize = std::min(1024, s_world->lightmapAtlasSize * s_world->lightmapSize);
-			s_world->nLightmapsPerAtlas = (int)pow(s_world->lightmapAtlasSize / s_world->lightmapSize, 2);
+			s_world->lightmapAtlasSize.x = std::min(s_world->lightmapAtlasSize.x, maxCells);
+			s_world->lightmapAtlasSize.y = std::min(s_world->lightmapAtlasSize.y, maxCells);
+			s_world->nLightmapsPerAtlas = s_world->lightmapAtlasSize.x * s_world->lightmapAtlasSize.y;
 			s_world->lightmapAtlases.resize((size_t)ceil(nLightmaps / (float)s_world->nLightmapsPerAtlas));
 
 			// Pack lightmaps into atlas(es).
+			interface::Printf("Packing %d lightmaps into %d atlas(es) sized %dx%d.\n", (int)nLightmaps, (int)s_world->lightmapAtlases.size(), s_world->lightmapAtlasSize.x * s_world->lightmapSize, s_world->lightmapAtlasSize.y * s_world->lightmapSize);
 			size_t lightmapIndex = 0;
 
 			for (size_t i = 0; i < s_world->lightmapAtlases.size(); i++)
 			{
 				Image image;
-				image.width = s_world->lightmapAtlasSize;
-				image.height = s_world->lightmapAtlasSize;
+				image.width = s_world->lightmapAtlasSize.x * s_world->lightmapSize;
+				image.height = s_world->lightmapAtlasSize.y * s_world->lightmapSize;
 				image.nComponents = 4;
-				image.allocMemory();
+				image.dataSize = image.width * image.height * image.nComponents;
+				image.data = (uint8_t *)malloc(image.dataSize);
+				image.release = ReleaseLightmapAtlasImage;
 				int nAtlasedLightmaps = 0;
 
 				for (;;)
@@ -981,12 +1016,11 @@ void Load(const char *name)
 						for (int x = 0; x < s_world->lightmapSize; x++)
 						{
 							const size_t srcOffset = (x + y * s_world->lightmapSize) * 3;
-							const int nLightmapsPerDimension = s_world->lightmapAtlasSize / s_world->lightmapSize;
-							const int lightmapX = (nAtlasedLightmaps % s_world->nLightmapsPerAtlas) % nLightmapsPerDimension;
-							const int lightmapY = (nAtlasedLightmaps % s_world->nLightmapsPerAtlas) / nLightmapsPerDimension;
-							const size_t destOffset = ((lightmapX * s_world->lightmapSize + x) + (lightmapY * s_world->lightmapSize + y) * s_world->lightmapAtlasSize) * image.nComponents;
-							memcpy(&image.memory->data[destOffset], &srcData[srcOffset], 3);
-							image.memory->data[destOffset + 3] = 0xff;
+							const int lightmapX = (nAtlasedLightmaps % s_world->nLightmapsPerAtlas) % s_world->lightmapAtlasSize.x;
+							const int lightmapY = (nAtlasedLightmaps % s_world->nLightmapsPerAtlas) / s_world->lightmapAtlasSize.x;
+							const size_t destOffset = ((lightmapX * s_world->lightmapSize + x) + (lightmapY * s_world->lightmapSize + y) * (s_world->lightmapAtlasSize.x * s_world->lightmapSize)) * image.nComponents;
+							memcpy(&image.data[destOffset], &srcData[srcOffset], 3);
+							image.data[destOffset + 3] = 0xff;
 						}
 					}
 
@@ -998,7 +1032,7 @@ void Load(const char *name)
 						break;
 				}
 
-				s_world->lightmapAtlases[i] = Texture::create(util::VarArgs("*lightmap%d", (int)i), image, TextureFlags::ClampToEdge);
+				s_world->lightmapAtlases[i] = Texture::create(util::VarArgs("*lightmap%d", (int)i), image, TextureFlags::ClampToEdge | TextureFlags::Mutable);
 			}
 		}
 	}
@@ -1090,7 +1124,7 @@ void Load(const char *name)
 	}
 
 	// Surfaces
-	s_world->surfaces.resize(s_world->modelDefs[0].nSurfaces);
+	s_world->surfaces.resize(header->lumps[LUMP_SURFACES].filelen / sizeof(dsurface_t));
 	auto fileSurfaces = (const dsurface_t *)(fileData + header->lumps[LUMP_SURFACES].fileofs);
 
 	for (size_t i = 0; i < s_world->surfaces.size(); i++)
@@ -1148,6 +1182,14 @@ void Load(const char *name)
 			const int firstVertex = LittleLong(fs.firstVert);
 			const int nVertices = LittleLong(fs.numVerts);
 			SetSurfaceGeometry(&s, &vertices[firstVertex], nVertices, &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex);
+
+			// Setup cullinfo.
+			s.cullinfo.bounds.setupForAddingPoints();
+
+			for (int i = 0; i < nVertices; i++)
+			{
+				s.cullinfo.bounds.addPoint(vertices[firstVertex + i].pos);
+			}
 		}
 		else if (type == MST_PATCH)
 		{
@@ -1161,35 +1203,11 @@ void Load(const char *name)
 		}
 	}
 
-	// Model surfaces
+	// Create brush models.
 	for (size_t i = 1; i < s_world->modelDefs.size(); i++)
 	{
-		const World::ModelDef &md = s_world->modelDefs[i];
-		auto model = std::make_unique<WorldModel>((int)i, md.nSurfaces, md.bounds);
-
-		for (size_t j = 0; j < md.nSurfaces; j++)
-		{
-			const dsurface_t &fs = fileSurfaces[md.firstSurface + j];
-			const int type = LittleLong(fs.surfaceType);
-			int lightmapIndex = LittleLong(fs.lightmapNum);
-			Material *material = FindMaterial(LittleLong(fs.shaderNum), lightmapIndex);
-
-			if (!s_world->lightmapAtlases.empty())
-			{
-				lightmapIndex = lightmapIndex % s_world->nLightmapsPerAtlas;
-			}
-
-			if (type == MST_PLANAR || type == MST_TRIANGLE_SOUP)
-			{
-				model->addSurface(j, material, &vertices[LittleLong(fs.firstVert)], LittleLong(fs.numVerts), &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex, s_world->lightmapAtlasSize / s_world->lightmapSize);
-			}
-			else if (type == MST_PATCH)
-			{
-				model->addPatchSurface(j, material, LittleLong(fs.patchWidth), LittleLong(fs.patchHeight), &vertices[LittleLong(fs.firstVert)], lightmapIndex, s_world->lightmapAtlasSize / s_world->lightmapSize);
-			}
-		}
-
-		model->batchSurfaces();
+		auto model = std::make_unique<WorldModel>((int)i);
+		model->buildGeometry();
 		g_modelCache->addModel(std::move(model));
 	}
 
@@ -1397,14 +1415,65 @@ static void R_ChopPolyBehindPlane(int numInPoints, const vec3 *inPoints, int *nu
 	}
 }
 
-size_t GetNumLightmaps()
+size_t GetNumEntities()
 {
-	return s_world->lightmapAtlases.size();
+	return (int)s_world->entities.size();
 }
 
-const Texture *GetLightmap(size_t index)
+const Entity &GetEntity(size_t index)
 {
-	return index < s_world->lightmapAtlases.size() ? s_world->lightmapAtlases[index] : nullptr;
+	return s_world->entities[index];
+}
+
+vec2i GetLightmapSize()
+{
+	return vec2i(s_world->lightmapAtlasSize.x * s_world->lightmapSize, s_world->lightmapAtlasSize.y * s_world->lightmapSize);
+}
+
+int GetNumLightmaps()
+{
+	return (int)s_world->lightmapAtlases.size();
+}
+
+Texture *GetLightmap(int index)
+{
+	return (index >= 0 && index < (int)s_world->lightmapAtlases.size()) ? s_world->lightmapAtlases[index] : nullptr;
+}
+
+int GetNumModels()
+{
+	return (int)s_world->modelDefs.size();
+}
+
+int GetNumSurfaces(int modelIndex)
+{
+	return (int)s_world->modelDefs[modelIndex].nSurfaces;
+}
+
+Surface GetSurface(int modelIndex, int surfaceIndex)
+{
+	// surfaceIndex arg is relative to the models' first surface
+	const World::Surface &surface = s_world->surfaces[s_world->modelDefs[modelIndex].firstSurface + surfaceIndex];
+	Surface result;
+	result.bounds = surface.cullinfo.bounds;
+	result.contentFlags = surface.contentFlags;
+	result.surfaceFlags = surface.flags;
+	result.isValid = (surface.type != World::SurfaceType::Ignore && surface.type != World::SurfaceType::Flare);
+	result.material = surface.material;
+	result.nIndices = (int)surface.indices.size();
+	result.indices = surface.indices.data();
+	result.vertexBufferIndex = (int)surface.bufferIndex;
+	return result;
+}
+
+int GetNumVertexBuffers()
+{
+	return (int)s_world->currentGeometryBuffer + 1;
+}
+
+const std::vector<Vertex> &GetVertexBuffer(int index)
+{
+	return s_world->vertices[index];
 }
 
 bool GetEntityToken(char *buffer, int size)
@@ -1537,6 +1606,11 @@ static World::Node *LeafFromPosition(vec3 pos)
 	}
 
 	return node;
+}
+
+bool InPvs(vec3 position)
+{
+	return LeafFromPosition(position)->cluster != -1;
 }
 
 bool InPvs(vec3 position1, vec3 position2)
@@ -1909,7 +1983,7 @@ void GetSky(uint8_t visCacheId, size_t index, Material **material, const std::ve
 	}
 }
 
-bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, Plane *portalPlane)
+bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<renderer::Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, Plane *portalPlane)
 {
 	assert(pvsPosition);
 	assert(portalCamera);
@@ -1951,11 +2025,11 @@ bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mai
 
 		// Locate the portal entity closest to this plane.
 		// Origin will be the origin of the portal, oldorigin will be the origin of the camera.
-		const Entity *portalEntity = nullptr;
+		const renderer::Entity *portalEntity = nullptr;
 
 		for (size_t j = 0; j < entities.size(); j++)
 		{
-			const Entity &entity = entities[j];
+			const renderer::Entity &entity = entities[j];
 
 			if (entity.type == EntityType::Portal)
 			{
@@ -2191,28 +2265,6 @@ uint8_t CreateVisCache()
 	return uint8_t(s_world->visCaches.size() - 1);
 }
 
-static bool SurfaceCompare(const World::Surface *s1, const World::Surface *s2)
-{
-	if (s1->material->index < s2->material->index)
-	{
-		return true;
-	}
-	else if (s1->material->index == s2->material->index)
-	{
-		if (s1->fogIndex < s2->fogIndex)
-		{
-			return true;
-		}
-		else if (s1->fogIndex == s2->fogIndex)
-		{
-			if (s1->bufferIndex < s2->bufferIndex)
-				return true;
-		}
-	}
-
-	return false;
-}
-
 static void AppendSkySurfaceGeometry(uint8_t visCacheId, size_t skyIndex, const World::Surface &surface)
 {
 	std::unique_ptr<World::VisCache> &visCache = s_world->visCaches[visCacheId];
@@ -2271,11 +2323,6 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 			for (int j = 0; j < leaf.nSurfaces; j++)
 			{
 				const int si = s_world->leafSurfaces[leaf.firstSurface + j];
-
-				// Ignore surfaces in models.
-				if (si < 0 || si >= (int)s_world->surfaces.size())
-					continue;
-					
 				World::Surface &surface = s_world->surfaces[si];
 
 				// Don't add duplicates.

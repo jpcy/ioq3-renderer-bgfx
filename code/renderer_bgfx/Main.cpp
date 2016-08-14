@@ -394,7 +394,7 @@ void Main::registerFont(const char *fontName, int pointSize, fontInfo_t *font)
 
 void Main::debugPrint(const char *text)
 {
-	if (!g_cvars.debugText.getBool())
+	if (!g_cvars.debugText.getBool() && !light_baker::IsRunning())
 		return;
 
 	const uint16_t fontHeight = 16;
@@ -404,6 +404,11 @@ void Main::debugPrint(const char *text)
 	uint16_t y = debugTextY % maxY;
 	bgfx::dbgTextPrintf(x, y, 0x4f, text);
 	debugTextY++;
+}
+
+void Main::drawAxis(vec3 position)
+{
+	sceneDebugAxis_.push_back(position);
 }
 
 void Main::drawBounds(const Bounds &bounds)
@@ -790,6 +795,7 @@ void Main::renderScene(const SceneDefinition &scene)
 void Main::endFrame()
 {
 	flushStretchPics();
+	light_baker::Update(frameNo_);
 
 	if (firstFreeViewId_ == 0)
 	{
@@ -815,7 +821,7 @@ void Main::endFrame()
 	}
 	else if (debugDraw_ == DebugDraw::Lightmap && world::IsLoaded())
 	{
-		for (size_t i = 0; i < world::GetNumLightmaps(); i++)
+		for (int i = 0; i < world::GetNumLightmaps(); i++)
 		{
 			debugDraw(world::GetLightmap(i)->getHandle(), i);
 		}
@@ -846,6 +852,9 @@ void Main::endFrame()
 	if (g_cvars.debugText.getBool())
 		debug |= BGFX_DEBUG_TEXT;
 
+	if (light_baker::IsRunning())
+		debug |= BGFX_DEBUG_TEXT;
+
 	bgfx::setDebug(debug);
 	bgfx::frame();
 
@@ -861,7 +870,7 @@ void Main::endFrame()
 		g_cvars.gamma.clearModified();
 	}
 
-	if (g_cvars.debugText.getBool())
+	if (g_cvars.debugText.getBool() || light_baker::IsRunning())
 	{
 		bgfx::dbgTextClear();
 		debugTextY = 0;

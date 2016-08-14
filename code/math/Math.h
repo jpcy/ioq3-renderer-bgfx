@@ -101,6 +101,11 @@ inline float Lerp(float from, float to, float fraction)
 	return from + (to - from) * fraction;
 }
 
+inline float RandomFloat(float min, float max)
+{
+	return min + rand() / (RAND_MAX / (max - min));
+}
+
 typedef union {
 	float f;
 	int i;
@@ -226,6 +231,27 @@ public:
 
 	union { float x, u; };
 	union { float y, v; };
+};
+
+class vec2i
+{
+public:
+	vec2i() : x(0), y(0) {}
+	vec2i(int x, int y) : x(x), y(y) {}
+
+	int &operator[](size_t index)
+	{
+		assert(index >= 0 && index <= 1);
+		return (&x)[index];
+	}
+
+	const int &operator[](size_t index) const
+	{
+		assert(index >= 0 && index <= 1);
+		return (&x)[index];
+	}
+
+	int x, y;
 };
 
 class vec3
@@ -475,12 +501,33 @@ public:
 		return vec4(x * value, y * value, z * value, w * value);
 	}
 
+	vec4 operator/(float value) const
+	{
+		return vec4(x / value, y / value, z / value, w / value);
+	}
+
+	void operator+=(const vec4 &v)
+	{
+		x += v.x;
+		y += v.y;
+		z += v.z;
+		w += v.w;
+	}
+
 	void operator*=(float value)
 	{
 		x *= value;
 		y *= value;
 		z *= value;
 		w *= value;
+	}
+
+	void operator/=(float value)
+	{
+		x /= value;
+		y /= value;
+		z /= value;
+		w /= value;
 	}
 
 	bool equals(const vec4 &v, float epsilon = 0.001f) const

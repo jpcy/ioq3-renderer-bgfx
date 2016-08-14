@@ -584,7 +584,7 @@ namespace interface
 		char text[4096];
 		util::Vsnprintf(text, sizeof(text), format, args);
 		va_end(args);
-		ri.Error(errorLevel, text);
+		ri.Error(errorLevel, "%s", text);
 	}
 
 	void Error(const char *format, ...)
@@ -656,7 +656,7 @@ namespace interface
 		char text[4096];
 		util::Vsnprintf(text, sizeof(text), format, args);
 		va_end(args);
-		ri.Printf(printLevel, text);
+		ri.Printf(printLevel, "%s", text);
 	}
 
 	void Printf(const char *format, ...)

@@ -388,6 +388,19 @@ char *SkipPath(char *pathname)
 	return last;
 }
 
+const char *GetFilename(const char *name)
+{
+	const char *slash = strrchr(name, '/');
+	const char *backslash = strrchr(name, '\\');
+
+	if (slash && (!backslash || slash >= backslash))
+		return slash + 1;
+	if (backslash && (!slash || backslash >= slash))
+		return backslash + 1;
+
+	return name;
+}
+
 const char *GetExtension(const char *name)
 {
 	const char *dot = strrchr(name, '.'), *slash;

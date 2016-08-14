@@ -13,7 +13,7 @@ function rendererProject(engine, bgfxPath, bxPath, rendererPath)
 		"BGFX_CONFIG_RENDERER_OPENGL=31",
 		"USE_RENDERER_DLOPEN"
 	}
-
+	
 	files
 	{
 		path.join(bgfxPath, "src/amalgamated.cpp"),

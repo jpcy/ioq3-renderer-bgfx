@@ -189,7 +189,7 @@ Skin::Skin(const char *name, qhandle_t handle)
 		{
 			if (nModels_ >= maxModels_)
 			{
-				interface::PrintWarningf("WARNING: Ignoring models in '%s', the max is %d!\n", name, maxModels_);
+				interface::PrintWarningf("WARNING: Ignoring models in '%s', the max is %d!\n", name, (int)maxModels_);
 				break;
 			}
 
@@ -213,7 +213,7 @@ Skin::Skin(const char *name, qhandle_t handle)
 		// Got this far, it's a surface.
 		if (nSurfaces_ >= maxSurfaces_)
 		{
-			interface::PrintWarningf("WARNING: Ignoring surfaces in '%s', the max is %d surfaces!\n", name, maxSurfaces_);
+			interface::PrintWarningf("WARNING: Ignoring surfaces in '%s', the max is %d surfaces!\n", name, (int)maxSurfaces_);
 			break;
 		}
 
@@ -468,7 +468,7 @@ void MaterialCache::printMaterials() const
 				animated = true;
 		}
 
-		interface::Printf("%4u: [%c] %s\n", i, animated ? 'a' : ' ', mat->name);
+		interface::Printf("%4u: [%c] %s\n", (int)i, animated ? 'a' : ' ', mat->name);
 		nStages[mat->numUnfoggedPasses]++;
 	}
 

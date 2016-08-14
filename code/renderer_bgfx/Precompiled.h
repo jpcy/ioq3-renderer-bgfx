@@ -52,6 +52,7 @@ If you have questions concerning this license or the applicable additional terms
 #include <cmath>
 #include <memory>
 #include <vector>
+#include "float.h"
 
 #if !defined(_MSC_VER) && __cplusplus < 201402L
 namespace std {
@@ -89,6 +90,7 @@ using namespace math;
 #include "Interface.h"
 #include "../../shaders/SharedDefines.sh"
 
+#undef LoadImage
 #undef major
 #undef minor
 #undef None
@@ -400,28 +402,28 @@ struct FrameBuffer
 	bgfx::FrameBufferHandle handle;
 };
 
+struct ImageFlags
+{
+	enum
+	{
+		GenerateMipmaps    = 1<<0,
+		Picmip             = 1<<1
+	};
+};
+
 struct Image
 {
-	Image() {}
-	Image(const char *filename, int flags = 0);
-	void calculateNumMips();
-	void allocMemory();
-
-	struct Flags
-	{
-		enum
-		{
-			GenerateMipmaps    = 1<<0,
-			Picmip             = 1<<1
-		};
-	};
-
-	const bgfx::Memory *memory = nullptr;
 	int width = 0;
 	int height = 0;
 	int nComponents = 0;
 	int nMips = 1;
+	uint8_t *data = nullptr;
+	uint32_t dataSize = 0;
+	bgfx::ReleaseFn release = nullptr;
 };
+
+Image CreateImage(int width, int height, int nComponents, uint8_t *data, int flags = 0);
+Image LoadImage(const char *filename, int flags = 0);
 
 struct IndexBuffer
 {
@@ -430,12 +432,21 @@ struct IndexBuffer
 	bgfx::IndexBufferHandle handle;
 };
 
+namespace light_baker
+{
+	void Start(int nSamples);
+	void Stop();
+	bool IsRunning();
+	void Update(int frameNo);
+}
+
 namespace main
 {
 	void AddDynamicLightToScene(const DynamicLight &light);
 	void AddEntityToScene(const Entity &entity);
 	void AddPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int nPolys);
 	void DebugPrint(const char *format, ...);
+	void DrawAxis(vec3 position);
 	void DrawBounds(const Bounds &bounds);
 	void DrawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex);
 	void DrawStretchPicGradient(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex, vec4 gradientColor);
@@ -451,6 +462,7 @@ namespace main
 	void RenderScene(const SceneDefinition &scene);
 	bool SampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
 	void SetColor(vec4 c);
+	const SunLight &GetSunLight();
 	void SetSunLight(const SunLight &sunLight); 
 	void Shutdown(bool destroyWindow);
 	void UploadCinematic(int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);
@@ -878,7 +890,7 @@ public:
 // the same name, we don't try looking for it again
 
 	bool explicitlyDefined = false;		// found in a .shader file
-
+	float surfaceLight = 0; // area light
 	unsigned int surfaceFlags = 0;			// if explicitlyDefined, this will have SURF_* flags
 	unsigned int contentFlags = 0;
 
@@ -1250,6 +1262,30 @@ void Sky_InitializeTexCoords(float heightCloud);
 
 void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, uint8_t visCacheId, float zMax);
 
+struct StaticLightFlags
+{
+	enum
+	{
+		LinearAttenuation   = 1<<0,
+		AngleAttenuation    = 1<<1,
+		DistanceAttenuation = 1<<2,
+		Spotlight           = 1<<3,
+		DefaultMask         = AngleAttenuation | DistanceAttenuation
+	};
+};
+
+struct StaticLight
+{
+	vec4 color;
+	float envelope;
+	int flags;
+	float intensity;
+	float photons;
+	vec3 position;
+	float radius;
+	vec3 targetPosition;
+};
+
 struct SunLight
 {
 	SunLight() { direction.normalize(); }
@@ -1267,8 +1303,9 @@ struct TextureFlags
 	{
 		None        = 0,
 		Mipmap      = 1<<0,
-		Picmip      = 1<<1,
-		ClampToEdge = 1<<2,
+		Mutable     = 1<<1,
+		Picmip      = 1<<2,
+		ClampToEdge = 1<<3,
 	};
 };
 
@@ -1540,7 +1577,7 @@ namespace util
 	string will be returned if the next token is
 	a newline.
 	*/
-	char *Parse(char **data_p, bool allowLineBreaks);
+	char *Parse(char **data_p, bool allowLineBreaks = true);
 
 	/*
 	The next token should be an open brace or set depth to 1 if already parsed it.
@@ -1563,6 +1600,7 @@ namespace util
 	vec3 MirroredVector(const vec3 in, const Transform &surface, const Transform &camera);
 
 	char *SkipPath(char *pathname);
+	const char *GetFilename(const char *name);
 	const char *GetExtension(const char *name);
 	void StripExtension(const char *in, char *out, int destsize);
 
@@ -1651,14 +1689,49 @@ namespace window
 
 namespace world
 {
+	struct EntityKVP
+	{
+		char key[128];
+		char value[128];
+	};
+
+	struct Entity
+	{
+		std::array<EntityKVP, 32> kvps;
+		size_t nKvps;
+
+		const char *findValue(const char *key, const char *defaultValue = nullptr) const;
+	};
+
+	struct Surface
+	{
+		Bounds bounds;
+		int contentFlags;
+		int surfaceFlags;
+		bool isValid;
+		Material *material;
+		int nIndices;
+		const uint16_t *indices;
+		int vertexBufferIndex;
+	};
+
 	void Load(const char *name);
 	void Unload();
 	bool IsLoaded();
-	size_t GetNumLightmaps();
-	const Texture *GetLightmap(size_t index);
+	size_t GetNumEntities();
+	const Entity &GetEntity(size_t index);
+	vec2i GetLightmapSize();
+	int GetNumLightmaps();
+	Texture *GetLightmap(int index);
+	int GetNumModels();
+	int GetNumSurfaces(int modelIndex);
+	Surface GetSurface(int modelIndex, int surfaceIndex);
+	int GetNumVertexBuffers();
+	const std::vector<Vertex> &GetVertexBuffer(int index);
 	bool GetEntityToken(char *buffer, int size);
 	bool HasLightGrid();
 	void SampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
+	bool InPvs(vec3 position);
 	bool InPvs(vec3 position1, vec3 position2);
 	int FindFogIndex(vec3 position, float radius);
 	int FindFogIndex(const Bounds &bounds);
@@ -1668,7 +1741,7 @@ namespace world
 	Bounds GetBounds(uint8_t visCacheId);
 	size_t GetNumSkies(uint8_t visCacheId);
 	void GetSky(uint8_t visCacheId, size_t index, Material **material, const std::vector<Vertex> **vertices);
-	bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, Plane *portalPlane);
+	bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<renderer::Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, Plane *portalPlane);
 	bool CalculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, Transform *camera, Plane *plane);
 	void RenderPortal(uint8_t visCacheId, DrawCallList *drawCallList);
 	void RenderReflective(uint8_t visCacheId, DrawCallList *drawCallList);
