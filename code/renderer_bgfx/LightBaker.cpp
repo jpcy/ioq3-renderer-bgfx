@@ -1317,7 +1317,7 @@ static int Thread(void *data)
 		}
 	}
 
-	// Dilate, then copy to LDR buffer.
+	// Dilate, then encode to RGBM buffer.
 #define DILATE
 #ifdef DILATE
 	std::vector<vec4> dilatedLightmap;
@@ -1338,18 +1338,8 @@ static int Thread(void *data)
 			const vec4 &src = lightmap.color[i];
 #endif
 			uint8_t *dest = &lightmap.colorBytes[i * 4];
-
-			// Clamp with color normalization. See q3map ColorToBytes.
-			const float max = std::max(src.r, std::max(src.g, src.b));
-			vec3 color(src.rgb());
-
-			if (max > 255.0f)
-				color *= 255.0f / max;
-
-			dest[0] = uint8_t(color[0]);
-			dest[1] = uint8_t(color[1]);
-			dest[2] = uint8_t(color[2]);
-			dest[3] = 255;
+			// Colors are floats, but in 0-255+ range.
+			util::EncodeRGBM(src.rgb() / 255.0f).toBytes(dest);
 		}
 	}
 

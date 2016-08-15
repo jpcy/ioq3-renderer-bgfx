@@ -1,3 +1,5 @@
+#include "SharedDefines.sh"
+
 vec4 ApplyDepthRange(vec4 v, float offset, float scale)
 {
 	float z = v.z / v.w;
@@ -55,4 +57,9 @@ vec3 ToLinear(vec3 v)
 vec4 ToLinear(vec4 v)
 {
 	return vec4(ToLinear(v.xyz), v.w);
+}
+
+vec3 DecodeRGBM(vec4 v)
+{
+	return v.xyz * v.a * RGBM_MAX_RANGE;
 }

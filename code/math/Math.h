@@ -283,6 +283,11 @@ public:
 	static float distanceSquared(const vec3 &v1, const vec3 &v2);
 	static vec3 anglesSubtract(const vec3 &v1, const vec3 &v2);
 
+	static vec3 fromBytes(const uint8_t *data)
+	{
+		return vec3(data[0] / 255.0f, data[1] / 255.0f, data[2] / 255.0f);
+	}
+
 	float length() const;
 	float lengthSquared() const;
 	vec3 absolute() const;
@@ -528,6 +533,15 @@ public:
 		y /= value;
 		z /= value;
 		w /= value;
+	}
+
+	void toBytes(uint8_t *data) const
+	{
+		assert(data);
+		data[0] = uint8_t(x * 255.0f);
+		data[1] = uint8_t(y * 255.0f);
+		data[2] = uint8_t(z * 255.0f);
+		data[3] = uint8_t(w * 255.0f);
 	}
 
 	bool equals(const vec4 &v, float epsilon = 0.001f) const

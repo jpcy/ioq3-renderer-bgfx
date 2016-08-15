@@ -1010,17 +1010,16 @@ void Load(const char *name)
 
 				for (;;)
 				{
-					// Expand from 24bpp to 32bpp.
+					// Expand from 24bpp to 32bpp with overbright and RGBM encoding.
 					for (int y = 0; y < s_world->lightmapSize; y++)
 					{
 						for (int x = 0; x < s_world->lightmapSize; x++)
 						{
-							const size_t srcOffset = (x + y * s_world->lightmapSize) * 3;
+							const uint8_t *src = &srcData[(x + y * s_world->lightmapSize) * 3];
 							const int lightmapX = (nAtlasedLightmaps % s_world->nLightmapsPerAtlas) % s_world->lightmapAtlasSize.x;
 							const int lightmapY = (nAtlasedLightmaps % s_world->nLightmapsPerAtlas) / s_world->lightmapAtlasSize.x;
-							const size_t destOffset = ((lightmapX * s_world->lightmapSize + x) + (lightmapY * s_world->lightmapSize + y) * (s_world->lightmapAtlasSize.x * s_world->lightmapSize)) * image.nComponents;
-							memcpy(&image.data[destOffset], &srcData[srcOffset], 3);
-							image.data[destOffset + 3] = 0xff;
+							uint8_t *dest = &image.data[((lightmapX * s_world->lightmapSize + x) + (lightmapY * s_world->lightmapSize + y) * (s_world->lightmapAtlasSize.x * s_world->lightmapSize)) * image.nComponents];
+							util::EncodeRGBM(vec3::fromBytes(src) * g_overbrightFactor).toBytes(dest);
 						}
 					}
 

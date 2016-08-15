@@ -1625,6 +1625,7 @@ namespace util
 	vec4 ToGamma(vec4 color);
 	vec3 ToLinear(vec3 color);
 	vec4 ToLinear(vec4 color);
+	vec4 EncodeRGBM(vec3 color);
 }
 
 struct Vertex
@@ -1753,7 +1754,7 @@ namespace world
 static const size_t g_funcTableSize = 1024;
 static const size_t g_funcTableSize2 = 10;
 static const size_t g_funcTableMask = g_funcTableSize - 1;
-static const int g_overbrightFactor = (int)OVERBRIGHT_FACTOR;
+static const int g_overbrightFactor = 2;
 static const float g_identityLight = 1.0f / g_overbrightFactor;
 static const size_t g_gammaTableSize = 256;
 

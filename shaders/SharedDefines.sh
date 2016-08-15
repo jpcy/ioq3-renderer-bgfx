@@ -38,7 +38,7 @@
 
 #define MAX_DEFORMS 3
 
-#define OVERBRIGHT_FACTOR 2.0
+#define RGBM_MAX_RANGE 8.0
 
 #define TCGEN_NONE               0
 #define TCGEN_ENVIRONMENT_MAPPED 1
