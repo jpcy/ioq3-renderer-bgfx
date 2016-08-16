@@ -133,7 +133,7 @@ void ConsoleVariables::initialize()
 	dynamicLightIntensity = interface::Cvar_Get("r_dynamicLightIntensity", "1", ConsoleVariableFlags::Archive);
 	dynamicLightScale = interface::Cvar_Get("r_dynamicLightScale", "0.7", ConsoleVariableFlags::Archive);
 	hdr = interface::Cvar_Get("r_hdr", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	hdrBloomScale = interface::Cvar_Get("r_hdrBloomScale", "0.5", ConsoleVariableFlags::Archive);
+	hdrBloomScale = interface::Cvar_Get("r_hdrBloomScale", "1.0", ConsoleVariableFlags::Archive);
 	hdrExposure = interface::Cvar_Get("r_hdrExposure", "0.7", ConsoleVariableFlags::Archive);
 	lerpTextureAnimation = interface::Cvar_Get("r_lerpTextureAnimation", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	maxAnisotropy = interface::Cvar_Get("r_maxAnisotropy", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
@@ -498,9 +498,21 @@ void Main::initialize()
 
 	programMap[ShaderProgramId::Fog] = { FragmentShaderId::Fog, VertexShaderId::Fog };
 
+	programMap[ShaderProgramId::Fog + FogShaderProgramVariant::HDR] =
+	{
+		FragmentShaderId::Fog_HDR,
+		VertexShaderId::Fog
+	};
+
 	programMap[ShaderProgramId::Fog + FogShaderProgramVariant::DepthRange] =
 	{
 		FragmentShaderId::Fog,
+		VertexShaderId::Fog_DepthRange
+	};
+
+	programMap[ShaderProgramId::Fog + (FogShaderProgramVariant::HDR | FogShaderProgramVariant::DepthRange)] =
+	{
+		FragmentShaderId::Fog_HDR,
 		VertexShaderId::Fog_DepthRange
 	};
 

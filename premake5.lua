@@ -197,6 +197,11 @@ newaction
 			{ "DepthRange", "USE_DEPTH_RANGE" }
 		}
 		
+		local fogFragmentVariants =
+		{
+			{ "HDR", "USE_HDR" }
+		}
+		
 		local fogVertexVariants =
 		{
 			{ "DepthRange", "USE_DEPTH_RANGE" }
@@ -219,7 +224,7 @@ newaction
 		{
 			{ "Color" },
 			{ "Depth", depthFragmentVariants },
-			{ "Fog" },
+			{ "Fog", fogFragmentVariants },
 			{ "FXAA" },
 			{ "GaussianBlur" },
 			{ "Generic", genericFragmentVariants },

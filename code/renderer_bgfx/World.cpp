@@ -2622,6 +2622,11 @@ void PickMaterial()
 	if (closestSurface)
 	{
 		interface::Printf("%s\n", closestSurface->material->name);
+
+		for (int i = 0; i < closestSurface->material->numUnfoggedPasses; i++)
+		{
+			interface::Printf("   %2d : %s\n", i, closestSurface->material->stages[i].bundles[MaterialTextureBundleIndex::DiffuseMap].textures[0]->getName());
+		}
 	}
 	else
 	{

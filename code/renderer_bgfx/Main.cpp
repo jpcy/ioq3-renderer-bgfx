@@ -1368,7 +1368,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (g_cvars.hdr.getBool())
 			{
 				shaderVariant |= GenericShaderProgramVariant::HDR;
-				uniforms_->bloom_Disable_Force.set(vec4(stage.disableBloom ? 1.0f : 0.0f, stage.forceBloom ? 1.0f : 0.0f, 0.0f, 0.0f));
+				uniforms_->bloom_Enable_Scale.set(vec4(stage.bloom ? 1.0f : 0.0f, stage.bloomScale, 0.0f, 0.0f));
 			}
 
 			bgfx::setState(state);
@@ -1421,6 +1421,11 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (dc.zOffset > 0 || dc.zScale > 0)
 			{
 				shaderVariant |= FogShaderProgramVariant::DepthRange;
+			}
+
+			if (g_cvars.hdr.getBool())
+			{
+				shaderVariant |= FogShaderProgramVariant::HDR;
 			}
 
 			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Fog + shaderVariant].handle);

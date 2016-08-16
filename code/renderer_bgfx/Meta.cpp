@@ -72,17 +72,63 @@ static const char *s_reflectiveMaterialNames[] =
 	"textures/liquids/clear_calm1"
 };
 
-static const char *s_forceBloomTextureNames[] =
+struct Bloom
 {
-	//"textures/sfx/electric2.blend.tga",
-	"textures/sfx/fire_ctfblue.tga",
-	"textures/sfx/fire_ctfred.tga",
-	"textures/sfx/firegorre.tga",
-	"textures/sfx/fireswirl2blue.tga",
-	"textures/sfx/hologirl.tga",
-	//"textures/sfx/proto_zzzt.tga",
-	//"textures/sfx/proto_zzztblu.tga",
-	"textures/sfx/proto_zzztblu2.tga"
+	const char *texture;
+	float scale;
+};
+
+static const Bloom s_bloomWhitelist[] =
+{
+	{ "textures/base_light/baslt4_1.blend.*", 1.0f },
+	{ "textures/base_light/border7_ceil50glow.*", 1.0f },
+	{ "textures/base_light/border11light.blend.*", 1.0f },
+	{ "textures/base_light/ceil1_22a.blend.*", 1.0f },
+	{ "textures/base_light/ceil1_30.blend.*", 1.0f },
+	{ "textures/base_light/ceil1_34.blend.*", 1.0f },
+	{ "textures/base_light/ceil1_37.blend.*", 1.0f },
+	{ "textures/base_light/ceil1_4.blend.*", 1.0f },
+	{ "textures/base_light/ceil1_38.blend.*", 1.0f },
+	{ "textures/base_light/ceil1_39.blend.*", 1.0f },
+	{ "textures/base_light/jaildr1_3.blend.*", 1.0f },
+	{ "textures/base_light/jaildr03_2.blend.*", 1.0f },
+	{ "textures/base_light/light1.blend.*", 1.0f },
+	{ "textures/base_light/light1blue.blend.*", 1.0f },
+	{ "textures/base_light/light1red.blend.*", 1.0f },
+	{ "textures/base_light/light2.blend.*", 1.0f },
+	{ "textures/base_light/patch10_pj_lite.blend.*", 1.0f },
+	{ "textures/base_light/patch10_pj_lite2.blend.*", 1.0f },
+	{ "textures/base_light/proto_light2.*", 1.0f },
+	{ "textures/base_light/runway_glow.*", 1.0f },
+	{ "textures/base_light/scrolllight2.*", 1.0f },
+	{ "textures/base_light/wsupprt1_12.blend.*", 1.0f },
+	{ "textures/base_light/xlight5.blend.*", 1.0f },
+	{ "textures/base_trim/techborder_fx.*", 1.0f },
+	{ "textures/gothic_light/border7_ceil39b.blend.*", 1.0f },
+	{ "textures/gothic_light/border_ceil39.blend.*", 1.0f },
+	{ "textures/gothic_light/gothic_light2_blend.*", 1.0f },
+	{ "textures/gothic_light/ironcrosslt2.blend.*", 1.0f },
+	{ "textures/gothic_light/pentagram_light1_blend.*", 1.0f },
+	{ "textures/liquids/lavahell.*", 3.0f },
+	{ "textures/sfx/compscreen/*", 1.0f },
+	{ "textures/sfx/demonltblackfinal_glow2.*", 1.0f },
+	{ "textures/sfx/electric2.blend.*", 1.0f },
+	{ "textures/sfx/electricslime.*", 1.0f },
+	{ "textures/sfx/fire_ctfblue.*", 1.0f },
+	{ "textures/sfx/fire_ctfred.*", 1.0f },
+	{ "textures/sfx/firegorre.*", 1.0f },
+	{ "textures/sfx/fireswirl2.*", 1.0f },
+	{ "textures/sfx/fireswirl2blue.*", 1.0f },
+	{ "textures/sfx/firewalla.*", 1.0f },
+	{ "textures/sfx/flame1.*", 1.0f },
+	{ "textures/sfx/flame2.*", 1.0f },
+	{ "textures/sfx/flameball.*", 1.0f },
+	{ "textures/sfx/hologirl.*", 1.0f },
+	{ "textures/sfx/proto_zzzt.*", 1.0f },
+	{ "textures/sfx/proto_zzztblu.*", 1.0f },
+	{ "textures/sfx/proto_zzztblu2.*", 1.0f },
+	{ "textures/sfx/tesla1.*", 1.0f },
+	{ "textures/skies/*", 1.0f }
 };
 
 void Initialize()
@@ -191,11 +237,17 @@ void OnMaterialCreate(Material *material)
 			if (!texture)
 				break;
 
-			// Force bloom.
-			for (int k = 0; k < BX_COUNTOF(s_forceBloomTextureNames); k++)
+			// Enable bloom.
+			for (int k = 0; k < BX_COUNTOF(s_bloomWhitelist); k++)
 			{
-				if (!util::Stricmp(texture->getName(), s_forceBloomTextureNames[k]))
-					stage.forceBloom = true;
+				const Bloom &bloom = s_bloomWhitelist[k];
+				const char *wildcard = strstr(bloom.texture, "*");
+
+				if (!util::Stricmp(texture->getName(), bloom.texture) || (wildcard && !util::Stricmpn(texture->getName(), bloom.texture, wildcard - bloom.texture)))
+				{
+					stage.bloom = true;
+					stage.bloomScale = bloom.scale;
+				}
 			}
 		}
 	}

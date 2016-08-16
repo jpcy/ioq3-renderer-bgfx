@@ -101,8 +101,9 @@ private:
 		enum
 		{
 			None       = 0,
-			DepthRange = 1 << 0,
-			Num        = 1 << 1
+			HDR        = 1 << 0, // Fragment
+			DepthRange = 1 << 1, // Vertex
+			Num        = 1 << 2
 		};
 	};
 

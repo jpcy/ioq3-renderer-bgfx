@@ -827,8 +827,8 @@ struct MaterialStage
 
 	MaterialStageType type = MaterialStageType::ColorMap;
 	MaterialLight light = MaterialLight::None;
-	bool disableBloom = false;
-	bool forceBloom = false;
+	bool bloom = false;
+	float bloomScale = 1.0f;
 
 	vec4 normalScale;
 	vec4 specularScale;
@@ -1454,7 +1454,7 @@ struct Uniforms
 	Uniform_vec4 guassianBlurDirection = "u_GuassianBlurDirection";
 
 	/// @remarks Only x and y used.
-	Uniform_vec4 bloom_Disable_Force = "u_Bloom_Disable_Force";
+	Uniform_vec4 bloom_Enable_Scale = "u_Bloom_Enable_Scale";
 
 	/// @remarks Only x and y used.
 	Uniform_vec4 hdr_BloomScale_Exposure = "u_Hdr_BloomScale_Exposure";

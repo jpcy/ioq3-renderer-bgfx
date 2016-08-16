@@ -17,5 +17,12 @@ void main()
 			discard;
 	}
 
-	gl_FragColor = vec4(u_Color.rgb, sqrt(saturate(v_scale)));
+	vec4 fragColor = vec4(u_Color.rgb, sqrt(saturate(v_scale)));
+
+#if defined(USE_HDR)
+	gl_FragData[0] = fragColor;
+	gl_FragData[1] = vec4(0.0, 0.0, 0.0, fragColor.a);
+#else
+	gl_FragColor = fragColor;
+#endif // USE_HDR
 }
