@@ -1033,6 +1033,9 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 
 	if (isWorldScene_ && isMainCamera)
 	{
+		mainCameraTransform_.position = position;
+		mainCameraTransform_.rotation = rotation;
+
 		// Render a reflection camera if there's a reflecting surface visible.
 		if (g_cvars.waterReflections.getBool())
 		{

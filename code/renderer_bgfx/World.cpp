@@ -2565,5 +2565,69 @@ void Render(uint8_t visCacheId, DrawCallList *drawCallList, const mat3 &sceneRot
 	}
 }
 
+void PickMaterial()
+{
+	const Transform camera = main::GetMainCameraTransform();
+	const World::Surface *closestSurface = nullptr;
+	float closestDistance = 10000.0f;
+
+	for (const World::ModelDef &model : s_world->modelDefs)
+	{
+		for (size_t si = 0; si < model.nSurfaces; si++)
+		{
+			const World::Surface &surface = s_world->surfaces[model.firstSurface + si];
+
+			for (size_t i = 0; i < surface.indices.size(); i += 3)
+			{
+				const Vertex *verts[3];
+
+				for (size_t vi = 0; vi < 3; vi++)
+					verts[vi] = &s_world->vertices[surface.bufferIndex][surface.indices[i + 2 - vi]];
+
+				// Fast Minimum Storage Ray/Triangle Intersection by Moller and Trumbore
+				const vec3 edge1 = verts[1]->pos - verts[0]->pos;
+				const vec3 edge2 = verts[2]->pos - verts[0]->pos;
+				const vec3 pvec = vec3::crossProduct(camera.rotation[0], edge2);
+				const float det = vec3::dotProduct(edge1, pvec);
+
+				if (det < 0.000001f)
+					continue;
+
+				const vec3 tvec = camera.position - verts[0]->pos;
+				const float u = vec3::dotProduct(tvec, pvec);
+
+				if (u < 0 || u > det)
+					continue;
+
+				const vec3 qvec = vec3::crossProduct(tvec, edge1);
+				const float v = vec3::dotProduct(camera.rotation[0], qvec);
+
+				if (v < 0 || u + v > det)
+					continue;
+
+				const float t = vec3::dotProduct(edge2, qvec) * (1.0f / det);
+
+				if (t < 0)
+					continue;
+
+				if (t < closestDistance)
+				{
+					closestDistance = t;
+					closestSurface = &surface;
+				}
+			}
+		}
+	}
+
+	if (closestSurface)
+	{
+		interface::Printf("%s\n", closestSurface->material->name);
+	}
+	else
+	{
+		interface::Printf("Picking failed\n");
+	}
+}
+
 } // namespace world
 } // namespace renderer

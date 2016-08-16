@@ -233,6 +233,14 @@ static void Cmd_BakeLights()
 	light_baker::Start(nSamples);
 }
 
+static void Cmd_PickMaterial()
+{
+	if (world::IsLoaded())
+	{
+		world::PickMaterial();
+	}
+}
+
 static void Cmd_PrintMaterials()
 {
 	if (g_materialCache)
@@ -292,6 +300,7 @@ Main::Main()
 	softSpritesEnabled_ = g_cvars.softSprites.getBool() && !(aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x);
 
 	interface::Cmd_Add("r_bakeLights", Cmd_BakeLights);
+	interface::Cmd_Add("r_pickMaterial", Cmd_PickMaterial);
 	interface::Cmd_Add("r_printMaterials", Cmd_PrintMaterials);
 	interface::Cmd_Add("screenshot", Cmd_Screenshot);
 	interface::Cmd_Add("screenshotJPEG", Cmd_ScreenshotJPEG);
@@ -342,6 +351,7 @@ Main::~Main()
 	}
 
 	interface::Cmd_Remove("r_bakeLights");
+	interface::Cmd_Remove("r_pickMaterial");
 	interface::Cmd_Remove("r_printMaterials");
 	interface::Cmd_Remove("screenshot");
 	interface::Cmd_Remove("screenshotJPEG");
@@ -622,6 +632,11 @@ const Entity *GetCurrentEntity()
 float GetFloatTime()
 {
 	return s_main->getFloatTime();
+}
+
+Transform GetMainCameraTransform()
+{
+	return s_main->getMainCameraTransform();
 }
 
 float GetNoise(float x, float y, float z, float t)

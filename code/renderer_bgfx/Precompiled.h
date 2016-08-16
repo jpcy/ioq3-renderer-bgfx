@@ -454,6 +454,7 @@ namespace main
 	void EndFrame();
 	const Entity *GetCurrentEntity();
 	float GetFloatTime();
+	Transform GetMainCameraTransform();
 	float GetNoise(float x, float y, float z, float t);
 	void Initialize();
 	bool isCameraMirrored();
@@ -1749,6 +1750,7 @@ namespace world
 	uint8_t CreateVisCache();
 	void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *areaMask);
 	void Render(uint8_t visCacheId, DrawCallList *drawCallList, const mat3 &sceneRotation);
+	void PickMaterial();
 }
 
 static const size_t g_funcTableSize = 1024;

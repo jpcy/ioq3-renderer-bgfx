@@ -59,6 +59,7 @@ public:
 
 	const Entity *getCurrentEntity() const { return currentEntity_; }
 	float getFloatTime() const { return floatTime_; }
+	Transform getMainCameraTransform() const { return mainCameraTransform_; }
 	int getFrameNo() const { return frameNo_; }
 	float getNoise(float x, float y, float z, float t) const;
 	int getTime() const { return time_; }
@@ -251,6 +252,8 @@ private:
 	
 	/// Does the current scene contain the world (not RDF_NOWORLDMODEL).
 	bool isWorldScene_;
+
+	Transform mainCameraTransform_;
 
 	std::vector<vec3> sceneDebugAxis_;
 	std::vector<Bounds> sceneDebugBounds_;
