@@ -1339,7 +1339,7 @@ static int Thread(void *data)
 #endif
 			uint8_t *dest = &lightmap.colorBytes[i * 4];
 			// Colors are floats, but in 0-255+ range.
-			util::EncodeRGBM(src.rgb() / 255.0f).toBytes(dest);
+			util::EncodeRGBM(src.rgb() * g_overbrightFactor / 255.0f).toBytes(dest);
 		}
 	}
 

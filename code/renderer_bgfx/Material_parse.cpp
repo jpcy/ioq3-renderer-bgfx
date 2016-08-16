@@ -201,7 +201,7 @@ bool Material::parse(char **text)
 			
 			token = util::Parse(text, false);
 			sun.light.normalize();
-			sun.light = sun.light * (float)atof(token) * (float)g_overbrightFactor / 255.0f;
+			sun.light = sun.light * (float)atof(token) * g_overbrightFactor / 255.0f;
 
 			token = util::Parse(text, false);
 			float a = (float)atof(token) / 180 * (float)M_PI;

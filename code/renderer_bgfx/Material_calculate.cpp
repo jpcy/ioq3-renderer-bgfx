@@ -554,8 +554,8 @@ void MaterialStage::calculateColors(vec4 *baseColor, vec4 *vertColor) const
 		&& blendDst != BGFX_STATE_BLEND_SRC_COLOR
 		&& blendDst != BGFX_STATE_BLEND_INV_SRC_COLOR)
 	{
-		(*baseColor) = vec4(baseColor->xyz() * (float)g_overbrightFactor, baseColor->a);
-		(*vertColor) = vec4(vertColor->xyz() * (float)g_overbrightFactor, vertColor->a);
+		(*baseColor) = vec4(baseColor->xyz() * g_overbrightFactor, baseColor->a);
+		(*vertColor) = vec4(vertColor->xyz() * g_overbrightFactor, vertColor->a);
 	}
 }
 

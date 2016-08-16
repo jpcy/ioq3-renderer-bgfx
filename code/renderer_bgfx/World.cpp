@@ -1106,9 +1106,9 @@ void Load(const char *name)
 
 		v.color = util::ToLinear(vec4
 			(
-				fv.color[0] / 255.0f * (float)g_overbrightFactor,
-				fv.color[1] / 255.0f * (float)g_overbrightFactor,
-				fv.color[2] / 255.0f * (float)g_overbrightFactor,
+				fv.color[0] / 255.0f * g_overbrightFactor,
+				fv.color[1] / 255.0f * g_overbrightFactor,
+				fv.color[2] / 255.0f * g_overbrightFactor,
 				fv.color[3] / 255.0f
 				));
 	}
