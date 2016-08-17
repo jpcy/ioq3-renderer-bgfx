@@ -233,8 +233,8 @@ newaction
 			{ "SMAAEdgeDetection" },
 			{ "SMAANeighborhoodBlending" },
 			{ "Texture" },
-			{ "TextureSingleChannel" },
 			{ "TextureColor" },
+			{ "TextureDebug" },
 			{ "ToneMap" }
 		}
 		

@@ -143,7 +143,7 @@ private:
 			SMAANeighborhoodBlending,
 			Texture,
 			TextureColor,
-			TextureSingleChannel,
+			TextureDebug,
 			ToneMap,
 			Num
 		};

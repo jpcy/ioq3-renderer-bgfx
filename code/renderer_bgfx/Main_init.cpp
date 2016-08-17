@@ -536,7 +536,7 @@ void Main::initialize()
 	programMap[ShaderProgramId::SMAANeighborhoodBlending] = { FragmentShaderId::SMAANeighborhoodBlending, VertexShaderId::SMAANeighborhoodBlending };
 	programMap[ShaderProgramId::Texture]              = { FragmentShaderId::Texture, VertexShaderId::Texture };
 	programMap[ShaderProgramId::TextureColor]         = { FragmentShaderId::TextureColor, VertexShaderId::Texture };
-	programMap[ShaderProgramId::TextureSingleChannel] = { FragmentShaderId::TextureSingleChannel, VertexShaderId::Texture };
+	programMap[ShaderProgramId::TextureDebug]         = { FragmentShaderId::TextureDebug, VertexShaderId::Texture };
 	programMap[ShaderProgramId::ToneMap]              = { FragmentShaderId::ToneMap, VertexShaderId::Texture };
 
 	// Create shader programs.

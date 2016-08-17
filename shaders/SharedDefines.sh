@@ -48,6 +48,9 @@
 #define TCGEN_TEXTURE            5
 #define TCGEN_VECTOR             6
 
+#define TEXTURE_DEBUG_SINGLE_CHANNEL 0
+#define TEXTURE_DEBUG_RGBM           1
+
 #define TU_DIFFUSE               0
 #define TU_DIFFUSE2              1
 #define TU_LIGHT                 2

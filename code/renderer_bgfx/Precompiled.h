@@ -1401,6 +1401,10 @@ struct Uniforms
 	/// @remarks Only x and y used.
 	Uniform_vec4 texelOffsets = { "u_TexelOffsets", 16 };
 
+	/// @brief Used by TextureDebug fragment shader.
+	/// @remarks Only x used.
+	Uniform_vec4 textureDebug = "u_TextureDebug";
+
 	Uniform_vec4 viewOrigin = "u_ViewOrigin";
 	Uniform_vec4 viewUp = "u_ViewUp";
 
