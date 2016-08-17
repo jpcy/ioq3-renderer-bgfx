@@ -1411,13 +1411,36 @@ void Start(int nSamples)
 			if (texture)
 				continue; // In cache.
 
-			// Grab the first texture for now.
-			const char *filename = surface.material->stages[0].bundles[0].textures[0]->getName();
+			// Grab the first valid texture for now.
+			const char *filename = nullptr;
+
+			for (size_t i = 0; i < Material::maxStages; i++)
+			{
+				const MaterialStage &stage = surface.material->stages[i];
+
+				if (stage.active)
+				{
+					const char *texture = stage.bundles[MaterialTextureBundleIndex::DiffuseMap].textures[0]->getName();
+
+					if (texture[0] != '*') // Ignore special textures, e.g. lightmaps.
+					{
+						filename = texture;
+						break;
+					}
+				}
+			}
+
+			if (!filename)
+			{
+				interface::PrintWarningf("Error finding area light texture for material %s\n", surface.material->name);
+				continue;
+			}
+
 			Image image = LoadImage(filename);
 
 			if (!image.data)
 			{
-				interface::PrintWarningf("Error loading area light image %s\n", filename);
+				interface::PrintWarningf("Error loading area light image %s from material %s\n", filename, surface.material->name);
 				continue;
 			}
 
