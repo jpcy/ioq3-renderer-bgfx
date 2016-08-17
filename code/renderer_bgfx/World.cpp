@@ -2324,6 +2324,10 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 				const int si = s_world->leafSurfaces[leaf.firstSurface + j];
 				World::Surface &surface = s_world->surfaces[si];
 
+				// Ignore surfaces in brush models.
+				if (si < 0 || si >= (int)s_world->modelDefs[0].nSurfaces)
+					continue;
+
 				// Don't add duplicates.
 				if (surface.duplicateId == s_world->duplicateSurfaceId)
 					continue;
