@@ -815,6 +815,7 @@ struct MaterialStage
 	uint64_t depthTestBits = BGFX_STATE_DEPTH_TEST_LEQUAL;
 
 	bool depthWrite = true;
+	bool decodeRGBM = false; // for lightmap only stages
 
 	MaterialAlphaTest alphaTest = MaterialAlphaTest::None;
 
@@ -1515,6 +1516,9 @@ struct Uniforms_MaterialStage
 	Uniform_vec4 alphaTest = "u_AlphaTest";
 
 	Uniform_vec4 animation_Enabled_Fraction = "u_Animation_Enabled_Fraction";
+
+	/// @remarks Only x used.
+	Uniform_vec4 diffuseRGBM = "u_DiffuseRGBM";
 
 	Uniform_vec4 fogColorMask = "u_FogColorMask";
 

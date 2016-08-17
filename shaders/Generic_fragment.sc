@@ -36,6 +36,7 @@ uniform vec4 u_Bloom_Enable_Scale;
 #endif
 
 uniform vec4 u_Animation_Enabled_Fraction; // only x and y used
+uniform vec4 u_DiffuseRGBM; // only x used
 uniform vec4 u_PortalClip;
 uniform vec4 u_PortalPlane;
 uniform vec4 u_ViewOrigin;
@@ -137,6 +138,11 @@ void main()
 	}
 
 	vec4 diffuse = texture2D(u_DiffuseSampler, texCoord0);
+
+	if (int(u_DiffuseRGBM.x) == 1.0)
+	{
+		diffuse = vec4(DecodeRGBM(diffuse), 1.0);
+	}
 
 	if (int(u_Animation_Enabled_Fraction.x) == 1.0)
 	{
