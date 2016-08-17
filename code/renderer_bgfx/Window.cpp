@@ -336,7 +336,22 @@ success:
 	// This depends on SDL_INIT_VIDEO, hence having it here
 	interface::IN_Init(SDL_window);
 
-	bgfx::sdlSetWindow(SDL_window);
+	SDL_SysWMinfo wmi;
+	SDL_VERSION(&wmi.version);
+	
+	if (SDL_GetWindowWMInfo(SDL_window, &wmi) == SDL_FALSE)
+	{
+		interface::FatalError("SDL_GetWindowWMInfo: %s", SDL_GetError());
+	}
+
+	bgfx::PlatformData pd = {};
+#ifdef WIN32
+	pd.nwh = wmi.info.win.window;
+#else
+	pd.ndt = wmi.info.x11.display;
+	pd.nwh = void*)(uintptr_t)wmi.info.x11.window;
+#endif
+	bgfx::setPlatformData(pd);
 }
 
 void SetGamma(const uint8_t *red, const uint8_t *green, const uint8_t *blue)
