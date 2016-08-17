@@ -982,6 +982,9 @@ static int Thread(void *data)
 
 			const LightBaker::AreaLightTexture *texture = FindAreaLightTexture(surface.material);
 
+			if (!texture)
+				continue; // A warning will have been printed when the image failed to load.
+
 			// autosprite materials become point lights.
 			if (surface.material->hasAutoSpriteDeform())
 			{
@@ -1413,7 +1416,10 @@ void Start(int nSamples)
 			Image image = LoadImage(filename);
 
 			if (!image.data)
+			{
+				interface::PrintWarningf("Error loading area light image %s\n", filename);
 				continue;
+			}
 
 			// Downscale the image.
 			s_lightBaker->areaLightTextures.push_back(LightBaker::AreaLightTexture());
