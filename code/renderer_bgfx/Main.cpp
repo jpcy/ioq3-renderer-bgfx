@@ -1255,7 +1255,15 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 				bgfx::setStencil(stencilTest);
 			}
 
-			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Generic + GenericShaderProgramVariant::DepthRange].handle);
+			int shaderVariant = GenericShaderProgramVariant::DepthRange;
+
+			if (g_cvars.hdr.getBool())
+			{
+				shaderVariant |= GenericShaderProgramVariant::HDR;
+				uniforms_->bloom_Enable_Scale.set(vec4::empty);
+			}
+
+			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Generic + shaderVariant].handle);
 			continue;
 		}
 
