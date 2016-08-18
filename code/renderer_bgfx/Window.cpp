@@ -349,7 +349,7 @@ success:
 	pd.nwh = wmi.info.win.window;
 #else
 	pd.ndt = wmi.info.x11.display;
-	pd.nwh = void*)(uintptr_t)wmi.info.x11.window;
+	pd.nwh = (void*)(uintptr_t)wmi.info.x11.window;
 #endif
 	bgfx::setPlatformData(pd);
 }
