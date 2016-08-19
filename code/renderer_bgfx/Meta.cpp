@@ -186,6 +186,7 @@ static const Bloom s_bloomWhitelist[] =
 	{ "textures/sfx/metalfloor_wall_9bglow.*", 1.0f },
 	{ "textures/sfx/metalfloor_wall_14bglow2.*", 1.0f },
 	{ "textures/sfx/pentagramfloor_red_glow.*", 1.0f },
+	{ "textures/sfx/portal_sfx1.*", 1.0f }, // Fixes bloom through textures/sfx/portal_sfx portal effect.
 	{ "textures/sfx/portal_sfx_ring_electric.*", 1.0f },
 	{ "textures/sfx/proto_zzzt*", 1.0f },
 	{ "textures/sfx/r_flame*", 1.0f },
