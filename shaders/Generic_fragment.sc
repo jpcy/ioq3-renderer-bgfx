@@ -32,7 +32,7 @@ uniform vec4 u_DynamicLightTextureSizes_Cells_Indices_Lights; // w not used
 #endif
 
 #if defined(USE_HDR)
-uniform vec4 u_Bloom_Enable_Scale;
+uniform vec4 u_BloomEnabled; // only x used
 #endif
 
 uniform vec4 u_Animation_Enabled_Fraction; // only x and y used
@@ -291,7 +291,7 @@ void main()
 #if defined(USE_HDR)
 	gl_FragData[0] = fragColor;
 
-	if (int(u_Bloom_Enable_Scale.x) != 0)
+	if (int(u_BloomEnabled.x) != 0)
 	{
 		gl_FragData[1] = fragColor;
 	}

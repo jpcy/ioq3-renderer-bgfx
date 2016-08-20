@@ -1260,7 +1260,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (g_cvars.hdr.getBool())
 			{
 				shaderVariant |= GenericShaderProgramVariant::HDR;
-				uniforms_->bloom_Enable_Scale.set(vec4::empty);
+				uniforms_->bloomEnabled.set(vec4::empty);
 			}
 
 			bgfx::submit(mainViewId, shaderPrograms_[ShaderProgramId::Generic + shaderVariant].handle);
@@ -1379,7 +1379,7 @@ void Main::renderCamera(uint8_t visCacheId, vec3 pvsPosition, vec3 position, mat
 			if (g_cvars.hdr.getBool())
 			{
 				shaderVariant |= GenericShaderProgramVariant::HDR;
-				uniforms_->bloom_Enable_Scale.set(vec4(stage.bloom ? 1.0f : 0.0f, stage.bloomScale, 0.0f, 0.0f));
+				uniforms_->bloomEnabled.set(vec4(stage.bloom ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f));
 			}
 
 			bgfx::setState(state);
