@@ -907,8 +907,7 @@ void Main::debugDraw(bgfx::TextureHandle texture, int x, int y, ShaderProgramId:
 
 uint8_t Main::pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags)
 {
-	// Useful for debugging, can be disabled for performance later.
-#if 1
+#if 0
 	if (firstFreeViewId_ == 0)
 	{
 		bgfx::setViewClear(firstFreeViewId_, clearFlags | BGFX_CLEAR_COLOR, 0xff00ffff);
