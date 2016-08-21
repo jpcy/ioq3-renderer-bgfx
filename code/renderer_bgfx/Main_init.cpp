@@ -76,7 +76,6 @@ void ConsoleVariables::initialize()
 	aa = interface::Cvar_Get("r_aa", "", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	aa.setDescription(
 		"<empty>   None\n"
-		"fxaa      FXAA v2\n"
 		"msaa2x    MSAA 2x\n"
 		"msaa4x    MSAA 4x\n"
 		"msaa8x    MSAA 8x\n"
@@ -267,9 +266,7 @@ const FrameBuffer Main::defaultFb_;
 
 AntiAliasing AntiAliasingFromString(const char *s)
 {
-	if (util::Stricmp(s, "fxaa") == 0)
-		return AntiAliasing::FXAA;
-	else if (util::Stricmp(s, "msaa2x") == 0)
+	if (util::Stricmp(s, "msaa2x") == 0)
 		return AntiAliasing::MSAA2x;
 	else if (util::Stricmp(s, "msaa4x") == 0)
 		return AntiAliasing::MSAA4x;
@@ -517,7 +514,6 @@ void Main::initialize()
 		VertexShaderId::Fog_DepthRange
 	};
 
-	programMap[ShaderProgramId::FXAA] = { FragmentShaderId::FXAA, VertexShaderId::Texture };
 	programMap[ShaderProgramId::GaussianBlur] = { FragmentShaderId::GaussianBlur, VertexShaderId::Texture };
 
 	// Sync with GenericShaderProgramVariant. Order matters - fragment first.
@@ -544,9 +540,6 @@ void Main::initialize()
 	for (size_t i = 0; i < ShaderProgramId::Num; i++)
 	{
 		// Don't create shader programs that won't be used.
-		if (aa_ != AntiAliasing::FXAA && i == ShaderProgramId::FXAA)
-			continue;
-
 		if (aa_ != AntiAliasing::SMAA && (i == ShaderProgramId::SMAABlendingWeightCalculation || i == ShaderProgramId::SMAAEdgeDetection || i == ShaderProgramId::SMAANeighborhoodBlending))
 			continue;
 

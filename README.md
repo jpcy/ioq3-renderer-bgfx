@@ -10,7 +10,7 @@ Goal: Make Quake 3 Arena and derivitives look slightly better on a modern PC wit
 Status: Work in Progress. Not widely tested. Q3A and TA more or less look how they should.
 
 ### Features
-* Anti-aliasing - MSAA, SMAA, FXAA
+* Anti-aliasing - MSAA, SMAA
 * Soft sprites
 * Real dynamic lights
 * Extra dynamic lights for Q3A weapons - BFG, Lightning, Plasma, Railgun

@@ -31,7 +31,6 @@ namespace renderer {
 enum class AntiAliasing
 {
 	None,
-	FXAA,
 	MSAA2x,
 	MSAA4x,
 	MSAA8x,
@@ -134,7 +133,6 @@ private:
 			Color,
 			Depth,
 			Fog = Depth + DepthShaderProgramVariant::Num,
-			FXAA = Fog + FogShaderProgramVariant::Num,
 			GaussianBlur,
 			Generic,
 			LinearDepth = Generic + GenericShaderProgramVariant::Num,

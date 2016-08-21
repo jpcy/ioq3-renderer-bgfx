@@ -726,20 +726,7 @@ void Main::renderScene(const SceneDefinition &scene)
 				renderScreenSpaceQuad(aa_ == AntiAliasing::None ? defaultFb_ : sceneTempFb_, ShaderProgramId::ToneMap, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
 			}
 
-			if (aa_ == AntiAliasing::FXAA)
-			{
-				if (g_cvars.hdr.getBool())
-				{
-					bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneTempFb_.handle);
-				}
-				else
-				{
-					bgfx::setTexture(0, uniforms_->textureSampler.handle, sceneFb_.handle);
-				}
-
-				renderScreenSpaceQuad(defaultFb_, ShaderProgramId::FXAA, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, isTextureOriginBottomLeft_);
-			}
-			else if (aa_ == AntiAliasing::SMAA)
+			if (aa_ == AntiAliasing::SMAA)
 			{
 				uniforms_->smaaMetrics.set(vec4(1.0f / rect.w, 1.0f / rect.h, (float)rect.w, (float)rect.h));
 

@@ -225,7 +225,6 @@ newaction
 			{ "Color" },
 			{ "Depth", depthFragmentVariants },
 			{ "Fog", fogFragmentVariants },
-			{ "FXAA" },
 			{ "GaussianBlur" },
 			{ "Generic", genericFragmentVariants },
 			{ "LinearDepth" },
