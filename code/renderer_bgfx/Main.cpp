@@ -716,7 +716,7 @@ void Main::renderScene(const SceneDefinition &scene)
 				(
 					Clamped(g_cvars.brightness.getFloat() - 1.0f, -0.8f, 0.8f),
 					Clamped(g_cvars.contrast.getFloat(), 0.5f, 3.0f),
-					Clamped(g_cvars.gamma.getFloat(), 0.5f, 3.0f),
+					Clamped(g_cvars.hdrGamma.getFloat(), 0.5f, 3.0f),
 					Clamped(g_cvars.saturation.getFloat(), 0.0f, 3.0f)
 				));
 

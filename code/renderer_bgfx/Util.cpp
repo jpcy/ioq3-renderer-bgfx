@@ -562,16 +562,10 @@ int Vsnprintf(char *str, size_t size, const char *format, va_list ap)
 #endif
 }
 
-//#define USE_SRGB
-
 vec3 ToGamma(vec3 color)
 {
-#ifdef USE_SRGB
 	const float invGamma = 1.0f / 2.2f;
 	return vec3(pow(color.r, invGamma), pow(color.g, invGamma), pow(color.b, invGamma));
-#else
-	return color;
-#endif
 }
 
 vec4 ToGamma(vec4 color)
@@ -581,12 +575,8 @@ vec4 ToGamma(vec4 color)
 
 vec3 ToLinear(vec3 color)
 {
-#ifdef USE_SRGB
 	const float gamma = 2.2f;
 	return vec3(pow(color.r, gamma), pow(color.g, gamma), pow(color.b, gamma));
-#else
-	return color;
-#endif
 }
 
 vec4 ToLinear(vec4 color)

@@ -150,6 +150,7 @@ void main()
 		diffuse = mix(diffuse, diffuse2, u_Animation_Enabled_Fraction.y);
 	}
 
+	diffuse.rgb = ToLinear(diffuse.rgb);
 	float alpha;
 
 	if (u_AlphaGen == AGEN_WATER)
@@ -215,7 +216,7 @@ void main()
 
 	if (lightType == LIGHT_MAP)
 	{
-		diffuseLight = DecodeRGBM(texture2D(u_LightSampler, v_texcoord1));
+		diffuseLight = ToLinear(DecodeRGBM(texture2D(u_LightSampler, v_texcoord1)));
 	}
 	else if (lightType == LIGHT_VECTOR)
 	{
@@ -286,7 +287,7 @@ void main()
 	}
 #endif // USE_DYNAMIC_LIGHTS
 
-	vec4 fragColor = vec4(diffuse.rgb * vertexColor * diffuseLight, alpha);
+	vec4 fragColor = vec4(ToGamma(diffuse.rgb * vertexColor * diffuseLight), alpha);
 
 #if defined(USE_HDR)
 	gl_FragData[0] = fragColor;

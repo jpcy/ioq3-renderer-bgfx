@@ -143,6 +143,7 @@ struct ConsoleVariables
 	ConsoleVariable hdr;
 	ConsoleVariable hdrBloomScale;
 	ConsoleVariable hdrExposure;
+	ConsoleVariable hdrGamma;
 	ConsoleVariable lerpTextureAnimation;
 	ConsoleVariable maxAnisotropy;
 	ConsoleVariable picmip;

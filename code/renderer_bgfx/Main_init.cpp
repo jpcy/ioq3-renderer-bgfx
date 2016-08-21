@@ -134,7 +134,8 @@ void ConsoleVariables::initialize()
 	dynamicLightScale = interface::Cvar_Get("r_dynamicLightScale", "0.7", ConsoleVariableFlags::Archive);
 	hdr = interface::Cvar_Get("r_hdr", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	hdrBloomScale = interface::Cvar_Get("r_hdrBloomScale", "1.0", ConsoleVariableFlags::Archive);
-	hdrExposure = interface::Cvar_Get("r_hdrExposure", "0.7", ConsoleVariableFlags::Archive);
+	hdrExposure = interface::Cvar_Get("r_hdrExposure", "0.5", ConsoleVariableFlags::Archive);
+	hdrGamma = interface::Cvar_Get("r_hdrGamma", "1.3", ConsoleVariableFlags::Archive);
 	lerpTextureAnimation = interface::Cvar_Get("r_lerpTextureAnimation", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	maxAnisotropy = interface::Cvar_Get("r_maxAnisotropy", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	picmip = interface::Cvar_Get("r_picmip", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);

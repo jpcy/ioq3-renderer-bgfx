@@ -28,13 +28,15 @@ vec3 ACESFilm(vec3 x)
 
 void main()
 {
-	vec3 color = texture2D(u_TextureSampler, v_texcoord0).rgb;
+	vec3 color = ToLinear(texture2D(u_TextureSampler, v_texcoord0).rgb);
 
 	// bloom
-	color += texture2D(u_BloomSampler, v_texcoord0).rgb * u_Hdr_BloomScale_Exposure.x;
+	color += ToLinear(texture2D(u_BloomSampler, v_texcoord0).rgb) * u_Hdr_BloomScale_Exposure.x;
 
 	// tone map
 	color = ACESFilm(color * u_Hdr_BloomScale_Exposure.y);
+
+	color = ToGamma(color);
 
 	// contrast and brightness
 	color = (color - 0.5) * contrast + 0.5 + brightness;
@@ -44,7 +46,7 @@ void main()
 	color = mix(intensity, color, saturation);
 
 	// gamma
-	//color = pow(color, vec3_splat(1.0 / gamma));
+	color = pow(color, vec3_splat(1.0 / gamma));
 
 	gl_FragColor = vec4(color, 1.0);
 }
