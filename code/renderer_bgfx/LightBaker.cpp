@@ -835,7 +835,7 @@ static int Thread(void *data)
 
 		for (int i = 0; i < surface.nIndices; i += 3)
 		{
-			if (surface.material->isSky)
+			if (surface.material->isSky || (surface.surfaceFlags & SURF_SKY))
 				faceFlags[faceIndex] |= FaceFlags::Sky;
 
 			triangles[faceIndex].indices[0] = indexOffset + surface.indices[i + 0];
