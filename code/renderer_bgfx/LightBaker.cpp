@@ -1209,12 +1209,17 @@ static int Thread(void *data)
 
 #if 1
 					// Sunlight.
-					float attenuation = 0;
+					float totalAttenuation = 0;
 
 					for (int si = 0; si < s_lightBaker->nSamples; si++)
 					{
-						RTCRay ray;
 						const vec3 dir(sunLight.direction + dirJitter[si]); // Jitter light direction.
+						const float attenuation = vec3::dotProduct(sampleNormal, dir) * (1.0f / s_lightBaker->nSamples);
+
+						if (attenuation < 0)
+							continue;
+
+						RTCRay ray;
 						const vec3 org(samplePosition + sampleNormal * 0.1f); // push out from the surface a little
 						ray.org[0] = org.x;
 						ray.org[1] = org.y;
@@ -1232,12 +1237,12 @@ static int Thread(void *data)
 
 						if (ray.geomID != RTC_INVALID_GEOMETRY_ID && (faceFlags[ray.primID] & FaceFlags::Sky))
 						{
-							attenuation += vec3::dotProduct(sampleNormal, dir) * (1.0f / s_lightBaker->nSamples);
+							totalAttenuation += attenuation;
 						}
 					}
 
-					if (attenuation > 0)
-						luxelColor += sunLight.light * attenuation * 255.0;
+					if (totalAttenuation > 0)
+						luxelColor += sunLight.light * totalAttenuation * 255.0;
 #endif
 
 #if 1
