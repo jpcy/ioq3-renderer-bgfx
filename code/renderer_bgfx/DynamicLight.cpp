@@ -35,7 +35,7 @@ DynamicLightManager::DynamicLightManager() : nLights_(0)
 	interface::Printf("dlight texture size is %ux%u\n", lightsTextureSize_, lightsTextureSize_);
 
 	// Clamp and filter are just for debug drawing. Sampling uses texel fetch.
-	lightsTexture_ = bgfx::createTexture2D(lightsTextureSize_, lightsTextureSize_, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
+	lightsTexture_ = bgfx::createTexture2D(lightsTextureSize_, lightsTextureSize_, false, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
 }
 
 DynamicLightManager::~DynamicLightManager()
@@ -105,7 +105,7 @@ void DynamicLightManager::initializeGrid()
 	// Cells texture.
 	cellsTextureSize_ = util::CalculateSmallestPowerOfTwoTextureSize((int)gridSize_.x * (int)gridSize_.y * (int)gridSize_.z);
 	interface::Printf("dlight cells texture size is %ux%u\n", cellsTextureSize_, cellsTextureSize_);
-	cellsTexture_ = bgfx::createTexture2D(cellsTextureSize_, cellsTextureSize_, 1, bgfx::TextureFormat::R16U, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
+	cellsTexture_ = bgfx::createTexture2D(cellsTextureSize_, cellsTextureSize_, false, 1, bgfx::TextureFormat::R16U, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
 
 	for (int i = 0; i < BGFX_NUM_BUFFER_FRAMES; i++)
 	{
@@ -115,7 +115,7 @@ void DynamicLightManager::initializeGrid()
 	// Indices textures.
 	indicesTextureSize_ = 512;
 	interface::Printf("dlight indices texture size is %ux%u\n", indicesTextureSize_, indicesTextureSize_);
-	indicesTexture_ = bgfx::createTexture2D(indicesTextureSize_, indicesTextureSize_, 1, bgfx::TextureFormat::R8U, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
+	indicesTexture_ = bgfx::createTexture2D(indicesTextureSize_, indicesTextureSize_, false, 1, bgfx::TextureFormat::R8U, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP | BGFX_TEXTURE_MIN_POINT | BGFX_TEXTURE_MAG_POINT);
 
 	for (int i = 0; i < BGFX_NUM_BUFFER_FRAMES; i++)
 	{
@@ -258,7 +258,7 @@ void DynamicLightManager::updateTextures(int frameNo)
 	}
 
 	// Update the cells texture.
-	bgfx::updateTexture2D(cellsTexture_, 0, 0, 0, cellsTextureSize_, cellsTextureSize_, bgfx::makeRef(cellsTextureData_[buffer].data(), uint32_t(cellsTextureData_[buffer].size() * sizeof(uint16_t))));
+	bgfx::updateTexture2D(cellsTexture_, 0, 0, 0, 0, cellsTextureSize_, cellsTextureSize_, bgfx::makeRef(cellsTextureData_[buffer].data(), uint32_t(cellsTextureData_[buffer].size() * sizeof(uint16_t))));
 
 	// Update the indices texture.
 	if (nLights_ > 0 && indicesOffset > 0)
@@ -266,7 +266,7 @@ void DynamicLightManager::updateTextures(int frameNo)
 		assert(indicesOffset < indicesTextureSize_ * indicesTextureSize_);
 		const uint16_t width = std::min(indicesOffset, indicesTextureSize_);
 		const uint16_t height = (uint16_t)std::ceil(indicesOffset / (float)indicesTextureSize_);
-		bgfx::updateTexture2D(indicesTexture_, 0, 0, 0, width, height, bgfx::makeRef(indicesTextureData_[buffer].data(), indicesOffset));
+		bgfx::updateTexture2D(indicesTexture_, 0, 0, 0, 0, width, height, bgfx::makeRef(indicesTextureData_[buffer].data(), indicesOffset));
 	}
 
 	// Update the lights texture.
@@ -277,7 +277,7 @@ void DynamicLightManager::updateTextures(int frameNo)
 		const uint16_t nTexels = uint16_t(size / texelSize);
 		const uint16_t width = std::min(nTexels, lightsTextureSize_);
 		const uint16_t height = (uint16_t)std::ceil(nTexels / (float)lightsTextureSize_);
-		bgfx::updateTexture2D(lightsTexture_, 0, 0, 0, width, height, bgfx::makeRef(lights_[buffer], size));
+		bgfx::updateTexture2D(lightsTexture_, 0, 0, 0, 0, width, height, bgfx::makeRef(lights_[buffer], size));
 	}
 }
 

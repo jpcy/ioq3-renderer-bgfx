@@ -529,7 +529,7 @@ void Main::loadWorld(const char *name)
 	if (g_cvars.hdr.getBool() != 0)
 	{
 		if (g_cvars.waterReflections.getBool())
-			reflectionTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::RGBA16F, rtClampFlags);
+			reflectionTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::RGBA16F, rtClampFlags);
 
 		if (aa_ != AntiAliasing::None)
 		{
@@ -538,9 +538,9 @@ void Main::loadWorld(const char *name)
 		}
 
 		bgfx::TextureHandle sceneTextures[3];
-		sceneTextures[0] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::RGBA16F, rtClampFlags);
-		sceneTextures[1] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, rtClampFlags);
-		sceneTextures[2] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT);
+		sceneTextures[0] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::RGBA16F, rtClampFlags);
+		sceneTextures[1] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags);
+		sceneTextures[2] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT);
 		sceneFb_.handle = bgfx::createFrameBuffer(3, sceneTextures, true);
 		sceneBloomAttachment_ = 1;
 		sceneDepthAttachment_ = 2;
@@ -560,11 +560,11 @@ void Main::loadWorld(const char *name)
 		}
 
 		if (g_cvars.waterReflections.getBool())
-			reflectionTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
+			reflectionTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
 
 		bgfx::TextureHandle sceneTextures[2];
-		sceneTextures[0] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
-		sceneTextures[1] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT | aaFlags);
+		sceneTextures[0] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
+		sceneTextures[1] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT | aaFlags);
 		sceneFb_.handle = bgfx::createFrameBuffer(2, sceneTextures, true);
 		sceneDepthAttachment_ = 1;
 	}
@@ -576,8 +576,8 @@ void Main::loadWorld(const char *name)
 	{
 		smaaBlendFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::BGRA8, rtClampFlags);
 		smaaEdgesFb_.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::RG8, rtClampFlags);
-		smaaAreaTex_ = bgfx::createTexture2D(AREATEX_WIDTH, AREATEX_HEIGHT, 1, bgfx::TextureFormat::RG8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(areaTexBytes, AREATEX_SIZE));
-		smaaSearchTex_ = bgfx::createTexture2D(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, 1, bgfx::TextureFormat::R8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(searchTexBytes, SEARCHTEX_SIZE));
+		smaaAreaTex_ = bgfx::createTexture2D(AREATEX_WIDTH, AREATEX_HEIGHT, false, 1, bgfx::TextureFormat::RG8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(areaTexBytes, AREATEX_SIZE));
+		smaaSearchTex_ = bgfx::createTexture2D(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, false, 1, bgfx::TextureFormat::R8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(searchTexBytes, SEARCHTEX_SIZE));
 	}
 
 	if (g_cvars.waterReflections.getBool())

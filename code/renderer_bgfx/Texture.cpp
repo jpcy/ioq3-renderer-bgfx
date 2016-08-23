@@ -51,7 +51,7 @@ struct TextureImpl
 		}
 
 		// Create with data: immutable. Create without data: mutable, update whenever.
-		handle = bgfx::createTexture2D(width, height, nMips, format, calculateBgfxFlags(), (flags & TextureFlags::Mutable) ? nullptr : mem);
+		handle = bgfx::createTexture2D(width, height, nMips > 1, 1, format, calculateBgfxFlags(), (flags & TextureFlags::Mutable) ? nullptr : mem);
 
 		if (flags & TextureFlags::Mutable)
 		{
@@ -74,12 +74,12 @@ struct TextureImpl
 		bgfx::destroyTexture(handle);
 		this->width = width;
 		this->height = height;
-		handle = bgfx::createTexture2D(width, height, nMips, format, calculateBgfxFlags());
+		handle = bgfx::createTexture2D(width, height, nMips > 1, 1, format, calculateBgfxFlags());
 	}
 
 	void update(const bgfx::Memory *mem, int x, int y, int width, int height)
 	{
-		bgfx::updateTexture2D(handle, 0, x, y, width, height, mem);
+		bgfx::updateTexture2D(handle, 0, 0, x, y, width, height, mem);
 	}
 
 	uint32_t calculateBgfxFlags() const
