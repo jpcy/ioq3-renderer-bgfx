@@ -307,7 +307,7 @@ void OnMaterialCreate(Material *material)
 				const char *entry = s_bloomWhitelist[k];
 				const char *wildcard = strstr(entry, "*");
 
-				if (!util::Stricmp(texture->getName(), entry) || (wildcard && !util::Stricmpn(texture->getName(), entry, wildcard - entry)))
+				if (!util::Stricmp(texture->getName(), entry) || (wildcard && !util::Stricmpn(texture->getName(), entry, int(wildcard - entry))))
 				{
 					stage.bloom = true;
 				}

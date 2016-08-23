@@ -1699,45 +1699,12 @@ namespace window
 
 namespace world
 {
-	struct EntityKVP
-	{
-		char key[128];
-		char value[128];
-	};
-
-	struct Entity
-	{
-		std::array<EntityKVP, 32> kvps;
-		size_t nKvps;
-
-		const char *findValue(const char *key, const char *defaultValue = nullptr) const;
-	};
-
-	struct Surface
-	{
-		Bounds bounds;
-		int contentFlags;
-		int surfaceFlags;
-		bool isValid;
-		Material *material;
-		int nIndices;
-		const uint16_t *indices;
-		int vertexBufferIndex;
-	};
-
 	void Load(const char *name);
 	void Unload();
 	bool IsLoaded();
-	size_t GetNumEntities();
-	const Entity &GetEntity(size_t index);
 	vec2i GetLightmapSize();
 	int GetNumLightmaps();
 	Texture *GetLightmap(int index);
-	int GetNumModels();
-	int GetNumSurfaces(int modelIndex);
-	Surface GetSurface(int modelIndex, int surfaceIndex);
-	int GetNumVertexBuffers();
-	const std::vector<Vertex> &GetVertexBuffer(int index);
 	bool GetEntityToken(char *buffer, int size);
 	bool HasLightGrid();
 	void SampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);

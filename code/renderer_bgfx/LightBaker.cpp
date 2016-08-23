@@ -60,6 +60,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ***********************************************************/
 #include "Precompiled.h"
 #pragma hdrstop
+#include "World.h"
 
 #ifdef __GNUC__
 #ifndef __forceinline
@@ -603,7 +604,7 @@ static bool DoesSurfaceOccludeLight(const world::Surface &surface)
 {
 	// Translucent surfaces (e.g. flames) shouldn't occlude.
 	// Not handling alpha-testing yet.
-	return surface.isValid && (surface.contentFlags & CONTENTS_TRANSLUCENT) == 0 && (surface.surfaceFlags & SURF_ALPHASHADOW) == 0;
+	return surface.type != world::SurfaceType::Ignore && surface.type != world::SurfaceType::Flare && (surface.contentFlags & CONTENTS_TRANSLUCENT) == 0 && (surface.flags & SURF_ALPHASHADOW) == 0;
 }
 
 static vec3 ParseColorString(const char *color)
@@ -740,15 +741,15 @@ static int Thread(void *data)
 	{
 		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
 		{
-			world::Surface surface = world::GetSurface(mi, si);
+			const world::Surface &surface = world::GetSurface(mi, si);
 
 			if (mi == 0 && DoesSurfaceOccludeLight(surface))
 			{
-				totalOccluderTriangles += surface.nIndices / 3;
+				totalOccluderTriangles += (int)surface.indices.size() / 3;
 			}
 
-			if (surface.isValid && surface.material->lightmapIndex >= 0)
-				totalLightmappedTriangles += surface.nIndices / 3;
+			if (surface.type != world::SurfaceType::Ignore && surface.type != world::SurfaceType::Flare && surface.material->lightmapIndex >= 0)
+				totalLightmappedTriangles += (int)surface.indices.size() / 3;
 		}
 	}
 
@@ -822,7 +823,7 @@ static int Thread(void *data)
 
 	for (int si = 0; si < world::GetNumSurfaces(0); si++)
 	{
-		world::Surface surface = world::GetSurface(0, si);
+		const world::Surface &surface = world::GetSurface(0, si);
 
 		if (!DoesSurfaceOccludeLight(surface))
 			continue;
@@ -830,12 +831,12 @@ static int Thread(void *data)
 		// Adjust for combining multiple vertex buffers.
 		uint32_t indexOffset = 0;
 
-		for (int i = 0; i < surface.vertexBufferIndex; i++)
+		for (size_t i = 0; i < surface.bufferIndex; i++)
 			indexOffset += (uint32_t)world::GetVertexBuffer(i).size();
 
-		for (int i = 0; i < surface.nIndices; i += 3)
+		for (size_t i = 0; i < surface.indices.size(); i += 3)
 		{
-			if (surface.material->isSky || (surface.surfaceFlags & SURF_SKY))
+			if (surface.material->isSky || (surface.flags & SURF_SKY))
 				faceFlags[faceIndex] |= FaceFlags::Sky;
 
 			triangles[faceIndex].indices[0] = indexOffset + surface.indices[i + 0];
@@ -880,9 +881,9 @@ static int Thread(void *data)
 	vec3 ambientLight;
 	std::vector<StaticLight> lights;
 
-	for (size_t i = 0; i < world::GetNumEntities(); i++)
+	for (size_t i = 0; i < world::s_world->entities.size(); i++)
 	{
-		const world::Entity &entity = world::GetEntity(i);
+		const world::Entity &entity = world::s_world->entities[i];
 		const char *classname = entity.findValue("classname", "");
 
 		if (!util::Stricmp(classname, "worldspawn"))
@@ -945,9 +946,9 @@ static int Thread(void *data)
 			light.flags |= StaticLightFlags::Spotlight | StaticLightFlags::AngleAttenuation;
 			light.flags &= ~StaticLightFlags::LinearAttenuation;
 
-			for (size_t j = 0; j < world::GetNumEntities(); j++)
+			for (size_t j = 0; j < world::s_world->entities.size(); j++)
 			{
-				const world::Entity &targetEntity = world::GetEntity(j);
+				const world::Entity &targetEntity = world::s_world->entities[j];
 				const char *targetName = targetEntity.findValue("targetname");
 
 				if (targetName && !util::Stricmp(targetName, target))
@@ -975,7 +976,7 @@ static int Thread(void *data)
 	{
 		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
 		{
-			world::Surface surface = world::GetSurface(mi, si);
+			const world::Surface &surface = world::GetSurface(mi, si);
 
 			if (surface.material->surfaceLight <= 0)
 				continue;
@@ -992,7 +993,7 @@ static int Thread(void *data)
 				light.color = texture ? texture->normalizedColor : vec4::white;
 				light.flags = StaticLightFlags::DefaultMask;
 				light.photons = surface.material->surfaceLight * pointScale;
-				light.position = surface.bounds.midpoint();
+				light.position = surface.cullinfo.bounds.midpoint();
 				SetupLightEnvelope(&light);
 				lights.push_back(light);
 				continue;
@@ -1002,10 +1003,10 @@ static int Thread(void *data)
 			light.modelIndex = mi;
 			light.surfaceIndex = si;
 			light.texture = texture;
-			const std::vector<Vertex> &vertices = world::GetVertexBuffer(surface.vertexBufferIndex);
+			const std::vector<Vertex> &vertices = world::GetVertexBuffer(surface.bufferIndex);
 
 			// Create one sample per triangle at the midpoint.
-			for (int i = 0; i < surface.nIndices; i += 3)
+			for (size_t i = 0; i < surface.indices.size(); i += 3)
 			{
 				const Vertex *v[3];
 				v[0] = &vertices[surface.indices[i + 0]];
@@ -1046,16 +1047,16 @@ static int Thread(void *data)
 	{
 		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
 		{
-			world::Surface surface = world::GetSurface(mi, si);
+			const world::Surface &surface = world::GetSurface(mi, si);
 
 			// Ignore surfaces that aren't lightmapped.
-			if (!surface.isValid || surface.material->lightmapIndex < 0)
+			if (surface.type == world::SurfaceType::Ignore || surface.type == world::SurfaceType::Flare || surface.material->lightmapIndex < 0)
 				continue;
 
 			// Iterate surface triangles.
-			const std::vector<Vertex> &vertices = world::GetVertexBuffer(surface.vertexBufferIndex);
+			const std::vector<Vertex> &vertices = world::GetVertexBuffer(surface.bufferIndex);
 
-			for (int ti = 0; ti < surface.nIndices / 3; ti++)
+			for (size_t ti = 0; ti < surface.indices.size() / 3; ti++)
 			{
 				// Setup rasterizer.
 				lm_context ctx;
@@ -1396,7 +1397,7 @@ void Start(int nSamples)
 	{
 		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
 		{
-			world::Surface surface = world::GetSurface(mi, si);
+			const world::Surface &surface = world::GetSurface(mi, si);
 
 			if (surface.material->surfaceLight <= 0)
 				continue;
@@ -1538,7 +1539,7 @@ void Update(int frameNo)
 		{
 			const LightBaker::Lightmap &lightmap = s_lightBaker->lightmaps[i];
 			Texture *texture = world::GetLightmap(i);
-			texture->update(bgfx::makeRef(lightmap.colorBytes.data(), lightmap.colorBytes.size()), 0, 0, lightmapSize.x, lightmapSize.y);
+			texture->update(bgfx::makeRef(lightmap.colorBytes.data(), (uint32_t)lightmap.colorBytes.size()), 0, 0, lightmapSize.x, lightmapSize.y);
 		}
 
 		s_lightBaker->textureUploadFrameNo = frameNo;

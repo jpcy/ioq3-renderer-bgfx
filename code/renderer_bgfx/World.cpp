@@ -21,449 +21,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #include "Precompiled.h"
 #pragma hdrstop
+#include "World.h"
 
 namespace renderer {
 namespace world {
-
-#define BSP_IDENT	(('P'<<24)+('S'<<16)+('B'<<8)+'I')
-// little-endian "IBSP"
-
-#if defined(ENGINE_IOQ3)
-#define BSP_VERSION			46
-#elif defined(ENGINE_IORTCW)
-#define BSP_VERSION			47
-#else
-#error Engine undefined
-#endif
-
-#if defined(ENGINE_IOQ3)
-#define	MAX_MAP_MODELS		0x400
-#elif defined(ENGINE_IORTCW)
-#define	MAX_MAP_MODELS		0x800
-#else
-#error Engine undefined
-#endif
-
-#define	MAX_MAP_BRUSHES		0x8000
-#define	MAX_MAP_ENTITIES	0x800
-#define	MAX_MAP_ENTSTRING	0x40000
-#define	MAX_MAP_SHADERS		0x400
-
-#define	MAX_MAP_AREAS		0x100	// MAX_MAP_AREA_BYTES in q_shared must match!
-#define	MAX_MAP_FOGS		0x100
-#define	MAX_MAP_PLANES		0x20000
-#define	MAX_MAP_NODES		0x20000
-#define	MAX_MAP_BRUSHSIDES	0x20000
-#define	MAX_MAP_LEAFS		0x20000
-#define	MAX_MAP_LEAFFACES	0x20000
-#define	MAX_MAP_LEAFBRUSHES 0x40000
-#define	MAX_MAP_PORTALS		0x20000
-#define	MAX_MAP_LIGHTING	0x800000
-#define	MAX_MAP_LIGHTGRID	0x800000
-#define	MAX_MAP_VISIBILITY	0x200000
-
-#define	MAX_MAP_DRAW_SURFS	0x20000
-#define	MAX_MAP_DRAW_VERTS	0x80000
-#define	MAX_MAP_DRAW_INDEXES	0x80000
 	
-// key / value pair sizes in the entities lump
-#define	MAX_KEY				32
-#define	MAX_VALUE			1024
-
-// the editor uses these predefined yaw angles to orient entities up or down
-#define	ANGLE_UP			-1
-#define	ANGLE_DOWN			-2
-
-#define	LIGHTMAP_WIDTH		128
-#define	LIGHTMAP_HEIGHT		128
-
-#define MAX_WORLD_COORD		( 128*1024 )
-#define MIN_WORLD_COORD		( -128*1024 )
-#define WORLD_SIZE			( MAX_WORLD_COORD - MIN_WORLD_COORD )
-
-typedef struct {
-	int		fileofs, filelen;
-} lump_t;
-
-#define	LUMP_ENTITIES		0
-#define	LUMP_SHADERS		1
-#define	LUMP_PLANES			2
-#define	LUMP_NODES			3
-#define	LUMP_LEAFS			4
-#define	LUMP_LEAFSURFACES	5
-#define	LUMP_LEAFBRUSHES	6
-#define	LUMP_MODELS			7
-#define	LUMP_BRUSHES		8
-#define	LUMP_BRUSHSIDES		9
-#define	LUMP_DRAWVERTS		10
-#define	LUMP_DRAWINDEXES	11
-#define	LUMP_FOGS			12
-#define	LUMP_SURFACES		13
-#define	LUMP_LIGHTMAPS		14
-#define	LUMP_LIGHTGRID		15
-#define	LUMP_VISIBILITY		16
-#define	HEADER_LUMPS		17
-
-typedef struct {
-	int			ident;
-	int			version;
-
-	lump_t		lumps[HEADER_LUMPS];
-} dheader_t;
-
-typedef struct {
-	float		mins[3], maxs[3];
-	int			firstSurface, numSurfaces;
-	int			firstBrush, numBrushes;
-} dmodel_t;
-
-typedef struct {
-	char		shader[MAX_QPATH];
-	int			surfaceFlags;
-	int			contentFlags;
-} dshader_t;
-
-// planes x^1 is allways the opposite of plane x
-
-typedef struct {
-	float		normal[3];
-	float		dist;
-} dplane_t;
-
-typedef struct {
-	int			planeNum;
-	int			children[2];	// negative numbers are -(leafs+1), not nodes
-	int			mins[3];		// for frustom culling
-	int			maxs[3];
-} dnode_t;
-
-typedef struct {
-	int			cluster;			// -1 = opaque cluster (do I still store these?)
-	int			area;
-
-	int			mins[3];			// for frustum culling
-	int			maxs[3];
-
-	int			firstLeafSurface;
-	int			numLeafSurfaces;
-
-	int			firstLeafBrush;
-	int			numLeafBrushes;
-} dleaf_t;
-
-typedef struct {
-	int			planeNum;			// positive plane side faces out of the leaf
-	int			shaderNum;
-} dbrushside_t;
-
-typedef struct {
-	int			firstSide;
-	int			numSides;
-	int			shaderNum;		// the shader that determines the contents flags
-} dbrush_t;
-
-typedef struct {
-	char		shader[MAX_QPATH];
-	int			brushNum;
-	int			visibleSide;	// the brush side that ray tests need to clip against (-1 == none)
-} dfog_t;
-
-typedef struct {
-	vec3_t		xyz;
-	float		st[2];
-	float		lightmap[2];
-	vec3_t		normal;
-	byte		color[4];
-} drawVert_t;
-
-typedef enum {
-	MST_BAD,
-	MST_PLANAR,
-	MST_PATCH,
-	MST_TRIANGLE_SOUP,
-	MST_FLARE
-} mapSurfaceType_t;
-
-typedef struct {
-	int			shaderNum;
-	int			fogNum;
-	int			surfaceType;
-
-	int			firstVert;
-	int			numVerts;
-
-	int			firstIndex;
-	int			numIndexes;
-
-	int			lightmapNum;
-	int			lightmapX, lightmapY;
-	int			lightmapWidth, lightmapHeight;
-
-	vec3_t		lightmapOrigin;
-	vec3_t		lightmapVecs[3];	// for patches, [0] and [1] are lodbounds
-
-	int			patchWidth;
-	int			patchHeight;
-} dsurface_t;
-
+std::unique_ptr<World> s_world;
 static const int MAX_VERTS_ON_POLY = 64;
-
-const char *Entity::findValue(const char *key, const char *defaultValue) const
-{
-	for (size_t i = 0; i < nKvps; i++)
-	{
-		const EntityKVP &kvp = kvps[i];
-
-		if (!util::Stricmp(kvp.key, key))
-			return kvp.value;
-	}
-
-	return defaultValue;
-}
-
-struct World
-{
-	static const size_t s_maxWorldGeometryBuffers = 8;
-
-	enum class SurfaceType
-	{
-		Ignore, /// Ignore this surface when rendering. e.g. material has SURF_NODRAW surfaceFlags 
-		Face,
-		Mesh,
-		Patch,
-		Flare
-	};
-
-	struct CullInfoType
-	{
-		enum
-		{
-			None = 0,
-			Box = 1 << 0,
-			Plane = 1 << 1,
-			Sphere = 1 << 2
-		};
-	};
-
-	struct CullInfo
-	{
-		int type;
-		Bounds bounds;
-		vec3 localOrigin;
-		float radius;
-		Plane plane;
-	};
-
-	struct Surface
-	{
-		~Surface()
-		{
-			if (patch)
-				Patch_Free(patch);
-		}
-
-		SurfaceType type;
-		Material *material;
-		int fogIndex;
-		int flags; // SURF *
-		int contentFlags;
-		std::vector<uint16_t> indices;
-
-		/// Which geometry buffer to use.
-		size_t bufferIndex;
-
-		CullInfo cullinfo;
-
-		// SurfaceType::Patch
-		Patch *patch = nullptr;
-
-		/// Used at runtime to avoid adding duplicate visible surfaces.
-		int duplicateId = -1;
-
-		/// Used at runtime to avoid processing surfaces multiple times when adding a decal.
-		int decalDuplicateId = -1;
-
-		/// @remarks Used by CPU deforms only.
-		uint32_t firstVertex;
-
-		/// @remarks Used by CPU deforms only.
-		uint32_t nVertices;
-	};
-
-	struct Node
-	{
-		// common with leaf and node
-		bool leaf;
-		Bounds bounds;
-
-		// node specific
-		Plane *plane;
-		Node *children[2];
-
-		// leaf specific
-		int cluster;
-		int area;
-		int firstSurface; // index into leafSurfaces_
-		int nSurfaces;
-	};
-
-	struct BatchedSurface
-	{
-		Material *material;
-		int fogIndex;
-		int surfaceFlags;
-		int contentFlags;
-
-		/// @remarks Undefined if the material has CPU deforms.
-		size_t bufferIndex;
-
-		uint32_t firstIndex;
-		uint32_t nIndices;
-
-		/// @remarks Used by CPU deforms only.
-		uint32_t firstVertex;
-
-		/// @remarks Used by CPU deforms only.
-		uint32_t nVertices;
-	};
-
-	struct VisCache
-	{
-		static const size_t maxSkies = 4;
-		size_t nSkies = 0;
-		Material *skyMaterials[maxSkies];
-		std::vector<Vertex> skyVertices[maxSkies];
-
-		Node *lastCameraLeaf = nullptr;
-		uint8_t lastAreaMask[MAX_MAP_AREA_BYTES];
-
-		/// The merged bounds of all visible leaves.
-		Bounds bounds;
-
-		/// Surfaces visible from the camera leaf cluster.
-		std::vector<Surface *> surfaces;
-
-		/// Visible surfaces batched by material.
-		std::vector<BatchedSurface> batchedSurfaces;
-
-		DynamicIndexBuffer indexBuffers[s_maxWorldGeometryBuffers];
-
-		/// Temporary index data populated at runtime when surface visibility changes.
-		std::vector<uint16_t> indices[s_maxWorldGeometryBuffers];
-
-		/// Portal surface visible to the PVS.
-		std::vector<Surface *> portalSurfaces;
-
-		struct Portal
-		{
-			const renderer::Entity *entity;
-			bool isMirror;
-			Plane plane;
-			Surface *surface;
-		};
-
-		/// Portal surfaces visible to the camera.
-		std::vector<Portal> cameraPortalSurfaces;
-
-		std::vector<Vertex> cpuDeformVertices;
-		std::vector<uint16_t> cpuDeformIndices;
-
-		/// Reflective surfaces visible to the PVS.
-		std::vector<Surface *> reflectiveSurfaces;
-
-		struct Reflective
-		{
-			Plane plane;
-			Surface *surface;
-		};
-
-		/// Reflective surfaces visible to the Camera.
-		std::vector<Reflective> cameraReflectiveSurfaces;
-	};
-
-	char name[MAX_QPATH]; // ie: maps/tim_dm2.bsp
-	char baseName[MAX_QPATH]; // ie: tim_dm2
-
-	std::vector<char> entityString;
-	char *entityParsePoint = nullptr;
-
-	struct Fog
-	{
-		int originalBrushNumber;
-		Bounds bounds;
-
-		unsigned colorInt; // in packed byte format
-		float tcScale; // texture coordinate vector scales
-		MaterialFogParms parms;
-
-		// for clipping distance in fog when outside
-		bool hasSurface;
-		vec4 surface;
-	};
-
-	std::vector<Fog> fogs;
-
-	std::vector<Entity> entities;
-	const int lightmapSize = 128;
-	vec2i lightmapAtlasSize; // In cells. e.g. 2x2 is 256x256 (lightmapSize).
-	std::vector<Texture *> lightmapAtlases;
-	int nLightmapsPerAtlas;
-	vec3 lightGridSize = { 64, 64, 128 };
-	vec3 lightGridInverseSize;
-	std::vector<uint8_t> lightGridData;
-	vec3 lightGridOrigin;
-	vec3i lightGridBounds;
-
-	struct MaterialDef
-	{
-		char name[MAX_QPATH];
-		int surfaceFlags;
-		int contentFlags;
-	};
-
-	std::vector<MaterialDef> materials;
-	std::vector<Plane> planes;
-
-	struct ModelDef
-	{
-		size_t firstSurface;
-		size_t nSurfaces;
-		Bounds bounds;
-	};
-
-	std::vector<ModelDef> modelDefs;
-
-	/// All model surfaces.
-	std::vector<Surface> surfaces;
-
-	VertexBuffer vertexBuffers[s_maxWorldGeometryBuffers];
-
-	/// Vertex data populated at load time.
-	std::vector<Vertex> vertices[s_maxWorldGeometryBuffers];
-
-	/// Incremented when a surface won't fit in the current geometry buffer (16-bit indices).
-	size_t currentGeometryBuffer = 0;
-
-	std::vector<Node> nodes;
-	std::vector<int> leafSurfaces;
-
-	/// Index into nodes_ for the first leaf.
-	size_t firstLeaf;
-
-	int nClusters;
-	int clusterBytes;
-	const uint8_t *visData = nullptr;
-	std::vector<uint8_t> internalVisData;
-	std::vector<std::unique_ptr<VisCache>> visCaches;
-
-	/// Used at runtime to avoid adding duplicate visible surfaces.
-	/// @remarks Incremented once everytime UpdateVisCache is called.
-	int duplicateSurfaceId = 0;
-
-	int decalDuplicateSurfaceId = 0;
-};
-
-static std::unique_ptr<World> s_world;
 
 static vec2 AtlasTexCoord(vec2 uv, int index, vec2i lightmapAtlasSize)
 {
@@ -475,7 +39,7 @@ static vec2 AtlasTexCoord(vec2 uv, int index, vec2i lightmapAtlasSize)
 	return result;
 }
 
-static bool SurfaceCompare(const World::Surface *s1, const World::Surface *s2)
+static bool SurfaceCompare(const Surface *s1, const Surface *s2)
 {
 	if (s1->material->index < s2->material->index)
 	{
@@ -517,13 +81,13 @@ public:
 
 	Material *getMaterial(size_t surfaceNo) const override
 	{
-		const World::ModelDef &def = s_world->modelDefs[index_];
+		const ModelDef &def = s_world->modelDefs[index_];
 
 		// if it's out of range, return the first surface
 		if (surfaceNo >= (int)def.nSurfaces)
 			surfaceNo = 0;
 
-		const World::Surface &surface = s_world->surfaces[def.firstSurface + surfaceNo];
+		const Surface &surface = s_world->surfaces[def.firstSurface + surfaceNo];
 
 		if (surface.material->lightmapIndex > MaterialLightmapId::None)
 		{
@@ -580,17 +144,17 @@ public:
 
 	void buildGeometry()
 	{
-		const World::ModelDef &def = s_world->modelDefs[index_];
+		const ModelDef &def = s_world->modelDefs[index_];
 
 		// Grab surfaces we aren't ignoring and sort them.
-		std::vector<const World::Surface *> surfaces;
+		std::vector<const Surface *> surfaces;
 
 		for (size_t i = 0; i < def.nSurfaces; i++)
 		{
-			const World::Surface &surface = s_world->surfaces[def.firstSurface + i];
+			const Surface &surface = s_world->surfaces[def.firstSurface + i];
 
 			// Ignore flares.
-			if (surface.type == World::SurfaceType::Ignore || surface.type == World::SurfaceType::Flare)
+			if (surface.type == SurfaceType::Ignore || surface.type == SurfaceType::Flare)
 				continue;
 
 			surfaces.push_back(&surface);
@@ -603,9 +167,9 @@ public:
 
 		for (size_t i = 0; i < surfaces.size(); i++)
 		{
-			const World::Surface *surface = surfaces[i];
+			const Surface *surface = surfaces[i];
 			const bool isLast = i == surfaces.size() - 1;
-			const World::Surface *nextSurface = isLast ? nullptr : surfaces[i + 1];
+			const Surface *nextSurface = isLast ? nullptr : surfaces[i + 1];
 
 			// Create new batch on certain surface state changes.
 			if (!nextSurface || nextSurface->material != surface->material || nextSurface->fogIndex != surface->fogIndex || nextSurface->bufferIndex != surface->bufferIndex)
@@ -622,7 +186,7 @@ public:
 
 				for (size_t j = firstSurface; j <= i; j++)
 				{
-					const World::Surface *s = surfaces[j];
+					const Surface *s = surfaces[j];
 					const size_t copyIndex = indices.size();
 					indices.resize(indices.size() + s->indices.size());
 					memcpy(&indices[copyIndex], &s->indices[0], s->indices.size() * sizeof(uint16_t));
@@ -659,8 +223,8 @@ private:
 
 	int index_;
 	std::vector<BatchedSurface> batchedSurfaces_;
-	std::vector<uint16_t> indices_[World::s_maxWorldGeometryBuffers];
-	IndexBuffer indexBuffers_[World::s_maxWorldGeometryBuffers];
+	std::vector<uint16_t> indices_[s_maxWorldGeometryBuffers];
+	IndexBuffer indexBuffers_[s_maxWorldGeometryBuffers];
 };
 
 static Material *FindMaterial(int materialIndex, int lightmapIndex)
@@ -684,14 +248,14 @@ static Material *FindMaterial(int materialIndex, int lightmapIndex)
 	return material;
 }
 
-static void SetSurfaceGeometry(World::Surface *surface, const Vertex *vertices, int nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex)
+static void SetSurfaceGeometry(Surface *surface, const Vertex *vertices, int nVertices, const uint16_t *indices, size_t nIndices, int lightmapIndex)
 {
 	std::vector<Vertex> *bufferVertices = &s_world->vertices[s_world->currentGeometryBuffer];
 
 	// Increment the current vertex buffer if the vertices won't fit.
 	if (bufferVertices->size() + nVertices >= UINT16_MAX)
 	{
-		if (++s_world->currentGeometryBuffer == s_world->s_maxWorldGeometryBuffers)
+		if (++s_world->currentGeometryBuffer == s_maxWorldGeometryBuffers)
 			interface::Error("Not enough world vertex buffers");
 
 		bufferVertices = &s_world->vertices[s_world->currentGeometryBuffer];
@@ -893,7 +457,7 @@ void Load(const char *name)
 
 	for (size_t i = 0; i < s_world->fogs.size(); i++)
 	{
-		World::Fog &f = s_world->fogs[i];
+		Fog &f = s_world->fogs[i];
 		const dfog_t &ff = fileFogs[i];
 		f.originalBrushNumber = LittleLong(ff.brushNum);
 
@@ -1042,7 +606,7 @@ void Load(const char *name)
 
 	for (size_t i = 0; i < s_world->modelDefs.size(); i++)
 	{
-		World::ModelDef &m = s_world->modelDefs[i];
+		ModelDef &m = s_world->modelDefs[i];
 		const dmodel_t &fm = fileModels[i];
 		m.firstSurface = LittleLong(fm.firstSurface);
 		m.nSurfaces = LittleLong(fm.numSurfaces);
@@ -1083,7 +647,7 @@ void Load(const char *name)
 	auto fileMaterial = (const dshader_t *)(fileData + header->lumps[LUMP_SHADERS].fileofs);
 	s_world->materials.resize(header->lumps[LUMP_SHADERS].filelen / sizeof(*fileMaterial));
 
-	for (World::MaterialDef &m : s_world->materials)
+	for (MaterialDef &m : s_world->materials)
 	{
 		util::Strncpyz(m.name, fileMaterial->shader, sizeof(m.name));
 		m.surfaceFlags = LittleLong(fileMaterial->surfaceFlags);
@@ -1128,7 +692,7 @@ void Load(const char *name)
 
 	for (size_t i = 0; i < s_world->surfaces.size(); i++)
 	{
-		World::Surface &s = s_world->surfaces[i];
+		Surface &s = s_world->surfaces[i];
 		const dsurface_t &fs = fileSurfaces[i];
 		s.fogIndex = LittleLong(fs.fogNum); // -1 means no fog
 		const int type = LittleLong(fs.surfaceType);
@@ -1148,17 +712,17 @@ void Load(const char *name)
 		// We may have a nodraw surface, because they might still need to be around for movement clipping.
 		if (s.material->surfaceFlags & SURF_NODRAW || s_world->materials[shaderNum].surfaceFlags & SURF_NODRAW)
 		{
-			s.type = World::SurfaceType::Ignore;
+			s.type = SurfaceType::Ignore;
 		}
 		else if (type == MST_PLANAR)
 		{
-			s.type = World::SurfaceType::Face;
+			s.type = SurfaceType::Face;
 			const int firstVertex = LittleLong(fs.firstVert);
 			const int nVertices = LittleLong(fs.numVerts);
 			SetSurfaceGeometry(&s, &vertices[firstVertex], nVertices, &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex);
 
 			// Setup cullinfo.
-			s.cullinfo.type = World::CullInfoType::Box | World::CullInfoType::Plane;
+			s.cullinfo.type = CullInfoType::Box | CullInfoType::Plane;
 			s.cullinfo.bounds.setupForAddingPoints();
 
 			for (int i = 0; i < nVertices; i++)
@@ -1177,7 +741,7 @@ void Load(const char *name)
 		}
 		else if (type == MST_TRIANGLE_SOUP)
 		{
-			s.type = World::SurfaceType::Mesh;
+			s.type = SurfaceType::Mesh;
 			const int firstVertex = LittleLong(fs.firstVert);
 			const int nVertices = LittleLong(fs.numVerts);
 			SetSurfaceGeometry(&s, &vertices[firstVertex], nVertices, &indices[LittleLong(fs.firstIndex)], LittleLong(fs.numIndexes), lightmapIndex);
@@ -1192,13 +756,13 @@ void Load(const char *name)
 		}
 		else if (type == MST_PATCH)
 		{
-			s.type = World::SurfaceType::Patch;
+			s.type = SurfaceType::Patch;
 			s.patch = Patch_Subdivide(LittleLong(fs.patchWidth), LittleLong(fs.patchHeight), &vertices[LittleLong(fs.firstVert)]);
 			SetSurfaceGeometry(&s, s.patch->verts, s.patch->numVerts, s.patch->indexes, s.patch->numIndexes, lightmapIndex);
 		}
 		else if (type == MST_FLARE)
 		{
-			s.type = World::SurfaceType::Flare;
+			s.type = SurfaceType::Flare;
 		}
 	}
 
@@ -1228,7 +792,7 @@ void Load(const char *name)
 
 	for (size_t i = 0; i < nNodes; i++)
 	{
-		World::Node &n = s_world->nodes[i];
+		Node &n = s_world->nodes[i];
 		const dnode_t &fn = fileNodes[i];
 
 		n.leaf = false;
@@ -1247,7 +811,7 @@ void Load(const char *name)
 
 	for (size_t i = 0; i < nLeaves; i++)
 	{
-		World::Node &l = s_world->nodes[s_world->firstLeaf + i];
+		Node &l = s_world->nodes[s_world->firstLeaf + i];
 		const dleaf_t &fl = fileLeaves[i];
 
 		l.leaf = true;
@@ -1414,16 +978,6 @@ static void R_ChopPolyBehindPlane(int numInPoints, const vec3 *inPoints, int *nu
 	}
 }
 
-size_t GetNumEntities()
-{
-	return (int)s_world->entities.size();
-}
-
-const Entity &GetEntity(size_t index)
-{
-	return s_world->entities[index];
-}
-
 vec2i GetLightmapSize()
 {
 	return vec2i(s_world->lightmapAtlasSize.x * s_world->lightmapSize, s_world->lightmapAtlasSize.y * s_world->lightmapSize);
@@ -1449,20 +1003,10 @@ int GetNumSurfaces(int modelIndex)
 	return (int)s_world->modelDefs[modelIndex].nSurfaces;
 }
 
-Surface GetSurface(int modelIndex, int surfaceIndex)
+const Surface &GetSurface(int modelIndex, int surfaceIndex)
 {
 	// surfaceIndex arg is relative to the models' first surface
-	const World::Surface &surface = s_world->surfaces[s_world->modelDefs[modelIndex].firstSurface + surfaceIndex];
-	Surface result;
-	result.bounds = surface.cullinfo.bounds;
-	result.contentFlags = surface.contentFlags;
-	result.surfaceFlags = surface.flags;
-	result.isValid = (surface.type != World::SurfaceType::Ignore && surface.type != World::SurfaceType::Flare);
-	result.material = surface.material;
-	result.nIndices = (int)surface.indices.size();
-	result.indices = surface.indices.data();
-	result.vertexBufferIndex = (int)surface.bufferIndex;
-	return result;
+	return s_world->surfaces[s_world->modelDefs[modelIndex].firstSurface + surfaceIndex];
 }
 
 int GetNumVertexBuffers()
@@ -1591,9 +1135,9 @@ void SampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec
 	lightDir->normalizeFast();
 }
 
-static World::Node *LeafFromPosition(vec3 pos)
+static Node *LeafFromPosition(vec3 pos)
 {
-	World::Node *node = &s_world->nodes[0];
+	Node *node = &s_world->nodes[0];
 
 	for (;;)
 	{
@@ -1614,7 +1158,7 @@ bool InPvs(vec3 position)
 
 bool InPvs(vec3 position1, vec3 position2)
 {
-	World::Node *leaf = LeafFromPosition(position1);
+	Node *leaf = LeafFromPosition(position1);
 	const uint8_t *vis = interface::CM_ClusterPVS(leaf->cluster);
 	leaf = LeafFromPosition(position2);
 	return ((vis[leaf->cluster >> 3] & (1 << (leaf->cluster & 7))) != 0);
@@ -1624,7 +1168,7 @@ int FindFogIndex(vec3 position, float radius)
 {
 	for (int i = 0; i < (int)s_world->fogs.size(); i++)
 	{
-		const World::Fog &fog = s_world->fogs[i];
+		const Fog &fog = s_world->fogs[i];
 		int j;
 
 		for (j = 0; j < 3; j++)
@@ -1657,7 +1201,7 @@ void CalculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMa
 	assert(fogDistance);
 	assert(fogDepth);
 	assert(eyeT);
-	const World::Fog &fog = s_world->fogs[fogIndex];
+	const Fog &fog = s_world->fogs[fogIndex];
 
 	if (fogColor)
 	{
@@ -1694,7 +1238,7 @@ void CalculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMa
 	}
 }
 
-static void BoxSurfaces_recursive(World::Node *node, Bounds bounds, World::Surface **list, int listsize, int *listlength, vec3 dir)
+static void BoxSurfaces_recursive(Node *node, Bounds bounds, Surface **list, int listsize, int *listlength, vec3 dir)
 {
 	// do the tail recursion in a loop
 	while (!node->leaf)
@@ -1719,7 +1263,7 @@ static void BoxSurfaces_recursive(World::Node *node, Bounds bounds, World::Surfa
 	// add the individual surfaces
 	for (int i = 0; i < node->nSurfaces; i++)
 	{
-		World::Surface *surface = &s_world->surfaces[s_world->leafSurfaces[node->firstSurface + i]];
+		Surface *surface = &s_world->surfaces[s_world->leafSurfaces[node->firstSurface + i]];
 
 		if (*listlength >= listsize)
 			break;
@@ -1730,7 +1274,7 @@ static void BoxSurfaces_recursive(World::Node *node, Bounds bounds, World::Surfa
 			surface->decalDuplicateId = s_world->decalDuplicateSurfaceId;
 		}
 		// extra check for surfaces to avoid list overflows
-		else if (surface->type == World::SurfaceType::Face)
+		else if (surface->type == SurfaceType::Face)
 		{
 			// the face plane should go through the box
 			int s = surface->cullinfo.plane.testBounds(bounds);
@@ -1745,7 +1289,7 @@ static void BoxSurfaces_recursive(World::Node *node, Bounds bounds, World::Surfa
 				surface->decalDuplicateId = s_world->decalDuplicateSurfaceId;
 			}
 		}
-		else if (surface->type != World::SurfaceType::Patch && surface->type != World::SurfaceType::Mesh)
+		else if (surface->type != SurfaceType::Patch && surface->type != SurfaceType::Mesh)
 		{
 			surface->decalDuplicateId = s_world->decalDuplicateSurfaceId;
 		}
@@ -1845,16 +1389,16 @@ int MarkFragments(int numPoints, const vec3 *points, vec3 projection, int maxPoi
 	numPlanes = numPoints + 2;
 
 	numsurfaces = 0;
-	World::Surface *surfaces[64];
+	Surface *surfaces[64];
 	BoxSurfaces_recursive(&s_world->nodes[0], bounds, surfaces, 64, &numsurfaces, projectionDir);
 	returnedPoints = 0;
 	returnedFragments = 0;
 
 	for (i = 0; i < numsurfaces; i++)
 	{
-		World::Surface *surface = surfaces[i];
+		Surface *surface = surfaces[i];
 
-		if (surface->type == World::SurfaceType::Patch)
+		if (surface->type == SurfaceType::Patch)
 		{
 			for (m = 0; m < surface->patch->height - 1; m++)
 			{
@@ -1909,7 +1453,7 @@ int MarkFragments(int numPoints, const vec3 *points, vec3 projection, int maxPoi
 				}
 			}
 		}
-		else if (surface->type == World::SurfaceType::Face)
+		else if (surface->type == SurfaceType::Face)
 		{
 			// check the normal of this face
 			if (vec3::dotProduct(surface->cullinfo.plane.normal, projectionDir) > -0.5)
@@ -1931,7 +1475,7 @@ int MarkFragments(int numPoints, const vec3 *points, vec3 projection, int maxPoi
 					return returnedFragments;	// not enough space for more fragments
 			}
 		}
-		else if (surface->type == World::SurfaceType::Mesh)
+		else if (surface->type == SurfaceType::Mesh)
 		{
 			uint16_t *tri;
 
@@ -1988,12 +1532,12 @@ bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mai
 	assert(portalCamera);
 	assert(isMirror);
 	assert(portalPlane);
-	const std::unique_ptr<World::VisCache> &visCache = s_world->visCaches[visCacheId];
+	const std::unique_ptr<VisCache> &visCache = s_world->visCaches[visCacheId];
 
 	// Calculate which portal surfaces in the PVS are visible to the camera.
 	visCache->cameraPortalSurfaces.clear();
 
-	for (World::Surface *portalSurface : visCache->portalSurfaces)
+	for (Surface *portalSurface : visCache->portalSurfaces)
 	{
 		// Trivially reject.
 		if (util::IsGeometryOffscreen(mvp, portalSurface->indices.data(), portalSurface->indices.size(), s_world->vertices[portalSurface->bufferIndex].data()))
@@ -2055,7 +1599,7 @@ bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mai
 			continue;
 
 		// Portal surface is visible to the camera.
-		World::VisCache::Portal portal;
+		VisCache::Portal portal;
 		portal.entity = portalEntity;
 		portal.isMirror = isPortalMirror;
 		portal.plane = plane;
@@ -2067,7 +1611,7 @@ bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mai
 		return false;
 
 	// All visible portal surfaces are required for writing to the stencil buffer, but we only need the first one to figure out the transform.
-	const World::VisCache::Portal &portal = visCache->cameraPortalSurfaces[0];
+	const VisCache::Portal &portal = visCache->cameraPortalSurfaces[0];
 
 	// Portal surface is visible.
 	// Calculate portal camera transform.
@@ -2140,12 +1684,12 @@ bool CalculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3
 {
 	assert(camera);
 	assert(plane);
-	const std::unique_ptr<World::VisCache> &visCache = s_world->visCaches[visCacheId];
+	const std::unique_ptr<VisCache> &visCache = s_world->visCaches[visCacheId];
 
 	// Calculate which reflective surfaces in the PVS are visible to the camera.
 	visCache->cameraReflectiveSurfaces.clear();
 
-	for (World::Surface *surface : visCache->reflectiveSurfaces)
+	for (Surface *surface : visCache->reflectiveSurfaces)
 	{
 		// Trivially reject.
 		if (util::IsGeometryOffscreen(mvp, surface->indices.data(), surface->indices.size(), s_world->vertices[surface->bufferIndex].data()))
@@ -2156,7 +1700,7 @@ bool CalculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3
 			continue;
 
 		// Reflective surface is visible to the camera.
-		World::VisCache::Reflective reflective;
+		VisCache::Reflective reflective;
 		reflective.surface = surface;
 
 		if (surface->indices.size() >= 3)
@@ -2179,7 +1723,7 @@ bool CalculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3
 		return false;
 
 	// All visible reflective surfaces are required for writing to the stencil buffer, but we only need the first one to figure out the transform.
-	const World::VisCache::Reflective &reflective = visCache->cameraReflectiveSurfaces[0];
+	const VisCache::Reflective &reflective = visCache->cameraReflectiveSurfaces[0];
 	Transform surfaceTransform, cameraTransform;
 	surfaceTransform.rotation[0] = reflective.plane.normal;
 	surfaceTransform.rotation[1] = surfaceTransform.rotation[0].perpendicular();
@@ -2200,9 +1744,9 @@ bool CalculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3
 void RenderPortal(uint8_t visCacheId, DrawCallList *drawCallList)
 {
 	assert(drawCallList);
-	std::unique_ptr<World::VisCache> &visCache = s_world->visCaches[visCacheId];
+	std::unique_ptr<VisCache> &visCache = s_world->visCaches[visCacheId];
 
-	for (const World::VisCache::Portal &portal : visCache->cameraPortalSurfaces)
+	for (const VisCache::Portal &portal : visCache->cameraPortalSurfaces)
 	{
 		bgfx::TransientIndexBuffer tib;
 
@@ -2230,9 +1774,9 @@ void RenderPortal(uint8_t visCacheId, DrawCallList *drawCallList)
 void RenderReflective(uint8_t visCacheId, DrawCallList *drawCallList)
 {
 	assert(drawCallList);
-	std::unique_ptr<World::VisCache> &visCache = s_world->visCaches[visCacheId];
+	std::unique_ptr<VisCache> &visCache = s_world->visCaches[visCacheId];
 
-	for (const World::VisCache::Reflective &reflective : visCache->cameraReflectiveSurfaces)
+	for (const VisCache::Reflective &reflective : visCache->cameraReflectiveSurfaces)
 	{
 		bgfx::TransientIndexBuffer tib;
 
@@ -2260,13 +1804,13 @@ void RenderReflective(uint8_t visCacheId, DrawCallList *drawCallList)
 
 uint8_t CreateVisCache()
 {
-	s_world->visCaches.push_back(std::make_unique<World::VisCache>());
+	s_world->visCaches.push_back(std::make_unique<VisCache>());
 	return uint8_t(s_world->visCaches.size() - 1);
 }
 
-static void AppendSkySurfaceGeometry(uint8_t visCacheId, size_t skyIndex, const World::Surface &surface)
+static void AppendSkySurfaceGeometry(uint8_t visCacheId, size_t skyIndex, const Surface &surface)
 {
-	std::unique_ptr<World::VisCache> &visCache = s_world->visCaches[visCacheId];
+	std::unique_ptr<VisCache> &visCache = s_world->visCaches[visCacheId];
 	const size_t startVertex = visCache->skyVertices[skyIndex].size();
 	visCache->skyVertices[skyIndex].resize(visCache->skyVertices[skyIndex].size() + surface.indices.size());
 
@@ -2279,10 +1823,10 @@ static void AppendSkySurfaceGeometry(uint8_t visCacheId, size_t skyIndex, const 
 void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *areaMask)
 {
 	assert(areaMask);
-	std::unique_ptr<World::VisCache> &visCache = s_world->visCaches[visCacheId];
+	std::unique_ptr<VisCache> &visCache = s_world->visCaches[visCacheId];
 
 	// Get the PVS for the camera leaf cluster.
-	World::Node *cameraLeaf = LeafFromPosition(cameraPosition);
+	Node *cameraLeaf = LeafFromPosition(cameraPosition);
 
 	// Build a list of visible surfaces.
 	// Don't need to refresh visible surfaces if the camera cluster or the area bitmask haven't changed.
@@ -2292,7 +1836,7 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 		visCache->surfaces.clear();
 		visCache->nSkies = 0;
 
-		for (size_t i = 0; i < World::VisCache::maxSkies; i++)
+		for (size_t i = 0; i < VisCache::maxSkies; i++)
 		{
 			visCache->skyMaterials[i] = nullptr;
 		}
@@ -2306,7 +1850,7 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 
 		for (size_t i = s_world->firstLeaf; i < s_world->nodes.size(); i++)
 		{
-			World::Node &leaf = s_world->nodes[i];
+			Node &leaf = s_world->nodes[i];
 
 			// Check PVS.
 			if (pvs && !(pvs[leaf.cluster >> 3] & (1 << (leaf.cluster & 7))))
@@ -2322,7 +1866,7 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 			for (int j = 0; j < leaf.nSurfaces; j++)
 			{
 				const int si = s_world->leafSurfaces[leaf.firstSurface + j];
-				World::Surface &surface = s_world->surfaces[si];
+				Surface &surface = s_world->surfaces[si];
 
 				// Ignore surfaces in brush models.
 				if (si < 0 || si >= (int)s_world->modelDefs[0].nSurfaces)
@@ -2333,7 +1877,7 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 					continue;
 
 				// Ignore flares.
-				if (surface.type == World::SurfaceType::Ignore || surface.type == World::SurfaceType::Flare)
+				if (surface.type == SurfaceType::Ignore || surface.type == SurfaceType::Flare)
 					continue;
 
 				// Add the surface.
@@ -2344,7 +1888,7 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 					// Special case for sky surfaces.
 					size_t k;
 
-					for (k = 0; k < World::VisCache::maxSkies; k++)
+					for (k = 0; k < VisCache::maxSkies; k++)
 					{
 						if (visCache->skyMaterials[k] == nullptr)
 						{
@@ -2358,7 +1902,7 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 							break;
 					}
 						
-					if (k == World::VisCache::maxSkies)
+					if (k == VisCache::maxSkies)
 					{
 						interface::PrintWarningf("Too many skies\n");
 					}
@@ -2405,14 +1949,14 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 
 		for (size_t i = 0; i < visCache->surfaces.size(); i++)
 		{
-			World::Surface *surface = visCache->surfaces[i];
+			Surface *surface = visCache->surfaces[i];
 			const bool isLast = i == visCache->surfaces.size() - 1;
-			World::Surface *nextSurface = isLast ? nullptr : visCache->surfaces[i + 1];
+			Surface *nextSurface = isLast ? nullptr : visCache->surfaces[i + 1];
 
 			// Create new batch on certain surface state changes.
 			if (!nextSurface || nextSurface->material != surface->material || nextSurface->fogIndex != surface->fogIndex || nextSurface->bufferIndex != surface->bufferIndex)
 			{
-				World::BatchedSurface bs;
+				BatchedSurface bs;
 				bs.contentFlags = surface->contentFlags;
 				bs.fogIndex = surface->fogIndex;
 				bs.material = surface->material;
@@ -2429,7 +1973,7 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 
 					for (size_t j = firstSurface; j <= i; j++)
 					{
-						World::Surface *s = visCache->surfaces[j];
+						Surface *s = visCache->surfaces[j];
 
 						// Make room in destination.
 						const size_t firstDestIndex = visCache->cpuDeformIndices.size();
@@ -2461,7 +2005,7 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 
 					for (size_t j = firstSurface; j <= i; j++)
 					{
-						World::Surface *s = visCache->surfaces[j];
+						Surface *s = visCache->surfaces[j];
 						const size_t copyIndex = indices.size();
 						indices.resize(indices.size() + s->indices.size());
 						memcpy(&indices[copyIndex], &s->indices[0], s->indices.size() * sizeof(uint16_t));
@@ -2505,9 +2049,9 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 void Render(uint8_t visCacheId, DrawCallList *drawCallList, const mat3 &sceneRotation)
 {
 	assert(drawCallList);
-	std::unique_ptr<World::VisCache> &visCache = s_world->visCaches[visCacheId];
+	std::unique_ptr<VisCache> &visCache = s_world->visCaches[visCacheId];
 
-	for (const World::BatchedSurface &surface : visCache->batchedSurfaces)
+	for (const BatchedSurface &surface : visCache->batchedSurfaces)
 	{
 		DrawCall dc;
 		dc.flags = 0;
@@ -2572,14 +2116,14 @@ void Render(uint8_t visCacheId, DrawCallList *drawCallList, const mat3 &sceneRot
 void PickMaterial()
 {
 	const Transform camera = main::GetMainCameraTransform();
-	const World::Surface *closestSurface = nullptr;
+	const Surface *closestSurface = nullptr;
 	float closestDistance = 10000.0f;
 
-	for (const World::ModelDef &model : s_world->modelDefs)
+	for (const ModelDef &model : s_world->modelDefs)
 	{
 		for (size_t si = 0; si < model.nSurfaces; si++)
 		{
-			const World::Surface &surface = s_world->surfaces[model.firstSurface + si];
+			const Surface &surface = s_world->surfaces[model.firstSurface + si];
 
 			for (size_t i = 0; i < surface.indices.size(); i += 3)
 			{
