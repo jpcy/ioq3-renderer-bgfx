@@ -1135,7 +1135,7 @@ void SampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec
 	lightDir->normalizeFast();
 }
 
-static Node *LeafFromPosition(vec3 pos)
+Node *LeafFromPosition(vec3 pos)
 {
 	Node *node = &s_world->nodes[0];
 

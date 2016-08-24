@@ -145,6 +145,8 @@ struct LightBaker
 	// area lights
 	std::vector<AreaLightTexture> areaLightTextures;
 	//std::vector<LightBaker::AreaLight> areaLights;
+	std::vector<uint8_t> areaLightVisData;
+	int areaLightClusterBytes;
 
 	// entity lights (point and spot)
 	vec3 ambientLight;
@@ -1116,6 +1118,40 @@ static void CreateAreaLights()
 			s_areaLights.push_back(std::move(light));
 		}
 	}
+
+	// Use the world PVS - leaf cluster to leaf cluster visibility - to precompute leaf cluster to area light visibility.
+	s_lightBaker->areaLightClusterBytes = (int)std::ceil(s_areaLights.size() / 8.0f); // Need 1 bit per area light.
+	s_lightBaker->areaLightVisData.resize(world::s_world->nClusters * s_lightBaker->areaLightClusterBytes);
+	memset(s_lightBaker->areaLightVisData.data(), 0, s_lightBaker->areaLightVisData.size());
+
+	for (int i = 0; i < world::s_world->nClusters; i++)
+	{
+		const uint8_t *worldPvs = &world::s_world->visData[i * world::s_world->clusterBytes];
+		uint8_t *areaLightPvs = &s_lightBaker->areaLightVisData[i * s_lightBaker->areaLightClusterBytes];
+
+		for (size_t j = world::s_world->firstLeaf; j < world::s_world->nodes.size(); j++)
+		{
+			world::Node &leaf = world::s_world->nodes[j];
+
+			if (!(worldPvs[leaf.cluster >> 3] & (1 << (leaf.cluster & 7))))
+				continue;
+
+			for (int k = 0; k < leaf.nSurfaces; k++)
+			{
+				const int surfaceIndex = world::s_world->leafSurfaces[leaf.firstSurface + k];
+
+				// If this surface is an area light, set the appropriate bit.
+				for (size_t l = 0; l < s_areaLights.size(); l++)
+				{
+					if (s_areaLights[l].surfaceIndex == surfaceIndex)
+					{
+						areaLightPvs[l >> 3] |= (1 << (l & 7));
+						break;
+					}
+				}
+			}
+		}
+	}
 }
 
 /*
@@ -1183,10 +1219,18 @@ static float PointToPolygonFormFactor(vec3 point, vec3 normal, const Winding &w)
 
 static vec3 BakeAreaLights(vec3 samplePosition, vec3 sampleNormal)
 {
+	world::Node *sampleLeaf = world::LeafFromPosition(samplePosition);
 	vec3 accumulatedLight;
 
-	for (const AreaLight &areaLight : s_areaLights)
+	for (size_t i = 0; i < s_areaLights.size(); i++)
 	{
+		const uint8_t *pvs = sampleLeaf->cluster == -1 ? nullptr : &s_lightBaker->areaLightVisData[sampleLeaf->cluster * s_lightBaker->areaLightClusterBytes];
+
+		if (pvs && !(pvs[i >> 3] & (1 << (i & 7))))
+			continue;
+
+		const AreaLight &areaLight = s_areaLights[i];
+
 		for (const AreaLightSample &areaLightSample : areaLight.samples)
 		{
 			vec3 dir(areaLightSample.position - samplePosition);

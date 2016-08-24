@@ -471,6 +471,7 @@ struct World
 
 extern std::unique_ptr<World> s_world;
 
+Node *LeafFromPosition(vec3 pos);
 int GetNumModels();
 int GetNumSurfaces(int modelIndex);
 const Surface &GetSurface(int modelIndex, int surfaceIndex);
