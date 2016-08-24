@@ -104,7 +104,6 @@ struct AreaLightSample
 
 struct AreaLight
 {
-	bool processed = false;
 	int modelIndex;
 	int surfaceIndex;
 	//Material *material;
@@ -1624,10 +1623,12 @@ void Update(int frameNo)
 
 		s_lightBaker->textureUploadFrameNo = frameNo;
 		s_lightBaker->status = LightBaker::Status::Finished;
-		const float toSeconds = 1.0f / (float)bx::getHPFrequency();
 		interface::Printf("Finished baking lights\n");
-		interface::Printf("   %0.2f seconds elapsed\n", (bx::getHPCounter() - s_lightBaker->startTime) * toSeconds);
+		interface::Printf("   %0.2f seconds elapsed\n", (bx::getHPCounter() - s_lightBaker->startTime) * (1.0f / (float)bx::getHPFrequency()));
 		interface::Printf("   %d luxels processed\n", s_lightBaker->nLuxelsProcessed);
+		interface::Printf("   %0.2f ms elapsed per luxel\n", (bx::getHPCounter() - s_lightBaker->startTime) * (1000.0f / (float)bx::getHPFrequency()) / s_lightBaker->nLuxelsProcessed);
+		interface::Printf("   %d area lights\n", (int)s_areaLights.size());
+		interface::Printf("   %d entity lights\n", (int)s_lightBaker->lights.size());
 	}
 	else if (status == LightBaker::Status::Finished)
 	{
