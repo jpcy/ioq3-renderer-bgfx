@@ -69,20 +69,143 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #endif
 #include "../embree2/rtcore.h"
 #include "../embree2/rtcore_ray.h"
-
 #include "stb_image_resize.h"
 #include "stb_image_write.h"
-
 #undef Status // unknown source. affects linux build.
+
+#define USE_LIGHT_BAKER_THREAD
+
+namespace renderer {
+namespace light_baker {
+
+struct AreaLightTexture
+{
+	const Material *material;
+	int width, height, nComponents;
+	std::vector<uint8_t> data;
+	vec4 normalizedColor;
+	vec4 averageColor;
+};
+
+struct Winding
+{
+	static const int maxPoints = 8;
+	vec3 p[maxPoints];
+	int numpoints;
+};
+
+struct AreaLightSample
+{
+	vec3 position;
+	vec2 texCoord;
+	float photons;
+	Winding winding;
+};
+
+struct AreaLight
+{
+	bool processed = false;
+	int modelIndex;
+	int surfaceIndex;
+	//Material *material;
+	const AreaLightTexture *texture;
+	std::vector<AreaLightSample> samples;
+};
+
+struct FaceFlags
+{
+	enum
+	{
+		Sky = 1<<0
+	};
+};
+
+struct Lightmap
+{
+	std::vector<vec4> color;
+	std::vector<uint8_t> colorBytes;
+};
+
+struct LightBaker
+{
+	enum class Status
+	{
+		NotStarted,
+		Running,
+		WaitingForTextureUpload,
+		Finished,
+		Cancelled,
+		Error
+	};
+
+#ifdef USE_LIGHT_BAKER_THREAD
+	SDL_mutex *mutex = nullptr;
+	SDL_Thread *thread;
+#endif
+
+	// area lights
+	std::vector<AreaLightTexture> areaLightTextures;
+	//std::vector<LightBaker::AreaLight> areaLights;
+
+	// entity lights (point and spot)
+	vec3 ambientLight;
+	std::vector<StaticLight> lights;
+
+	// jitter/multisampling
+	int nSamples;
+	static const int maxSamples = 16;
+	std::array<vec3, maxSamples> dirJitter, posJitter;
+
+	int textureUploadFrameNo; // lightmap textures were uploaded this frame
+	int64_t startTime;
+	int nLuxelsProcessed;
+	std::vector<Lightmap> lightmaps;
+	static const size_t maxErrorMessageLen = 2048;
+	char errorMessage[maxErrorMessageLen];
+
+	// embree
+	RTCDevice embreeDevice = nullptr;
+	RTCScene embreeScene = nullptr;
+	std::vector<uint8_t> faceFlags;
+
+	// mutex protected state
+	Status status;
+	int progress = 0;
+
+	~LightBaker()
+	{
+#ifdef USE_LIGHT_BAKER_THREAD
+		if (mutex)
+			SDL_DestroyMutex(mutex);
+#endif
+	}
+};
+
+static std::unique_ptr<LightBaker> s_lightBaker;
+static std::vector<AreaLight> s_areaLights;
+static const float areaScale = 0.25f;
+static const float formFactorValueScale = 3.0f;
+static const float pointScale = 7500.0f;
+static const float linearScale = 1.0f / 8000.0f;
+
+static bool DoesSurfaceOccludeLight(const world::Surface &surface)
+{
+	// Translucent surfaces (e.g. flames) shouldn't occlude.
+	// Not handling alpha-testing yet.
+	return surface.type != world::SurfaceType::Ignore && surface.type != world::SurfaceType::Flare && (surface.contentFlags & CONTENTS_TRANSLUCENT) == 0 && (surface.flags & SURF_ALPHASHADOW) == 0;
+}
+
+/*
+================================================================================
+EMBREE
+================================================================================
+*/
 
 #if defined(WIN32)
 #define EMBREE_LIB "embree.dll"
 #else
 #define EMBREE_LIB "libembree.so"
 #endif
-
-namespace renderer {
-namespace light_baker {
 
 extern "C"
 {
@@ -110,6 +233,147 @@ extern "C"
 	static EmbreeOccluded embreeOccluded = nullptr;
 	static EmbreeIntersect embreeIntersect = nullptr;
 }
+
+#define EMBREE_FUNCTION(func, type, name) func = (type)SDL_LoadFunction(so, name); if (!func) { interface::PrintWarningf("Error loading Embree function %s\n", name); return false; }
+
+static bool LoadEmbreeLibrary()
+{
+	// Load embree library if not already loaded.
+	if (embreeNewDevice)
+		return true;
+
+	void *so = SDL_LoadObject(EMBREE_LIB);
+
+	if (!so)
+	{
+		interface::PrintWarningf("%s\n", SDL_GetError());
+		return false;
+	}
+
+	EMBREE_FUNCTION(embreeNewDevice, EmbreeNewDevice, "rtcNewDevice");
+	EMBREE_FUNCTION(embreeDeleteDevice, EmbreeDeleteDevice, "rtcDeleteDevice");
+	EMBREE_FUNCTION(embreeDeviceGetError, EmbreeDeviceGetError, "rtcDeviceGetError");
+	EMBREE_FUNCTION(embreeDeviceNewScene, EmbreeDeviceNewScene, "rtcDeviceNewScene");
+	EMBREE_FUNCTION(embreeDeleteScene, EmbreeDeleteScene, "rtcDeleteScene");
+	EMBREE_FUNCTION(embreeNewTriangleMesh, EmbreeNewTriangleMesh, "rtcNewTriangleMesh");
+	EMBREE_FUNCTION(embreeMapBuffer, EmbreeMapBuffer, "rtcMapBuffer");
+	EMBREE_FUNCTION(embreeUnmapBuffer, EmbreeUnmapBuffer, "rtcUnmapBuffer");
+	EMBREE_FUNCTION(embreeCommit, EmbreeCommit, "rtcCommit");
+	EMBREE_FUNCTION(embreeOccluded, EmbreeOccluded, "rtcOccluded");
+	EMBREE_FUNCTION(embreeIntersect, EmbreeIntersect, "rtcIntersect");
+	return true;
+}
+
+static const char *s_embreeErrorStrings[] =
+{
+	"RTC_NO_ERROR",
+	"RTC_UNKNOWN_ERROR",
+	"RTC_INVALID_ARGUMENT",
+	"RTC_INVALID_OPERATION",
+	"RTC_OUT_OF_MEMORY",
+	"RTC_UNSUPPORTED_CPU",
+	"RTC_CANCELLED"
+};
+
+static int CheckEmbreeError(const char *lastFunctionName)
+{
+	RTCError error = embreeDeviceGetError(s_lightBaker->embreeDevice);
+
+	if (error != RTC_NO_ERROR)
+	{
+		bx::snprintf(s_lightBaker->errorMessage, LightBaker::maxErrorMessageLen, "Embree error: %s returned %s", lastFunctionName, s_embreeErrorStrings[error]);
+		return 1;
+	}
+
+	return 0;
+}
+
+#define CHECK_EMBREE_ERROR(name) { const int r = CheckEmbreeError(#name); if (r) return false; }
+
+struct Triangle
+{
+	uint32_t indices[3];
+};
+
+static bool CreateEmbreeGeometry(int nVertices, int nTriangles)
+{
+	// Indices are 32-bit. The World representation uses 16-bit indices, with multiple vertex buffers on large maps that don't fit into one. Combine those here.
+	s_lightBaker->embreeDevice = embreeNewDevice(nullptr);
+	CHECK_EMBREE_ERROR(embreeNewDevice)
+	s_lightBaker->embreeScene = embreeDeviceNewScene(s_lightBaker->embreeDevice, RTC_SCENE_STATIC, RTC_INTERSECT1);
+	CHECK_EMBREE_ERROR(embreeDeviceNewScene)
+	unsigned int embreeMesh = embreeNewTriangleMesh(s_lightBaker->embreeScene, RTC_GEOMETRY_STATIC, nTriangles, nVertices, 1);
+	CHECK_EMBREE_ERROR(embreeNewTriangleMesh);
+
+	auto vertices = (vec4 *)embreeMapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_VERTEX_BUFFER);
+	CHECK_EMBREE_ERROR(embreeMapBuffer);
+	size_t currentVertex = 0;
+
+	for (int i = 0; i < world::GetNumVertexBuffers(); i++)
+	{
+		const std::vector<Vertex> &worldVertices = world::GetVertexBuffer(i);
+
+		for (size_t vi = 0; vi < worldVertices.size(); vi++)
+		{
+			vertices[currentVertex] = worldVertices[vi].pos;
+			currentVertex++;
+		}
+	}
+
+	embreeUnmapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_VERTEX_BUFFER);
+	CHECK_EMBREE_ERROR(embreeUnmapBuffer);
+
+	auto triangles = (Triangle *)embreeMapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_INDEX_BUFFER);
+	CHECK_EMBREE_ERROR(embreeMapBuffer);
+	size_t faceIndex = 0;
+	s_lightBaker->faceFlags.resize(nTriangles);
+
+	for (int si = 0; si < world::GetNumSurfaces(0); si++)
+	{
+		const world::Surface &surface = world::GetSurface(0, si);
+
+		if (!DoesSurfaceOccludeLight(surface))
+			continue;
+
+		// Adjust for combining multiple vertex buffers.
+		uint32_t indexOffset = 0;
+
+		for (size_t i = 0; i < surface.bufferIndex; i++)
+			indexOffset += (uint32_t)world::GetVertexBuffer(i).size();
+
+		for (size_t i = 0; i < surface.indices.size(); i += 3)
+		{
+			if (surface.material->isSky || (surface.flags & SURF_SKY))
+				s_lightBaker->faceFlags[faceIndex] |= FaceFlags::Sky;
+
+			triangles[faceIndex].indices[0] = indexOffset + surface.indices[i + 0];
+			triangles[faceIndex].indices[1] = indexOffset + surface.indices[i + 1];
+			triangles[faceIndex].indices[2] = indexOffset + surface.indices[i + 2];
+			faceIndex++;
+		}
+	}
+
+	embreeUnmapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_INDEX_BUFFER);
+	CHECK_EMBREE_ERROR(embreeUnmapBuffer);
+	embreeCommit(s_lightBaker->embreeScene);
+	CHECK_EMBREE_ERROR(embreeCommit);
+	return true;
+}
+
+static void DestroyEmbreeGeometry()
+{
+	if (s_lightBaker->embreeScene)
+		embreeDeleteScene(s_lightBaker->embreeScene);
+
+	if (s_lightBaker->embreeDevice)
+		embreeDeleteDevice(s_lightBaker->embreeDevice);
+}
+
+/*
+================================================================================
+RASTERIZATION
+================================================================================
+*/
 
 typedef int lm_bool;
 #define LM_FALSE 0
@@ -435,178 +699,11 @@ void lmImageDilate(const float *image, float *outImage, int w, int h, int c)
 	}
 }
 
-#define USE_LIGHT_BAKER_THREAD
-
-struct FaceFlags
-{
-	enum
-	{
-		Sky = 1<<0
-	};
-};
-
-struct Winding
-{
-	static const int maxPoints = 8;
-	vec3 p[maxPoints];
-	int numpoints;
-};
-
-struct LightBaker
-{
-	struct AreaLightTexture
-	{
-		const Material *material;
-		int width, height, nComponents;
-		std::vector<uint8_t> data;
-		vec4 normalizedColor;
-		vec4 averageColor;
-	};
-
-	struct AreaLightSample
-	{
-		vec3 position;
-		vec2 texCoord;
-		float photons;
-		Winding winding;
-	};
-
-	struct AreaLight
-	{
-		int modelIndex;
-		int surfaceIndex;
-		//Material *material;
-		const AreaLightTexture *texture;
-		std::vector<AreaLightSample> samples;
-	};
-
-	struct Lightmap
-	{
-		std::vector<vec4> color;
-		std::vector<uint8_t> colorBytes;
-	};
-
-	enum class Status
-	{
-		NotStarted,
-		Running,
-		WaitingForTextureUpload,
-		Finished,
-		Cancelled,
-		Error
-	};
-
-#ifdef USE_LIGHT_BAKER_THREAD
-	SDL_mutex *mutex = nullptr;
-	SDL_Thread *thread;
-#endif
-
-	std::vector<AreaLightTexture> areaLightTextures;
-	int nSamples;
-	static const int maxSamples = 16;
-	int textureUploadFrameNo; // lightmap textures were uploaded this frame
-	int64_t startTime;
-	int nLuxelsProcessed;
-	std::vector<Lightmap> lightmaps;
-	static const size_t maxErrorMessageLen = 2048;
-	char errorMessage[maxErrorMessageLen];
-	RTCDevice embreeDevice = nullptr;
-	RTCScene embreeScene = nullptr;
-
-	// mutex protected state
-	Status status;
-	int progress = 0;
-
-	~LightBaker()
-	{
-#ifdef USE_LIGHT_BAKER_THREAD
-		if (mutex)
-			SDL_DestroyMutex(mutex);
-#endif
-		if (embreeScene)
-			embreeDeleteScene(embreeScene);
-
-		if (embreeDevice)
-			embreeDeleteDevice(embreeDevice);
-	}
-};
-
-struct Triangle
-{
-	uint32_t indices[3];
-};
-
-static std::unique_ptr<LightBaker> s_lightBaker;
-static std::vector<LightBaker::AreaLight> s_areaLights;
-static const float areaScale = 0.25f;
-static const float formFactorValueScale = 3.0f;
-static const float pointScale = 7500.0f;
-static const float linearScale = 1.0f / 8000.0f;
-
-static const char *s_embreeErrorStrings[] =
-{
-	"RTC_NO_ERROR",
-	"RTC_UNKNOWN_ERROR",
-	"RTC_INVALID_ARGUMENT",
-	"RTC_INVALID_OPERATION",
-	"RTC_OUT_OF_MEMORY",
-	"RTC_UNSUPPORTED_CPU",
-	"RTC_CANCELLED"
-};
-
-static LightBaker::Status GetStatus(int *progress = nullptr)
-{
-	auto status = LightBaker::Status::NotStarted;
-
-#ifdef USE_LIGHT_BAKER_THREAD
-	if (SDL_LockMutex(s_lightBaker->mutex) == 0)
-	{
-#endif
-		status = s_lightBaker->status;
-
-		if (progress)
-			*progress = s_lightBaker->progress;
-
-#ifdef USE_LIGHT_BAKER_THREAD
-		SDL_UnlockMutex(s_lightBaker->mutex);
-	}
-	else
-	{
-		if (progress)
-			*progress = 0;
-	}
-#endif
-
-	return status;
-}
-
-static void SetStatus(LightBaker::Status status, int progress = 0)
-{
-#ifdef USE_LIGHT_BAKER_THREAD
-	if (SDL_LockMutex(s_lightBaker->mutex) == 0)
-	{
-#endif
-		s_lightBaker->status = status;
-		s_lightBaker->progress = progress;
-#ifdef USE_LIGHT_BAKER_THREAD
-		SDL_UnlockMutex(s_lightBaker->mutex);
-	}
-#endif
-}
-
-static void AccumulateLightmapData(int lightmapIndex, const lm_context &ctx, vec4 color)
-{
-	LightBaker::Lightmap &lightmap = s_lightBaker->lightmaps[lightmapIndex];
-	const size_t pixelOffset = ctx.rasterizer.x + ctx.rasterizer.y * world::GetLightmapSize().x;
-	lightmap.color[pixelOffset] += color;
-}
-
-static bool DoesSurfaceOccludeLight(const world::Surface &surface)
-{
-	// Translucent surfaces (e.g. flames) shouldn't occlude.
-	// Not handling alpha-testing yet.
-	return surface.type != world::SurfaceType::Ignore && surface.type != world::SurfaceType::Flare && (surface.contentFlags & CONTENTS_TRANSLUCENT) == 0 && (surface.flags & SURF_ALPHASHADOW) == 0;
-}
+/*
+================================================================================
+ENTITY LIGHTS
+================================================================================
+*/
 
 static vec3 ParseColorString(const char *color)
 {
@@ -618,27 +715,11 @@ static vec3 ParseColorString(const char *color)
 	return rgb * (1.0f / max);
 }
 
-static int CheckEmbreeError(const char *lastFunctionName)
-{
-	RTCError error = embreeDeviceGetError(s_lightBaker->embreeDevice);
-
-	if (error != RTC_NO_ERROR)
-	{
-		bx::snprintf(s_lightBaker->errorMessage, LightBaker::maxErrorMessageLen, "Embree error: %s returned %s", lastFunctionName, s_embreeErrorStrings[error]);
-		SetStatus(LightBaker::Status::Error);
-		return 1;
-	}
-
-	return 0;
-}
-
-#define CHECK_EMBREE_ERROR(name) { const int r = CheckEmbreeError(#name); if (r) return r; }
-
-static void SetupLightEnvelope(StaticLight *light)
+static void CalculateLightEnvelope(StaticLight *light)
 {
 	assert(light);
 
-	// Setup envelope. From q3map2 SetupEnvelopes.
+	// From q3map2 SetupEnvelopes.
 	const float falloffTolerance = 1.0f;
 
 	if (!(light->flags & StaticLightFlags::DistanceAttenuation))
@@ -655,233 +736,8 @@ static void SetupLightEnvelope(StaticLight *light)
 	}
 }
 
-static const LightBaker::AreaLightTexture *FindAreaLightTexture(const Material *material)
+static void CreateEntityLights()
 {
-	for (const LightBaker::AreaLightTexture &alt : s_lightBaker->areaLightTextures)
-	{
-		if (alt.material == material)
-			return &alt;
-	}
-
-	return nullptr;
-}
-
-/*
-   PointToPolygonFormFactor()
-   calculates the area over a point/normal hemisphere a winding covers
-   ydnar: fixme: there has to be a faster way to calculate this
-   without the expensive per-vert sqrts and transcendental functions
-   ydnar 2002-09-30: added -faster switch because only 19% deviance > 10%
-   between this and the approximation
- */
-
-#define ONE_OVER_2PI    0.159154942f    //% (1.0f / (2.0f * 3.141592657f))
-
-static float PointToPolygonFormFactor(vec3 point, vec3 normal, const Winding &w)
-{
-	/* this is expensive */
-	vec3 dirs[Winding::maxPoints];
-
-	for (int i = 0; i < w.numpoints; i++)
-	{
-		dirs[i] = (w.p[i] - point).normal();
-	}
-
-	/* duplicate first vertex to avoid mod operation */
-	dirs[w.numpoints] = dirs[0];
-
-	/* calculcate relative area */
-	float total = 0;
-
-	for (int i = 0; i < w.numpoints; i++)
-	{
-		/* get a triangle */
-		float dot = vec3::dotProduct(dirs[i], dirs[i + 1]);
-
-		/* roundoff can cause slight creep, which gives an IND from acos */
-		if ( dot > 1.0f ) {
-			dot = 1.0f;
-		}
-		else if ( dot < -1.0f ) {
-			dot = -1.0f;
-		}
-
-		/* get the angle */
-		const float angle = acos(dot);
-
-		vec3 triNormal = vec3::crossProduct(dirs[i], dirs[i + 1]);
-
-		if (triNormal.normalize() < 0.0001f)
-			continue;
-
-		const float facing = vec3::dotProduct(normal, triNormal);
-		total += facing * angle;
-
-		/* ydnar: this was throwing too many errors with radiosity + crappy maps. ignoring it. */
-		if ( total > 6.3f || total < -6.3f ) {
-			return 0.0f;
-		}
-	}
-
-	/* now in the range of 0 to 1 over the entire incoming hemisphere */
-	//%	total /= (2.0f * 3.141592657f);
-	total *= ONE_OVER_2PI;
-	return total;
-}
-
-static int Thread(void *data)
-{
-	SetStatus(LightBaker::Status::Running);
-	int progress = 0;
-
-	// Count surface triangles for prealloc and so progress can be accurately measured.
-	// Non-0 world models (e.g. doors) may be lightmapped, but don't occlude.
-	int totalOccluderTriangles = 0, totalLightmappedTriangles = 0;
-
-	for (int mi = 0; mi < world::GetNumModels(); mi++)
-	{
-		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
-		{
-			const world::Surface &surface = world::GetSurface(mi, si);
-
-			if (mi == 0 && DoesSurfaceOccludeLight(surface))
-			{
-				totalOccluderTriangles += (int)surface.indices.size() / 3;
-			}
-
-			if (surface.type != world::SurfaceType::Ignore && surface.type != world::SurfaceType::Flare && surface.material->lightmapIndex >= 0)
-				totalLightmappedTriangles += (int)surface.indices.size() / 3;
-		}
-	}
-
-	// Do some area light processing.
-	for (LightBaker::AreaLightTexture &texture : s_lightBaker->areaLightTextures)
-	{
-		// Calculate colors from the texture.
-		// See q3map2 LoadShaderImages
-		vec4 color;
-
-		for (int i = 0; i < texture.width * texture.height; i++)
-		{
-			const uint8_t *c = &texture.data[i * texture.nComponents];
-			color += vec4(c[0], c[1], c[2], c[3]);
-		}
-
-		const float max = std::max(color.r, std::max(color.g, color.b));
-
-		if (max == 0)
-		{
-			texture.normalizedColor = vec4::white;
-		}
-		else
-		{
-			texture.normalizedColor = vec4(color.xyz() / max, 1.0f);
-		}
-
-		texture.averageColor = color / float(texture.width * texture.height);
-	}
-
-	// Count total vertices.
-	int totalVertices = 0;
-
-	for (int i = 0; i < world::GetNumVertexBuffers(); i++)
-	{
-		totalVertices += (int)world::GetVertexBuffer(i).size();
-	}
-
-	// Setup embree.
-	// Indices are 32-bit. The World representation uses 16-bit indices, with multiple vertex buffers on large maps that don't fit into one. Combine those here.
-	s_lightBaker->embreeDevice = embreeNewDevice(nullptr);
-	CHECK_EMBREE_ERROR(embreeNewDevice)
-	s_lightBaker->embreeScene = embreeDeviceNewScene(s_lightBaker->embreeDevice, RTC_SCENE_STATIC, RTC_INTERSECT1);
-	CHECK_EMBREE_ERROR(embreeDeviceNewScene)
-	unsigned int embreeMesh = embreeNewTriangleMesh(s_lightBaker->embreeScene, RTC_GEOMETRY_STATIC, totalOccluderTriangles, totalVertices, 1);
-	CHECK_EMBREE_ERROR(embreeNewTriangleMesh);
-
-	auto vertices = (vec4 *)embreeMapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_VERTEX_BUFFER);
-	CHECK_EMBREE_ERROR(embreeMapBuffer);
-	size_t currentVertex = 0;
-
-	for (int i = 0; i < world::GetNumVertexBuffers(); i++)
-	{
-		const std::vector<Vertex> &worldVertices = world::GetVertexBuffer(i);
-
-		for (size_t vi = 0; vi < worldVertices.size(); vi++)
-		{
-			vertices[currentVertex] = worldVertices[vi].pos;
-			currentVertex++;
-		}
-	}
-
-	embreeUnmapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_VERTEX_BUFFER);
-	CHECK_EMBREE_ERROR(embreeUnmapBuffer);
-
-	auto triangles = (Triangle *)embreeMapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_INDEX_BUFFER);
-	CHECK_EMBREE_ERROR(embreeMapBuffer);
-	size_t faceIndex = 0;
-	std::vector<uint8_t> faceFlags;
-	faceFlags.resize(totalOccluderTriangles);
-
-	for (int si = 0; si < world::GetNumSurfaces(0); si++)
-	{
-		const world::Surface &surface = world::GetSurface(0, si);
-
-		if (!DoesSurfaceOccludeLight(surface))
-			continue;
-
-		// Adjust for combining multiple vertex buffers.
-		uint32_t indexOffset = 0;
-
-		for (size_t i = 0; i < surface.bufferIndex; i++)
-			indexOffset += (uint32_t)world::GetVertexBuffer(i).size();
-
-		for (size_t i = 0; i < surface.indices.size(); i += 3)
-		{
-			if (surface.material->isSky || (surface.flags & SURF_SKY))
-				faceFlags[faceIndex] |= FaceFlags::Sky;
-
-			triangles[faceIndex].indices[0] = indexOffset + surface.indices[i + 0];
-			triangles[faceIndex].indices[1] = indexOffset + surface.indices[i + 1];
-			triangles[faceIndex].indices[2] = indexOffset + surface.indices[i + 2];
-			faceIndex++;
-		}
-	}
-
-	embreeUnmapBuffer(s_lightBaker->embreeScene, embreeMesh, RTC_INDEX_BUFFER);
-	CHECK_EMBREE_ERROR(embreeUnmapBuffer);
-	embreeCommit(s_lightBaker->embreeScene);
-	CHECK_EMBREE_ERROR(embreeCommit);
-
-	// Allocate lightmap memory.
-	const vec2i lightmapSize = world::GetLightmapSize();
-	s_lightBaker->lightmaps.resize(world::GetNumLightmaps());
-
-	for (LightBaker::Lightmap &lightmap : s_lightBaker->lightmaps)
-	{
-		lightmap.color.resize(lightmapSize.x * lightmapSize.y);
-		lightmap.colorBytes.resize(lightmapSize.x * lightmapSize.y * 4);
-	}
-
-	// Setup jitter.
-	srand(1);
-	std::array<vec3, LightBaker::maxSamples> dirJitter, posJitter;
-
-	for (int si = 1; si < s_lightBaker->nSamples; si++) // index 0 left as (0, 0, 0)
-	{
-		const vec2 dirJitterRange(-0.1f, 0.1f);
-		const vec2 posJitterRange(-2.0f, 2.0f);
-
-		for (int i = 0; i < 3; i++)
-		{
-			dirJitter[si][i] = math::RandomFloat(dirJitterRange.x, dirJitterRange.y);
-			posJitter[si][i] = math::RandomFloat(posJitterRange.x, posJitterRange.y);
-		}
-	}
-
-	// Setup lights.
-	vec3 ambientLight;
-	std::vector<StaticLight> lights;
-
 	for (size_t i = 0; i < world::s_world->entities.size(); i++)
 	{
 		const world::Entity &entity = world::s_world->entities[i];
@@ -893,7 +749,7 @@ static int Thread(void *data)
 			const char *ambient = entity.findValue("ambient");
 					
 			if (color && ambient)
-				ambientLight = ParseColorString(color) * (float)atof(ambient);
+				s_lightBaker->ambientLight = ParseColorString(color) * (float)atof(ambient);
 
 			continue;
 		}
@@ -965,12 +821,236 @@ static int Thread(void *data)
 			}
 		}
 
-		SetupLightEnvelope(&light);
-		lights.push_back(light);
+		CalculateLightEnvelope(&light);
+		s_lightBaker->lights.push_back(light);
+	}
+}
+
+static vec3 BakeEntityLights(vec3 samplePosition, vec3 sampleNormal)
+{
+	vec3 accumulatedLight;
+
+	for (StaticLight &light : s_lightBaker->lights)
+	{
+		float totalAttenuation = 0;
+
+		for (int si = 0; si < s_lightBaker->nSamples; si++)
+		{
+			vec3 dir(light.position + s_lightBaker->posJitter[si] - samplePosition); // Jitter light position.
+			const vec3 displacement(dir);
+			float distance = dir.normalize();
+
+			if (distance >= light.envelope)
+				continue;
+
+			distance = std::max(distance, 16.0f); // clamp the distance to prevent super hot spots
+			float attenuation = 0;
+
+			if (light.flags & StaticLightFlags::LinearAttenuation)
+			{
+				//attenuation = 1.0f - distance / light.intensity;
+				attenuation = std::max(0.0f, light.photons * linearScale - distance);
+			}
+			else
+			{
+				// Inverse distance-squared attenuation.
+				attenuation = light.photons / (distance * distance);
+			}
+						
+			if (attenuation <= 0)
+				continue;
+
+			if (light.flags & StaticLightFlags::AngleAttenuation)
+			{
+				attenuation *= vec3::dotProduct(sampleNormal, dir);
+
+				if (attenuation <= 0)
+					continue;
+			}
+
+			if (light.flags & StaticLightFlags::Spotlight)
+			{
+				vec3 normal(light.targetPosition - (light.position + s_lightBaker->posJitter[si]));
+				float coneLength = normal.normalize();
+
+				if (coneLength <= 0)
+					coneLength = 64;
+
+				const float radiusByDist = (light.radius + 16) / coneLength;
+				const float distByNormal = -vec3::dotProduct(displacement, normal);
+
+				if (distByNormal < 0)
+					continue;
+							
+				const vec3 pointAtDist(light.position + s_lightBaker->posJitter[si] + normal * distByNormal);
+				const float radiusAtDist = radiusByDist * distByNormal;
+				const vec3 distToSample(samplePosition - pointAtDist);
+				const float sampleRadius = distToSample.length();
+
+				// outside the cone
+				if (sampleRadius >= radiusAtDist)
+					continue;
+
+				if (sampleRadius > (radiusAtDist - 32.0f))
+				{
+					attenuation *= (radiusAtDist - sampleRadius) / 32.0f;
+				}
+			}
+
+			RTCRay ray;
+			const vec3 org(samplePosition + sampleNormal * 0.1f);
+			ray.org[0] = org.x;
+			ray.org[1] = org.y;
+			ray.org[2] = org.z;
+			ray.tnear = 0;
+			ray.tfar = distance;
+			ray.dir[0] = dir.x;
+			ray.dir[1] = dir.y;
+			ray.dir[2] = dir.z;
+			ray.geomID = RTC_INVALID_GEOMETRY_ID;
+			ray.primID = RTC_INVALID_GEOMETRY_ID;
+			ray.mask = -1;
+			ray.time = 0;
+
+			embreeOccluded(s_lightBaker->embreeScene, ray);
+
+			if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
+				continue; // hit
+
+			totalAttenuation += attenuation * (1.0f / s_lightBaker->nSamples);
+		}
+					
+		if (totalAttenuation > 0)
+			accumulatedLight += light.color.rgb() * totalAttenuation;
 	}
 
-	// Setup area lights.
-	//std::vector<LightBaker::AreaLight> areaLights;
+	return accumulatedLight;
+}
+
+/*
+================================================================================
+AREA LIGHTS
+================================================================================
+*/
+
+static void LoadAreaLightTextures()
+{
+	// Load area light surface textures into main memory.
+	// Need to do this on the main thread.
+	for (int mi = 0; mi < world::GetNumModels(); mi++)
+	{
+		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
+		{
+			const world::Surface &surface = world::GetSurface(mi, si);
+
+			if (surface.material->surfaceLight <= 0)
+				continue;
+
+			// Check cache.
+			AreaLightTexture *texture = nullptr;
+
+			for (AreaLightTexture &alt : s_lightBaker->areaLightTextures)
+			{
+				if (alt.material == surface.material)
+				{
+					texture = &alt;
+					break;
+				}
+			}
+
+			if (texture)
+				continue; // In cache.
+
+			// Grab the first valid texture for now.
+			const char *filename = nullptr;
+
+			for (size_t i = 0; i < Material::maxStages; i++)
+			{
+				const MaterialStage &stage = surface.material->stages[i];
+
+				if (stage.active)
+				{
+					const char *texture = stage.bundles[MaterialTextureBundleIndex::DiffuseMap].textures[0]->getName();
+
+					if (texture[0] != '*') // Ignore special textures, e.g. lightmaps.
+					{
+						filename = texture;
+						break;
+					}
+				}
+			}
+
+			if (!filename)
+			{
+				interface::PrintWarningf("Error finding area light texture for material %s\n", surface.material->name);
+				continue;
+			}
+
+			Image image = LoadImage(filename);
+
+			if (!image.data)
+			{
+				interface::PrintWarningf("Error loading area light image %s from material %s\n", filename, surface.material->name);
+				continue;
+			}
+
+			// Downscale the image.
+			s_lightBaker->areaLightTextures.push_back(AreaLightTexture());
+			texture = &s_lightBaker->areaLightTextures[s_lightBaker->areaLightTextures.size() - 1];
+			texture->material = surface.material;
+			texture->width = texture->height = 32;
+			texture->nComponents = image.nComponents;
+			texture->data.resize(texture->width * texture->height * texture->nComponents);
+			stbir_resize_uint8(image.data, image.width, image.height, 0, texture->data.data(), texture->width, texture->height, 0, image.nComponents);
+			image.release(image.data, nullptr);
+#if 0
+			stbi_write_tga(util::GetFilename(filename), texture->width, texture->height, texture->nComponents, texture->data.data());
+#endif
+		}
+	}
+}
+
+static const AreaLightTexture *FindAreaLightTexture(const Material *material)
+{
+	for (const AreaLightTexture &alt : s_lightBaker->areaLightTextures)
+	{
+		if (alt.material == material)
+			return &alt;
+	}
+
+	return nullptr;
+}
+
+static void CreateAreaLights()
+{
+	// Calculate normalized/average colors.
+	for (AreaLightTexture &texture : s_lightBaker->areaLightTextures)
+	{
+		// Calculate colors from the texture.
+		// See q3map2 LoadShaderImages
+		vec4 color;
+
+		for (int i = 0; i < texture.width * texture.height; i++)
+		{
+			const uint8_t *c = &texture.data[i * texture.nComponents];
+			color += vec4(c[0], c[1], c[2], c[3]);
+		}
+
+		const float max = std::max(color.r, std::max(color.g, color.b));
+
+		if (max == 0)
+		{
+			texture.normalizedColor = vec4::white;
+		}
+		else
+		{
+			texture.normalizedColor = vec4(color.xyz() / max, 1.0f);
+		}
+
+		texture.averageColor = color / float(texture.width * texture.height);
+	}
+
+	// Create area lights.
 	s_areaLights.clear();
 
 	for (int mi = 0; mi < world::GetNumModels(); mi++)
@@ -982,7 +1062,7 @@ static int Thread(void *data)
 			if (surface.material->surfaceLight <= 0)
 				continue;
 
-			const LightBaker::AreaLightTexture *texture = FindAreaLightTexture(surface.material);
+			const AreaLightTexture *texture = FindAreaLightTexture(surface.material);
 
 			if (!texture)
 				continue; // A warning will have been printed when the image failed to load.
@@ -995,12 +1075,12 @@ static int Thread(void *data)
 				light.flags = StaticLightFlags::DefaultMask;
 				light.photons = surface.material->surfaceLight * pointScale;
 				light.position = surface.cullinfo.bounds.midpoint();
-				SetupLightEnvelope(&light);
-				lights.push_back(light);
+				CalculateLightEnvelope(&light);
+				s_lightBaker->lights.push_back(light);
 				continue;
 			}
 
-			LightBaker::AreaLight light;
+			AreaLight light;
 			light.modelIndex = mi;
 			light.surfaceIndex = si;
 			light.texture = texture;
@@ -1020,7 +1100,7 @@ static int Thread(void *data)
 				if (area < 1.0f)
 					continue;
 
-				LightBaker::AreaLightSample sample;
+				AreaLightSample sample;
 				sample.position = (v[0]->pos + v[1]->pos + v[2]->pos) / 3.0f;
 				const vec3 normal((v[0]->normal + v[1]->normal + v[2]->normal) / 3.0f);
 				sample.position += normal * 0.1f; // push out a little
@@ -1037,6 +1117,238 @@ static int Thread(void *data)
 			s_areaLights.push_back(std::move(light));
 		}
 	}
+}
+
+/*
+   PointToPolygonFormFactor()
+   calculates the area over a point/normal hemisphere a winding covers
+   ydnar: fixme: there has to be a faster way to calculate this
+   without the expensive per-vert sqrts and transcendental functions
+   ydnar 2002-09-30: added -faster switch because only 19% deviance > 10%
+   between this and the approximation
+ */
+
+#define ONE_OVER_2PI    0.159154942f    //% (1.0f / (2.0f * 3.141592657f))
+
+static float PointToPolygonFormFactor(vec3 point, vec3 normal, const Winding &w)
+{
+	/* this is expensive */
+	vec3 dirs[Winding::maxPoints];
+
+	for (int i = 0; i < w.numpoints; i++)
+	{
+		dirs[i] = (w.p[i] - point).normal();
+	}
+
+	/* duplicate first vertex to avoid mod operation */
+	dirs[w.numpoints] = dirs[0];
+
+	/* calculcate relative area */
+	float total = 0;
+
+	for (int i = 0; i < w.numpoints; i++)
+	{
+		/* get a triangle */
+		float dot = vec3::dotProduct(dirs[i], dirs[i + 1]);
+
+		/* roundoff can cause slight creep, which gives an IND from acos */
+		if ( dot > 1.0f ) {
+			dot = 1.0f;
+		}
+		else if ( dot < -1.0f ) {
+			dot = -1.0f;
+		}
+
+		/* get the angle */
+		const float angle = acos(dot);
+
+		vec3 triNormal = vec3::crossProduct(dirs[i], dirs[i + 1]);
+
+		if (triNormal.normalize() < 0.0001f)
+			continue;
+
+		const float facing = vec3::dotProduct(normal, triNormal);
+		total += facing * angle;
+
+		/* ydnar: this was throwing too many errors with radiosity + crappy maps. ignoring it. */
+		if ( total > 6.3f || total < -6.3f ) {
+			return 0.0f;
+		}
+	}
+
+	/* now in the range of 0 to 1 over the entire incoming hemisphere */
+	//%	total /= (2.0f * 3.141592657f);
+	total *= ONE_OVER_2PI;
+	return total;
+}
+
+static vec3 BakeAreaLights(vec3 samplePosition, vec3 sampleNormal)
+{
+	vec3 accumulatedLight;
+
+	for (const AreaLight &areaLight : s_areaLights)
+	{
+		for (const AreaLightSample &areaLightSample : areaLight.samples)
+		{
+			vec3 dir(areaLightSample.position - samplePosition);
+			const float distance = dir.normalize();
+
+			// Check if light is behind the sample point.
+			// Ignore two-sided surfaces.
+			float angle = vec3::dotProduct(sampleNormal, dir);
+							
+			if (areaLight.texture->material->cullType != MaterialCullType::TwoSided && angle <= 0)
+				continue;
+
+			float factor = PointToPolygonFormFactor(samplePosition, sampleNormal, areaLightSample.winding);
+
+			if (areaLight.texture->material->cullType == MaterialCullType::TwoSided)
+				factor = fabs(factor);
+
+			if (factor <= 0)
+				continue;
+
+			RTCRay ray;
+			const vec3 org(samplePosition + sampleNormal * 0.1f);
+			ray.org[0] = org.x;
+			ray.org[1] = org.y;
+			ray.org[2] = org.z;
+			ray.tnear = 0;
+			ray.tfar = distance * 0.9f; // FIXME: should check for exact hit instead?
+			ray.dir[0] = dir.x;
+			ray.dir[1] = dir.y;
+			ray.dir[2] = dir.z;
+			ray.geomID = RTC_INVALID_GEOMETRY_ID;
+			ray.primID = RTC_INVALID_GEOMETRY_ID;
+			ray.mask = -1;
+			ray.time = 0;
+
+			embreeOccluded(s_lightBaker->embreeScene, ray);
+
+			if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
+				continue; // hit
+
+			accumulatedLight += areaLight.texture->normalizedColor.rgb() * areaLightSample.photons * factor;
+		}
+	}
+
+	return accumulatedLight;
+}
+
+/*
+================================================================================
+LIGHT BAKER THREAD AND INTERFACE
+================================================================================
+*/
+
+static LightBaker::Status GetStatus(int *progress = nullptr)
+{
+	auto status = LightBaker::Status::NotStarted;
+
+#ifdef USE_LIGHT_BAKER_THREAD
+	if (SDL_LockMutex(s_lightBaker->mutex) == 0)
+	{
+#endif
+		status = s_lightBaker->status;
+
+		if (progress)
+			*progress = s_lightBaker->progress;
+
+#ifdef USE_LIGHT_BAKER_THREAD
+		SDL_UnlockMutex(s_lightBaker->mutex);
+	}
+	else
+	{
+		if (progress)
+			*progress = 0;
+	}
+#endif
+
+	return status;
+}
+
+static void SetStatus(LightBaker::Status status, int progress = 0)
+{
+#ifdef USE_LIGHT_BAKER_THREAD
+	if (SDL_LockMutex(s_lightBaker->mutex) == 0)
+	{
+#endif
+		s_lightBaker->status = status;
+		s_lightBaker->progress = progress;
+#ifdef USE_LIGHT_BAKER_THREAD
+		SDL_UnlockMutex(s_lightBaker->mutex);
+	}
+#endif
+}
+
+static int Thread(void *data)
+{
+	SetStatus(LightBaker::Status::Running);
+	int progress = 0;
+
+	// Count surface triangles for prealloc and so progress can be accurately measured.
+	// Non-0 world models (e.g. doors) may be lightmapped, but don't occlude.
+	int totalOccluderTriangles = 0, totalLightmappedTriangles = 0;
+
+	for (int mi = 0; mi < world::GetNumModels(); mi++)
+	{
+		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
+		{
+			const world::Surface &surface = world::GetSurface(mi, si);
+
+			if (mi == 0 && DoesSurfaceOccludeLight(surface))
+			{
+				totalOccluderTriangles += (int)surface.indices.size() / 3;
+			}
+
+			if (surface.type != world::SurfaceType::Ignore && surface.type != world::SurfaceType::Flare && surface.material->lightmapIndex >= 0)
+				totalLightmappedTriangles += (int)surface.indices.size() / 3;
+		}
+	}
+
+	// Count total vertices.
+	int totalVertices = 0;
+
+	for (int i = 0; i < world::GetNumVertexBuffers(); i++)
+	{
+		totalVertices += (int)world::GetVertexBuffer(i).size();
+	}
+
+	// Setup embree.
+	if (!CreateEmbreeGeometry(totalVertices, totalOccluderTriangles))
+	{
+		SetStatus(LightBaker::Status::Error);
+		return 0;
+	}
+
+	// Allocate lightmap memory.
+	const vec2i lightmapSize = world::GetLightmapSize();
+	s_lightBaker->lightmaps.resize(world::GetNumLightmaps());
+
+	for (Lightmap &lightmap : s_lightBaker->lightmaps)
+	{
+		lightmap.color.resize(lightmapSize.x * lightmapSize.y);
+		lightmap.colorBytes.resize(lightmapSize.x * lightmapSize.y * 4);
+	}
+
+	// Setup jitter.
+	srand(1);
+
+	for (int si = 1; si < s_lightBaker->nSamples; si++) // index 0 left as (0, 0, 0)
+	{
+		const vec2 dirJitterRange(-0.1f, 0.1f);
+		const vec2 posJitterRange(-2.0f, 2.0f);
+
+		for (int i = 0; i < 3; i++)
+		{
+			s_lightBaker->dirJitter[si][i] = math::RandomFloat(dirJitterRange.x, dirJitterRange.y);
+			s_lightBaker->posJitter[si][i] = math::RandomFloat(posJitterRange.x, posJitterRange.y);
+		}
+	}
+
+	// Setup lights.
+	CreateAreaLights();
+	CreateEntityLights();
 
 	// Iterate surfaces.
 	const SunLight &sunLight = main::GetSunLight();
@@ -1107,107 +1419,11 @@ static int Thread(void *data)
 						break;
 
 					s_lightBaker->nLuxelsProcessed++;
-					vec3 luxelColor = ambientLight;
-
-					// Entity lights.
 					const vec3 samplePosition(&ctx.sample.position.x);
 					const vec3 sampleNormal(-vec3(&ctx.sample.direction.x));
-
-#if 1
-					for (StaticLight &light : lights)
-					{
-						float totalAttenuation = 0;
-
-						for (int si = 0; si < s_lightBaker->nSamples; si++)
-						{
-							vec3 dir(light.position + posJitter[si] - samplePosition); // Jitter light position.
-							const vec3 displacement(dir);
-							float distance = dir.normalize();
-
-							if (distance >= light.envelope)
-								continue;
-
-							distance = std::max(distance, 16.0f); // clamp the distance to prevent super hot spots
-							float attenuation = 0;
-
-							if (light.flags & StaticLightFlags::LinearAttenuation)
-							{
-								//attenuation = 1.0f - distance / light.intensity;
-								attenuation = std::max(0.0f, light.photons * linearScale - distance);
-							}
-							else
-							{
-								// Inverse distance-squared attenuation.
-								attenuation = light.photons / (distance * distance);
-							}
-						
-							if (attenuation <= 0)
-								continue;
-
-							if (light.flags & StaticLightFlags::AngleAttenuation)
-							{
-								attenuation *= vec3::dotProduct(sampleNormal, dir);
-
-								if (attenuation <= 0)
-									continue;
-							}
-
-							if (light.flags & StaticLightFlags::Spotlight)
-							{
-								vec3 normal(light.targetPosition - (light.position + posJitter[si]));
-								float coneLength = normal.normalize();
-
-								if (coneLength <= 0)
-									coneLength = 64;
-
-								const float radiusByDist = (light.radius + 16) / coneLength;
-								const float distByNormal = -vec3::dotProduct(displacement, normal);
-
-								if (distByNormal < 0)
-									continue;
-							
-								const vec3 pointAtDist(light.position + posJitter[si] + normal * distByNormal);
-								const float radiusAtDist = radiusByDist * distByNormal;
-								const vec3 distToSample(samplePosition - pointAtDist);
-								const float sampleRadius = distToSample.length();
-
-								// outside the cone
-								if (sampleRadius >= radiusAtDist)
-									continue;
-
-								if (sampleRadius > (radiusAtDist - 32.0f))
-								{
-									attenuation *= (radiusAtDist - sampleRadius) / 32.0f;
-								}
-							}
-
-							RTCRay ray;
-							const vec3 org(samplePosition + sampleNormal * 0.1f);
-							ray.org[0] = org.x;
-							ray.org[1] = org.y;
-							ray.org[2] = org.z;
-							ray.tnear = 0;
-							ray.tfar = distance;
-							ray.dir[0] = dir.x;
-							ray.dir[1] = dir.y;
-							ray.dir[2] = dir.z;
-							ray.geomID = RTC_INVALID_GEOMETRY_ID;
-							ray.primID = RTC_INVALID_GEOMETRY_ID;
-							ray.mask = -1;
-							ray.time = 0;
-
-							embreeOccluded(s_lightBaker->embreeScene, ray);
-
-							if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
-								continue; // hit
-
-							totalAttenuation += attenuation * (1.0f / s_lightBaker->nSamples);
-						}
-					
-						if (totalAttenuation > 0)
-							luxelColor += light.color.rgb() * totalAttenuation;
-					}
-#endif
+					vec3 luxelColor = s_lightBaker->ambientLight;
+					luxelColor += BakeAreaLights(samplePosition, sampleNormal);
+					luxelColor += BakeEntityLights(samplePosition, sampleNormal);
 
 #if 1
 					// Sunlight.
@@ -1215,7 +1431,7 @@ static int Thread(void *data)
 
 					for (int si = 0; si < s_lightBaker->nSamples; si++)
 					{
-						const vec3 dir(sunLight.direction + dirJitter[si]); // Jitter light direction.
+						const vec3 dir(sunLight.direction + s_lightBaker->dirJitter[si]); // Jitter light direction.
 						const float attenuation = vec3::dotProduct(sampleNormal, dir) * (1.0f / s_lightBaker->nSamples);
 
 						if (attenuation < 0)
@@ -1237,7 +1453,7 @@ static int Thread(void *data)
 						ray.time = 0;
 						embreeIntersect(s_lightBaker->embreeScene, ray);
 
-						if (ray.geomID != RTC_INVALID_GEOMETRY_ID && (faceFlags[ray.primID] & FaceFlags::Sky))
+						if (ray.geomID != RTC_INVALID_GEOMETRY_ID && (s_lightBaker->faceFlags[ray.primID] & FaceFlags::Sky))
 						{
 							totalAttenuation += attenuation;
 						}
@@ -1247,56 +1463,10 @@ static int Thread(void *data)
 						luxelColor += sunLight.light * totalAttenuation * 255.0;
 #endif
 
-#if 1
-					// Area lights.
-					for (const LightBaker::AreaLight &areaLight : s_areaLights)
-					{
-						for (const LightBaker::AreaLightSample &areaLightSample : areaLight.samples)
-						{
-							vec3 dir(areaLightSample.position - samplePosition);
-							const float distance = dir.normalize();
-
-							// Check if light is behind the sample point.
-							// Ignore two-sided surfaces.
-							float angle = vec3::dotProduct(sampleNormal, dir);
-							
-							if (areaLight.texture->material->cullType != MaterialCullType::TwoSided && angle <= 0)
-								continue;
-
-							float factor = PointToPolygonFormFactor(samplePosition, sampleNormal, areaLightSample.winding);
-
-							if (areaLight.texture->material->cullType == MaterialCullType::TwoSided)
-								factor = fabs(factor);
-
-							if (factor <= 0)
-								continue;
-
-							RTCRay ray;
-							const vec3 org(samplePosition + sampleNormal * 0.1f);
-							ray.org[0] = org.x;
-							ray.org[1] = org.y;
-							ray.org[2] = org.z;
-							ray.tnear = 0;
-							ray.tfar = distance * 0.9f; // FIXME: should check for exact hit instead?
-							ray.dir[0] = dir.x;
-							ray.dir[1] = dir.y;
-							ray.dir[2] = dir.z;
-							ray.geomID = RTC_INVALID_GEOMETRY_ID;
-							ray.primID = RTC_INVALID_GEOMETRY_ID;
-							ray.mask = -1;
-							ray.time = 0;
-
-							embreeOccluded(s_lightBaker->embreeScene, ray);
-
-							if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
-								continue; // hit
-
-							luxelColor += areaLight.texture->normalizedColor.rgb() * areaLightSample.photons * factor;
-						}
-					}
-#endif
-
-					AccumulateLightmapData(surface.material->lightmapIndex, ctx, vec4(luxelColor, 1.0f));
+					// Accumulate lightmap data.
+					Lightmap &lightmap = s_lightBaker->lightmaps[surface.material->lightmapIndex];
+					const size_t pixelOffset = ctx.rasterizer.x + ctx.rasterizer.y * world::GetLightmapSize().x;
+					lightmap.color[pixelOffset] += vec4(luxelColor, 1.0f);
 				}
 
 				nTrianglesProcessed += 1;
@@ -1318,7 +1488,7 @@ static int Thread(void *data)
 	}
 
 	// Average accumulated lightmap data. Different triangles may have written to the same texel.
-	for (LightBaker::Lightmap &lightmap : s_lightBaker->lightmaps)
+	for (Lightmap &lightmap : s_lightBaker->lightmaps)
 	{
 		for (vec4 &color : lightmap.color)
 		{
@@ -1334,7 +1504,7 @@ static int Thread(void *data)
 	dilatedLightmap.resize(lightmapSize.x * lightmapSize.y);
 #endif
 
-	for (LightBaker::Lightmap &lightmap : s_lightBaker->lightmaps)
+	for (Lightmap &lightmap : s_lightBaker->lightmaps)
 	{
 #ifdef DILATE
 		lmImageDilate(&lightmap.color[0].x, &dilatedLightmap[0].x, lightmapSize.x, lightmapSize.y, 4);
@@ -1358,114 +1528,18 @@ static int Thread(void *data)
 	return 0;
 }
 
-#define EMBREE_FUNCTION(func, type, name) func = (type)SDL_LoadFunction(so, name); if (!func) { interface::PrintWarningf("Error loading Embree function %s\n", name); return; }
-
 void Start(int nSamples)
 {
 	if (s_lightBaker.get() || !world::IsLoaded())
 		return;
 
-	// Load embree library if not already loaded.
-	if (!embreeNewDevice)
-	{
-		void *so = SDL_LoadObject(EMBREE_LIB);
-
-		if (!so)
-		{
-			interface::PrintWarningf("%s\n", SDL_GetError());
-			return;
-		}
-
-		EMBREE_FUNCTION(embreeNewDevice, EmbreeNewDevice, "rtcNewDevice");
-		EMBREE_FUNCTION(embreeDeleteDevice, EmbreeDeleteDevice, "rtcDeleteDevice");
-		EMBREE_FUNCTION(embreeDeviceGetError, EmbreeDeviceGetError, "rtcDeviceGetError");
-		EMBREE_FUNCTION(embreeDeviceNewScene, EmbreeDeviceNewScene, "rtcDeviceNewScene");
-		EMBREE_FUNCTION(embreeDeleteScene, EmbreeDeleteScene, "rtcDeleteScene");
-		EMBREE_FUNCTION(embreeNewTriangleMesh, EmbreeNewTriangleMesh, "rtcNewTriangleMesh");
-		EMBREE_FUNCTION(embreeMapBuffer, EmbreeMapBuffer, "rtcMapBuffer");
-		EMBREE_FUNCTION(embreeUnmapBuffer, EmbreeUnmapBuffer, "rtcUnmapBuffer");
-		EMBREE_FUNCTION(embreeCommit, EmbreeCommit, "rtcCommit");
-		EMBREE_FUNCTION(embreeOccluded, EmbreeOccluded, "rtcOccluded");
-		EMBREE_FUNCTION(embreeIntersect, EmbreeIntersect, "rtcIntersect");
-	}
+	if (!LoadEmbreeLibrary())
+		return;
 
 	s_lightBaker = std::make_unique<LightBaker>();
 	s_lightBaker->nSamples = math::Clamped(nSamples, 1, (int)LightBaker::maxSamples);
 	s_lightBaker->startTime = bx::getHPCounter();
-
-	// Load area light surface textures into main memory.
-	// Need to do this on the main thread.
-	for (int mi = 0; mi < world::GetNumModels(); mi++)
-	{
-		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
-		{
-			const world::Surface &surface = world::GetSurface(mi, si);
-
-			if (surface.material->surfaceLight <= 0)
-				continue;
-
-			// Check cache.
-			LightBaker::AreaLightTexture *texture = nullptr;
-
-			for (LightBaker::AreaLightTexture &alt : s_lightBaker->areaLightTextures)
-			{
-				if (alt.material == surface.material)
-				{
-					texture = &alt;
-					break;
-				}
-			}
-
-			if (texture)
-				continue; // In cache.
-
-			// Grab the first valid texture for now.
-			const char *filename = nullptr;
-
-			for (size_t i = 0; i < Material::maxStages; i++)
-			{
-				const MaterialStage &stage = surface.material->stages[i];
-
-				if (stage.active)
-				{
-					const char *texture = stage.bundles[MaterialTextureBundleIndex::DiffuseMap].textures[0]->getName();
-
-					if (texture[0] != '*') // Ignore special textures, e.g. lightmaps.
-					{
-						filename = texture;
-						break;
-					}
-				}
-			}
-
-			if (!filename)
-			{
-				interface::PrintWarningf("Error finding area light texture for material %s\n", surface.material->name);
-				continue;
-			}
-
-			Image image = LoadImage(filename);
-
-			if (!image.data)
-			{
-				interface::PrintWarningf("Error loading area light image %s from material %s\n", filename, surface.material->name);
-				continue;
-			}
-
-			// Downscale the image.
-			s_lightBaker->areaLightTextures.push_back(LightBaker::AreaLightTexture());
-			texture = &s_lightBaker->areaLightTextures[s_lightBaker->areaLightTextures.size() - 1];
-			texture->material = surface.material;
-			texture->width = texture->height = 32;
-			texture->nComponents = image.nComponents;
-			texture->data.resize(texture->width * texture->height * texture->nComponents);
-			stbir_resize_uint8(image.data, image.width, image.height, 0, texture->data.data(), texture->width, texture->height, 0, image.nComponents);
-			image.release(image.data, nullptr);
-#if 0
-			stbi_write_tga(util::GetFilename(filename), texture->width, texture->height, texture->nComponents, texture->data.data());
-#endif
-		}
-	}
+	LoadAreaLightTextures();
 
 #ifdef USE_LIGHT_BAKER_THREAD
 	s_lightBaker->mutex = SDL_CreateMutex();
@@ -1492,8 +1566,11 @@ void Start(int nSamples)
 
 void Stop()
 {
+	if (!s_lightBaker.get())
+		return;
+
 #ifdef USE_LIGHT_BAKER_THREAD
-	if (s_lightBaker.get() && s_lightBaker->thread)
+	if (s_lightBaker->thread)
 	{
 		const LightBaker::Status status = GetStatus();
 
@@ -1504,6 +1581,7 @@ void Stop()
 	}
 #endif
 
+	DestroyEmbreeGeometry();
 	s_lightBaker.reset();
 }
 
@@ -1539,7 +1617,7 @@ void Update(int frameNo)
 
 		for (int i = 0; i < world::GetNumLightmaps(); i++)
 		{
-			const LightBaker::Lightmap &lightmap = s_lightBaker->lightmaps[i];
+			const Lightmap &lightmap = s_lightBaker->lightmaps[i];
 			Texture *texture = world::GetLightmap(i);
 			texture->update(bgfx::makeRef(lightmap.colorBytes.data(), (uint32_t)lightmap.colorBytes.size()), 0, 0, lightmapSize.x, lightmapSize.y);
 		}
