@@ -505,6 +505,7 @@ struct LightBaker
 	int nSamples;
 	static const int maxSamples = 16;
 	int textureUploadFrameNo; // lightmap textures were uploaded this frame
+	int64_t startTime;
 	int nLuxelsProcessed;
 	std::vector<Lightmap> lightmaps;
 	static const size_t maxErrorMessageLen = 2048;
@@ -1390,6 +1391,7 @@ void Start(int nSamples)
 
 	s_lightBaker = std::make_unique<LightBaker>();
 	s_lightBaker->nSamples = math::Clamped(nSamples, 1, (int)LightBaker::maxSamples);
+	s_lightBaker->startTime = bx::getHPCounter();
 
 	// Load area light surface textures into main memory.
 	// Need to do this on the main thread.
@@ -1544,7 +1546,10 @@ void Update(int frameNo)
 
 		s_lightBaker->textureUploadFrameNo = frameNo;
 		s_lightBaker->status = LightBaker::Status::Finished;
-		interface::Printf("Processed %d luxels\n", s_lightBaker->nLuxelsProcessed);
+		const float toSeconds = 1.0f / (float)bx::getHPFrequency();
+		interface::Printf("Finished baking lights\n");
+		interface::Printf("   %0.2f seconds elapsed\n", (bx::getHPCounter() - s_lightBaker->startTime) * toSeconds);
+		interface::Printf("   %d luxels processed\n", s_lightBaker->nLuxelsProcessed);
 	}
 	else if (status == LightBaker::Status::Finished)
 	{
