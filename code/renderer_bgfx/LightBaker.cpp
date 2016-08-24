@@ -1243,14 +1243,7 @@ static vec3 BakeAreaLights(vec3 samplePosition, vec3 sampleNormal)
 			if (areaLight.texture->material->cullType != MaterialCullType::TwoSided && angle <= 0)
 				continue;
 
-			float factor = PointToPolygonFormFactor(samplePosition, sampleNormal, areaLightSample.winding);
-
-			if (areaLight.texture->material->cullType == MaterialCullType::TwoSided)
-				factor = fabs(factor);
-
-			if (factor <= 0)
-				continue;
-
+			// Faster to trace the ray before PTPFF.
 			RTCRay ray;
 			const vec3 org(samplePosition + sampleNormal * 0.1f);
 			ray.org[0] = org.x;
@@ -1270,6 +1263,14 @@ static vec3 BakeAreaLights(vec3 samplePosition, vec3 sampleNormal)
 
 			if (ray.geomID != RTC_INVALID_GEOMETRY_ID)
 				continue; // hit
+
+			float factor = PointToPolygonFormFactor(samplePosition, sampleNormal, areaLightSample.winding);
+
+			if (areaLight.texture->material->cullType == MaterialCullType::TwoSided)
+				factor = fabs(factor);
+
+			if (factor <= 0)
+				continue;
 
 			accumulatedLight += areaLight.texture->normalizedColor.rgb() * areaLightSample.photons * factor;
 		}
