@@ -481,16 +481,7 @@ void Main::drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const 
 	bgfx::setVertexBuffer(&tvb);
 	bgfx::setIndexBuffer(&tib);
 	bgfx::setTexture(0, uniforms_->textureSampler.handle, Texture::getScratch(size_t(client))->getHandle());
-
-	if (g_hardwareGammaEnabled)
-	{
-		matStageUniforms_->color.set(vec4(g_identityLight, g_identityLight, g_identityLight, 1));
-	}
-	else
-	{
-		matStageUniforms_->color.set(vec4::white);
-	}
-	
+	matStageUniforms_->color.set(vec4::white);
 	bgfx::setState(BGFX_STATE_RGB_WRITE);
 	const uint8_t viewId = pushView(defaultFb_, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), Rect(x, y, w, h), PushViewFlags::Sequential);
 	bgfx::submit(viewId, shaderPrograms_[ShaderProgramId::TextureColor].handle);
@@ -1741,7 +1732,7 @@ void Main::setWindowGamma()
 			value = int(255 * pow(i / 255.0f, 1.0f / gamma) + 0.5f);
 		}
 
-		g_gammaTable[i] = math::Clamped(int(value * g_overbrightFactor), 0, 255);
+		g_gammaTable[i] = math::Clamped(value, 0, 255);
 	}
 
 	window::SetGamma(g_gammaTable, g_gammaTable, g_gammaTable);
