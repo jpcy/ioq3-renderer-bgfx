@@ -133,7 +133,7 @@ private:
 			Color,
 			Depth,
 			Fog = Depth + DepthShaderProgramVariant::Num,
-			GaussianBlur,
+			GaussianBlur = Fog + FogShaderProgramVariant::Num,
 			Generic,
 			LinearDepth = Generic + GenericShaderProgramVariant::Num,
 			SMAABlendingWeightCalculation,
