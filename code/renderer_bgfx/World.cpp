@@ -1503,41 +1503,41 @@ Bounds GetBounds()
 	return s_world->modelDefs[0].bounds;
 }
 
-Bounds GetBounds(uint8_t visCacheId)
+Bounds GetBounds(VisibilityId visId)
 {
-	return s_world->visCaches[visCacheId]->bounds;
+	return s_world->visibility[(int)visId].bounds;
 }
 
-size_t GetNumSkies(uint8_t visCacheId)
+size_t GetNumSkies(VisibilityId visId)
 {
-	return s_world->visCaches[visCacheId]->nSkies;
+	return s_world->visibility[(int)visId].nSkies;
 }
 
-void GetSky(uint8_t visCacheId, size_t index, Material **material, const std::vector<Vertex> **vertices)
+void GetSky(VisibilityId visId, size_t index, Material **material, const std::vector<Vertex> **vertices)
 {
 	if (material)
 	{
-		*material = s_world->visCaches[visCacheId]->skyMaterials[index];
+		*material = s_world->visibility[(int)visId].skyMaterials[index];
 	}
 
 	if (vertices)
 	{
-		*vertices = &s_world->visCaches[visCacheId]->skyVertices[index];
+		*vertices = &s_world->visibility[(int)visId].skyVertices[index];
 	}
 }
 
-bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<renderer::Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, Plane *portalPlane)
+bool CalculatePortalCamera(VisibilityId visId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<renderer::Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, Plane *portalPlane)
 {
 	assert(pvsPosition);
 	assert(portalCamera);
 	assert(isMirror);
 	assert(portalPlane);
-	const std::unique_ptr<VisCache> &visCache = s_world->visCaches[visCacheId];
+	Visibility &vis = s_world->visibility[(int)visId];
 
 	// Calculate which portal surfaces in the PVS are visible to the camera.
-	visCache->cameraPortalSurfaces.clear();
+	vis.cameraPortalSurfaces.clear();
 
-	for (Surface *portalSurface : visCache->portalSurfaces)
+	for (Surface *portalSurface : vis.portalSurfaces)
 	{
 		// Trivially reject.
 		if (util::IsGeometryOffscreen(mvp, portalSurface->indices.data(), portalSurface->indices.size(), s_world->vertices[portalSurface->bufferIndex].data()))
@@ -1599,19 +1599,19 @@ bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mai
 			continue;
 
 		// Portal surface is visible to the camera.
-		VisCache::Portal portal;
+		Visibility::Portal portal;
 		portal.entity = portalEntity;
 		portal.isMirror = isPortalMirror;
 		portal.plane = plane;
 		portal.surface = portalSurface;
-		visCache->cameraPortalSurfaces.push_back(portal);
+		vis.cameraPortalSurfaces.push_back(portal);
 	}
 
-	if (visCache->cameraPortalSurfaces.empty())
+	if (vis.cameraPortalSurfaces.empty())
 		return false;
 
 	// All visible portal surfaces are required for writing to the stencil buffer, but we only need the first one to figure out the transform.
-	const VisCache::Portal &portal = visCache->cameraPortalSurfaces[0];
+	const Visibility::Portal &portal = vis.cameraPortalSurfaces[0];
 
 	// Portal surface is visible.
 	// Calculate portal camera transform.
@@ -1680,16 +1680,16 @@ bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mai
 	return true;
 }
 
-bool CalculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, Transform *camera, Plane *plane)
+bool CalculateReflectionCamera(VisibilityId visId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, Transform *camera, Plane *plane)
 {
 	assert(camera);
 	assert(plane);
-	const std::unique_ptr<VisCache> &visCache = s_world->visCaches[visCacheId];
+	Visibility &vis = s_world->visibility[(int)visId];
 
 	// Calculate which reflective surfaces in the PVS are visible to the camera.
-	visCache->cameraReflectiveSurfaces.clear();
+	vis.cameraReflectiveSurfaces.clear();
 
-	for (Surface *surface : visCache->reflectiveSurfaces)
+	for (Surface *surface : vis.reflectiveSurfaces)
 	{
 		// Trivially reject.
 		if (util::IsGeometryOffscreen(mvp, surface->indices.data(), surface->indices.size(), s_world->vertices[surface->bufferIndex].data()))
@@ -1700,7 +1700,7 @@ bool CalculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3
 			continue;
 
 		// Reflective surface is visible to the camera.
-		VisCache::Reflective reflective;
+		Visibility::Reflective reflective;
 		reflective.surface = surface;
 
 		if (surface->indices.size() >= 3)
@@ -1716,14 +1716,14 @@ bool CalculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3
 			reflective.plane.normal[0] = 1;
 		}
 
-		visCache->cameraReflectiveSurfaces.push_back(reflective);
+		vis.cameraReflectiveSurfaces.push_back(reflective);
 	}
 
-	if (visCache->cameraReflectiveSurfaces.empty())
+	if (vis.cameraReflectiveSurfaces.empty())
 		return false;
 
 	// All visible reflective surfaces are required for writing to the stencil buffer, but we only need the first one to figure out the transform.
-	const VisCache::Reflective &reflective = visCache->cameraReflectiveSurfaces[0];
+	const Visibility::Reflective &reflective = vis.cameraReflectiveSurfaces[0];
 	Transform surfaceTransform, cameraTransform;
 	surfaceTransform.rotation[0] = reflective.plane.normal;
 	surfaceTransform.rotation[1] = surfaceTransform.rotation[0].perpendicular();
@@ -1741,12 +1741,12 @@ bool CalculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3
 	return true;
 }
 
-void RenderPortal(uint8_t visCacheId, DrawCallList *drawCallList)
+void RenderPortal(VisibilityId visId, DrawCallList *drawCallList)
 {
 	assert(drawCallList);
-	std::unique_ptr<VisCache> &visCache = s_world->visCaches[visCacheId];
+	const Visibility &vis = s_world->visibility[(int)visId];
 
-	for (const VisCache::Portal &portal : visCache->cameraPortalSurfaces)
+	for (const Visibility::Portal &portal : vis.cameraPortalSurfaces)
 	{
 		bgfx::TransientIndexBuffer tib;
 
@@ -1771,12 +1771,12 @@ void RenderPortal(uint8_t visCacheId, DrawCallList *drawCallList)
 	}
 }
 
-void RenderReflective(uint8_t visCacheId, DrawCallList *drawCallList)
+void RenderReflective(VisibilityId visId, DrawCallList *drawCallList)
 {
 	assert(drawCallList);
-	std::unique_ptr<VisCache> &visCache = s_world->visCaches[visCacheId];
+	const Visibility &vis = s_world->visibility[(int)visId];
 
-	for (const VisCache::Reflective &reflective : visCache->cameraReflectiveSurfaces)
+	for (const Visibility::Reflective &reflective : vis.cameraReflectiveSurfaces)
 	{
 		bgfx::TransientIndexBuffer tib;
 
@@ -1802,48 +1802,42 @@ void RenderReflective(uint8_t visCacheId, DrawCallList *drawCallList)
 	}
 }
 
-uint8_t CreateVisCache()
+static void AppendSkySurfaceGeometry(VisibilityId visId, size_t skyIndex, const Surface &surface)
 {
-	s_world->visCaches.push_back(std::make_unique<VisCache>());
-	return uint8_t(s_world->visCaches.size() - 1);
-}
-
-static void AppendSkySurfaceGeometry(uint8_t visCacheId, size_t skyIndex, const Surface &surface)
-{
-	std::unique_ptr<VisCache> &visCache = s_world->visCaches[visCacheId];
-	const size_t startVertex = visCache->skyVertices[skyIndex].size();
-	visCache->skyVertices[skyIndex].resize(visCache->skyVertices[skyIndex].size() + surface.indices.size());
+	Visibility &vis = s_world->visibility[(int)visId];
+	const size_t startVertex = vis.skyVertices[skyIndex].size();
+	vis.skyVertices[skyIndex].resize(vis.skyVertices[skyIndex].size() + surface.indices.size());
 
 	for (size_t i = 0; i < surface.indices.size(); i++)
 	{
-		visCache->skyVertices[skyIndex][startVertex + i] = s_world->vertices[surface.bufferIndex][surface.indices[i]];
+		vis.skyVertices[skyIndex][startVertex + i] = s_world->vertices[surface.bufferIndex][surface.indices[i]];
 	}
 }
 
-void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *areaMask)
+void UpdateVisibility(VisibilityId visId, vec3 cameraPosition, const uint8_t *areaMask)
 {
 	assert(areaMask);
-	std::unique_ptr<VisCache> &visCache = s_world->visCaches[visCacheId];
+	Visibility &vis = s_world->visibility[(int)visId];
 
 	// Get the PVS for the camera leaf cluster.
 	Node *cameraLeaf = LeafFromPosition(cameraPosition);
 
 	// Build a list of visible surfaces.
 	// Don't need to refresh visible surfaces if the camera cluster or the area bitmask haven't changed.
-	if (visCache->lastCameraLeaf == nullptr || visCache->lastCameraLeaf->cluster != cameraLeaf->cluster || !std::equal(areaMask, areaMask + MAX_MAP_AREA_BYTES, visCache->lastAreaMask))
+	if (vis.lastCameraLeaf == nullptr || vis.lastCameraLeaf->cluster != cameraLeaf->cluster || !std::equal(areaMask, areaMask + MAX_MAP_AREA_BYTES, vis.lastAreaMask))
 	{
 		// Clear data that will be recalculated.
-		visCache->surfaces.clear();
-		visCache->nSkies = 0;
+		vis.surfaces.clear();
+		vis.nSkies = 0;
 
-		for (size_t i = 0; i < VisCache::maxSkies; i++)
+		for (size_t i = 0; i < Visibility::maxSkies; i++)
 		{
-			visCache->skyMaterials[i] = nullptr;
+			vis.skyMaterials[i] = nullptr;
 		}
 
-		visCache->portalSurfaces.clear();
-		visCache->reflectiveSurfaces.clear();
-		visCache->bounds.setupForAddingPoints();
+		vis.portalSurfaces.clear();
+		vis.reflectiveSurfaces.clear();
+		vis.bounds.setupForAddingPoints();
 
 		// A cluster of -1 means the camera is outside the PVS - draw everything.
 		const uint8_t *pvs = cameraLeaf->cluster == -1 ? nullptr: &s_world->visData[cameraLeaf->cluster * s_world->clusterBytes];
@@ -1861,7 +1855,7 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 				continue;
 
 			// Merge this leaf's bounds.
-			visCache->bounds.addPoints(leaf.bounds);
+			vis.bounds.addPoints(leaf.bounds);
 
 			for (int j = 0; j < leaf.nSurfaces; j++)
 			{
@@ -1888,27 +1882,27 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 					// Special case for sky surfaces.
 					size_t k;
 
-					for (k = 0; k < VisCache::maxSkies; k++)
+					for (k = 0; k < Visibility::maxSkies; k++)
 					{
-						if (visCache->skyMaterials[k] == nullptr)
+						if (vis.skyMaterials[k] == nullptr)
 						{
-							visCache->skyVertices[k].clear();
-							visCache->skyMaterials[k] = surface.material;
-							visCache->nSkies++;
+							vis.skyVertices[k].clear();
+							vis.skyMaterials[k] = surface.material;
+							vis.nSkies++;
 							break;
 						}
 								
-						if (visCache->skyMaterials[k] == surface.material)
+						if (vis.skyMaterials[k] == surface.material)
 							break;
 					}
 						
-					if (k == VisCache::maxSkies)
+					if (k == Visibility::maxSkies)
 					{
 						interface::PrintWarningf("Too many skies\n");
 					}
 					else
 					{
-						AppendSkySurfaceGeometry(visCacheId, k, surface);
+						AppendSkySurfaceGeometry(visId, k, surface);
 					}
 
 					continue;
@@ -1917,41 +1911,41 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 				{
 					if (surface.material->reflective == MaterialReflective::BackSide)
 					{
-						visCache->reflectiveSurfaces.push_back(&surface);
+						vis.reflectiveSurfaces.push_back(&surface);
 					}
 
 					if (surface.material->isPortal)
 					{
-						visCache->portalSurfaces.push_back(&surface);
+						vis.portalSurfaces.push_back(&surface);
 					}
 
-					visCache->surfaces.push_back(&surface);
+					vis.surfaces.push_back(&surface);
 				}
 			}
 		}
 
 		// Sort visible surfaces.
-		std::sort(visCache->surfaces.begin(), visCache->surfaces.end(), SurfaceCompare);
+		std::sort(vis.surfaces.begin(), vis.surfaces.end(), SurfaceCompare);
 
 		// Clear indices.
 		for (size_t i = 0; i < s_world->currentGeometryBuffer + 1; i++)
 		{
-			visCache->indices[i].clear();
+			vis.indices[i].clear();
 		}
 
 		// Clear CPU deform geometry.
-		visCache->cpuDeformIndices.clear();
-		visCache->cpuDeformVertices.clear();
+		vis.cpuDeformIndices.clear();
+		vis.cpuDeformVertices.clear();
 
 		// Create batched surfaces.
-		visCache->batchedSurfaces.clear();
+		vis.batchedSurfaces.clear();
 		size_t firstSurface = 0;
 
-		for (size_t i = 0; i < visCache->surfaces.size(); i++)
+		for (size_t i = 0; i < vis.surfaces.size(); i++)
 		{
-			Surface *surface = visCache->surfaces[i];
-			const bool isLast = i == visCache->surfaces.size() - 1;
-			Surface *nextSurface = isLast ? nullptr : visCache->surfaces[i + 1];
+			Surface *surface = vis.surfaces[i];
+			const bool isLast = i == vis.surfaces.size() - 1;
+			Surface *nextSurface = isLast ? nullptr : vis.surfaces[i + 1];
 
 			// Create new batch on certain surface state changes.
 			if (!nextSurface || nextSurface->material != surface->material || nextSurface->fogIndex != surface->fogIndex || nextSurface->bufferIndex != surface->bufferIndex)
@@ -1966,28 +1960,28 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 				{
 					// Grab the geometry for all surfaces in this batch.
 					// It will be copied into a transient buffer and then deformed every Render() call.
-					bs.firstIndex = (uint32_t)visCache->cpuDeformIndices.size();
+					bs.firstIndex = (uint32_t)vis.cpuDeformIndices.size();
 					bs.nIndices = 0;
-					bs.firstVertex = (uint32_t)visCache->cpuDeformVertices.size();
+					bs.firstVertex = (uint32_t)vis.cpuDeformVertices.size();
 					bs.nVertices = 0;
 
 					for (size_t j = firstSurface; j <= i; j++)
 					{
-						Surface *s = visCache->surfaces[j];
+						Surface *s = vis.surfaces[j];
 
 						// Make room in destination.
-						const size_t firstDestIndex = visCache->cpuDeformIndices.size();
-						visCache->cpuDeformIndices.resize(visCache->cpuDeformIndices.size() + s->indices.size());
-						const size_t firstDestVertex = visCache->cpuDeformVertices.size();
-						visCache->cpuDeformVertices.resize(visCache->cpuDeformVertices.size() + s->nVertices);
+						const size_t firstDestIndex = vis.cpuDeformIndices.size();
+						vis.cpuDeformIndices.resize(vis.cpuDeformIndices.size() + s->indices.size());
+						const size_t firstDestVertex = vis.cpuDeformVertices.size();
+						vis.cpuDeformVertices.resize(vis.cpuDeformVertices.size() + s->nVertices);
 
 						// Append geometry.
-						memcpy(&visCache->cpuDeformVertices[firstDestVertex], &s_world->vertices[surface->bufferIndex][s->firstVertex], sizeof(Vertex) * s->nVertices);
+						memcpy(&vis.cpuDeformVertices[firstDestVertex], &s_world->vertices[surface->bufferIndex][s->firstVertex], sizeof(Vertex) * s->nVertices);
 
 						for (size_t k = 0; k < s->indices.size(); k++)
 						{
 							// Make indices relative.
-							visCache->cpuDeformIndices[firstDestIndex + k] = uint16_t(s->indices[k] - s->firstVertex + bs.nVertices);
+							vis.cpuDeformIndices[firstDestIndex + k] = uint16_t(s->indices[k] - s->firstVertex + bs.nVertices);
 						}
 
 						bs.nVertices += s->nVertices;
@@ -1999,13 +1993,13 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 					// Grab the indices for all surfaces in this batch.
 					// They will be used directly by a dynamic index buffer.
 					bs.bufferIndex = surface->bufferIndex;
-					std::vector<uint16_t> &indices = visCache->indices[bs.bufferIndex];
+					std::vector<uint16_t> &indices = vis.indices[bs.bufferIndex];
 					bs.firstIndex = (uint32_t)indices.size();
 					bs.nIndices = 0;
 
 					for (size_t j = firstSurface; j <= i; j++)
 					{
-						Surface *s = visCache->surfaces[j];
+						Surface *s = vis.surfaces[j];
 						const size_t copyIndex = indices.size();
 						indices.resize(indices.size() + s->indices.size());
 						memcpy(&indices[copyIndex], &s->indices[0], s->indices.size() * sizeof(uint16_t));
@@ -2013,7 +2007,7 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 					}
 				}
 
-				visCache->batchedSurfaces.push_back(bs);
+				vis.batchedSurfaces.push_back(bs);
 				firstSurface = i + 1;
 			}
 		}
@@ -2021,8 +2015,8 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 		// Update dynamic index buffers.
 		for (size_t i = 0; i < s_world->currentGeometryBuffer + 1; i++)
 		{
-			DynamicIndexBuffer &ib = visCache->indexBuffers[i];
-			std::vector<uint16_t> &indices = visCache->indices[i];
+			DynamicIndexBuffer &ib = vis.indexBuffers[i];
+			std::vector<uint16_t> &indices = vis.indices[i];
 
 			if (indices.empty())
 				continue;
@@ -2041,17 +2035,17 @@ void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *area
 		}
 	}
 
-	visCache->lastCameraLeaf = cameraLeaf;
-	memcpy(visCache->lastAreaMask, areaMask, sizeof(visCache->lastAreaMask));
+	vis.lastCameraLeaf = cameraLeaf;
+	memcpy(vis.lastAreaMask, areaMask, sizeof(vis.lastAreaMask));
 	s_world->duplicateSurfaceId++;
 }
 
-void Render(uint8_t visCacheId, DrawCallList *drawCallList, const mat3 &sceneRotation)
+void Render(VisibilityId visId, DrawCallList *drawCallList, const mat3 &sceneRotation)
 {
 	assert(drawCallList);
-	std::unique_ptr<VisCache> &visCache = s_world->visCaches[visCacheId];
+	const Visibility &vis = s_world->visibility[(int)visId];
 
-	for (const BatchedSurface &surface : visCache->batchedSurfaces)
+	for (const BatchedSurface &surface : vis.batchedSurfaces)
 	{
 		DrawCall dc;
 		dc.flags = 0;
@@ -2065,7 +2059,7 @@ void Render(uint8_t visCacheId, DrawCallList *drawCallList, const mat3 &sceneRot
 		if (g_cvars.waterReflections.getBool())
 		{
 			// If this is a back side reflective material, use the front side material if there's any reflective surfaces visible to the camera.
-			if (dc.material->reflective == MaterialReflective::BackSide && !visCache->cameraReflectiveSurfaces.empty())
+			if (dc.material->reflective == MaterialReflective::BackSide && !vis.cameraReflectiveSurfaces.empty())
 			{
 				dc.material = dc.material->reflectiveFrontSideMaterial;
 			}
@@ -2073,7 +2067,7 @@ void Render(uint8_t visCacheId, DrawCallList *drawCallList, const mat3 &sceneRot
 
 		if (surface.material->hasAutoSpriteDeform())
 		{
-			assert(!visCache->cpuDeformVertices.empty() && !visCache->cpuDeformIndices.empty());
+			assert(!vis.cpuDeformVertices.empty() && !vis.cpuDeformIndices.empty());
 			assert(surface.nVertices);
 			assert(surface.nIndices);
 
@@ -2087,8 +2081,8 @@ void Render(uint8_t visCacheId, DrawCallList *drawCallList, const mat3 &sceneRot
 				continue;
 			}
 				
-			memcpy(tib.data, &visCache->cpuDeformIndices[surface.firstIndex], surface.nIndices * sizeof(uint16_t));
-			memcpy(tvb.data, &visCache->cpuDeformVertices[surface.firstVertex], surface.nVertices * sizeof(Vertex));
+			memcpy(tib.data, &vis.cpuDeformIndices[surface.firstIndex], surface.nIndices * sizeof(uint16_t));
+			memcpy(tvb.data, &vis.cpuDeformVertices[surface.firstVertex], surface.nVertices * sizeof(Vertex));
 			dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 			dc.vb.transientHandle = tvb;
 			dc.vb.nVertices = surface.nVertices;
@@ -2104,7 +2098,7 @@ void Render(uint8_t visCacheId, DrawCallList *drawCallList, const mat3 &sceneRot
 			dc.vb.staticHandle = s_world->vertexBuffers[surface.bufferIndex].handle;
 			dc.vb.nVertices = (uint32_t)s_world->vertices[surface.bufferIndex].size();
 			dc.ib.type = DrawCall::BufferType::Dynamic;
-			dc.ib.dynamicHandle = visCache->indexBuffers[surface.bufferIndex].handle;
+			dc.ib.dynamicHandle = vis.indexBuffers[surface.bufferIndex].handle;
 			dc.ib.firstIndex = surface.firstIndex;
 			dc.ib.nIndices = surface.nIndices;
 		}

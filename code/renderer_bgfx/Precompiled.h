@@ -1259,10 +1259,19 @@ private:
 	float scale_ = 0;
 };
 
+enum class VisibilityId
+{
+	Main,
+	Portal,
+	Reflection,
+	SkyboxPortal,
+	Num
+};
+
 /// @remarks Called when a sky material is parsed.
 void Sky_InitializeTexCoords(float heightCloud);
 
-void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, uint8_t visCacheId, float zMax);
+void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, VisibilityId visId, float zMax);
 
 struct StaticLightFlags
 {
@@ -1715,16 +1724,15 @@ namespace world
 	void CalculateFog(int fogIndex, const mat4 &modelMatrix, const mat4 &modelViewMatrix, vec3 cameraPosition, vec3 localViewPosition, const mat3 &cameraRotation, vec4 *fogColor, vec4 *fogDistance, vec4 *fogDepth, float *eyeT);
 	int MarkFragments(int numPoints, const vec3 *points, vec3 projection, int maxPoints, vec3 *pointBuffer, int maxFragments, markFragment_t *fragmentBuffer);
 	Bounds GetBounds();
-	Bounds GetBounds(uint8_t visCacheId);
-	size_t GetNumSkies(uint8_t visCacheId);
-	void GetSky(uint8_t visCacheId, size_t index, Material **material, const std::vector<Vertex> **vertices);
-	bool CalculatePortalCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<renderer::Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, Plane *portalPlane);
-	bool CalculateReflectionCamera(uint8_t visCacheId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, Transform *camera, Plane *plane);
-	void RenderPortal(uint8_t visCacheId, DrawCallList *drawCallList);
-	void RenderReflective(uint8_t visCacheId, DrawCallList *drawCallList);
-	uint8_t CreateVisCache();
-	void UpdateVisCache(uint8_t visCacheId, vec3 cameraPosition, const uint8_t *areaMask);
-	void Render(uint8_t visCacheId, DrawCallList *drawCallList, const mat3 &sceneRotation);
+	Bounds GetBounds(VisibilityId visId);
+	size_t GetNumSkies(VisibilityId visId);
+	void GetSky(VisibilityId visId, size_t index, Material **material, const std::vector<Vertex> **vertices);
+	bool CalculatePortalCamera(VisibilityId visId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<renderer::Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, Plane *portalPlane);
+	bool CalculateReflectionCamera(VisibilityId visId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, Transform *camera, Plane *plane);
+	void RenderPortal(VisibilityId visId, DrawCallList *drawCallList);
+	void RenderReflective(VisibilityId visId, DrawCallList *drawCallList);
+	void UpdateVisibility(VisibilityId visId, vec3 cameraPosition, const uint8_t *areaMask);
+	void Render(VisibilityId visId, DrawCallList *drawCallList, const mat3 &sceneRotation);
 	void PickMaterial();
 }
 

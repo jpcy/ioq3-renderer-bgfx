@@ -589,18 +589,18 @@ void Sky_InitializeTexCoords(float heightCloud)
 	}
 }
 
-void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, uint8_t visCacheId, float zMax)
+void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, VisibilityId visId, float zMax)
 {
 	assert(drawCallList);
 
 	if (!world::IsLoaded())
 		return;
 
-	for (size_t skyIndex = 0; skyIndex < world::GetNumSkies(visCacheId); skyIndex++)
+	for (size_t skyIndex = 0; skyIndex < world::GetNumSkies(visId); skyIndex++)
 	{
 		Material *mat;
 		const std::vector<Vertex> *vertices;
-		world::GetSky(visCacheId, skyIndex, &mat, &vertices);
+		world::GetSky(visId, skyIndex, &mat, &vertices);
 
 		if (mat == nullptr)
 			continue;

@@ -363,7 +363,7 @@ struct Surface
 
 static const size_t s_maxWorldGeometryBuffers = 8;
 
-struct VisCache
+struct Visibility
 {
 	static const size_t maxSkies = 4;
 	size_t nSkies = 0;
@@ -460,10 +460,10 @@ struct World
 	int clusterBytes;
 	const uint8_t *visData = nullptr;
 	std::vector<uint8_t> internalVisData;
-	std::vector<std::unique_ptr<VisCache>> visCaches;
+	std::array<Visibility, (int)VisibilityId::Num> visibility;
 
 	/// Used at runtime to avoid adding duplicate visible surfaces.
-	/// @remarks Incremented once everytime UpdateVisCache is called.
+	/// @remarks Incremented once everytime UpdateVisibility is called.
 	int duplicateSurfaceId = 0;
 
 	int decalDuplicateSurfaceId = 0;
