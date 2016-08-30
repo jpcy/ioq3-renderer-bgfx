@@ -1067,7 +1067,12 @@ void Main::renderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, mat
 	{
 		// If dealing with skybox portals, only render the sky to the skybox portal, not the camera containing it.
 		if ((flags & RenderCameraFlags::IsSkyboxPortal) || (flags & RenderCameraFlags::ContainsSkyboxPortal) == 0)
-			Sky_Render(&drawCalls_, position, visId, zMax);
+		{
+			for (size_t i = 0; i < world::GetNumSkySurfaces(visId); i++)
+			{
+				Sky_Render(&drawCalls_, position, zMax, world::GetSkySurface(visId, i));
+			}
+		}
 
 		world::Render(visId, &drawCalls_, sceneRotation_);
 	}

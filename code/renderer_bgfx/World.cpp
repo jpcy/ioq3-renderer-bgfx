@@ -61,6 +61,11 @@ static bool SurfaceCompare(const Surface *s1, const Surface *s2)
 	return false;
 }
 
+static bool IgnoreSurface(const Surface &surface)
+{
+	return surface.type == SurfaceType::Ignore || surface.type == SurfaceType::Flare;
+}
+
 class WorldModel : public Model
 {
 public:
@@ -153,11 +158,8 @@ public:
 		{
 			const Surface &surface = s_world->surfaces[def.firstSurface + i];
 
-			// Ignore flares.
-			if (surface.type == SurfaceType::Ignore || surface.type == SurfaceType::Flare)
-				continue;
-
-			surfaces.push_back(&surface);
+			if (!IgnoreSurface(surface))
+				surfaces.push_back(&surface);
 		}
 
 		std::sort(surfaces.begin(), surfaces.end(), SurfaceCompare);
@@ -295,6 +297,143 @@ static void SetSurfaceGeometry(Surface *surface, const Vertex *vertices, int nVe
 static void ReleaseLightmapAtlasImage(void *data, void *userData)
 {
 	free(data);
+}
+
+static void CreateBatchedSurfaces(const std::vector<Surface *> &surfaces, std::vector<BatchedSurface> *batchedSurfaces, std::vector<uint16_t> *batchedIndices, std::vector<Vertex> *cpuDeformVertices, std::vector<uint16_t> *cpuDeformIndices)
+{
+	assert(batchedSurfaces);
+	assert(batchedIndices);
+	assert(cpuDeformVertices);
+	assert(cpuDeformIndices);
+
+	// Clear indices.
+	for (size_t i = 0; i < s_world->currentGeometryBuffer + 1; i++)
+	{
+		batchedIndices[i].clear();
+	}
+
+	// Clear CPU deform geometry.
+	cpuDeformIndices->clear();
+	cpuDeformVertices->clear();
+
+	// Create batched surfaces.
+	batchedSurfaces->clear();
+	size_t firstSurface = 0;
+
+	for (size_t i = 0; i < surfaces.size(); i++)
+	{
+		Surface *surface = surfaces[i];
+		const bool isLast = i == surfaces.size() - 1;
+		Surface *nextSurface = isLast ? nullptr : surfaces[i + 1];
+
+		// Create new batch on certain surface state changes.
+		if (!nextSurface || nextSurface->material != surface->material || nextSurface->fogIndex != surface->fogIndex || nextSurface->bufferIndex != surface->bufferIndex)
+		{
+			if (IgnoreSurface(*surface))
+			{
+				// Skip this batch.
+				firstSurface = i + 1;
+				continue;
+			}
+
+			BatchedSurface bs;
+			bs.contentFlags = surface->contentFlags;
+			bs.fogIndex = surface->fogIndex;
+			bs.material = surface->material;
+			bs.surfaceFlags = surface->flags;
+
+			// Merge all the surface bounds in the batch.
+			bs.bounds.setupForAddingPoints();
+
+			for (size_t j = firstSurface; j <= i; j++)
+			{
+				bs.bounds.addPoints(surfaces[j]->cullinfo.bounds);
+			}
+
+			if (bs.material->hasAutoSpriteDeform())
+			{
+				// Grab the geometry for all surfaces in this batch.
+				// It will be copied into a transient buffer and then deformed every Render() call.
+				bs.firstIndex = (uint32_t)cpuDeformIndices->size();
+				bs.nIndices = 0;
+				bs.firstVertex = (uint32_t)cpuDeformVertices->size();
+				bs.nVertices = 0;
+
+				for (size_t j = firstSurface; j <= i; j++)
+				{
+					Surface *s = surfaces[j];
+
+					// Make room in destination.
+					const size_t firstDestIndex = cpuDeformIndices->size();
+					cpuDeformIndices->resize(cpuDeformIndices->size() + s->indices.size());
+					const size_t firstDestVertex = cpuDeformVertices->size();
+					cpuDeformVertices->resize(cpuDeformVertices->size() + s->nVertices);
+
+					// Append geometry.
+					memcpy(&(*cpuDeformVertices)[firstDestVertex], &s_world->vertices[surface->bufferIndex][s->firstVertex], sizeof(Vertex) * s->nVertices);
+
+					for (size_t k = 0; k < s->indices.size(); k++)
+					{
+						// Make indices relative.
+						(*cpuDeformIndices)[firstDestIndex + k] = uint16_t(s->indices[k] - s->firstVertex + bs.nVertices);
+					}
+
+					bs.nVertices += s->nVertices;
+					bs.nIndices += (uint32_t)s->indices.size();
+				}
+			}
+			else
+			{
+				// Grab the indices for all surfaces in this batch.
+				// They will be used directly by a dynamic index buffer.
+				bs.bufferIndex = surface->bufferIndex;
+				std::vector<uint16_t> &indices = batchedIndices[bs.bufferIndex];
+				bs.firstIndex = (uint32_t)indices.size();
+				bs.nIndices = 0;
+
+				for (size_t j = firstSurface; j <= i; j++)
+				{
+					Surface *s = surfaces[j];
+					const size_t copyIndex = indices.size();
+					indices.resize(indices.size() + s->indices.size());
+					memcpy(&indices[copyIndex], &s->indices[0], s->indices.size() * sizeof(uint16_t));
+					bs.nIndices += (uint32_t)s->indices.size();
+				}
+			}
+
+			batchedSurfaces->push_back(bs);
+			firstSurface = i + 1;
+		}
+	}
+}
+
+static void CreateOrAppendSkySurface(std::vector<SkySurface> &skySurfaces, const Surface &surface)
+{
+	SkySurface *skySurface = nullptr;
+
+	for (SkySurface &ss : skySurfaces)
+	{
+		if (ss.material == surface.material)
+		{
+			skySurface = &ss;
+			break;
+		}
+	}
+
+	if (!skySurface)
+	{
+		skySurfaces.push_back(SkySurface());
+		skySurface = &skySurfaces[skySurfaces.size() - 1];
+		skySurface->material = surface.material;
+	}
+
+	const size_t startVertex = skySurface->vertices.size();
+	skySurface->vertices.resize(skySurface->vertices.size() + surface.indices.size());
+
+	for (size_t l = 0; l < surface.indices.size(); l++)
+	{
+		skySurface->vertices[startVertex + l] = s_world->vertices[surface.bufferIndex][surface.indices[l]];
+	}
 }
 
 void Load(const char *name)
@@ -855,6 +994,38 @@ void Load(const char *name)
 	for (size_t i = 0; i < s_world->currentGeometryBuffer + 1; i++)
 	{
 		s_world->vertexBuffers[i].handle = bgfx::createVertexBuffer(bgfx::makeRef(&s_world->vertices[i][0], uint32_t(s_world->vertices[i].size() * sizeof(Vertex))), Vertex::decl);
+	}
+
+	// Create batched surfaces for frustum culling.
+	std::vector<Surface *> sortedSurfaces;
+	sortedSurfaces.reserve(s_world->modelDefs[0].nSurfaces); // Reserve maximum possible size. Actual size will probably be less due to ignored surfaces.
+
+	for (Surface &surface : s_world->surfaces)
+	{
+		if (IgnoreSurface(surface) || surface.material->isPortal) // Ignore portals too.
+			continue;
+
+		if (surface.material->isSky)
+		{
+			CreateOrAppendSkySurface(s_world->skySurfaces, surface);
+		}
+		else
+		{
+			sortedSurfaces.push_back(&surface);
+		}
+	}
+
+	std::sort(sortedSurfaces.begin(), sortedSurfaces.end(), SurfaceCompare);
+	std::vector<uint16_t> batchedIndices[s_maxWorldGeometryBuffers];
+	CreateBatchedSurfaces(sortedSurfaces, &s_world->batchedSurfaces, batchedIndices, &s_world->cpuDeformVertices, &s_world->cpuDeformIndices);
+
+	for (size_t i = 0; i < s_world->currentGeometryBuffer + 1; i++)
+	{
+		if (batchedIndices[i].empty())
+			continue;
+
+		const bgfx::Memory *mem = bgfx::copy(batchedIndices[i].data(), uint32_t(batchedIndices[i].size() * sizeof(uint16_t)));
+		s_world->indexBuffers[i].handle = bgfx::createIndexBuffer(mem);
 	}
 }
 
@@ -1508,21 +1679,31 @@ Bounds GetBounds(VisibilityId visId)
 	return s_world->visibility[(int)visId].bounds;
 }
 
-size_t GetNumSkies(VisibilityId visId)
+size_t GetNumSkySurfaces(VisibilityId visId)
 {
-	return s_world->visibility[(int)visId].nSkies;
+	const Visibility &vis = s_world->visibility[(int)visId];
+
+	if (vis.method == VisibilityMethod::PVS)
+	{
+		return vis.skySurfaces.size();
+	}
+	else
+	{
+		return s_world->skySurfaces.size();
+	}
 }
 
-void GetSky(VisibilityId visId, size_t index, Material **material, const std::vector<Vertex> **vertices)
+const SkySurface &GetSkySurface(VisibilityId visId, size_t index)
 {
-	if (material)
-	{
-		*material = s_world->visibility[(int)visId].skyMaterials[index];
-	}
+	const Visibility &vis = s_world->visibility[(int)visId];
 
-	if (vertices)
+	if (vis.method == VisibilityMethod::PVS)
 	{
-		*vertices = &s_world->visibility[(int)visId].skyVertices[index];
+		return vis.skySurfaces[index];
+	}
+	else
+	{
+		return s_world->skySurfaces[index];
 	}
 }
 
@@ -1802,250 +1983,161 @@ void RenderReflective(VisibilityId visId, DrawCallList *drawCallList)
 	}
 }
 
-static void AppendSkySurfaceGeometry(VisibilityId visId, size_t skyIndex, const Surface &surface)
-{
-	Visibility &vis = s_world->visibility[(int)visId];
-	const size_t startVertex = vis.skyVertices[skyIndex].size();
-	vis.skyVertices[skyIndex].resize(vis.skyVertices[skyIndex].size() + surface.indices.size());
-
-	for (size_t i = 0; i < surface.indices.size(); i++)
-	{
-		vis.skyVertices[skyIndex][startVertex + i] = s_world->vertices[surface.bufferIndex][surface.indices[i]];
-	}
-}
-
-void UpdateVisibility(VisibilityId visId, vec3 cameraPosition, const uint8_t *areaMask)
+static void UpdatePvsVisibility(VisibilityId visId, vec3 cameraPosition, const uint8_t *areaMask)
 {
 	assert(areaMask);
 	Visibility &vis = s_world->visibility[(int)visId];
+	vis.method = VisibilityMethod::PVS;
 
 	// Get the PVS for the camera leaf cluster.
 	Node *cameraLeaf = LeafFromPosition(cameraPosition);
 
 	// Build a list of visible surfaces.
 	// Don't need to refresh visible surfaces if the camera cluster or the area bitmask haven't changed.
-	if (vis.lastCameraLeaf == nullptr || vis.lastCameraLeaf->cluster != cameraLeaf->cluster || !std::equal(areaMask, areaMask + MAX_MAP_AREA_BYTES, vis.lastAreaMask))
+	if (vis.lastCameraLeaf != nullptr && vis.lastCameraLeaf->cluster == cameraLeaf->cluster && std::equal(areaMask, areaMask + MAX_MAP_AREA_BYTES, vis.lastAreaMask))
+		return;
+
+	// Clear data that will be recalculated.
+	vis.portalSurfaces.clear();
+	vis.reflectiveSurfaces.clear();
+	vis.skySurfaces.clear();
+	vis.surfaces.clear();
+	vis.bounds.setupForAddingPoints();
+
+	// A cluster of -1 means the camera is outside the PVS - draw everything.
+	const uint8_t *pvs = cameraLeaf->cluster == -1 ? nullptr: &s_world->visData[cameraLeaf->cluster * s_world->clusterBytes];
+
+	for (size_t i = s_world->firstLeaf; i < s_world->nodes.size(); i++)
 	{
-		// Clear data that will be recalculated.
-		vis.surfaces.clear();
-		vis.nSkies = 0;
+		Node &leaf = s_world->nodes[i];
 
-		for (size_t i = 0; i < Visibility::maxSkies; i++)
+		// Check PVS.
+		if (pvs && !(pvs[leaf.cluster >> 3] & (1 << (leaf.cluster & 7))))
+			continue;
+
+		// Check for door connection.
+		if (pvs && (areaMask[leaf.area >> 3] & (1 << (leaf.area & 7))))
+			continue;
+
+		// Merge this leaf's bounds.
+		vis.bounds.addPoints(leaf.bounds);
+
+		for (int j = 0; j < leaf.nSurfaces; j++)
 		{
-			vis.skyMaterials[i] = nullptr;
-		}
+			const int si = s_world->leafSurfaces[leaf.firstSurface + j];
+			Surface &surface = s_world->surfaces[si];
 
-		vis.portalSurfaces.clear();
-		vis.reflectiveSurfaces.clear();
-		vis.bounds.setupForAddingPoints();
-
-		// A cluster of -1 means the camera is outside the PVS - draw everything.
-		const uint8_t *pvs = cameraLeaf->cluster == -1 ? nullptr: &s_world->visData[cameraLeaf->cluster * s_world->clusterBytes];
-
-		for (size_t i = s_world->firstLeaf; i < s_world->nodes.size(); i++)
-		{
-			Node &leaf = s_world->nodes[i];
-
-			// Check PVS.
-			if (pvs && !(pvs[leaf.cluster >> 3] & (1 << (leaf.cluster & 7))))
+			// Ignore surfaces in brush models.
+			if (si < 0 || si >= (int)s_world->modelDefs[0].nSurfaces)
 				continue;
 
-			// Check for door connection.
-			if (pvs && (areaMask[leaf.area >> 3] & (1 << (leaf.area & 7))))
+			// Don't add duplicates.
+			if (surface.duplicateId == s_world->duplicateSurfaceId)
 				continue;
 
-			// Merge this leaf's bounds.
-			vis.bounds.addPoints(leaf.bounds);
+			// Ignore flares.
+			if (IgnoreSurface(surface))
+				continue;
 
-			for (int j = 0; j < leaf.nSurfaces; j++)
-			{
-				const int si = s_world->leafSurfaces[leaf.firstSurface + j];
-				Surface &surface = s_world->surfaces[si];
-
-				// Ignore surfaces in brush models.
-				if (si < 0 || si >= (int)s_world->modelDefs[0].nSurfaces)
-					continue;
-
-				// Don't add duplicates.
-				if (surface.duplicateId == s_world->duplicateSurfaceId)
-					continue;
-
-				// Ignore flares.
-				if (surface.type == SurfaceType::Ignore || surface.type == SurfaceType::Flare)
-					continue;
-
-				// Add the surface.
-				surface.duplicateId = s_world->duplicateSurfaceId;
+			// Add the surface.
+			surface.duplicateId = s_world->duplicateSurfaceId;
 					
-				if (surface.material->isSky)
-				{
-					// Special case for sky surfaces.
-					size_t k;
-
-					for (k = 0; k < Visibility::maxSkies; k++)
-					{
-						if (vis.skyMaterials[k] == nullptr)
-						{
-							vis.skyVertices[k].clear();
-							vis.skyMaterials[k] = surface.material;
-							vis.nSkies++;
-							break;
-						}
-								
-						if (vis.skyMaterials[k] == surface.material)
-							break;
-					}
-						
-					if (k == Visibility::maxSkies)
-					{
-						interface::PrintWarningf("Too many skies\n");
-					}
-					else
-					{
-						AppendSkySurfaceGeometry(visId, k, surface);
-					}
-
-					continue;
-				}
-				else
-				{
-					if (surface.material->reflective == MaterialReflective::BackSide)
-					{
-						vis.reflectiveSurfaces.push_back(&surface);
-					}
-
-					if (surface.material->isPortal)
-					{
-						vis.portalSurfaces.push_back(&surface);
-					}
-
-					vis.surfaces.push_back(&surface);
-				}
-			}
-		}
-
-		// Sort visible surfaces.
-		std::sort(vis.surfaces.begin(), vis.surfaces.end(), SurfaceCompare);
-
-		// Clear indices.
-		for (size_t i = 0; i < s_world->currentGeometryBuffer + 1; i++)
-		{
-			vis.indices[i].clear();
-		}
-
-		// Clear CPU deform geometry.
-		vis.cpuDeformIndices.clear();
-		vis.cpuDeformVertices.clear();
-
-		// Create batched surfaces.
-		vis.batchedSurfaces.clear();
-		size_t firstSurface = 0;
-
-		for (size_t i = 0; i < vis.surfaces.size(); i++)
-		{
-			Surface *surface = vis.surfaces[i];
-			const bool isLast = i == vis.surfaces.size() - 1;
-			Surface *nextSurface = isLast ? nullptr : vis.surfaces[i + 1];
-
-			// Create new batch on certain surface state changes.
-			if (!nextSurface || nextSurface->material != surface->material || nextSurface->fogIndex != surface->fogIndex || nextSurface->bufferIndex != surface->bufferIndex)
+			if (surface.material->isSky)
 			{
-				BatchedSurface bs;
-				bs.contentFlags = surface->contentFlags;
-				bs.fogIndex = surface->fogIndex;
-				bs.material = surface->material;
-				bs.surfaceFlags = surface->flags;
-
-				if (bs.material->hasAutoSpriteDeform())
+				CreateOrAppendSkySurface(vis.skySurfaces, surface);
+			}
+			else
+			{
+				if (surface.material->reflective == MaterialReflective::BackSide)
 				{
-					// Grab the geometry for all surfaces in this batch.
-					// It will be copied into a transient buffer and then deformed every Render() call.
-					bs.firstIndex = (uint32_t)vis.cpuDeformIndices.size();
-					bs.nIndices = 0;
-					bs.firstVertex = (uint32_t)vis.cpuDeformVertices.size();
-					bs.nVertices = 0;
-
-					for (size_t j = firstSurface; j <= i; j++)
-					{
-						Surface *s = vis.surfaces[j];
-
-						// Make room in destination.
-						const size_t firstDestIndex = vis.cpuDeformIndices.size();
-						vis.cpuDeformIndices.resize(vis.cpuDeformIndices.size() + s->indices.size());
-						const size_t firstDestVertex = vis.cpuDeformVertices.size();
-						vis.cpuDeformVertices.resize(vis.cpuDeformVertices.size() + s->nVertices);
-
-						// Append geometry.
-						memcpy(&vis.cpuDeformVertices[firstDestVertex], &s_world->vertices[surface->bufferIndex][s->firstVertex], sizeof(Vertex) * s->nVertices);
-
-						for (size_t k = 0; k < s->indices.size(); k++)
-						{
-							// Make indices relative.
-							vis.cpuDeformIndices[firstDestIndex + k] = uint16_t(s->indices[k] - s->firstVertex + bs.nVertices);
-						}
-
-						bs.nVertices += s->nVertices;
-						bs.nIndices += (uint32_t)s->indices.size();
-					}
-				}
-				else
-				{
-					// Grab the indices for all surfaces in this batch.
-					// They will be used directly by a dynamic index buffer.
-					bs.bufferIndex = surface->bufferIndex;
-					std::vector<uint16_t> &indices = vis.indices[bs.bufferIndex];
-					bs.firstIndex = (uint32_t)indices.size();
-					bs.nIndices = 0;
-
-					for (size_t j = firstSurface; j <= i; j++)
-					{
-						Surface *s = vis.surfaces[j];
-						const size_t copyIndex = indices.size();
-						indices.resize(indices.size() + s->indices.size());
-						memcpy(&indices[copyIndex], &s->indices[0], s->indices.size() * sizeof(uint16_t));
-						bs.nIndices += (uint32_t)s->indices.size();
-					}
+					vis.reflectiveSurfaces.push_back(&surface);
 				}
 
-				vis.batchedSurfaces.push_back(bs);
-				firstSurface = i + 1;
-			}
-		}
+				if (surface.material->isPortal)
+				{
+					vis.portalSurfaces.push_back(&surface);
+				}
 
-		// Update dynamic index buffers.
-		for (size_t i = 0; i < s_world->currentGeometryBuffer + 1; i++)
-		{
-			DynamicIndexBuffer &ib = vis.indexBuffers[i];
-			std::vector<uint16_t> &indices = vis.indices[i];
-
-			if (indices.empty())
-				continue;
-
-			const bgfx::Memory *mem = bgfx::copy(indices.data(), uint32_t(indices.size() * sizeof(uint16_t)));
-
-			// Buffer is created on first use.
-			if (!bgfx::isValid(ib.handle))
-			{
-				ib.handle = bgfx::createDynamicIndexBuffer(mem, BGFX_BUFFER_ALLOW_RESIZE);
-			}
-			else				
-			{
-				bgfx::updateDynamicIndexBuffer(ib.handle, 0, mem);
+				vis.surfaces.push_back(&surface);
 			}
 		}
 	}
 
+	// Sort visible surfaces.
+	std::sort(vis.surfaces.begin(), vis.surfaces.end(), SurfaceCompare);
+
+	CreateBatchedSurfaces(vis.surfaces, &vis.batchedSurfaces, vis.indices, &vis.cpuDeformVertices, &vis.cpuDeformIndices);
+
+	// Update dynamic index buffers.
+	for (size_t i = 0; i < s_world->currentGeometryBuffer + 1; i++)
+	{
+		DynamicIndexBuffer &ib = vis.indexBuffers[i];
+		std::vector<uint16_t> &indices = vis.indices[i];
+
+		if (indices.empty())
+			continue;
+
+		const bgfx::Memory *mem = bgfx::copy(indices.data(), uint32_t(indices.size() * sizeof(uint16_t)));
+
+		// Buffer is created on first use.
+		if (!bgfx::isValid(ib.handle))
+		{
+			ib.handle = bgfx::createDynamicIndexBuffer(mem, BGFX_BUFFER_ALLOW_RESIZE);
+		}
+		else				
+		{
+			bgfx::updateDynamicIndexBuffer(ib.handle, 0, mem);
+		}
+	}
+
+	s_world->duplicateSurfaceId++;
 	vis.lastCameraLeaf = cameraLeaf;
 	memcpy(vis.lastAreaMask, areaMask, sizeof(vis.lastAreaMask));
-	s_world->duplicateSurfaceId++;
+}
+
+static void UpdateCameraFrustumVisibility(VisibilityId visId, vec3 cameraPosition, const uint8_t *areaMask)
+{
+	Visibility &vis = s_world->visibility[(int)visId];
+	vis.method = VisibilityMethod::CameraFrustum;
+	vis.bounds.setupForAddingPoints();
+
+	for (const BatchedSurface &bs : s_world->batchedSurfaces)
+	{
+		vis.bounds.addPoints(bs.bounds);
+	}
+}
+
+void UpdateVisibility(VisibilityId visId, vec3 cameraPosition, const uint8_t *areaMask)
+{
+#if 1
+	UpdatePvsVisibility(visId, cameraPosition, areaMask);
+#else
+	UpdateCameraFrustumVisibility(visId, cameraPosition, areaMask);
+#endif
 }
 
 void Render(VisibilityId visId, DrawCallList *drawCallList, const mat3 &sceneRotation)
 {
 	assert(drawCallList);
 	const Visibility &vis = s_world->visibility[(int)visId];
+	const std::vector<BatchedSurface> *batchedSurfaces;
+	const std::vector<Vertex> *cpuDeformVertices;
+	const std::vector<uint16_t> *cpuDeformIndices;
 
-	for (const BatchedSurface &surface : vis.batchedSurfaces)
+	if (vis.method == VisibilityMethod::PVS)
+	{
+		batchedSurfaces = &vis.batchedSurfaces;
+		cpuDeformVertices = &vis.cpuDeformVertices;
+		cpuDeformIndices = &vis.cpuDeformIndices;
+	}
+	else
+	{
+		batchedSurfaces = &s_world->batchedSurfaces;
+		cpuDeformVertices = &s_world->cpuDeformVertices;
+		cpuDeformIndices = &s_world->cpuDeformIndices;
+	}
+
+	for (const BatchedSurface &surface : *batchedSurfaces)
 	{
 		DrawCall dc;
 		dc.flags = 0;
@@ -2067,7 +2159,7 @@ void Render(VisibilityId visId, DrawCallList *drawCallList, const mat3 &sceneRot
 
 		if (surface.material->hasAutoSpriteDeform())
 		{
-			assert(!vis.cpuDeformVertices.empty() && !vis.cpuDeformIndices.empty());
+			assert(!cpuDeformVertices->empty() && !cpuDeformIndices->empty());
 			assert(surface.nVertices);
 			assert(surface.nIndices);
 
@@ -2081,8 +2173,8 @@ void Render(VisibilityId visId, DrawCallList *drawCallList, const mat3 &sceneRot
 				continue;
 			}
 				
-			memcpy(tib.data, &vis.cpuDeformIndices[surface.firstIndex], surface.nIndices * sizeof(uint16_t));
-			memcpy(tvb.data, &vis.cpuDeformVertices[surface.firstVertex], surface.nVertices * sizeof(Vertex));
+			memcpy(tib.data, &(*cpuDeformIndices)[surface.firstIndex], surface.nIndices * sizeof(uint16_t));
+			memcpy(tvb.data, &(*cpuDeformVertices)[surface.firstVertex], surface.nVertices * sizeof(Vertex));
 			dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 			dc.vb.transientHandle = tvb;
 			dc.vb.nVertices = surface.nVertices;
@@ -2097,8 +2189,18 @@ void Render(VisibilityId visId, DrawCallList *drawCallList, const mat3 &sceneRot
 			dc.vb.type = DrawCall::BufferType::Static;
 			dc.vb.staticHandle = s_world->vertexBuffers[surface.bufferIndex].handle;
 			dc.vb.nVertices = (uint32_t)s_world->vertices[surface.bufferIndex].size();
-			dc.ib.type = DrawCall::BufferType::Dynamic;
-			dc.ib.dynamicHandle = vis.indexBuffers[surface.bufferIndex].handle;
+
+			if (vis.method == VisibilityMethod::PVS)
+			{
+				dc.ib.type = DrawCall::BufferType::Dynamic;
+				dc.ib.dynamicHandle = vis.indexBuffers[surface.bufferIndex].handle;
+			}
+			else
+			{
+				dc.ib.type = DrawCall::BufferType::Static;
+				dc.ib.staticHandle = s_world->indexBuffers[surface.bufferIndex].handle;
+			}
+
 			dc.ib.firstIndex = surface.firstIndex;
 			dc.ib.nIndices = surface.nIndices;
 		}

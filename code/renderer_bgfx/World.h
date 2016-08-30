@@ -208,6 +208,7 @@ typedef struct {
 
 struct BatchedSurface
 {
+	Bounds bounds; // frustum culling only
 	Material *material;
 	int fogIndex;
 	int surfaceFlags;
@@ -363,33 +364,14 @@ struct Surface
 
 static const size_t s_maxWorldGeometryBuffers = 8;
 
+enum class VisibilityMethod
+{
+	PVS,
+	CameraFrustum
+};
+
 struct Visibility
 {
-	static const size_t maxSkies = 4;
-	size_t nSkies = 0;
-	Material *skyMaterials[maxSkies];
-	std::vector<Vertex> skyVertices[maxSkies];
-
-	Node *lastCameraLeaf = nullptr;
-	uint8_t lastAreaMask[MAX_MAP_AREA_BYTES];
-
-	/// The merged bounds of all visible leaves.
-	Bounds bounds;
-
-	/// Surfaces visible from the camera leaf cluster.
-	std::vector<Surface *> surfaces;
-
-	/// Visible surfaces batched by material.
-	std::vector<BatchedSurface> batchedSurfaces;
-
-	DynamicIndexBuffer indexBuffers[s_maxWorldGeometryBuffers];
-
-	/// Temporary index data populated at runtime when surface visibility changes.
-	std::vector<uint16_t> indices[s_maxWorldGeometryBuffers];
-
-	/// Portal surface visible to the PVS.
-	std::vector<Surface *> portalSurfaces;
-
 	struct Portal
 	{
 		const renderer::Entity *entity;
@@ -398,23 +380,52 @@ struct Visibility
 		Surface *surface;
 	};
 
-	/// Portal surfaces visible to the camera.
-	std::vector<Portal> cameraPortalSurfaces;
-
-	std::vector<Vertex> cpuDeformVertices;
-	std::vector<uint16_t> cpuDeformIndices;
-
-	/// Reflective surfaces visible to the PVS.
-	std::vector<Surface *> reflectiveSurfaces;
-
 	struct Reflective
 	{
 		Plane plane;
 		Surface *surface;
 	};
 
-	/// Reflective surfaces visible to the Camera.
+	/// Visible surfaces batched by material.
+	std::vector<BatchedSurface> batchedSurfaces;
+
+	/// The merged bounds of all visible leaves.
+	Bounds bounds;
+
+	/// Portal surfaces visible to the camera.
+	std::vector<Portal> cameraPortalSurfaces;
+
+	/// Reflective surfaces visible to the camera.
 	std::vector<Reflective> cameraReflectiveSurfaces;
+
+	std::vector<Vertex> cpuDeformVertices;
+	std::vector<uint16_t> cpuDeformIndices;
+
+	DynamicIndexBuffer indexBuffers[s_maxWorldGeometryBuffers];
+
+	/// Temporary index data populated at runtime when surface visibility changes.
+	std::vector<uint16_t> indices[s_maxWorldGeometryBuffers];
+
+	/// The camera leaf from the last UpdateVisibility call.
+	/// @remarks Visibility is only recalculated if the camera leaf cluster or area mask changes.
+	Node *lastCameraLeaf = nullptr;
+
+	/// The area mask from the last UpdateVisibility call.
+	/// @remarks Visibility is only recalculated if the camera leaf cluster or area mask changes.
+	uint8_t lastAreaMask[MAX_MAP_AREA_BYTES];
+
+	VisibilityMethod method;
+
+	/// Portal surface visible to the PVS.
+	std::vector<Surface *> portalSurfaces;
+
+	/// Reflective surfaces visible to the PVS.
+	std::vector<Surface *> reflectiveSurfaces;
+
+	std::vector<SkySurface> skySurfaces;
+
+	/// Surfaces visible from the camera leaf cluster.
+	std::vector<Surface *> surfaces;
 };
 
 struct World
@@ -467,6 +478,13 @@ struct World
 	int duplicateSurfaceId = 0;
 
 	int decalDuplicateSurfaceId = 0;
+
+	// frustum culling
+	std::vector<BatchedSurface> batchedSurfaces;
+	std::vector<Vertex> cpuDeformVertices;
+	std::vector<uint16_t> cpuDeformIndices;
+	IndexBuffer indexBuffers[s_maxWorldGeometryBuffers];
+	std::vector<SkySurface> skySurfaces;
 };
 
 extern std::unique_ptr<World> s_world;

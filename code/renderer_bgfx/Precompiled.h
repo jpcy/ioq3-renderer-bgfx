@@ -1259,19 +1259,16 @@ private:
 	float scale_ = 0;
 };
 
-enum class VisibilityId
+struct SkySurface
 {
-	Main,
-	Portal,
-	Reflection,
-	SkyboxPortal,
-	Num
+	Material *material;
+	std::vector<Vertex> vertices;
 };
 
 /// @remarks Called when a sky material is parsed.
 void Sky_InitializeTexCoords(float heightCloud);
 
-void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, VisibilityId visId, float zMax);
+void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, float zMax, const SkySurface &surface);
 
 struct StaticLightFlags
 {
@@ -1683,6 +1680,15 @@ struct VertexBuffer
 	bgfx::VertexBufferHandle handle;
 };
 
+enum class VisibilityId
+{
+	Main,
+	Portal,
+	Reflection,
+	SkyboxPortal,
+	Num
+};
+
 struct WarnOnceId
 {
 	enum Enum
@@ -1725,8 +1731,8 @@ namespace world
 	int MarkFragments(int numPoints, const vec3 *points, vec3 projection, int maxPoints, vec3 *pointBuffer, int maxFragments, markFragment_t *fragmentBuffer);
 	Bounds GetBounds();
 	Bounds GetBounds(VisibilityId visId);
-	size_t GetNumSkies(VisibilityId visId);
-	void GetSky(VisibilityId visId, size_t index, Material **material, const std::vector<Vertex> **vertices);
+	size_t GetNumSkySurfaces(VisibilityId visId);
+	const SkySurface &GetSkySurface(VisibilityId visId, size_t index);
 	bool CalculatePortalCamera(VisibilityId visId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, const std::vector<renderer::Entity> &entities, vec3 *pvsPosition, Transform *portalCamera, bool *isMirror, Plane *portalPlane);
 	bool CalculateReflectionCamera(VisibilityId visId, vec3 mainCameraPosition, mat3 mainCameraRotation, const mat4 &mvp, Transform *camera, Plane *plane);
 	void RenderPortal(VisibilityId visId, DrawCallList *drawCallList);
