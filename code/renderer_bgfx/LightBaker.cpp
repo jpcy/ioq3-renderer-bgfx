@@ -119,10 +119,18 @@ struct FaceFlags
 	};
 };
 
+struct Luxel
+{
+	vec3 position;
+	vec3 normal;
+	int offset; // Offset into Lightmap::color.
+};
+
 struct Lightmap
 {
-	std::vector<vec4> color;
-	std::vector<uint8_t> colorBytes;
+	std::vector<Luxel> luxels; // sparse
+	std::vector<vec4> color; // width * height
+	std::vector<uint8_t> colorBytes; // width * height * 4
 };
 
 struct LightBaker
@@ -1330,9 +1338,9 @@ static int Thread(void *data)
 	SetStatus(LightBaker::Status::Running);
 	int progress = 0;
 
-	// Count surface triangles for prealloc and so progress can be accurately measured.
+	// Count surface triangles for prealloc.
 	// Non-0 world models (e.g. doors) may be lightmapped, but don't occlude.
-	int totalOccluderTriangles = 0, totalLightmappedTriangles = 0;
+	int totalOccluderTriangles = 0;
 
 	for (int mi = 0; mi < world::GetNumModels(); mi++)
 	{
@@ -1344,9 +1352,6 @@ static int Thread(void *data)
 			{
 				totalOccluderTriangles += (int)surface.indices.size() / 3;
 			}
-
-			if (surface.type != world::SurfaceType::Ignore && surface.type != world::SurfaceType::Flare && surface.material->lightmapIndex >= 0)
-				totalLightmappedTriangles += (int)surface.indices.size() / 3;
 		}
 	}
 
@@ -1375,31 +1380,9 @@ static int Thread(void *data)
 		lightmap.colorBytes.resize(lightmapSize.x * lightmapSize.y * 4);
 	}
 
-	// Setup jitter.
-	srand(1);
-
-	for (int si = 1; si < s_lightBaker->nSamples; si++) // index 0 left as (0, 0, 0)
-	{
-		const vec2 dirJitterRange(-0.1f, 0.1f);
-		const vec2 posJitterRange(-2.0f, 2.0f);
-
-		for (int i = 0; i < 3; i++)
-		{
-			s_lightBaker->dirJitter[si][i] = math::RandomFloat(dirJitterRange.x, dirJitterRange.y);
-			s_lightBaker->posJitter[si][i] = math::RandomFloat(posJitterRange.x, posJitterRange.y);
-		}
-	}
-
-	// Setup lights.
-	CreateAreaLights();
-	CreateEntityLights();
-
-	// Iterate surfaces.
-	const SunLight &sunLight = main::GetSunLight();
-	const float maxRayLength = world::GetBounds().toRadius() * 2; // World bounding sphere circumference.
-	int nTrianglesProcessed = 0;
-	s_lightBaker->nLuxelsProcessed = 0;
-
+	// Rasterize surfaces.
+	int totalLuxels = 0;
+	
 	for (int mi = 0; mi < world::GetNumModels(); mi++)
 	{
 		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
@@ -1462,82 +1445,105 @@ static int Thread(void *data)
 					if (!gotSample)
 						break;
 
-					s_lightBaker->nLuxelsProcessed++;
 					const vec3 samplePosition(&ctx.sample.position.x);
 					const vec3 sampleNormal(-vec3(&ctx.sample.direction.x));
-					vec3 luxelColor = s_lightBaker->ambientLight;
-					luxelColor += BakeAreaLights(samplePosition, sampleNormal);
-					luxelColor += BakeEntityLights(samplePosition, sampleNormal);
-
-#if 1
-					// Sunlight.
-					float totalAttenuation = 0;
-
-					for (int si = 0; si < s_lightBaker->nSamples; si++)
-					{
-						const vec3 dir(sunLight.direction + s_lightBaker->dirJitter[si]); // Jitter light direction.
-						const float attenuation = vec3::dotProduct(sampleNormal, dir) * (1.0f / s_lightBaker->nSamples);
-
-						if (attenuation < 0)
-							continue;
-
-						RTCRay ray;
-						const vec3 org(samplePosition + sampleNormal * 0.1f); // push out from the surface a little
-						ray.org[0] = org.x;
-						ray.org[1] = org.y;
-						ray.org[2] = org.z;
-						ray.tnear = 0;
-						ray.tfar = maxRayLength;
-						ray.dir[0] = dir.x;
-						ray.dir[1] = dir.y;
-						ray.dir[2] = dir.z;
-						ray.geomID = RTC_INVALID_GEOMETRY_ID;
-						ray.primID = RTC_INVALID_GEOMETRY_ID;
-						ray.mask = -1;
-						ray.time = 0;
-						embreeIntersect(s_lightBaker->embreeScene, ray);
-
-						if (ray.geomID != RTC_INVALID_GEOMETRY_ID && (s_lightBaker->faceFlags[ray.primID] & FaceFlags::Sky))
-						{
-							totalAttenuation += attenuation;
-						}
-					}
-
-					if (totalAttenuation > 0)
-						luxelColor += sunLight.light * totalAttenuation * 255.0;
-#endif
-
-					// Accumulate lightmap data.
 					Lightmap &lightmap = s_lightBaker->lightmaps[surface.material->lightmapIndex];
-					const size_t pixelOffset = ctx.rasterizer.x + ctx.rasterizer.y * world::GetLightmapSize().x;
-					lightmap.color[pixelOffset] += vec4(luxelColor, 1.0f);
+					Luxel luxel;
+					luxel.position = vec3(&ctx.sample.position.x);
+					luxel.normal = -vec3(&ctx.sample.direction.x);
+					luxel.offset = ctx.rasterizer.x + ctx.rasterizer.y * world::GetLightmapSize().x;
+					lightmap.luxels.push_back(luxel);
+					totalLuxels++;
 				}
-
-				nTrianglesProcessed += 1;
-
-				// Update progress.
-				const int newProgress = int(nTrianglesProcessed / (float)totalLightmappedTriangles * 100.0f);
-
-				if (newProgress != progress)
-				{
-					progress = newProgress;
-					SetStatus(LightBaker::Status::Running, progress);
-				}
-
-				// Check for cancelling.
-				if (GetStatus() == LightBaker::Status::Cancelled)
-					return 1;
 			}
 		}
 	}
 
-	// Average accumulated lightmap data. Different triangles may have written to the same texel.
+	// Setup jitter.
+	srand(1);
+
+	for (int si = 1; si < s_lightBaker->nSamples; si++) // index 0 left as (0, 0, 0)
+	{
+		const vec2 dirJitterRange(-0.1f, 0.1f);
+		const vec2 posJitterRange(-2.0f, 2.0f);
+
+		for (int i = 0; i < 3; i++)
+		{
+			s_lightBaker->dirJitter[si][i] = math::RandomFloat(dirJitterRange.x, dirJitterRange.y);
+			s_lightBaker->posJitter[si][i] = math::RandomFloat(posJitterRange.x, posJitterRange.y);
+		}
+	}
+
+	// Setup lights.
+	CreateAreaLights();
+	CreateEntityLights();
+
+	// Bake luxels.
+	s_lightBaker->nLuxelsProcessed = 0;
+	const SunLight &sunLight = main::GetSunLight();
+	const float maxRayLength = world::GetBounds().toRadius() * 2; // World bounding sphere circumference.
+
 	for (Lightmap &lightmap : s_lightBaker->lightmaps)
 	{
-		for (vec4 &color : lightmap.color)
+		for (Luxel &luxel : lightmap.luxels)
 		{
-			if (color.a > 1)
-				color = vec4(color.rgb() / color.a, 1.0f);
+			vec4 &luxelColor = lightmap.color[luxel.offset];
+			luxelColor = s_lightBaker->ambientLight;
+			luxelColor += BakeAreaLights(luxel.position, luxel.normal);
+			luxelColor += BakeEntityLights(luxel.position, luxel.normal);
+
+	#if 1
+			// Sunlight.
+			float totalAttenuation = 0;
+
+			for (int si = 0; si < s_lightBaker->nSamples; si++)
+			{
+				const vec3 dir(sunLight.direction + s_lightBaker->dirJitter[si]); // Jitter light direction.
+				const float attenuation = vec3::dotProduct(luxel.normal, dir) * (1.0f / s_lightBaker->nSamples);
+
+				if (attenuation < 0)
+					continue;
+
+				RTCRay ray;
+				const vec3 org(luxel.position + luxel.normal * 0.1f); // push out from the surface a little
+				ray.org[0] = org.x;
+				ray.org[1] = org.y;
+				ray.org[2] = org.z;
+				ray.tnear = 0;
+				ray.tfar = maxRayLength;
+				ray.dir[0] = dir.x;
+				ray.dir[1] = dir.y;
+				ray.dir[2] = dir.z;
+				ray.geomID = RTC_INVALID_GEOMETRY_ID;
+				ray.primID = RTC_INVALID_GEOMETRY_ID;
+				ray.mask = -1;
+				ray.time = 0;
+				embreeIntersect(s_lightBaker->embreeScene, ray);
+
+				if (ray.geomID != RTC_INVALID_GEOMETRY_ID && (s_lightBaker->faceFlags[ray.primID] & FaceFlags::Sky))
+				{
+					totalAttenuation += attenuation;
+				}
+			}
+
+			if (totalAttenuation > 0)
+				luxelColor += sunLight.light * totalAttenuation * 255.0;
+	#endif
+
+			s_lightBaker->nLuxelsProcessed++;
+
+			// Update progress.
+			const int newProgress = int(s_lightBaker->nLuxelsProcessed / (float)totalLuxels * 100.0f);
+
+			if (newProgress != progress)
+			{
+				// Check for cancelling.
+				if (GetStatus() == LightBaker::Status::Cancelled)
+					return 1;
+
+				progress = newProgress;
+				SetStatus(LightBaker::Status::Running, progress);
+			}
 		}
 	}
 
