@@ -82,7 +82,7 @@ uint64_t MaterialStage::getState() const
 	{
 		bool cullBack = (material->cullType == MaterialCullType::FrontSided);
 
-		if (main::isCameraMirrored())
+		if (main::IsCameraMirrored())
 			cullBack = !cullBack;
 
 		state |= cullBack ? BGFX_STATE_CULL_CCW : BGFX_STATE_CULL_CW;
@@ -416,7 +416,7 @@ float MaterialStage::calculateWaveColorSingle(const MaterialWaveForm &wf) const
 
 	if (wf.func == MaterialWaveformGenFunc::Noise)
 	{
-		glow = wf.base + main::GetNoise(0, 0, 0, (material->time_ + wf.phase ) * wf.frequency ) * wf.amplitude;
+		glow = wf.base + main::CalculateNoise(0, 0, 0, (material->time_ + wf.phase ) * wf.frequency ) * wf.amplitude;
 	}
 	else
 	{
@@ -640,7 +640,7 @@ void Material::doAutoSpriteDeform(const mat3 &sceneRotation, Vertex *vertices, u
 		const size_t firstIndex = quadIndex * 6;
 
 		// Get the quad corner vertices and their indexes.
-		auto v = ExtractQuadCorners(vertices, &indices[firstIndex]);
+		auto v = util::ExtractQuadCorners(vertices, &indices[firstIndex]);
 		std::array<uint16_t, 4> vi;
 
 		for (size_t i = 0; i < vi.size(); i++)
@@ -658,7 +658,7 @@ void Material::doAutoSpriteDeform(const mat3 &sceneRotation, Vertex *vertices, u
 			vec3 left(leftDir * radius);
 			vec3 up(upDir * radius);
 
-			if (main::isCameraMirrored())
+			if (main::IsCameraMirrored())
 				left = -left;
 
 			// Compensate for scale in the axes if necessary.

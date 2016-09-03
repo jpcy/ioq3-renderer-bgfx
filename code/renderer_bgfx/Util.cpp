@@ -301,6 +301,24 @@ uint16_t CalculateSmallestPowerOfTwoTextureSize(int nPixels)
 	return textureSize;
 }
 
+std::array<Vertex *, 4> ExtractQuadCorners(Vertex *vertices, const uint16_t *indices)
+{
+	std::array<uint16_t, 6> sorted;
+	memcpy(sorted.data(), indices, sizeof(uint16_t) * sorted.size());
+	std::sort(sorted.begin(), sorted.end());
+	std::array<Vertex *, 4> corners;
+	size_t cornerIndex = 0;
+
+	for (size_t i = 0; i < sorted.size(); i++)
+	{
+		if (i == 0 || sorted[i] != sorted[i - 1])
+			corners[cornerIndex++] = &vertices[sorted[i]];
+	}
+
+	assert(cornerIndex == 4); // Should be exactly 4 unique vertices.
+	return corners;
+}
+
 bool IsGeometryOffscreen(const mat4 &mvp, const uint16_t *indices, size_t nIndices, const Vertex *vertices)
 {
 	uint32_t pointAnd = (uint32_t)~0;

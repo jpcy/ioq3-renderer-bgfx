@@ -28,6 +28,8 @@ namespace renderer {
 
 #include "../../build/Shader.h" // Pull into the renderer namespace.
 
+namespace main {
+
 enum class AntiAliasing
 {
 	None,
@@ -36,6 +38,23 @@ enum class AntiAliasing
 	MSAA8x,
 	MSAA16x,
 	SMAA
+};
+
+struct BgfxCallback : bgfx::CallbackI
+{
+	void fatal(bgfx::Fatal::Enum _code, const char* _str) override;
+	void traceVargs(const char* _filePath, uint16_t _line, const char* _format, va_list _argList) override;
+	uint32_t cacheReadSize(uint64_t _id) override;
+	bool cacheRead(uint64_t _id, void* _data, uint32_t _size) override;
+	void cacheWrite(uint64_t _id, const void* _data, uint32_t _size) override;
+	void screenShot(const char* _filePath, uint32_t _width, uint32_t _height, uint32_t _pitch, const void* _data, uint32_t _size, bool _yflip) override;
+	void captureBegin(uint32_t _width, uint32_t _height, uint32_t _pitch, bgfx::TextureFormat::Enum _format, bool _yflip) override;
+	void captureEnd() override;
+	void captureFrame(const void* _data, uint32_t _size) override;
+
+private:
+	std::vector<uint8_t> screenShotDataBuffer_;
+	std::vector<uint8_t> screenShotFileBuffer_;
 };
 
 enum class DebugDraw
@@ -49,214 +68,158 @@ enum class DebugDraw
 	SMAA
 };
 
-class Main
+struct DepthShaderProgramVariant
 {
-public:
-	Main();
-	~Main();
-	void initialize();
-
-	const Entity *getCurrentEntity() const { return currentEntity_; }
-	float getFloatTime() const { return floatTime_; }
-	Transform getMainCameraTransform() const { return mainCameraTransform_; }
-	int getFrameNo() const { return frameNo_; }
-	float getNoise(float x, float y, float z, float t) const;
-	int getTime() const { return time_; }
-	bool isCameraMirrored() const { return isCameraMirrored_; }
-
-	void registerFont(const char *fontName, int pointSize, fontInfo_t *font);
-	void setColor(vec4 c) { stretchPicColor_ = c; }
-	const SunLight &getSunLight() const { return sunLight_; }
-	void setSunLight(const SunLight &sunLight) { sunLight_ = sunLight; }
-	void debugPrint(const char *text);
-	void drawAxis(vec3 position);
-	void drawBounds(const Bounds &bounds);
-	void drawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex);
-	void drawStretchPicGradient(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex, vec4 gradientColor);
-	void drawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);
-	void uploadCinematic(int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty);
-	void loadWorld(const char *name);
-	void addDynamicLightToScene(const DynamicLight &light);
-	void addEntityToScene(const Entity &entity);
-	void addPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int nPolys);
-	void renderScene(const SceneDefinition &scene);
-	void endFrame();
-	bool sampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
-
-private:
-	struct DepthShaderProgramVariant
+	enum
 	{
-		enum
-		{
-			None       = 0,
-			AlphaTest  = 1 << 0,
-			DepthRange = 1 << 1,
-			Num        = 1 << 2
-		};
+		None       = 0,
+		AlphaTest  = 1 << 0,
+		DepthRange = 1 << 1,
+		Num        = 1 << 2
 	};
+};
 
-	struct FogShaderProgramVariant
+struct FogShaderProgramVariant
+{
+	enum
 	{
-		enum
-		{
-			None       = 0,
-			HDR        = 1 << 0, // Fragment
-			DepthRange = 1 << 1, // Vertex
-			Num        = 1 << 2
-		};
+		None       = 0,
+		HDR        = 1 << 0, // Fragment
+		DepthRange = 1 << 1, // Vertex
+		Num        = 1 << 2
 	};
+};
 
-	/// @remarks Sync with generated GenericFragmentShaderVariant and GenericVertexShaderVariant. Order matters - fragment first.
-	struct GenericShaderProgramVariant
+/// @remarks Sync with generated GenericFragmentShaderVariant and GenericVertexShaderVariant. Order matters - fragment first.
+struct GenericShaderProgramVariant
+{
+	enum
 	{
-		enum
-		{
-			None          = 0,
+		None          = 0,
 
-			// Fragment
-			AlphaTest     = 1 << 0,
-			DynamicLights = 1 << 1,
-			HDR           = 1 << 2,
-			SoftSprite    = 1 << 3,
+		// Fragment
+		AlphaTest     = 1 << 0,
+		DynamicLights = 1 << 1,
+		HDR           = 1 << 2,
+		SoftSprite    = 1 << 3,
 
-			// Vertex
-			DepthRange    = 1 << 4,
+		// Vertex
+		DepthRange    = 1 << 4,
 
-			Num           = 1 << 5
-		};
+		Num           = 1 << 5
 	};
+};
 
-	struct ShaderProgramId
+struct ShaderProgramId
+{
+	enum Enum
 	{
-		enum Enum
-		{
-			Color,
-			Depth,
-			Fog = Depth + DepthShaderProgramVariant::Num,
-			GaussianBlur = Fog + FogShaderProgramVariant::Num,
-			Generic,
-			LinearDepth = Generic + GenericShaderProgramVariant::Num,
-			SMAABlendingWeightCalculation,
-			SMAAEdgeDetection,
-			SMAANeighborhoodBlending,
-			Texture,
-			TextureColor,
-			TextureDebug,
-			ToneMap,
-			Num
-		};
+		Color,
+		Depth,
+		Fog = Depth + DepthShaderProgramVariant::Num,
+		GaussianBlur = Fog + FogShaderProgramVariant::Num,
+		Generic,
+		LinearDepth = Generic + GenericShaderProgramVariant::Num,
+		SMAABlendingWeightCalculation,
+		SMAAEdgeDetection,
+		SMAANeighborhoodBlending,
+		Texture,
+		TextureColor,
+		TextureDebug,
+		ToneMap,
+		Num
 	};
+};
 
-	struct PushViewFlags
+struct PushViewFlags
+{
+	enum
 	{
-		enum
-		{
-			Sequential = 1<<0
-		};
+		Sequential = 1<<0
 	};
+};
 
-	struct RenderCameraFlags
+struct RenderCameraFlags
+{
+	enum
 	{
-		enum
-		{
-			ContainsSkyboxPortal = 1<<0,
-			IsSkyboxPortal       = 1<<1,
-			UseClippingPlane     = 1<<2,
-			UseStencilTest       = 1<<3
-		};
+		ContainsSkyboxPortal = 1<<0,
+		IsSkyboxPortal       = 1<<1,
+		UseClippingPlane     = 1<<2,
+		UseStencilTest       = 1<<3
 	};
+};
 
-	void debugDraw(const FrameBuffer &texture, uint8_t attachment = 0, int x = 0, int y = 0, ShaderProgramId::Enum program = ShaderProgramId::Texture);
-	void debugDraw(bgfx::TextureHandle texture, int x = 0, int y = 0, ShaderProgramId::Enum program = ShaderProgramId::Texture);
-	uint8_t pushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags = 0);
-	void flushStretchPics();
-	void renderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask, Plane clippingPlane = Plane(), int flags = 0);
-	void renderPolygons();
-	void renderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, uint16_t clearFlags = BGFX_CLEAR_NONE, bool originBottomLeft = false, Rect rect = Rect());
-	void renderToStencil(const uint8_t viewId);
-	void setTexelOffsetsDownsample2x2(int width, int height);
-	void setTexelOffsetsDownsample4x4(int width, int height);
-	void setWindowGamma();
-
-	/// @name Entity rendering
-	/// @{
-	void renderEntity(vec3 viewPosition, mat3 viewRotation, Frustum cameraFrustum, Entity *entity);
-	void renderLightningEntity(vec3 viewPosition, mat3 viewRotation, Entity *entity);
-	void renderRailCoreEntity(vec3 viewPosition, mat3 viewRotation, Entity *entity);
-	void renderRailCore(vec3 start, vec3 end, vec3 up, float length, float spanWidth, Material *mat, vec4 color, Entity *entity);
-	void renderRailRingsEntity(Entity *entity);
-	void renderSpriteEntity(mat3 viewRotation, Entity *entity);
-	void setupEntityLighting(Entity *entity);
-	/// @}
-
+struct Main
+{
 	/// @name Camera
 	/// @{
-	DrawCallList drawCalls_;
+	DrawCallList drawCalls;
 
 	/// Flip face culling if true.
-	bool isCameraMirrored_ = false;
+	bool isCameraMirrored = false;
 
 	/// @}
 
 	/// @name Fonts
 	/// @{
-	static const int maxFonts_ = 6;
-	int nFonts_ = 0;
-	fontInfo_t fonts_[maxFonts_];
+	static const int maxFonts = 6;
+	int nFonts = 0;
+	fontInfo_t fonts[maxFonts];
 	/// @}
 
 	/// @name Frame
 	/// @{
-	int time_ = 0;
-	float floatTime_ = 0;
+	int time = 0;
+	float floatTime = 0;
 
-	/// Incremented everytime endFrame() is called
-	int frameNo_ = 0;
+	/// Incremented everytime EndFrame() is called
+	int frameNo = 0;
 
 	uint16_t debugTextY = 0;
 
 	/// @remarks Resets to 0 every frame.
-	uint8_t firstFreeViewId_ = 0;
+	uint8_t firstFreeViewId = 0;
 
 	/// @}
 
 	/// @name Framebuffers
 	/// @{
-	static const FrameBuffer defaultFb_;
-	FrameBuffer linearDepthFb_;
-	FrameBuffer reflectionFb_;
-	FrameBuffer sceneFb_;
-	FrameBuffer sceneTempFb_;
-	uint8_t sceneBloomAttachment_;
-	uint8_t sceneDepthAttachment_;
-	static const size_t nBloomFrameBuffers_ = 2;
-	FrameBuffer bloomFb_[nBloomFrameBuffers_];
+	static const FrameBuffer defaultFb;
+	FrameBuffer linearDepthFb;
+	FrameBuffer reflectionFb;
+	FrameBuffer sceneFb;
+	FrameBuffer sceneTempFb;
+	uint8_t sceneBloomAttachment;
+	uint8_t sceneDepthAttachment;
+	static const size_t nBloomFrameBuffers = 2;
+	FrameBuffer bloomFb[nBloomFrameBuffers];
 	/// @}
 
 	/// @name Noise
 	/// @{
-	static const int noiseSize_ = 256;
-	float noiseTable_[noiseSize_];
-	int noisePerm_[noiseSize_];
+	static const int noiseSize = 256;
+	float noiseTable[noiseSize];
+	int noisePerm[noiseSize];
 	/// @}
 
 	/// @name Resource caches
 	/// @{
-	std::unique_ptr<MaterialCache> materialCache_;
-	std::unique_ptr<ModelCache> modelCache_;
+	std::unique_ptr<MaterialCache> materialCache;
+	std::unique_ptr<ModelCache> modelCache;
 	/// @}
 
 	/// @name Scene
 	/// @{
 	
 	/// Does the current scene contain the world (not RDF_NOWORLDMODEL).
-	bool isWorldScene_;
+	bool isWorldScene;
 
-	Transform mainCameraTransform_;
+	Transform mainCameraTransform;
 
-	std::vector<vec3> sceneDebugAxis_;
-	std::vector<Bounds> sceneDebugBounds_;
-	std::vector<Entity> sceneEntities_;
+	std::vector<vec3> sceneDebugAxis;
+	std::vector<Bounds> sceneDebugBounds;
+	std::vector<Entity> sceneEntities;
 
 	struct Polygon
 	{
@@ -265,62 +228,66 @@ private:
 		uint32_t firstVertex, nVertices;
 	};
 
-	std::vector<Polygon> scenePolygons_;
-	std::vector<Polygon *> sortedScenePolygons_;
-	std::vector<polyVert_t> scenePolygonVertices_;
-	mat3 sceneRotation_;
+	std::vector<Polygon> scenePolygons;
+	std::vector<Polygon *> sortedScenePolygons;
+	std::vector<polyVert_t> scenePolygonVertices;
+	mat3 sceneRotation;
 	/// @}
 
 	/// @name Shaders
 	/// @{
-	std::array<Shader, FragmentShaderId::Num> fragmentShaders_;
-	std::array<Shader, VertexShaderId::Num> vertexShaders_;
-	std::array<ShaderProgram, (int)ShaderProgramId::Num> shaderPrograms_;
+	std::array<Shader, FragmentShaderId::Num> fragmentShaders;
+	std::array<Shader, VertexShaderId::Num> vertexShaders;
+	std::array<ShaderProgram, (int)ShaderProgramId::Num> shaderPrograms;
 	/// @}
 
 	/// @name Skybox portals
 	/// @{
-	bool skyboxPortalEnabled_ = false;
-	SceneDefinition skyboxPortalScene_;
+	bool skyboxPortalEnabled = false;
+	SceneDefinition skyboxPortalScene;
 	/// @}
 
 	/// @name SMAA
 	/// @{
-	FrameBuffer smaaBlendFb_, smaaEdgesFb_;
-	bgfx::TextureHandle smaaAreaTex_ = BGFX_INVALID_HANDLE;
-	bgfx::TextureHandle smaaSearchTex_ = BGFX_INVALID_HANDLE;
+	FrameBuffer smaaBlendFb, smaaEdgesFb;
+	bgfx::TextureHandle smaaAreaTex = BGFX_INVALID_HANDLE;
+	bgfx::TextureHandle smaaSearchTex = BGFX_INVALID_HANDLE;
 	/// @}
 
 	/// @name Stretchpic
 	/// @{
-	vec4 stretchPicColor_;
-	Material *stretchPicMaterial_ = nullptr;
-	uint8_t stretchPicViewId_ = UINT8_MAX;
-	std::vector<Vertex> stretchPicVertices_;
-	std::vector<uint16_t> stretchPicIndices_;
+	vec4 stretchPicColor;
+	Material *stretchPicMaterial = nullptr;
+	uint8_t stretchPicViewId = UINT8_MAX;
+	std::vector<Vertex> stretchPicVertices;
+	std::vector<uint16_t> stretchPicIndices;
 	/// @}
 
 	/// @name Uniforms
 	/// @{
-	std::unique_ptr<Uniforms> uniforms_;
-	std::unique_ptr<Uniforms_Entity> entityUniforms_;
-	std::unique_ptr<Uniforms_Material> matUniforms_;
-	std::unique_ptr<Uniforms_MaterialStage> matStageUniforms_;
+	std::unique_ptr<Uniforms> uniforms;
+	std::unique_ptr<Uniforms_Entity> entityUniforms;
+	std::unique_ptr<Uniforms_Material> matUniforms;
+	std::unique_ptr<Uniforms_MaterialStage> matStageUniforms;
 	/// @}
 
-	AntiAliasing aa_, aaHud_;
-	const Entity *currentEntity_ = nullptr;
-	DebugDraw debugDraw_ = DebugDraw::None;
-	std::unique_ptr<DynamicLightManager> dlightManager_;
-	float halfTexelOffset_ = 0;
-	bool isTextureOriginBottomLeft_ = false;
-	bool softSpritesEnabled_ = false;
-	SunLight sunLight_;
+	AntiAliasing aa, aaHud;
+	const Entity *currentEntity = nullptr;
+	DebugDraw debugDraw = DebugDraw::None;
+	std::unique_ptr<DynamicLightManager> dlightManager;
+	float halfTexelOffset = 0;
+	bool isTextureOriginBottomLeft = false;
+	bool softSpritesEnabled = false;
+	SunLight sunLight;
 
 	/// Convert from our coordinate system (looking down X) to OpenGL's coordinate system (looking down -Z)
-	static const mat4 toOpenGlMatrix_;
+	static const mat4 toOpenGlMatrix;
 };
 
-DebugDraw DebugDrawFromString(const char *s);
+extern std::unique_ptr<Main> s_main;
 
+DebugDraw DebugDrawFromString(const char *s);
+void SetWindowGamma();
+
+} // namespace main
 } // namespace renderer

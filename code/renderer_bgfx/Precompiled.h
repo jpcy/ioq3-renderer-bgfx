@@ -110,23 +110,6 @@ struct Uniforms_Material;
 struct Uniforms_MaterialStage;
 struct Vertex;
 
-struct BgfxCallback : bgfx::CallbackI
-{
-	void fatal(bgfx::Fatal::Enum _code, const char* _str) override;
-	void traceVargs(const char* _filePath, uint16_t _line, const char* _format, va_list _argList) override;
-	uint32_t cacheReadSize(uint64_t _id) override;
-	bool cacheRead(uint64_t _id, void* _data, uint32_t _size) override;
-	void cacheWrite(uint64_t _id, const void* _data, uint32_t _size) override;
-	void screenShot(const char* _filePath, uint32_t _width, uint32_t _height, uint32_t _pitch, const void* _data, uint32_t _size, bool _yflip) override;
-	void captureBegin(uint32_t _width, uint32_t _height, uint32_t _pitch, bgfx::TextureFormat::Enum _format, bool _yflip) override;
-	void captureEnd() override;
-	void captureFrame(const void* _data, uint32_t _size) override;
-
-private:
-	std::vector<uint8_t> screenShotDataBuffer_;
-	std::vector<uint8_t> screenShotFileBuffer_;
-};
-
 struct ConsoleVariables
 {
 	void initialize();
@@ -393,9 +376,6 @@ struct Entity
 	/// @}
 };
 
-/// @brief Given a triangulated quad, extract the unique corner vertices.
-std::array<Vertex *, 4> ExtractQuadCorners(Vertex *vertices, const uint16_t *indices);
-
 struct FrameBuffer
 {
 	FrameBuffer() { handle.idx = bgfx::invalidHandle; }
@@ -446,6 +426,7 @@ namespace main
 	void AddDynamicLightToScene(const DynamicLight &light);
 	void AddEntityToScene(const Entity &entity);
 	void AddPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int nPolys);
+	float CalculateNoise(float x, float y, float z, float t);
 	void DebugPrint(const char *format, ...);
 	void DrawAxis(vec3 position);
 	void DrawBounds(const Bounds &bounds);
@@ -456,9 +437,8 @@ namespace main
 	const Entity *GetCurrentEntity();
 	float GetFloatTime();
 	Transform GetMainCameraTransform();
-	float GetNoise(float x, float y, float z, float t);
 	void Initialize();
-	bool isCameraMirrored();
+	bool IsCameraMirrored();
 	void LoadWorld(const char *name); 
 	void RegisterFont(const char *fontName, int pointSize, fontInfo_t *font);
 	void RenderScene(const SceneDefinition &scene);
@@ -1405,9 +1385,6 @@ struct Uniforms
 	/// @remarks x is soft sprite depth, y is whether to use the shader alpha, z is whether the sprite is an autosprite.
 	Uniform_vec4 softSprite_Depth_UseAlpha = "u_SoftSprite_Depth_UseAlpha";
 
-	/// @remarks Only x and y used.
-	Uniform_vec4 texelOffsets = { "u_TexelOffsets", 16 };
-
 	/// @brief Used by TextureDebug fragment shader.
 	/// @remarks Only x used.
 	Uniform_vec4 textureDebug = "u_TextureDebug";
@@ -1607,6 +1584,9 @@ namespace util
 	/// @}
 
 	uint16_t CalculateSmallestPowerOfTwoTextureSize(int nPixels);
+
+	/// @brief Given a triangulated quad, extract the unique corner vertices.
+	std::array<Vertex *, 4> ExtractQuadCorners(Vertex *vertices, const uint16_t *indices);
 
 	bool IsGeometryOffscreen(const mat4 &mvp, const uint16_t *indices, size_t nIndices, const Vertex *vertices);
 	bool IsGeometryBackfacing(vec3 cameraPosition, const uint16_t *indices, size_t nIndices, const Vertex *vertices, float *shortestVertexDistanceSquared = nullptr);

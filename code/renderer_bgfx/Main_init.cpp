@@ -28,6 +28,8 @@ namespace renderer {
 
 // Pull into the renderer namespace.
 #include "../../build/Shader.cpp"
+#include "../smaa/AreaTex.h"
+#include "../smaa/SearchTex.h"
 
 struct BackendMap
 {
@@ -35,7 +37,7 @@ struct BackendMap
 	const char *id; // Used by r_backend cvar.
 };
 
-static const std::array<const BackendMap, 5> backendMaps =
+static const std::array<const BackendMap, 5> s_backendMaps =
 {{
 	{ bgfx::RendererType::Null, "null" },
 	{ bgfx::RendererType::Direct3D11, "d3d11" },
@@ -43,33 +45,6 @@ static const std::array<const BackendMap, 5> backendMaps =
 	{ bgfx::RendererType::OpenGL, "gl" },
 	{ bgfx::RendererType::Vulkan, "vulkan" }
 }};
-
-BgfxCallback bgfxCallback;
-
-const mat4 Main::toOpenGlMatrix_
-(
-	0, 0, -1, 0,
-	-1, 0, 0, 0,
-	0, 1, 0, 0,
-	0, 0, 0, 1
-);
-
-bgfx::VertexDecl Vertex::decl;
-
-static std::unique_ptr<Main> s_main;
-
-uint8_t g_gammaTable[g_gammaTableSize];
-bool g_hardwareGammaEnabled;
-ConsoleVariables g_cvars;
-const uint8_t *g_externalVisData = nullptr;
-MaterialCache *g_materialCache = nullptr;
-ModelCache *g_modelCache = nullptr;
-
-float g_sinTable[g_funcTableSize];
-float g_squareTable[g_funcTableSize];
-float g_triangleTable[g_funcTableSize];
-float g_sawToothTable[g_funcTableSize];
-float g_inverseSawToothTable[g_funcTableSize];
 
 void ConsoleVariables::initialize()
 {
@@ -99,7 +74,7 @@ void ConsoleVariables::initialize()
 		std::string description;
 		description += util::VarArgs(FORMAT, "<empty>", "Autodetect");
 
-		for (const BackendMap &map : backendMaps)
+		for (const BackendMap &map : s_backendMaps)
 		{
 			uint8_t j;
 
@@ -163,6 +138,26 @@ void ConsoleVariables::initialize()
 	fullscreen = interface::Cvar_Get("r_fullscreen", "1", ConsoleVariableFlags::Archive);
 	mode = interface::Cvar_Get("r_mode", "-2", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	noborder = interface::Cvar_Get("r_noborder", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+}
+
+namespace main {
+
+static BgfxCallback bgfxCallback;
+
+static AntiAliasing AntiAliasingFromString(const char *s)
+{
+	if (util::Stricmp(s, "msaa2x") == 0)
+		return AntiAliasing::MSAA2x;
+	else if (util::Stricmp(s, "msaa4x") == 0)
+		return AntiAliasing::MSAA4x;
+	else if (util::Stricmp(s, "msaa8x") == 0)
+		return AntiAliasing::MSAA8x;
+	else if (util::Stricmp(s, "msaa16x") == 0)
+		return AntiAliasing::MSAA16x;
+	else if (util::Stricmp(s, "smaa") == 0)
+		return AntiAliasing::SMAA;
+
+	return AntiAliasing::None;
 }
 
 static void TakeScreenshot(const char *extension)
@@ -262,40 +257,29 @@ static void Cmd_ScreenshotPNG()
 	TakeScreenshot("png");
 }
 
-const FrameBuffer Main::defaultFb_;
-
-AntiAliasing AntiAliasingFromString(const char *s)
+struct ShaderProgramIdMap
 {
-	if (util::Stricmp(s, "msaa2x") == 0)
-		return AntiAliasing::MSAA2x;
-	else if (util::Stricmp(s, "msaa4x") == 0)
-		return AntiAliasing::MSAA4x;
-	else if (util::Stricmp(s, "msaa8x") == 0)
-		return AntiAliasing::MSAA8x;
-	else if (util::Stricmp(s, "msaa16x") == 0)
-		return AntiAliasing::MSAA16x;
-	else if (util::Stricmp(s, "smaa") == 0)
-		return AntiAliasing::SMAA;
+	FragmentShaderId::Enum frag;
+	VertexShaderId::Enum vert;
+};
 
-	return AntiAliasing::None;
-}
-
-Main::Main()
+void Initialize()
 {
+	s_main = std::make_unique<Main>();
 	g_cvars.initialize();
-	aa_ = AntiAliasingFromString(g_cvars.aa.getString());
+	s_main->aa = AntiAliasingFromString(g_cvars.aa.getString());
 
 	// Don't allow MSAA if HDR is enabled.
-	if (g_cvars.hdr.getBool() && aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x)
-		aa_ = AntiAliasing::None;
+	if (g_cvars.hdr.getBool() && s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x)
+		s_main->aa = AntiAliasing::None;
 
-	aaHud_ = AntiAliasingFromString(g_cvars.aa_hud.getString());
+	s_main->aaHud = AntiAliasingFromString(g_cvars.aa_hud.getString());
 
 	// Non-world/HUD scenes can only use MSAA.
-	if (!(aaHud_ >= AntiAliasing::MSAA2x && aaHud_ <= AntiAliasing::MSAA16x))
-		aaHud_ = AntiAliasing::None;
+	if (!(s_main->aaHud >= AntiAliasing::MSAA2x && s_main->aaHud <= AntiAliasing::MSAA16x))
+		s_main->aaHud = AntiAliasing::None;
 
-	softSpritesEnabled_ = g_cvars.softSprites.getBool() && !(aa_ >= AntiAliasing::MSAA2x && aa_ <= AntiAliasing::MSAA16x);
+	s_main->softSpritesEnabled = g_cvars.softSprites.getBool() && !(s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x);
 
 	interface::Cmd_Add("r_bakeLights", Cmd_BakeLights);
 	interface::Cmd_Add("r_pickMaterial", Cmd_PickMaterial);
@@ -329,57 +313,27 @@ Main::Main()
 		}
 	}
 
-	for (int i = 0; i < noiseSize_; i++)
+	for (int i = 0; i < s_main->noiseSize; i++)
 	{
-		noiseTable_[i] = (float)(((rand() / (float)RAND_MAX) * 2.0 - 1.0));
-		noisePerm_[i] = (unsigned char)(rand() / (float)RAND_MAX * 255);
+		s_main->noiseTable[i] = (float)(((rand() / (float)RAND_MAX) * 2.0 - 1.0));
+		s_main->noisePerm[i] = (unsigned char)(rand() / (float)RAND_MAX * 255);
 	}
 
 	meta::Initialize();
-}
 
-Main::~Main()
-{
-	if (aa_ == AntiAliasing::SMAA)
-	{
-		if (bgfx::isValid(smaaAreaTex_))
-			bgfx::destroyTexture(smaaAreaTex_);
-		if (bgfx::isValid(smaaSearchTex_))
-			bgfx::destroyTexture(smaaSearchTex_);
-	}
-
-	interface::Cmd_Remove("r_bakeLights");
-	interface::Cmd_Remove("r_pickMaterial");
-	interface::Cmd_Remove("r_printMaterials");
-	interface::Cmd_Remove("screenshot");
-	interface::Cmd_Remove("screenshotJPEG");
-	interface::Cmd_Remove("screenshotPNG");
-	g_materialCache = nullptr;
-	g_modelCache = nullptr;
-	Texture::shutdownCache();
-}
-
-struct ShaderProgramIdMap
-{
-	FragmentShaderId::Enum frag;
-	VertexShaderId::Enum vert;
-};
-
-void Main::initialize()
-{
 	// Create a window if we don't have one.
 	if (window::GetWidth() == 0)
 	{
 		window::Initialize();
 		g_hardwareGammaEnabled = window::IsFullscreen() && !g_cvars.ignoreHardwareGamma.getBool();
-		setWindowGamma();
+		SetWindowGamma();
 
 		// Get the selected backend, and make sure it's actually supported.
 		bgfx::RendererType::Enum supportedBackends[bgfx::RendererType::Count];
 		const uint8_t nSupportedBackends = bgfx::getSupportedRenderers(supportedBackends);
 		bgfx::RendererType::Enum selectedBackend = bgfx::RendererType::Count;
 
-		for (const BackendMap &map : backendMaps)
+		for (const BackendMap &map : s_backendMaps)
 		{
 			uint8_t j;
 
@@ -411,9 +365,9 @@ void Main::initialize()
 
 	uint32_t resetFlags = 0;
 
-	if (aaHud_ >= AntiAliasing::MSAA2x && aaHud_ <= AntiAliasing::MSAA16x)
+	if (s_main->aaHud >= AntiAliasing::MSAA2x && s_main->aaHud <= AntiAliasing::MSAA16x)
 	{
-		resetFlags |= (1 + (int)aaHud_ - (int)AntiAliasing::MSAA2x) << BGFX_RESET_MSAA_SHIFT;
+		resetFlags |= (1 + (int)s_main->aaHud - (int)AntiAliasing::MSAA2x) << BGFX_RESET_MSAA_SHIFT;
 	}
 
 	if (g_cvars.maxAnisotropy.getBool())
@@ -439,20 +393,20 @@ void Main::initialize()
 		interface::Error("R16U texture format not supported");
 	}
 
-	debugDraw_ = DebugDrawFromString(g_cvars.debugDraw.getString());
-	halfTexelOffset_ = caps->rendererType == bgfx::RendererType::Direct3D9 ? 0.5f : 0;
-	isTextureOriginBottomLeft_ = caps->rendererType == bgfx::RendererType::OpenGL || caps->rendererType == bgfx::RendererType::OpenGLES;
+	s_main->debugDraw = DebugDrawFromString(g_cvars.debugDraw.getString());
+	s_main->halfTexelOffset = caps->rendererType == bgfx::RendererType::Direct3D9 ? 0.5f : 0;
+	s_main->isTextureOriginBottomLeft = caps->rendererType == bgfx::RendererType::OpenGL || caps->rendererType == bgfx::RendererType::OpenGLES;
 	Vertex::init();
-	uniforms_ = std::make_unique<Uniforms>();
-	entityUniforms_ = std::make_unique<Uniforms_Entity>();
-	matUniforms_ = std::make_unique<Uniforms_Material>();
-	matStageUniforms_ = std::make_unique<Uniforms_MaterialStage>();
+	s_main->uniforms = std::make_unique<Uniforms>();
+	s_main->entityUniforms = std::make_unique<Uniforms_Entity>();
+	s_main->matUniforms = std::make_unique<Uniforms_Material>();
+	s_main->matStageUniforms = std::make_unique<Uniforms_MaterialStage>();
 	Texture::initializeCache();
-	materialCache_ = std::make_unique<MaterialCache>();
-	g_materialCache = materialCache_.get();
-	modelCache_ = std::make_unique<ModelCache>();
-	g_modelCache = modelCache_.get();
-	dlightManager_ = std::make_unique<DynamicLightManager>();
+	s_main->materialCache = std::make_unique<MaterialCache>();
+	g_materialCache = s_main->materialCache.get();
+	s_main->modelCache = std::make_unique<ModelCache>();
+	g_modelCache = s_main->modelCache.get();
+	s_main->dlightManager = std::make_unique<DynamicLightManager>();
 
 	// Get shader ID to shader source string mappings.
 	std::array<ShaderSourceMem, FragmentShaderId::Num> fragMem;
@@ -540,13 +494,13 @@ void Main::initialize()
 	for (size_t i = 0; i < ShaderProgramId::Num; i++)
 	{
 		// Don't create shader programs that won't be used.
-		if (aa_ != AntiAliasing::SMAA && (i == ShaderProgramId::SMAABlendingWeightCalculation || i == ShaderProgramId::SMAAEdgeDetection || i == ShaderProgramId::SMAANeighborhoodBlending))
+		if (s_main->aa != AntiAliasing::SMAA && (i == ShaderProgramId::SMAABlendingWeightCalculation || i == ShaderProgramId::SMAAEdgeDetection || i == ShaderProgramId::SMAANeighborhoodBlending))
 			continue;
 
 		if (g_cvars.hdr.getBool() == 0 && (i == ShaderProgramId::GaussianBlur || i == ShaderProgramId::ToneMap))
 			continue;
 
-		Shader &fragment = fragmentShaders_[programMap[i].frag];
+		Shader &fragment = s_main->fragmentShaders[programMap[i].frag];
 
 		if (!bgfx::isValid(fragment.handle))
 		{
@@ -556,7 +510,7 @@ void Main::initialize()
 				interface::Error("Error creating fragment shader");
 		}
 
-		Shader &vertex = vertexShaders_[programMap[i].vert];
+		Shader &vertex = s_main->vertexShaders[programMap[i].vert];
 	
 		if (!bgfx::isValid(vertex.handle))
 		{
@@ -566,140 +520,112 @@ void Main::initialize()
 				interface::Error("Error creating vertex shader");
 		}
 
-		shaderPrograms_[i].handle = bgfx::createProgram(vertex.handle, fragment.handle);
+		s_main->shaderPrograms[i].handle = bgfx::createProgram(vertex.handle, fragment.handle);
 
-		if (!bgfx::isValid(shaderPrograms_[i].handle))
+		if (!bgfx::isValid(s_main->shaderPrograms[i].handle))
 			interface::Error("Error creating shader program");
 	}
 }
 
-namespace main {
-
-void AddDynamicLightToScene(const DynamicLight &light)
-{
-	s_main->addDynamicLightToScene(light);
-}
-
-void AddEntityToScene(const Entity &entity)
-{
-	return s_main->addEntityToScene(entity);
-}
-
-void AddPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int nPolys)
-{
-	return s_main->addPolyToScene(hShader, nVerts, verts, nPolys);
-}
-
-void DebugPrint(const char *format, ...)
-{
-	va_list args;
-	va_start(args, format);
-	char text[1024];
-	util::Vsnprintf(text, sizeof(text), format, args);
-	va_end(args);
-	s_main->debugPrint(text);
-}
-
-void DrawAxis(vec3 position)
-{
-	s_main->drawAxis(position);
-}
-
-void DrawBounds(const Bounds &bounds)
-{
-	s_main->drawBounds(bounds);
-}
-
-void DrawStretchPic(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex)
-{
-	s_main->drawStretchPic(x, y, w, h, s1, t1, s2, t2, materialIndex);
-}
-
-void DrawStretchPicGradient(float x, float y, float w, float h, float s1, float t1, float s2, float t2, int materialIndex, vec4 gradientColor)
-{
-	s_main->drawStretchPicGradient(x, y, w, h, s1, t1, s2, t2, materialIndex, gradientColor);
-}
-
-void DrawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty)
-{
-	s_main->drawStretchRaw(x, y, w, h, cols, rows, data, client, dirty);
-}
-
-void EndFrame()
-{
-	s_main->endFrame();
-}
-
-const Entity *GetCurrentEntity()
-{
-	return s_main->getCurrentEntity();
-}
-
-float GetFloatTime()
-{
-	return s_main->getFloatTime();
-}
-
-Transform GetMainCameraTransform()
-{
-	return s_main->getMainCameraTransform();
-}
-
-float GetNoise(float x, float y, float z, float t)
-{
-	return s_main->getNoise(x, y, z, t);
-}
-
-void Initialize()
-{
-	s_main = std::make_unique<Main>();
-	s_main->initialize();
-}
-
-bool isCameraMirrored()
-{
-	return s_main->isCameraMirrored();
-}
-
 void LoadWorld(const char *name)
 {
-	s_main->loadWorld(name);
-}
+	if (world::IsLoaded())
+	{
+		interface::Error("ERROR: attempted to redundantly load world map");
+	}
 
-void RegisterFont(const char *fontName, int pointSize, fontInfo_t *font)
-{
-	s_main->registerFont(fontName, pointSize, font);
-}
+	// Create frame buffers first.
+	const uint32_t rtClampFlags = BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP;
+	s_main->linearDepthFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::R16F);
+	bgfx::TextureHandle reflectionTexture;
 
-void RenderScene(const SceneDefinition &scene)
-{
-	s_main->renderScene(scene);
-}
+	if (g_cvars.hdr.getBool() != 0)
+	{
+		if (g_cvars.waterReflections.getBool())
+			reflectionTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::RGBA16F, rtClampFlags);
 
-bool SampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir)
-{
-	return s_main->sampleLight(position, ambientLight, directedLight, lightDir);
-}
+		if (s_main->aa != AntiAliasing::None)
+		{
+			// HDR needs a temp BGRA8 destination for AA.
+			s_main->sceneTempFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::BGRA8, rtClampFlags);
+		}
 
-void SetColor(vec4 c)
-{
-	s_main->setColor(c);
-}
+		bgfx::TextureHandle sceneTextures[3];
+		sceneTextures[0] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::RGBA16F, rtClampFlags);
+		sceneTextures[1] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags);
+		sceneTextures[2] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT);
+		s_main->sceneFb.handle = bgfx::createFrameBuffer(3, sceneTextures, true);
+		s_main->sceneBloomAttachment = 1;
+		s_main->sceneDepthAttachment = 2;
 
-const SunLight &GetSunLight()
-{
-	return s_main->getSunLight();
-}
+		for (size_t i = 0; i < s_main->nBloomFrameBuffers; i++)
+		{
+			s_main->bloomFb[i].handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Quarter, bgfx::TextureFormat::BGRA8, rtClampFlags);
+		}
+	}
+	else
+	{
+		uint32_t aaFlags = 0;
 
-void SetSunLight(const SunLight &sunLight)
-{
-	s_main->setSunLight(sunLight);
+		if (s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x)
+		{
+			aaFlags |= (1 + (int)s_main->aa - (int)AntiAliasing::MSAA2x) << BGFX_TEXTURE_RT_MSAA_SHIFT;
+		}
+
+		if (g_cvars.waterReflections.getBool())
+			reflectionTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
+
+		bgfx::TextureHandle sceneTextures[2];
+		sceneTextures[0] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
+		sceneTextures[1] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT | aaFlags);
+		s_main->sceneFb.handle = bgfx::createFrameBuffer(2, sceneTextures, true);
+		s_main->sceneDepthAttachment = 1;
+	}
+
+	if (g_cvars.waterReflections.getBool())
+		s_main->reflectionFb.handle = bgfx::createFrameBuffer(1, &reflectionTexture); // Don't destroy the texture, that will be done by the texture cache.
+
+	if (s_main->aa == AntiAliasing::SMAA)
+	{
+		s_main->smaaBlendFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::BGRA8, rtClampFlags);
+		s_main->smaaEdgesFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::RG8, rtClampFlags);
+		s_main->smaaAreaTex = bgfx::createTexture2D(AREATEX_WIDTH, AREATEX_HEIGHT, false, 1, bgfx::TextureFormat::RG8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(areaTexBytes, AREATEX_SIZE));
+		s_main->smaaSearchTex = bgfx::createTexture2D(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, false, 1, bgfx::TextureFormat::R8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(searchTexBytes, SEARCHTEX_SIZE));
+	}
+
+	if (g_cvars.waterReflections.getBool())
+	{
+		// Register the reflection texture so it can accessed by materials.
+		Texture::create("*reflection", reflectionTexture);
+	}
+
+	// Load the world.
+	world::Load(name);
+	s_main->dlightManager->initializeGrid();
 }
 
 void Shutdown(bool destroyWindow)
 {
 	light_baker::Stop();
 	world::Unload();
+
+	if (s_main->aa == AntiAliasing::SMAA)
+	{
+		if (bgfx::isValid(s_main->smaaAreaTex))
+			bgfx::destroyTexture(s_main->smaaAreaTex);
+		if (bgfx::isValid(s_main->smaaSearchTex))
+			bgfx::destroyTexture(s_main->smaaSearchTex);
+	}
+
+	interface::Cmd_Remove("r_bakeLights");
+	interface::Cmd_Remove("r_pickMaterial");
+	interface::Cmd_Remove("r_printMaterials");
+	interface::Cmd_Remove("screenshot");
+	interface::Cmd_Remove("screenshotJPEG");
+	interface::Cmd_Remove("screenshotPNG");
+	g_materialCache = nullptr;
+	g_modelCache = nullptr;
+	Texture::shutdownCache();
 	s_main.reset(nullptr);
 
 	if (destroyWindow)
@@ -707,11 +633,6 @@ void Shutdown(bool destroyWindow)
 		bgfx::shutdown();
 		window::Shutdown();
 	}
-}
-
-void UploadCinematic(int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty)
-{
-	s_main->uploadCinematic(w, h, cols, rows, data, client, dirty);
 }
 
 } // namespace main
