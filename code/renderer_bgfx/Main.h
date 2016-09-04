@@ -131,25 +131,6 @@ struct ShaderProgramId
 	};
 };
 
-struct PushViewFlags
-{
-	enum
-	{
-		Sequential = 1<<0
-	};
-};
-
-struct RenderCameraFlags
-{
-	enum
-	{
-		ContainsSkyboxPortal = 1<<0,
-		IsSkyboxPortal       = 1<<1,
-		UseClippingPlane     = 1<<2,
-		UseStencilTest       = 1<<3
-	};
-};
-
 struct Main
 {
 	/// @name Camera
@@ -175,6 +156,7 @@ struct Main
 
 	/// Incremented everytime EndFrame() is called
 	int frameNo = 0;
+	uint32_t bgfxFrameNo = 0;
 
 	uint16_t debugTextY = 0;
 
@@ -279,6 +261,13 @@ struct Main
 	bool isTextureOriginBottomLeft = false;
 	bool softSpritesEnabled = false;
 	SunLight sunLight;
+
+	bool renderHemicube = false;
+	FrameBuffer hemicubeFb;
+	bgfx::TextureHandle hemicubeReadTexture;
+	const int hemicubeResolution = 128;
+	uint32_t hemicubeDataAvailableFrame = 0;
+	std::vector<uint8_t> hemicubeData;
 
 	/// Convert from our coordinate system (looking down X) to OpenGL's coordinate system (looking down -Z)
 	static const mat4 toOpenGlMatrix;

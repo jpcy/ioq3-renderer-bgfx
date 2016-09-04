@@ -2109,11 +2109,14 @@ static void UpdateCameraFrustumVisibility(VisibilityId visId, vec3 cameraPositio
 
 void UpdateVisibility(VisibilityId visId, vec3 cameraPosition, const uint8_t *areaMask)
 {
-#if 1
-	UpdatePvsVisibility(visId, cameraPosition, areaMask);
-#else
-	UpdateCameraFrustumVisibility(visId, cameraPosition, areaMask);
-#endif
+	if (visId == VisibilityId::Probe)
+	{
+		UpdateCameraFrustumVisibility(visId, cameraPosition, areaMask);
+	}
+	else
+	{
+		UpdatePvsVisibility(visId, cameraPosition, areaMask);
+	}
 }
 
 void Render(VisibilityId visId, DrawCallList *drawCallList, const mat3 &sceneRotation)

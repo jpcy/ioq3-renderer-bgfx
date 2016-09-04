@@ -216,6 +216,11 @@ static void TakeScreenshot(const char *extension)
 	bgfx::saveScreenShot(filename);
 }
 
+static void Cmd_RenderHemicube()
+{
+	s_main->renderHemicube = true;
+}
+
 static void Cmd_BakeLights()
 {
 	int nSamples = 1;
@@ -281,6 +286,7 @@ void Initialize()
 
 	s_main->softSpritesEnabled = g_cvars.softSprites.getBool() && !(s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x);
 
+	interface::Cmd_Add("r_renderHemicube", Cmd_RenderHemicube);
 	interface::Cmd_Add("r_bakeLights", Cmd_BakeLights);
 	interface::Cmd_Add("r_pickMaterial", Cmd_PickMaterial);
 	interface::Cmd_Add("r_printMaterials", Cmd_PrintMaterials);
@@ -361,6 +367,8 @@ void Initialize()
 		// Print the chosen backend name. It may not be the one that was selected.
 		const bool forced = selectedBackend != bgfx::RendererType::Count && selectedBackend != bgfx::getCaps()->rendererType;
 		interface::Printf("Renderer backend%s: %s\n", forced ? " forced to" : "", bgfx::getRendererName(bgfx::getCaps()->rendererType));
+		interface::Printf("   texture blit %ssupported\n", (bgfx::getCaps()->supported & BGFX_CAPS_TEXTURE_BLIT) == 0 ? "NOT " : "");
+		interface::Printf("   texture read back %ssupported\n", (bgfx::getCaps()->supported & BGFX_CAPS_TEXTURE_READ_BACK) == 0 ? "NOT " : "");
 	}
 
 	uint32_t resetFlags = 0;
@@ -396,6 +404,7 @@ void Initialize()
 	s_main->debugDraw = DebugDrawFromString(g_cvars.debugDraw.getString());
 	s_main->halfTexelOffset = caps->rendererType == bgfx::RendererType::Direct3D9 ? 0.5f : 0;
 	s_main->isTextureOriginBottomLeft = caps->rendererType == bgfx::RendererType::OpenGL || caps->rendererType == bgfx::RendererType::OpenGLES;
+	s_main->hemicubeReadTexture.idx = bgfx::invalidHandle;
 	Vertex::init();
 	s_main->uniforms = std::make_unique<Uniforms>();
 	s_main->entityUniforms = std::make_unique<Uniforms_Entity>();
@@ -539,7 +548,7 @@ void LoadWorld(const char *name)
 	s_main->linearDepthFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::R16F);
 	bgfx::TextureHandle reflectionTexture;
 
-	if (g_cvars.hdr.getBool() != 0)
+	if (g_cvars.hdr.getBool())
 	{
 		if (g_cvars.waterReflections.getBool())
 			reflectionTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::RGBA16F, rtClampFlags);
@@ -599,6 +608,13 @@ void LoadWorld(const char *name)
 		Texture::create("*reflection", reflectionTexture);
 	}
 
+	bgfx::TextureHandle hemicubeTextures[2];
+	hemicubeTextures[0] = bgfx::createTexture2D(s_main->hemicubeResolution * 3, s_main->hemicubeResolution, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags);
+	hemicubeTextures[1] = bgfx::createTexture2D(s_main->hemicubeResolution * 3, s_main->hemicubeResolution, false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT);
+	s_main->hemicubeFb.handle = bgfx::createFrameBuffer(2, hemicubeTextures, true);
+	s_main->hemicubeData.resize(s_main->hemicubeResolution * 3 * s_main->hemicubeResolution * 4);
+	s_main->hemicubeReadTexture = bgfx::createTexture2D(s_main->hemicubeResolution * 3, s_main->hemicubeResolution, false, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
+
 	// Load the world.
 	world::Load(name);
 	s_main->dlightManager->initializeGrid();
@@ -617,6 +633,12 @@ void Shutdown(bool destroyWindow)
 			bgfx::destroyTexture(s_main->smaaSearchTex);
 	}
 
+	if (bgfx::isValid(s_main->hemicubeReadTexture))
+	{
+		bgfx::destroyTexture(s_main->hemicubeReadTexture);
+	}
+
+	interface::Cmd_Remove("r_renderHemicube");
 	interface::Cmd_Remove("r_bakeLights");
 	interface::Cmd_Remove("r_pickMaterial");
 	interface::Cmd_Remove("r_printMaterials");

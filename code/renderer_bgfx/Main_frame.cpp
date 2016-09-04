@@ -27,9 +27,30 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #pragma hdrstop
 
 #include "Main.h"
+#include "stb_image_write.h"
 
 namespace renderer {
 namespace main {
+
+struct PushViewFlags
+{
+	enum
+	{
+		Sequential = 1<<0
+	};
+};
+
+struct RenderCameraFlags
+{
+	enum
+	{
+		ContainsSkyboxPortal = 1<<0,
+		IsSkyboxPortal       = 1<<1,
+		Probe                = 1<<2,
+		UseClippingPlane     = 1<<3,
+		UseStencilTest       = 1<<4
+	};
+};
 
 static uint8_t PushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags = 0)
 {
@@ -740,27 +761,37 @@ static void RenderToStencil(const uint8_t viewId)
 	}
 }
 
-static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask, Plane clippingPlane = Plane(), int flags = 0)
+static vec2 CalculateDepthRange(VisibilityId visId, vec3 position)
 {
-	assert(areaMask);
 	const float zMin = 4;
 	float zMax = 2048;
+
+	if (s_main->isWorldScene)
+	{
+		// Use dynamic z max.
+		zMax = world::GetBounds(visId).calculateFarthestCornerDistance(position);
+	}
+
+	return vec2(zMin, zMax);
+}
+
+static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask = nullptr, Plane clippingPlane = Plane(), int flags = 0, const mat4 *customProjectionMatrix = nullptr)
+{
 	const float polygonDepthOffset = -0.001f;
 	const bool isMainCamera = visId == VisibilityId::Main;
 	const uint32_t stencilTest = BGFX_STENCIL_TEST_EQUAL | BGFX_STENCIL_FUNC_REF(1) | BGFX_STENCIL_FUNC_RMASK(1) | BGFX_STENCIL_OP_FAIL_S_KEEP | BGFX_STENCIL_OP_FAIL_Z_KEEP | BGFX_STENCIL_OP_PASS_Z_KEEP;
 
 	// Update world vis cache for this PVS position.
-	if (s_main->isWorldScene)
+	if (s_main->isWorldScene && (flags & RenderCameraFlags::Probe) == 0)
 	{
 		world::UpdateVisibility(visId, pvsPosition, areaMask);
-
-		// Use dynamic z max.
-		zMax = world::GetBounds(visId).calculateFarthestCornerDistance(position);
 	}
+
+	const vec2 depthRange = CalculateDepthRange(visId, pvsPosition);
 
 	// Setup camera transform.
 	const mat4 viewMatrix = s_main->toOpenGlMatrix * mat4::view(position, rotation);
-	const mat4 projectionMatrix = mat4::perspectiveProjection(fov.x, fov.y, zMin, zMax);
+	const mat4 projectionMatrix = customProjectionMatrix ? *customProjectionMatrix : mat4::perspectiveProjection(fov.x, fov.y, depthRange.x, depthRange.y);
 	const mat4 vpMatrix(projectionMatrix * viewMatrix);
 	const Frustum cameraFrustum(vpMatrix);
 
@@ -796,12 +827,12 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 		}
 
 		// Render a portal camera if there's a portal surface visible.
-		vec3 pvsPosition;
+		vec3 portalPvsPosition;
 		Transform portalCamera;
 		Plane portalPlane;
 		bool isCameraMirrored;
 
-		if (world::CalculatePortalCamera(visId, position, rotation, vpMatrix, s_main->sceneEntities, &pvsPosition, &portalCamera, &isCameraMirrored, &portalPlane))
+		if (world::CalculatePortalCamera(visId, position, rotation, vpMatrix, s_main->sceneEntities, &portalPvsPosition, &portalCamera, &isCameraMirrored, &portalPlane))
 		{
 			// Write stencil mask first.
 			s_main->drawCalls.clear();
@@ -812,7 +843,7 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 
 			// Render the portal camera with stencil testing.
 			s_main->isCameraMirrored = isCameraMirrored;
-			RenderCamera(VisibilityId::Portal, pvsPosition, portalCamera.position, portalCamera.rotation, rect, fov, areaMask, portalPlane, flags | RenderCameraFlags::UseClippingPlane | RenderCameraFlags::UseStencilTest);
+			RenderCamera(VisibilityId::Portal, portalPvsPosition, portalCamera.position, portalCamera.rotation, rect, fov, areaMask, portalPlane, flags | RenderCameraFlags::UseClippingPlane | RenderCameraFlags::UseStencilTest);
 			s_main->isCameraMirrored = false;
 		}
 	}
@@ -827,7 +858,7 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 		{
 			for (size_t i = 0; i < world::GetNumSkySurfaces(visId); i++)
 			{
-				Sky_Render(&s_main->drawCalls, position, zMax, world::GetSkySurface(visId, i));
+				Sky_Render(&s_main->drawCalls, position, depthRange.y, world::GetSkySurface(visId, i));
 			}
 		}
 
@@ -867,7 +898,7 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 	}
 
 	// Render depth.
-	if (s_main->isWorldScene)
+	if (s_main->isWorldScene && (flags & RenderCameraFlags::Probe) == 0)
 	{
 		const uint8_t viewId = PushView(s_main->sceneFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect);
 
@@ -885,7 +916,7 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 
 			s_main->currentEntity = dc.entity;
 			s_main->matUniforms->time.set(vec4(mat->setTime(s_main->floatTime), 0, 0, 0));
-			s_main->uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
+			s_main->uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, depthRange.x, depthRange.y));
 			mat->setDeformUniforms(s_main->matUniforms.get());
 
 			// See if any of the stages use alpha testing.
@@ -937,14 +968,18 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 		}
 
 		// Read depth, write linear depth.
-		s_main->uniforms->depthRange.set(vec4(0, 0, zMin, zMax));
+		s_main->uniforms->depthRange.set(vec4(0, 0, depthRange.x, depthRange.y));
 		bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, s_main->sceneFb.handle, s_main->sceneDepthAttachment);
 		RenderScreenSpaceQuad(s_main->linearDepthFb, ShaderProgramId::LinearDepth, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
 	}
 
 	uint8_t mainViewId;
 	
-	if (s_main->isWorldScene)
+	if ((flags & RenderCameraFlags::Probe) != 0)
+	{
+		mainViewId = PushView(s_main->hemicubeFb, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect, PushViewFlags::Sequential);
+	}
+	else if (s_main->isWorldScene)
 	{
 		mainViewId = PushView(s_main->sceneFb, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, rect, PushViewFlags::Sequential);
 	}
@@ -967,7 +1002,7 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 		// Special case for skybox.
 		if (dc.flags & DrawCallFlags::Skybox)
 		{
-			s_main->uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
+			s_main->uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, depthRange.x, depthRange.y));
 			s_main->uniforms->dynamicLight_Num_Intensity.set(vec4::empty);
 			s_main->matUniforms->nDeforms.set(vec4(0, 0, 0, 0));
 			s_main->matStageUniforms->alphaTest.set(vec4::empty);
@@ -1023,11 +1058,11 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 
 		if (mat->polygonOffset)
 		{
-			s_main->uniforms->depthRange.set(vec4(polygonDepthOffset, 1, zMin, zMax));
+			s_main->uniforms->depthRange.set(vec4(polygonDepthOffset, 1, depthRange.x, depthRange.y));
 		}
 		else
 		{
-			s_main->uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, zMin, zMax));
+			s_main->uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, depthRange.x, depthRange.y));
 		}
 
 		s_main->uniforms->viewOrigin.set(position);
@@ -1406,10 +1441,103 @@ void RenderScene(const SceneDefinition &scene)
 	s_main->scenePolygonVertices.clear();
 }
 
+/***********************************************************
+* A single header file OpenGL lightmapping library         *
+* https://github.com/ands/lightmapper                      *
+* no warranty implied | use at your own risk               *
+* author: Andreas Mantler (ands) | last change: 23.07.2016 *
+*                                                          *
+* License:                                                 *
+* This software is in the public domain.                   *
+* Where that dedication is not recognized,                 *
+* you are granted a perpetual, irrevocable license to copy *
+* and modify this file however you want.                   *
+***********************************************************/
+static void RenderHemicube(vec3 position, const mat3 &rotation)
+{
+	// +-------+---+---+-------+
+	// |       |   |   |   D   |
+	// |   C   | R | L +-------+
+	// |       |   |   |   U   |
+	// +-------+---+---+-------+
+	// Order: C,R,L,D,U
+	const int size = s_main->hemicubeResolution;
+			
+	const Rect rects[] =
+	{
+		Rect(0, 0, size, size),
+		Rect(size, 0, size / 2, size),
+		Rect(size + size / 2, 0, size / 2, size),
+		Rect(size * 2, 0, size, size / 2),
+		Rect(size * 2, size / 2, size, size / 2)
+	};
+
+	const vec3 forward = rotation[0];
+	const vec3 right = -rotation[1]; // actually left
+	const vec3 up = rotation[2];
+
+	const mat3 rotations[] =
+	{
+		mat3(forward, -right, up),
+		mat3(right, -vec3::crossProduct(right, up), up),
+		mat3(-right, -vec3::crossProduct(-right, up), up),
+		mat3(-up, -vec3::crossProduct(-up, forward), forward),
+		mat3(up, -vec3::crossProduct(up, -forward), -forward),
+	};
+
+	world::UpdateVisibility(VisibilityId::Probe, position, nullptr);
+	const vec2 depthRange = CalculateDepthRange(VisibilityId::Probe, position);
+	const float zNear = depthRange.x;
+	const float zFar = depthRange.y;
+
+	const mat4 projectionMatrices[] =
+	{
+		mat4::perspectiveProjection(-zNear, zNear, zNear, -zNear, zNear, zFar),
+		mat4::perspectiveProjection(-zNear, 0.0f, zNear, -zNear, zNear, zFar),
+		mat4::perspectiveProjection(0.0f, zNear, zNear, -zNear, zNear, zFar),
+		mat4::perspectiveProjection(-zNear, zNear, zNear, 0.0f, zNear, zFar),
+		mat4::perspectiveProjection(-zNear, zNear, 0.0f, -zNear, zNear, zFar)
+	};
+
+	for (int i = 0; i < 5; i++)
+	{
+		s_main->sceneRotation = rotations[i];
+		RenderCamera(VisibilityId::Probe, position, position, rotations[i], rects[i], vec2::empty, nullptr, Plane(), RenderCameraFlags::Probe, &projectionMatrices[i]);
+	}
+}
+
 void EndFrame()
 {
 	FlushStretchPics();
 	light_baker::Update(s_main->frameNo);
+
+	if (s_main->renderHemicube && world::IsLoaded())
+	{
+		if (s_main->hemicubeDataAvailableFrame == 0)
+		{
+			s_main->isWorldScene = true;
+			RenderHemicube(s_main->mainCameraTransform.position, s_main->mainCameraTransform.rotation);
+			bgfx::blit(s_main->firstFreeViewId, s_main->hemicubeReadTexture, 0, 0, s_main->hemicubeFb.handle);
+			bgfx::touch(s_main->firstFreeViewId);
+			s_main->hemicubeDataAvailableFrame = bgfx::readTexture(s_main->hemicubeReadTexture, s_main->hemicubeData.data());
+		}
+		else if (s_main->bgfxFrameNo >= s_main->hemicubeDataAvailableFrame)
+		{
+			s_main->renderHemicube = false;
+			s_main->hemicubeDataAvailableFrame = 0;
+
+			for (size_t i = 0; i < s_main->hemicubeData.size(); i += 4)
+			{
+				uint8_t *bgra = &s_main->hemicubeData[i];
+				uint8_t b = bgra[0];
+				bgra[0] = bgra[2];
+				bgra[2] = b;
+				bgra[3] = 0xff;
+			}
+
+			stbi_write_tga("hemicube.tga", s_main->hemicubeResolution * 3, s_main->hemicubeResolution, 4, s_main->hemicubeData.data());
+		}
+	}
 
 	if (s_main->firstFreeViewId == 0)
 	{
@@ -1473,7 +1601,7 @@ void EndFrame()
 		debug |= BGFX_DEBUG_TEXT;
 
 	bgfx::setDebug(debug);
-	bgfx::frame();
+	s_main->bgfxFrameNo = bgfx::frame();
 
 	if (g_cvars.debugDraw.isModified())
 	{

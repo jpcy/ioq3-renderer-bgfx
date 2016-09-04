@@ -682,6 +682,7 @@ public:
 	static const mat4 empty;
 	static const mat4 identity;
 	static mat4 perspectiveProjection(float fovX, float fovY, float zNear, float zFar);
+	static mat4 perspectiveProjection(float l, float r, float t, float b, float n, float f);
 	static mat4 orthographicProjection(const Bounds &bounds);
 	static mat4 orthographicProjection(float l, float r, float t, float b, float zn, float zf);
 	static mat4 view(const vec3 &position, const mat3 &rotation);

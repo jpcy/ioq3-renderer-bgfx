@@ -1664,6 +1664,7 @@ enum class VisibilityId
 {
 	Main,
 	Portal,
+	Probe,
 	Reflection,
 	SkyboxPortal,
 	Num

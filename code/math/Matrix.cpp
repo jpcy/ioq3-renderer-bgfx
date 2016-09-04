@@ -557,6 +557,30 @@ mat4 mat4::perspectiveProjection(float fovX, float fovY, float zNear, float zFar
 	return m;
 }
 
+mat4 mat4::perspectiveProjection(float l, float r, float t, float b, float n, float f)
+{
+	mat4 m;
+	/***********************************************************
+	* A single header file OpenGL lightmapping library         *
+	* https://github.com/ands/lightmapper                      *
+	* no warranty implied | use at your own risk               *
+	* author: Andreas Mantler (ands) | last change: 23.07.2016 *
+	*                                                          *
+	* License:                                                 *
+	* This software is in the public domain.                   *
+	* Where that dedication is not recognized,                 *
+	* you are granted a perpetual, irrevocable license to copy *
+	* and modify this file however you want.                   *
+	***********************************************************/
+	// projection matrix: frustum(l, r, b, t, n, f)
+	float ilr = 1.0f / (r - l), ibt = 1.0f / (t - b), ninf = -1.0f / (f - n), n2 = 2.0f * n;
+	m.e_[ 0] = n2 * ilr;      m.e_[ 1] = 0.0f;          m.e_[ 2] = 0.0f;           m.e_[ 3] = 0.0f;
+	m.e_[ 4] = 0.0f;          m.e_[ 5] = n2 * ibt;      m.e_[ 6] = 0.0f;           m.e_[ 7] = 0.0f;
+	m.e_[ 8] = (r + l) * ilr; m.e_[ 9] = (t + b) * ibt; m.e_[10] = (f + n) * ninf; m.e_[11] = -1.0f;
+	m.e_[12] = 0.0f;          m.e_[13] = 0.0f;          m.e_[14] = f * n2 * ninf;  m.e_[15] = 0.0f;
+	return m;
+}
+
 mat4 mat4::orthographicProjection(float l, float r, float t, float b, float zn, float zf)
 {
 	mat4 m;
