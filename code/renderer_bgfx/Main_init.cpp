@@ -219,6 +219,7 @@ static void TakeScreenshot(const char *extension)
 static void Cmd_RenderHemicube()
 {
 	s_main->renderHemicube = true;
+	main::InitializeHemicubeFramebuffer();
 }
 
 static void Cmd_BakeLights()
@@ -607,16 +608,22 @@ void LoadWorld(const char *name)
 		Texture::create("*reflection", reflectionTexture);
 	}
 
+	// Load the world.
+	world::Load(name);
+	s_main->dlightManager->initializeGrid();
+}
+
+void InitializeHemicubeFramebuffer()
+{
+	if (bgfx::isValid(s_main->hemicubeFb.handle))
+		return; // already initialized
+
 	bgfx::TextureHandle hemicubeTextures[2];
-	hemicubeTextures[0] = bgfx::createTexture2D(s_main->hemicubeResolution * 3, s_main->hemicubeResolution, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags);
+	hemicubeTextures[0] = bgfx::createTexture2D(s_main->hemicubeResolution * 3, s_main->hemicubeResolution, false, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP);
 	hemicubeTextures[1] = bgfx::createTexture2D(s_main->hemicubeResolution * 3, s_main->hemicubeResolution, false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT);
 	s_main->hemicubeFb.handle = bgfx::createFrameBuffer(2, hemicubeTextures, true);
 	s_main->hemicubeData.resize(s_main->hemicubeResolution * 3 * s_main->hemicubeResolution * 4);
 	s_main->hemicubeReadTexture = bgfx::createTexture2D(s_main->hemicubeResolution * 3, s_main->hemicubeResolution, false, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
-
-	// Load the world.
-	world::Load(name);
-	s_main->dlightManager->initializeGrid();
 }
 
 void Shutdown(bool destroyWindow)

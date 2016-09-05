@@ -438,6 +438,7 @@ namespace main
 	float GetFloatTime();
 	Transform GetMainCameraTransform();
 	void Initialize();
+	void InitializeHemicubeFramebuffer();
 	bool IsCameraMirrored();
 	void LoadWorld(const char *name); 
 	void RegisterFont(const char *fontName, int pointSize, fontInfo_t *font);
