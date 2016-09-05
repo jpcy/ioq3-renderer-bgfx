@@ -36,12 +36,12 @@ struct Entry
 	int64_t minSample, maxSample;
 	float averageSample;
 	int indent;
-	int frame;
+	uint32_t frame;
 };
 
 struct Profiler
 {
-	int currentFrame;
+	uint32_t currentFrame;
 	std::array<Entry, 64> entries;
 	int nEntries = 0;
 	std::array<Entry *, 64> entryFrameStack;
@@ -51,7 +51,7 @@ struct Profiler
 
 static Profiler s_profiler;
 
-void BeginFrame(int frameNo)
+void BeginFrame(uint32_t frameNo)
 {
 	// Discard entries that weren't in the last frame.
 	for (int i = 0; i < s_profiler.nEntries; i++)

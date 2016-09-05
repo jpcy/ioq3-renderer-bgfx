@@ -49,7 +49,7 @@ DynamicLightManager::~DynamicLightManager()
 	bgfx::destroyTexture(lightsTexture_);
 }
 
-void DynamicLightManager::add(int frameNo, const DynamicLight &light)
+void DynamicLightManager::add(uint32_t frameNo, const DynamicLight &light)
 {
 	if (nLights_ == maxLights - 1)
 	{
@@ -67,7 +67,7 @@ void DynamicLightManager::clear()
 	nLights_ = 0;
 }
 
-void DynamicLightManager::contribute(int frameNo, vec3 position, vec3 *color, vec3 *direction) const
+void DynamicLightManager::contribute(uint32_t frameNo, vec3 position, vec3 *color, vec3 *direction) const
 {
 	assert(color);
 	assert(direction);
@@ -125,11 +125,11 @@ void DynamicLightManager::initializeGrid()
 	assignedLights_.reserve(512); // Arbitrary initial size.
 }
 
-void DynamicLightManager::updateTextures(int frameNo)
+void DynamicLightManager::updateTextures(uint32_t frameNo)
 {
 	assert(world::IsLoaded());
 	PROFILE_SCOPED(DynamicLightManager::updateTextures)
-	const int buffer = frameNo % BGFX_NUM_BUFFER_FRAMES;
+	const uint32_t buffer = frameNo % BGFX_NUM_BUFFER_FRAMES;
 
 	// Assign lights to cells.
 	PROFILE_BEGIN(AssignLights)

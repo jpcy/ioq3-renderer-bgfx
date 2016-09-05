@@ -263,14 +263,14 @@ class DynamicLightManager
 public:
 	DynamicLightManager();
 	~DynamicLightManager();
-	void add(int frameNo, const DynamicLight &light);
+	void add(uint32_t frameNo, const DynamicLight &light);
 	void clear();
-	void contribute(int frameNo, vec3 position, vec3 *color, vec3 *direction) const;
+	void contribute(uint32_t frameNo, vec3 position, vec3 *color, vec3 *direction) const;
 	bgfx::TextureHandle getCellsTexture() const { return cellsTexture_; }
 	bgfx::TextureHandle getIndicesTexture() const { return indicesTexture_; }
 	bgfx::TextureHandle getLightsTexture() const { return lightsTexture_; }
 	void initializeGrid();
-	void updateTextures(int frameNo);
+	void updateTextures(uint32_t frameNo);
 	void updateUniforms(Uniforms *uniforms);
 
 	static const size_t maxLights = 256;
@@ -418,7 +418,7 @@ namespace light_baker
 	void Start(int nSamples);
 	void Stop();
 	bool IsRunning();
-	void Update(int frameNo);
+	void Update(uint32_t frameNo);
 }
 
 namespace main
@@ -1116,7 +1116,7 @@ void Patch_Free(Patch *grid);
 #ifdef USE_PROFILER
 namespace profiler
 {
-	void BeginFrame(int frameNo);
+	void BeginFrame(uint32_t frameNo);
 	void Print();
 	void BeginEntry(const char *name);
 	void EndEntry();

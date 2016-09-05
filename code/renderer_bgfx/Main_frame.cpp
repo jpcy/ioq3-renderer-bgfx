@@ -1582,7 +1582,7 @@ void EndFrame()
 			bgfx::touch(s_main->firstFreeViewId);
 			s_main->hemicubeDataAvailableFrame = bgfx::readTexture(s_main->hemicubeReadTexture, s_main->hemicubeData.data());
 		}
-		else if (s_main->bgfxFrameNo >= s_main->hemicubeDataAvailableFrame)
+		else if (s_main->frameNo >= s_main->hemicubeDataAvailableFrame)
 		{
 			s_main->renderHemicube = false;
 			s_main->hemicubeDataAvailableFrame = 0;
@@ -1662,7 +1662,7 @@ void EndFrame()
 		debug |= BGFX_DEBUG_TEXT;
 
 	bgfx::setDebug(debug);
-	s_main->bgfxFrameNo = bgfx::frame();
+	s_main->frameNo = bgfx::frame();
 
 	if (g_cvars.debugDraw.isModified())
 	{
@@ -1683,7 +1683,6 @@ void EndFrame()
 	}
 
 	s_main->firstFreeViewId = 0;
-	s_main->frameNo++;
 	s_main->stretchPicViewId = UINT8_MAX;
 }
 

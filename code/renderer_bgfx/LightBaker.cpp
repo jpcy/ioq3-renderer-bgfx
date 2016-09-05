@@ -165,7 +165,7 @@ struct LightBaker
 	static const int maxSamples = 16;
 	std::array<vec3, maxSamples> dirJitter, posJitter;
 
-	int textureUploadFrameNo; // lightmap textures were uploaded this frame
+	uint32_t textureUploadFrameNo; // lightmap textures were uploaded this frame
 	int64_t startTime;
 	int nLuxelsProcessed;
 	std::vector<Lightmap> lightmaps;
@@ -1640,7 +1640,7 @@ bool IsRunning()
 	return s_lightBaker.get() && GetStatus() == LightBaker::Status::Running;
 }
 
-void Update(int frameNo)
+void Update(uint32_t frameNo)
 {
 	if (!s_lightBaker.get())
 	{

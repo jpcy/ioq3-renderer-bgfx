@@ -157,9 +157,8 @@ struct Main
 	int time = 0;
 	float floatTime = 0;
 
-	/// Incremented everytime EndFrame() is called
-	int frameNo = 0;
-	uint32_t bgfxFrameNo = 0;
+	/// The current frame, as returned from bgfx::frame.
+	uint32_t frameNo = 0;
 
 	uint16_t debugTextY = 0;
 
