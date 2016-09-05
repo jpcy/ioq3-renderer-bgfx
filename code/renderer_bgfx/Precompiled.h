@@ -1662,6 +1662,7 @@ struct VertexBuffer
 
 enum class VisibilityId
 {
+	None, // non-world scenes
 	Main,
 	Portal,
 	Probe,

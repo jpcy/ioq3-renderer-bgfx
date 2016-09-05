@@ -140,6 +140,9 @@ struct Main
 	/// Flip face culling if true.
 	bool isCameraMirrored = false;
 
+	/// Does the current camera render the world - i.e. not part of a HUD/UI scene.
+	bool isWorldCamera = false;
+
 	/// @}
 
 	/// @name Fonts
@@ -194,9 +197,6 @@ struct Main
 	/// @name Scene
 	/// @{
 	
-	/// Does the current scene contain the world (not RDF_NOWORLDMODEL).
-	bool isWorldScene;
-
 	Transform mainCameraTransform;
 
 	std::vector<vec3> sceneDebugAxis;

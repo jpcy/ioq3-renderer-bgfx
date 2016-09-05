@@ -46,9 +46,8 @@ struct RenderCameraFlags
 	{
 		ContainsSkyboxPortal = 1<<0,
 		IsSkyboxPortal       = 1<<1,
-		Probe                = 1<<2,
-		UseClippingPlane     = 1<<3,
-		UseStencilTest       = 1<<4
+		UseClippingPlane     = 1<<2,
+		UseStencilTest       = 1<<3
 	};
 };
 
@@ -287,7 +286,7 @@ static void SetupEntityLighting(Entity *entity)
 	}
 
 	// If not a world scene, only use dynamic lights (menu system, etc.)
-	if (s_main->isWorldScene && world::HasLightGrid())
+	if (s_main->isWorldCamera && world::HasLightGrid())
 	{
 		world::SampleLightGrid(lightPosition, &entity->ambientLight, &entity->directedLight, &entity->lightDir);
 	}
@@ -310,7 +309,7 @@ static void SetupEntityLighting(Entity *entity)
 		entity->ambientLight[i] = std::min(entity->ambientLight[i], g_identityLight * 255);
 
 	// Modify the light by dynamic lights.
-	if (!s_main->isWorldScene)
+	if (!s_main->isWorldCamera)
 	{
 		s_main->dlightManager->contribute(s_main->frameNo, lightPosition, &entity->directedLight, &entity->lightDir);
 	}
@@ -352,7 +351,7 @@ static void RenderRailCore(vec3 start, vec3 end, vec3 up, float length, float sp
 	DrawCall dc;
 	dc.dynamicLighting = false;
 	dc.entity = entity;
-	dc.fogIndex = s_main->isWorldScene ? world::FindFogIndex(entity->position, entity->radius) : -1;
+	dc.fogIndex = s_main->isWorldCamera ? world::FindFogIndex(entity->position, entity->radius) : -1;
 	dc.material = mat;
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
@@ -458,7 +457,7 @@ static void RenderRailRingsEntity(Entity *entity)
 	DrawCall dc;
 	dc.dynamicLighting = false;
 	dc.entity = entity;
-	dc.fogIndex = s_main->isWorldScene ? world::FindFogIndex(entity->position, entity->radius) : -1;
+	dc.fogIndex = s_main->isWorldCamera ? world::FindFogIndex(entity->position, entity->radius) : -1;
 	dc.material = s_main->materialCache->getMaterial(entity->customMaterial);
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
 	dc.vb.transientHandle = tvb;
@@ -525,7 +524,7 @@ static void RenderSpriteEntity(mat3 viewRotation, Entity *entity)
 	DrawCall dc;
 	dc.dynamicLighting = false;
 	dc.entity = entity;
-	dc.fogIndex = s_main->isWorldScene ? world::FindFogIndex(entity->position, entity->radius) : -1;
+	dc.fogIndex = s_main->isWorldCamera ? world::FindFogIndex(entity->position, entity->radius) : -1;
 	dc.material = s_main->materialCache->getMaterial(entity->customMaterial);
 	dc.softSpriteDepth = entity->radius / 2.0f;
 	dc.vb.type = dc.ib.type = DrawCall::BufferType::Transient;
@@ -766,7 +765,7 @@ static vec2 CalculateDepthRange(VisibilityId visId, vec3 position)
 	const float zMin = 4;
 	float zMax = 2048;
 
-	if (s_main->isWorldScene)
+	if (s_main->isWorldCamera)
 	{
 		// Use dynamic z max.
 		zMax = world::GetBounds(visId).calculateFarthestCornerDistance(position);
@@ -775,30 +774,48 @@ static vec2 CalculateDepthRange(VisibilityId visId, vec3 position)
 	return vec2(zMin, zMax);
 }
 
-static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, mat3 rotation, Rect rect, vec2 fov, const uint8_t *areaMask = nullptr, Plane clippingPlane = Plane(), int flags = 0, const mat4 *customProjectionMatrix = nullptr)
+struct RenderCameraArgs
+{
+	VisibilityId visId = VisibilityId::None;
+	vec3 pvsPosition;
+	vec3 position;
+	mat3 rotation;
+	Rect rect;
+	vec2 fov;
+	const uint8_t *areaMask = nullptr;
+	Plane clippingPlane;
+	int flags = 0;
+	const mat4 *customProjectionMatrix = nullptr;
+};
+
+static void RenderCamera(const RenderCameraArgs &args)
 {
 	const float polygonDepthOffset = -0.001f;
-	const bool isMainCamera = visId == VisibilityId::Main;
 	const uint32_t stencilTest = BGFX_STENCIL_TEST_EQUAL | BGFX_STENCIL_FUNC_REF(1) | BGFX_STENCIL_FUNC_RMASK(1) | BGFX_STENCIL_OP_FAIL_S_KEEP | BGFX_STENCIL_OP_FAIL_Z_KEEP | BGFX_STENCIL_OP_PASS_Z_KEEP;
 
-	// Update world vis cache for this PVS position.
-	if (s_main->isWorldScene && (flags & RenderCameraFlags::Probe) == 0)
+	s_main->isWorldCamera = args.visId != VisibilityId::None;
+	const bool isProbe = args.visId == VisibilityId::Probe;
+
+	// Update visibility for this PVS position.
+	// Probes do this externally.
+	if (s_main->isWorldCamera && !isProbe)
 	{
-		world::UpdateVisibility(visId, pvsPosition, areaMask);
+		world::UpdateVisibility(args.visId, args.pvsPosition, args.areaMask);
 	}
 
-	const vec2 depthRange = CalculateDepthRange(visId, pvsPosition);
+	const vec2 depthRange = CalculateDepthRange(args.visId, args.pvsPosition);
 
 	// Setup camera transform.
-	const mat4 viewMatrix = s_main->toOpenGlMatrix * mat4::view(position, rotation);
-	const mat4 projectionMatrix = customProjectionMatrix ? *customProjectionMatrix : mat4::perspectiveProjection(fov.x, fov.y, depthRange.x, depthRange.y);
+	const mat4 viewMatrix = s_main->toOpenGlMatrix * mat4::view(args.position, args.rotation);
+	const mat4 projectionMatrix = args.customProjectionMatrix ? *args.customProjectionMatrix : mat4::perspectiveProjection(args.fov.x, args.fov.y, depthRange.x, depthRange.y);
 	const mat4 vpMatrix(projectionMatrix * viewMatrix);
 	const Frustum cameraFrustum(vpMatrix);
 
-	if (s_main->isWorldScene && isMainCamera)
+	// The main camera can have a single portal camera and a single reflection camera. No deep recursion.
+	if (args.visId == VisibilityId::Main)
 	{
-		s_main->mainCameraTransform.position = position;
-		s_main->mainCameraTransform.rotation = rotation;
+		s_main->mainCameraTransform.position = args.position;
+		s_main->mainCameraTransform.rotation = args.rotation;
 
 		// Render a reflection camera if there's a reflecting surface visible.
 		if (g_cvars.waterReflections.getBool())
@@ -806,18 +823,28 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 			Transform reflectionCamera;
 			Plane reflectionPlane;
 
-			if (world::CalculateReflectionCamera(visId, position, rotation, vpMatrix, &reflectionCamera, &reflectionPlane))
+			if (world::CalculateReflectionCamera(args.visId, args.position, args.rotation, vpMatrix, &reflectionCamera, &reflectionPlane))
 			{
 				// Write stencil mask first.
 				s_main->drawCalls.clear();
-				world::RenderReflective(visId, &s_main->drawCalls);
+				world::RenderReflective(args.visId, &s_main->drawCalls);
 				assert(!s_main->drawCalls.empty());
-				const uint8_t viewId = PushView(s_main->sceneFb, BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, viewMatrix, projectionMatrix, rect);
+				const uint8_t viewId = PushView(s_main->sceneFb, BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, viewMatrix, projectionMatrix, args.rect);
 				RenderToStencil(viewId);
 
 				// Render to the scene frame buffer with stencil testing.
 				s_main->isCameraMirrored = true;
-				RenderCamera(VisibilityId::Reflection, pvsPosition, reflectionCamera.position, reflectionCamera.rotation, rect, fov, areaMask, reflectionPlane, flags | RenderCameraFlags::UseClippingPlane | RenderCameraFlags::UseStencilTest);
+				RenderCameraArgs reflectionArgs;
+				reflectionArgs.areaMask = args.areaMask;
+				reflectionArgs.clippingPlane = reflectionPlane;
+				reflectionArgs.flags = args.flags | RenderCameraFlags::UseClippingPlane | RenderCameraFlags::UseStencilTest;
+				reflectionArgs.fov = args.fov;
+				reflectionArgs.position = reflectionCamera.position;
+				reflectionArgs.pvsPosition = args.pvsPosition;
+				reflectionArgs.rect = args.rect;
+				reflectionArgs.rotation = reflectionCamera.rotation;
+				reflectionArgs.visId = VisibilityId::Reflection;
+				RenderCamera(reflectionArgs);
 				s_main->isCameraMirrored = false;
 
 				// Blit the scene frame buffer to the reflection frame buffer.
@@ -832,18 +859,28 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 		Plane portalPlane;
 		bool isCameraMirrored;
 
-		if (world::CalculatePortalCamera(visId, position, rotation, vpMatrix, s_main->sceneEntities, &portalPvsPosition, &portalCamera, &isCameraMirrored, &portalPlane))
+		if (world::CalculatePortalCamera(args.visId, args.position, args.rotation, vpMatrix, s_main->sceneEntities, &portalPvsPosition, &portalCamera, &isCameraMirrored, &portalPlane))
 		{
 			// Write stencil mask first.
 			s_main->drawCalls.clear();
-			world::RenderPortal(visId, &s_main->drawCalls);
+			world::RenderPortal(args.visId, &s_main->drawCalls);
 			assert(!s_main->drawCalls.empty());
-			const uint8_t viewId = PushView(s_main->sceneFb, BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, viewMatrix, projectionMatrix, rect);
+			const uint8_t viewId = PushView(s_main->sceneFb, BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, viewMatrix, projectionMatrix, args.rect);
 			RenderToStencil(viewId);
 
 			// Render the portal camera with stencil testing.
 			s_main->isCameraMirrored = isCameraMirrored;
-			RenderCamera(VisibilityId::Portal, portalPvsPosition, portalCamera.position, portalCamera.rotation, rect, fov, areaMask, portalPlane, flags | RenderCameraFlags::UseClippingPlane | RenderCameraFlags::UseStencilTest);
+			RenderCameraArgs portalArgs;
+			portalArgs.areaMask = args.areaMask;
+			portalArgs.clippingPlane = portalPlane;
+			portalArgs.flags = args.flags | RenderCameraFlags::UseClippingPlane | RenderCameraFlags::UseStencilTest;
+			portalArgs.fov = args.fov;
+			portalArgs.position = portalCamera.position;
+			portalArgs.pvsPosition = portalPvsPosition;
+			portalArgs.rect = args.rect;
+			portalArgs.rotation = portalCamera.rotation;
+			portalArgs.visId = VisibilityId::Portal;
+			RenderCamera(portalArgs);
 			s_main->isCameraMirrored = false;
 		}
 	}
@@ -851,30 +888,30 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 	// Build draw calls. Order doesn't matter.
 	s_main->drawCalls.clear();
 
-	if (s_main->isWorldScene)
+	if (s_main->isWorldCamera)
 	{
 		// If dealing with skybox portals, only render the sky to the skybox portal, not the camera containing it.
-		if ((flags & RenderCameraFlags::IsSkyboxPortal) || (flags & RenderCameraFlags::ContainsSkyboxPortal) == 0)
+		if ((args.flags & RenderCameraFlags::IsSkyboxPortal) || (args.flags & RenderCameraFlags::ContainsSkyboxPortal) == 0)
 		{
-			for (size_t i = 0; i < world::GetNumSkySurfaces(visId); i++)
+			for (size_t i = 0; i < world::GetNumSkySurfaces(args.visId); i++)
 			{
-				Sky_Render(&s_main->drawCalls, position, depthRange.y, world::GetSkySurface(visId, i));
+				Sky_Render(&s_main->drawCalls, args.position, depthRange.y, world::GetSkySurface(args.visId, i));
 			}
 		}
 
-		world::Render(visId, &s_main->drawCalls, s_main->sceneRotation);
+		world::Render(args.visId, &s_main->drawCalls, s_main->sceneRotation);
 	}
 
 	for (Entity &entity : s_main->sceneEntities)
 	{
-		if (isMainCamera && (entity.flags & EntityFlags::ThirdPerson) != 0)
+		if (args.visId == VisibilityId::Main && (entity.flags & EntityFlags::ThirdPerson) != 0)
 			continue;
 
-		if (!isMainCamera && (entity.flags & EntityFlags::FirstPerson) != 0)
+		if (args.visId != VisibilityId::Main && (entity.flags & EntityFlags::FirstPerson) != 0)
 			continue;
 
 		s_main->currentEntity = &entity;
-		RenderEntity(position, rotation, cameraFrustum, &entity);
+		RenderEntity(args.position, args.rotation, cameraFrustum, &entity);
 		s_main->currentEntity = nullptr;
 	}
 
@@ -887,20 +924,20 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 	std::sort(s_main->drawCalls.begin(), s_main->drawCalls.end());
 
 	// Set plane clipping.
-	if (flags & RenderCameraFlags::UseClippingPlane)
+	if (args.flags & RenderCameraFlags::UseClippingPlane)
 	{
 		s_main->uniforms->portalClip.set(vec4(1, 0, 0, 0));
-		s_main->uniforms->portalPlane.set(clippingPlane.toVec4());
+		s_main->uniforms->portalPlane.set(args.clippingPlane.toVec4());
 	}
 	else
 	{
 		s_main->uniforms->portalClip.set(vec4(0, 0, 0, 0));
 	}
 
-	// Render depth.
-	if (s_main->isWorldScene && (flags & RenderCameraFlags::Probe) == 0)
+	// Render depth. Probes skip this.
+	if (s_main->isWorldCamera && !isProbe)
 	{
-		const uint8_t viewId = PushView(s_main->sceneFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect);
+		const uint8_t viewId = PushView(s_main->sceneFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect);
 
 		for (DrawCall &dc : s_main->drawCalls)
 		{
@@ -911,7 +948,7 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 				continue;
 
 			// Don't render reflective geometry with the reflection camera.
-			if (visId == VisibilityId::Reflection && mat->reflective != MaterialReflective::None)
+			if (args.visId == VisibilityId::Reflection && mat->reflective != MaterialReflective::None)
 				continue;
 
 			s_main->currentEntity = dc.entity;
@@ -958,7 +995,7 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 
 			bgfx::setState(state);
 
-			if (flags & RenderCameraFlags::UseStencilTest)
+			if (args.flags & RenderCameraFlags::UseStencilTest)
 			{
 				bgfx::setStencil(stencilTest);
 			}
@@ -975,17 +1012,17 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 
 	uint8_t mainViewId;
 	
-	if ((flags & RenderCameraFlags::Probe) != 0)
+	if (isProbe)
 	{
-		mainViewId = PushView(s_main->hemicubeFb, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect, PushViewFlags::Sequential);
+		mainViewId = PushView(s_main->hemicubeFb, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
 	}
-	else if (s_main->isWorldScene)
+	else if (s_main->isWorldCamera)
 	{
-		mainViewId = PushView(s_main->sceneFb, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, rect, PushViewFlags::Sequential);
+		mainViewId = PushView(s_main->sceneFb, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
 	}
 	else
 	{
-		mainViewId = PushView(s_main->defaultFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, rect, PushViewFlags::Sequential);
+		mainViewId = PushView(s_main->defaultFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
 	}
 
 	for (DrawCall &dc : s_main->drawCalls)
@@ -996,7 +1033,7 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 		Material *mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
 
 		// Don't render reflective geometry with the reflection camera.
-		if (visId == VisibilityId::Reflection && mat->reflective != MaterialReflective::None)
+		if (args.visId == VisibilityId::Reflection && mat->reflective != MaterialReflective::None)
 			continue;
 
 		// Special case for skybox.
@@ -1020,7 +1057,7 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 			bgfx::setTransform(dc.modelMatrix.get());
 			bgfx::setState(dc.state);
 
-			if (flags & RenderCameraFlags::UseStencilTest)
+			if (args.flags & RenderCameraFlags::UseStencilTest)
 			{
 				bgfx::setStencil(stencilTest);
 			}
@@ -1046,7 +1083,7 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 		s_main->matUniforms->time.set(vec4(mat->setTime(s_main->floatTime), 0, 0, 0));
 		const mat4 modelViewMatrix(viewMatrix * dc.modelMatrix);
 
-		if (s_main->isWorldScene)
+		if (s_main->isWorldCamera)
 		{
 			s_main->dlightManager->updateUniforms(s_main->uniforms.get());
 		}
@@ -1065,10 +1102,10 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 			s_main->uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, depthRange.x, depthRange.y));
 		}
 
-		s_main->uniforms->viewOrigin.set(position);
-		s_main->uniforms->viewUp.set(rotation[2]);
+		s_main->uniforms->viewOrigin.set(args.position);
+		s_main->uniforms->viewUp.set(args.rotation[2]);
 		mat->setDeformUniforms(s_main->matUniforms.get());
-		const vec3 localViewPosition = s_main->currentEntity ? s_main->currentEntity->localViewPosition : position;
+		const vec3 localViewPosition = s_main->currentEntity ? s_main->currentEntity->localViewPosition : args.position;
 		s_main->uniforms->localViewOrigin.set(localViewPosition);
 
 		if (s_main->currentEntity)
@@ -1083,7 +1120,7 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 
 		if (!dc.material->noFog && dc.fogIndex >= 0)
 		{
-			world::CalculateFog(dc.fogIndex, dc.modelMatrix, modelViewMatrix, position, localViewPosition, rotation, &fogColor, &fogDistance, &fogDepth, &eyeT);
+			world::CalculateFog(dc.fogIndex, dc.modelMatrix, modelViewMatrix, args.position, localViewPosition, args.rotation, &fogColor, &fogDistance, &fogDepth, &eyeT);
 			s_main->uniforms->fogDistance.set(fogDistance);
 			s_main->uniforms->fogDepth.set(fogDepth);
 			s_main->uniforms->fogEyeT.set(eyeT);
@@ -1115,7 +1152,7 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 			{
 				shaderVariant |= GenericShaderProgramVariant::AlphaTest;
 			}
-			else if (s_main->isWorldScene && s_main->softSpritesEnabled && dc.softSpriteDepth > 0)
+			else if (s_main->isWorldCamera && s_main->softSpritesEnabled && dc.softSpriteDepth > 0)
 			{
 				shaderVariant |= GenericShaderProgramVariant::SoftSprite;
 				bgfx::setTexture(TextureUnit::Depth, s_main->matStageUniforms->depthSampler.handle, s_main->linearDepthFb.handle);
@@ -1133,7 +1170,7 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 				s_main->uniforms->softSprite_Depth_UseAlpha.set(vec4(dc.softSpriteDepth, useAlpha, 0, 0));
 			}
 
-			if (s_main->isWorldScene && dc.dynamicLighting && !(dc.flags & DrawCallFlags::Sky))
+			if (s_main->isWorldCamera && dc.dynamicLighting && !(dc.flags & DrawCallFlags::Sky))
 			{
 				shaderVariant |= GenericShaderProgramVariant::DynamicLights;
 				bgfx::setTexture(TextureUnit::DynamicLightCells, s_main->matStageUniforms->dynamicLightCellsSampler.handle, s_main->dlightManager->getCellsTexture());
@@ -1154,7 +1191,7 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 
 			bgfx::setState(state);
 
-			if (flags & RenderCameraFlags::UseStencilTest)
+			if (args.flags & RenderCameraFlags::UseStencilTest)
 			{
 				bgfx::setStencil(stencilTest);
 			}
@@ -1192,7 +1229,7 @@ static void RenderCamera(VisibilityId visId, vec3 pvsPosition, vec3 position, ma
 
 			bgfx::setState(state);
 
-			if (flags & RenderCameraFlags::UseStencilTest)
+			if (args.flags & RenderCameraFlags::UseStencilTest)
 			{
 				bgfx::setStencil(stencilTest);
 			}
@@ -1325,16 +1362,17 @@ void RenderScene(const SceneDefinition &scene)
 	}
 	else
 	{
-		s_main->isWorldScene = (scene.flags & SceneDefinitionFlags::World) && world::IsLoaded();
+		const bool isWorldScene = (scene.flags & SceneDefinitionFlags::World) != 0;
+		assert(!isWorldScene || (isWorldScene && world::IsLoaded()));
 
 		// Need to do this here because AddEntityToScene doesn't know if this is a world scene.
 		for (const Entity &entity : s_main->sceneEntities)
 		{
-			meta::OnEntityAddedToScene(entity, s_main->isWorldScene);
+			meta::OnEntityAddedToScene(entity, isWorldScene);
 		}
 
 		// Update scene dynamic lights.
-		if (s_main->isWorldScene)
+		if (isWorldScene)
 		{
 			s_main->dlightManager->updateTextures(s_main->frameNo);
 		}
@@ -1344,18 +1382,34 @@ void RenderScene(const SceneDefinition &scene)
 
 		if (s_main->skyboxPortalEnabled)
 		{
-			RenderCamera(VisibilityId::SkyboxPortal, s_main->skyboxPortalScene.position, s_main->skyboxPortalScene.position, s_main->skyboxPortalScene.rotation, rect, s_main->skyboxPortalScene.fov, s_main->skyboxPortalScene.areaMask, Plane(), RenderCameraFlags::IsSkyboxPortal);
+			RenderCameraArgs args;
+			args.areaMask = s_main->skyboxPortalScene.areaMask;
+			args.flags = RenderCameraFlags::IsSkyboxPortal;
+			args.fov = s_main->skyboxPortalScene.fov;
+			args.position = s_main->skyboxPortalScene.position;
+			args.pvsPosition = s_main->skyboxPortalScene.position;
+			args.rect = rect;
+			args.rotation = s_main->skyboxPortalScene.rotation;
+			args.visId = VisibilityId::SkyboxPortal;
+			RenderCamera(args);
 			s_main->skyboxPortalEnabled = false;
 		}
 
-		int cameraFlags = 0;
+		RenderCameraArgs args;
+		args.areaMask = scene.areaMask;
+		args.fov = scene.fov;
+		args.position = scene.position;
+		args.pvsPosition = scene.position;
+		args.rect = rect;
+		args.rotation = s_main->sceneRotation;
+		args.visId = isWorldScene ? VisibilityId::Main : VisibilityId::None;
 
 		if (scene.flags & SceneDefinitionFlags::ContainsSkyboxPortal)
-			cameraFlags |= RenderCameraFlags::ContainsSkyboxPortal;
+			args.flags |= RenderCameraFlags::ContainsSkyboxPortal;
 
-		RenderCamera(VisibilityId::Main, scene.position, scene.position, s_main->sceneRotation, rect, scene.fov, scene.areaMask, Plane(), cameraFlags);
+		RenderCamera(args);
 
-		if (s_main->isWorldScene)
+		if (isWorldScene)
 		{
 			// HDR.
 			if (g_cvars.hdr.getBool())
@@ -1502,7 +1556,15 @@ static void RenderHemicube(vec3 position, const mat3 &rotation)
 	for (int i = 0; i < 5; i++)
 	{
 		s_main->sceneRotation = rotations[i];
-		RenderCamera(VisibilityId::Probe, position, position, rotations[i], rects[i], vec2::empty, nullptr, Plane(), RenderCameraFlags::Probe, &projectionMatrices[i]);
+
+		RenderCameraArgs args;
+		args.customProjectionMatrix = &projectionMatrices[i];
+		args.position = position;
+		args.pvsPosition = position;
+		args.rect = rects[i];
+		args.rotation = rotations[i];
+		args.visId = VisibilityId::Probe;
+		RenderCamera(args);
 	}
 }
 
@@ -1515,7 +1577,6 @@ void EndFrame()
 	{
 		if (s_main->hemicubeDataAvailableFrame == 0)
 		{
-			s_main->isWorldScene = true;
 			RenderHemicube(s_main->mainCameraTransform.position, s_main->mainCameraTransform.rotation);
 			bgfx::blit(s_main->firstFreeViewId, s_main->hemicubeReadTexture, 0, 0, s_main->hemicubeFb.handle);
 			bgfx::touch(s_main->firstFreeViewId);
