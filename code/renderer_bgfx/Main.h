@@ -263,7 +263,7 @@ struct Main
 
 	bool renderHemicube = false;
 	FrameBuffer hemicubeFb;
-	bgfx::TextureHandle hemicubeReadTexture;
+	bgfx::TextureHandle hemicubeReadTexture = BGFX_INVALID_HANDLE;
 	const int hemicubeResolution = 128;
 	uint32_t hemicubeDataAvailableFrame = 0;
 	std::vector<uint8_t> hemicubeData;

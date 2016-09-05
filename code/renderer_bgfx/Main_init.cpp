@@ -404,7 +404,6 @@ void Initialize()
 	s_main->debugDraw = DebugDrawFromString(g_cvars.debugDraw.getString());
 	s_main->halfTexelOffset = caps->rendererType == bgfx::RendererType::Direct3D9 ? 0.5f : 0;
 	s_main->isTextureOriginBottomLeft = caps->rendererType == bgfx::RendererType::OpenGL || caps->rendererType == bgfx::RendererType::OpenGLES;
-	s_main->hemicubeReadTexture.idx = bgfx::invalidHandle;
 	Vertex::init();
 	s_main->uniforms = std::make_unique<Uniforms>();
 	s_main->entityUniforms = std::make_unique<Uniforms_Entity>();
@@ -624,20 +623,6 @@ void Shutdown(bool destroyWindow)
 {
 	light_baker::Stop();
 	world::Unload();
-
-	if (s_main->aa == AntiAliasing::SMAA)
-	{
-		if (bgfx::isValid(s_main->smaaAreaTex))
-			bgfx::destroyTexture(s_main->smaaAreaTex);
-		if (bgfx::isValid(s_main->smaaSearchTex))
-			bgfx::destroyTexture(s_main->smaaSearchTex);
-	}
-
-	if (bgfx::isValid(s_main->hemicubeReadTexture))
-	{
-		bgfx::destroyTexture(s_main->hemicubeReadTexture);
-	}
-
 	interface::Cmd_Remove("r_renderHemicube");
 	interface::Cmd_Remove("r_bakeLights");
 	interface::Cmd_Remove("r_pickMaterial");
@@ -648,7 +633,24 @@ void Shutdown(bool destroyWindow)
 	g_materialCache = nullptr;
 	g_modelCache = nullptr;
 	Texture::shutdownCache();
-	s_main.reset(nullptr);
+
+	if (s_main.get())
+	{
+		if (s_main->aa == AntiAliasing::SMAA)
+		{
+			if (bgfx::isValid(s_main->smaaAreaTex))
+				bgfx::destroyTexture(s_main->smaaAreaTex);
+			if (bgfx::isValid(s_main->smaaSearchTex))
+				bgfx::destroyTexture(s_main->smaaSearchTex);
+		}
+
+		if (bgfx::isValid(s_main->hemicubeReadTexture))
+		{
+			bgfx::destroyTexture(s_main->hemicubeReadTexture);
+		}
+
+		s_main.reset(nullptr);
+	}
 
 	if (destroyWindow)
 	{
