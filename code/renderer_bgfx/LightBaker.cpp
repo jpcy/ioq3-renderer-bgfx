@@ -1635,11 +1635,6 @@ void Stop()
 	s_lightBaker.reset();
 }
 
-bool IsRunning()
-{
-	return s_lightBaker.get() && GetStatus() == LightBaker::Status::Running;
-}
-
 void Update(uint32_t frameNo)
 {
 	if (!s_lightBaker.get())

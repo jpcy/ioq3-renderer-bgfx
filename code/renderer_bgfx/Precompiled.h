@@ -120,7 +120,6 @@ struct ConsoleVariables
 	ConsoleVariable bgfx_stats;
 	ConsoleVariable debugDraw;
 	ConsoleVariable debugDrawSize;
-	ConsoleVariable debugText;
 	ConsoleVariable dynamicLightIntensity;
 	ConsoleVariable dynamicLightScale;
 	ConsoleVariable hdr;
@@ -417,7 +416,6 @@ namespace light_baker
 {
 	void Start(int nSamples);
 	void Stop();
-	bool IsRunning();
 	void Update(uint32_t frameNo);
 }
 

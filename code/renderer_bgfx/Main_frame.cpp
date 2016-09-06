@@ -1644,8 +1644,7 @@ void EndFrame()
 
 #ifdef USE_PROFILER
 	PROFILE_END // Frame
-	if (g_cvars.debugText.getBool())
-		profiler::Print();
+	profiler::Print();
 	profiler::BeginFrame(s_main->frameNo + 1);
 	PROFILE_BEGIN(Frame)
 #endif
@@ -1655,10 +1654,7 @@ void EndFrame()
 	if (g_cvars.bgfx_stats.getBool())
 		debug |= BGFX_DEBUG_STATS;
 
-	if (g_cvars.debugText.getBool())
-		debug |= BGFX_DEBUG_TEXT;
-
-	if (light_baker::IsRunning())
+	if (s_main->debugTextThisFrame)
 		debug |= BGFX_DEBUG_TEXT;
 
 	bgfx::setDebug(debug);
@@ -1676,9 +1672,10 @@ void EndFrame()
 		g_cvars.gamma.clearModified();
 	}
 
-	if (g_cvars.debugText.getBool() || light_baker::IsRunning())
+	if (s_main->debugTextThisFrame)
 	{
 		bgfx::dbgTextClear();
+		s_main->debugTextThisFrame = false;
 		s_main->debugTextY = 0;
 	}
 

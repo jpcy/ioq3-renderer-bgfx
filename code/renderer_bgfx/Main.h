@@ -160,6 +160,7 @@ struct Main
 	/// The current frame, as returned from bgfx::frame.
 	uint32_t frameNo = 0;
 
+	bool debugTextThisFrame = false;
 	uint16_t debugTextY = 0;
 
 	/// @remarks Resets to 0 every frame.

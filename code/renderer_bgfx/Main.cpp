@@ -353,9 +353,6 @@ DebugDraw DebugDrawFromString(const char *s)
 
 void DebugPrint(const char *format, ...)
 {
-	if (!g_cvars.debugText.getBool() && !light_baker::IsRunning())
-		return;
-
 	va_list args;
 	va_start(args, format);
 	char text[1024];
@@ -367,6 +364,7 @@ void DebugPrint(const char *format, ...)
 	uint16_t x = s_main->debugTextY / maxY * columnWidth;
 	uint16_t y = s_main->debugTextY % maxY;
 	bgfx::dbgTextPrintf(x, y, 0x4f, text);
+	s_main->debugTextThisFrame = true;
 	s_main->debugTextY++;
 }
 

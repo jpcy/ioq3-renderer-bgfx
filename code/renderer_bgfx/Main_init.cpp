@@ -103,7 +103,6 @@ void ConsoleVariables::initialize()
 		"reflection Planar reflection\n"
 		"smaa       SMAA edges and weights\n");
 	debugDrawSize = interface::Cvar_Get("r_debugDrawSize", "256", ConsoleVariableFlags::Archive);
-	debugText = interface::Cvar_Get("r_debugText", "0", ConsoleVariableFlags::Cheat);
 	dynamicLightIntensity = interface::Cvar_Get("r_dynamicLightIntensity", "1", ConsoleVariableFlags::Archive);
 	dynamicLightScale = interface::Cvar_Get("r_dynamicLightScale", "0.7", ConsoleVariableFlags::Archive);
 	hdr = interface::Cvar_Get("r_hdr", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
