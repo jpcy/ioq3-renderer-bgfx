@@ -27,7 +27,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #pragma hdrstop
 
 #include "Main.h"
-#include "stb_image_write.h"
 
 namespace renderer {
 namespace main {
@@ -1507,7 +1506,7 @@ void RenderScene(const SceneDefinition &scene)
 * you are granted a perpetual, irrevocable license to copy *
 * and modify this file however you want.                   *
 ***********************************************************/
-static void RenderHemicube(vec3 position, const mat3 &rotation)
+void RenderHemicube(vec3 position, const mat3 &rotation, int size)
 {
 	// +-------+---+---+-------+
 	// |       |   |   |   D   |
@@ -1515,8 +1514,6 @@ static void RenderHemicube(vec3 position, const mat3 &rotation)
 	// |       |   |   |   U   |
 	// +-------+---+---+-------+
 	// Order: C,R,L,D,U
-	const int size = s_main->hemicubeResolution;
-			
 	const Rect rects[] =
 	{
 		Rect(0, 0, size, size),
@@ -1568,37 +1565,17 @@ static void RenderHemicube(vec3 position, const mat3 &rotation)
 	}
 }
 
+uint32_t ReadHemicubeTexture(void *data)
+{
+	bgfx::blit(s_main->firstFreeViewId, s_main->hemicubeReadTexture, 0, 0, s_main->hemicubeFb.handle);
+	bgfx::touch(s_main->firstFreeViewId);
+	return bgfx::readTexture(s_main->hemicubeReadTexture, data);
+}
+
 void EndFrame()
 {
 	FlushStretchPics();
 	light_baker::Update(s_main->frameNo);
-
-	if (s_main->renderHemicube && world::IsLoaded())
-	{
-		if (s_main->hemicubeDataAvailableFrame == 0)
-		{
-			RenderHemicube(s_main->mainCameraTransform.position, s_main->mainCameraTransform.rotation);
-			bgfx::blit(s_main->firstFreeViewId, s_main->hemicubeReadTexture, 0, 0, s_main->hemicubeFb.handle);
-			bgfx::touch(s_main->firstFreeViewId);
-			s_main->hemicubeDataAvailableFrame = bgfx::readTexture(s_main->hemicubeReadTexture, s_main->hemicubeData.data());
-		}
-		else if (s_main->frameNo >= s_main->hemicubeDataAvailableFrame)
-		{
-			s_main->renderHemicube = false;
-			s_main->hemicubeDataAvailableFrame = 0;
-
-			for (size_t i = 0; i < s_main->hemicubeData.size(); i += 4)
-			{
-				uint8_t *bgra = &s_main->hemicubeData[i];
-				uint8_t b = bgra[0];
-				bgra[0] = bgra[2];
-				bgra[2] = b;
-				bgra[3] = 0xff;
-			}
-
-			stbi_write_tga("hemicube.tga", s_main->hemicubeResolution * 3, s_main->hemicubeResolution, 4, s_main->hemicubeData.data());
-		}
-	}
 
 	if (s_main->firstFreeViewId == 0)
 	{

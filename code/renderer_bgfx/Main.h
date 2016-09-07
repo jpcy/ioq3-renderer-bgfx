@@ -262,12 +262,8 @@ struct Main
 	bool softSpritesEnabled = false;
 	SunLight sunLight;
 
-	bool renderHemicube = false;
 	FrameBuffer hemicubeFb;
 	bgfx::TextureHandle hemicubeReadTexture = BGFX_INVALID_HANDLE;
-	const int hemicubeResolution = 128;
-	uint32_t hemicubeDataAvailableFrame = 0;
-	std::vector<uint8_t> hemicubeData;
 
 	/// Convert from our coordinate system (looking down X) to OpenGL's coordinate system (looking down -Z)
 	static const mat4 toOpenGlMatrix;

@@ -138,7 +138,9 @@ struct LightBaker
 	enum class Status
 	{
 		NotStarted,
-		Running,
+		BakingDirectLight,
+		BakingIndirectLight,
+		FinishedBakingIndirectLight,
 		WaitingForTextureUpload,
 		Finished,
 		Cancelled,
@@ -176,6 +178,11 @@ struct LightBaker
 	RTCDevice embreeDevice = nullptr;
 	RTCScene embreeScene = nullptr;
 	std::vector<uint8_t> faceFlags;
+
+	// hemicube
+	const int hemicubeSize = 128;
+	uint32_t hemicubeDataAvailableFrame = 0;
+	std::vector<uint8_t> hemicubeData;
 
 	// mutex protected state
 	Status status;
@@ -1335,7 +1342,7 @@ static void SetStatus(LightBaker::Status status, int progress = 0)
 
 static int Thread(void *data)
 {
-	SetStatus(LightBaker::Status::Running);
+	SetStatus(LightBaker::Status::BakingDirectLight);
 	int progress = 0;
 
 	// Count surface triangles for prealloc.
@@ -1542,12 +1549,26 @@ static int Thread(void *data)
 					return 1;
 
 				progress = newProgress;
-				SetStatus(LightBaker::Status::Running, progress);
+				SetStatus(LightBaker::Status::BakingDirectLight, progress);
 			}
 		}
 	}
 
-	// Dilate, then encode to RGBM buffer.
+	// Ready for indirect lighting, which happens in the main thread. Wait until it finishes.
+	SetStatus(LightBaker::Status::BakingIndirectLight, 0);
+
+	while (GetStatus() == LightBaker::Status::BakingIndirectLight)
+	{
+		SDL_Delay(50);
+	}
+
+	// Check for cancelling.
+	if (GetStatus() == LightBaker::Status::Cancelled)
+		return 1;
+
+	assert(GetStatus() == LightBaker::Status::FinishedBakingIndirectLight);
+
+	// Dilate lightmaps, then encode to RGBM.
 #define DILATE
 #ifdef DILATE
 	std::vector<vec4> dilatedLightmap;
@@ -1573,7 +1594,7 @@ static int Thread(void *data)
 		}
 	}
 
-	// Finished rasterization. Stop the worker thread and wait for the main thread to upload the lightmap textures.
+	// Finished. Stop the worker thread and wait for the main thread to upload the lightmaps.
 	SetStatus(LightBaker::Status::WaitingForTextureUpload);
 	return 0;
 }
@@ -1588,8 +1609,10 @@ void Start(int nSamples)
 
 	s_lightBaker = std::make_unique<LightBaker>();
 	s_lightBaker->nSamples = math::Clamped(nSamples, 1, (int)LightBaker::maxSamples);
-	s_lightBaker->startTime = bx::getHPCounter();
+	main::InitializeHemicubeFramebuffer(s_lightBaker->hemicubeSize * 3, s_lightBaker->hemicubeSize);
+	s_lightBaker->hemicubeData.resize(s_lightBaker->hemicubeSize * 3 * s_lightBaker->hemicubeSize * 4);
 	LoadAreaLightTextures();
+	s_lightBaker->startTime = bx::getHPCounter();
 
 #ifdef USE_LIGHT_BAKER_THREAD
 	s_lightBaker->mutex = SDL_CreateMutex();
@@ -1639,11 +1662,13 @@ void Update(uint32_t frameNo)
 {
 	if (!s_lightBaker.get())
 	{
+#if 0
 		for (size_t i = 0; i < s_areaLights.size(); i++)
 		{
 			for (size_t j = 0; j < s_areaLights[i].samples.size(); j++)
 				main::DrawAxis(s_areaLights[i].samples[j].position);
 		}
+#endif
 
 		return;
 	}
@@ -1651,9 +1676,33 @@ void Update(uint32_t frameNo)
 	int progress;
 	LightBaker::Status status = GetStatus(&progress);
 
-	if (status == LightBaker::Status::Running)
+	if (status == LightBaker::Status::BakingDirectLight)
 	{
-		main::DebugPrint("Baking lights... %d", progress);
+		main::DebugPrint("Baking direct lighting... %d", progress);
+	}
+	else if (status == LightBaker::Status::BakingIndirectLight)
+	{
+		main::DebugPrint("Baking indirect lighting... %d", progress);
+
+		if (s_lightBaker->hemicubeDataAvailableFrame == 0)
+		{
+			main::RenderHemicube(main::GetMainCameraTransform().position, main::GetMainCameraTransform().rotation, s_lightBaker->hemicubeSize);
+			s_lightBaker->hemicubeDataAvailableFrame = main::ReadHemicubeTexture(s_lightBaker->hemicubeData.data());
+		}
+		else if (frameNo >= s_lightBaker->hemicubeDataAvailableFrame)
+		{
+			for (size_t i = 0; i < s_lightBaker->hemicubeData.size(); i += 4)
+			{
+				uint8_t *bgra = &s_lightBaker->hemicubeData[i];
+				uint8_t b = bgra[0];
+				bgra[0] = bgra[2];
+				bgra[2] = b;
+				bgra[3] = 0xff;
+			}
+
+			stbi_write_tga("hemicube.tga", s_lightBaker->hemicubeSize * 3, s_lightBaker->hemicubeSize, 4, s_lightBaker->hemicubeData.data());
+			SetStatus(LightBaker::Status::FinishedBakingIndirectLight);
+		}
 	}
 	else if (status == LightBaker::Status::WaitingForTextureUpload)
 	{
