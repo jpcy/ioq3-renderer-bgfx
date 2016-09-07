@@ -1506,7 +1506,7 @@ void RenderScene(const SceneDefinition &scene)
 * you are granted a perpetual, irrevocable license to copy *
 * and modify this file however you want.                   *
 ***********************************************************/
-void RenderHemicube(vec3 position, const mat3 &rotation, int size)
+void RenderHemicube(vec3 position, const vec3 forward, const vec3 up, vec2i rectOffset, int faceSize)
 {
 	// +-------+---+---+-------+
 	// |       |   |   |   D   |
@@ -1516,16 +1516,14 @@ void RenderHemicube(vec3 position, const mat3 &rotation, int size)
 	// Order: C,R,L,D,U
 	const Rect rects[] =
 	{
-		Rect(0, 0, size, size),
-		Rect(size, 0, size / 2, size),
-		Rect(size + size / 2, 0, size / 2, size),
-		Rect(size * 2, 0, size, size / 2),
-		Rect(size * 2, size / 2, size, size / 2)
+		Rect(rectOffset.x, rectOffset.y, faceSize, faceSize),
+		Rect(rectOffset.x + faceSize, rectOffset.y, faceSize / 2, faceSize),
+		Rect(rectOffset.x + faceSize + faceSize / 2, rectOffset.y, faceSize / 2, faceSize),
+		Rect(rectOffset.x + faceSize * 2, rectOffset.y, faceSize, faceSize / 2),
+		Rect(rectOffset.x + faceSize * 2, rectOffset.y + faceSize / 2, faceSize, faceSize / 2)
 	};
 
-	const vec3 forward = rotation[0];
-	const vec3 right = -rotation[1]; // actually left
-	const vec3 up = rotation[2];
+	const vec3 right = vec3::crossProduct(forward, up);
 
 	const mat3 rotations[] =
 	{

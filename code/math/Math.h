@@ -251,6 +251,11 @@ public:
 		return (&x)[index];
 	}
 
+	vec2i operator*(const vec2i &v) const
+	{
+		return vec2i(x * v.x, y * v.y);
+	}
+
 	int x, y;
 };
 

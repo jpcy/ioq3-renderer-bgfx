@@ -139,8 +139,9 @@ struct LightBaker
 	{
 		NotStarted,
 		BakingDirectLight,
-		BakingIndirectLight,
-		FinishedBakingIndirectLight,
+		BakingIndirectLight_Started,
+		BakingIndirectLight_Running,
+		BakingIndirectLight_Finished,
 		WaitingForTextureUpload,
 		Finished,
 		Cancelled,
@@ -179,8 +180,14 @@ struct LightBaker
 	RTCScene embreeScene = nullptr;
 	std::vector<uint8_t> faceFlags;
 
-	// hemicube
-	const int hemicubeSize = 128;
+	// hemicube / indirect light
+	const int hemicubeFaceSize = 128;
+	const vec2i hemicubeSize = vec2i(hemicubeFaceSize * 3, hemicubeFaceSize);
+	const vec2i hemicubeAtlasBatchSize = vec2i(4, 8);
+	const vec2i hemicubeAtlasSize = hemicubeSize * hemicubeAtlasBatchSize;
+	int nHemicubesRenderedInBatch = 0;
+	bool finishedHemicubeBatch = false;
+	int currentIndirectLightmap = 0, currentIndirectLuxel = 0;
 	uint32_t hemicubeDataAvailableFrame = 0;
 	std::vector<uint8_t> hemicubeData;
 
@@ -1296,6 +1303,77 @@ static vec3 BakeAreaLights(vec3 samplePosition, vec3 sampleNormal)
 
 /*
 ================================================================================
+HEMICUBES / INDIRECT LIGHTING
+================================================================================
+*/
+
+static void InitializeHemicubeRendering()
+{
+	main::InitializeHemicubeFramebuffer(s_lightBaker->hemicubeAtlasSize.x, s_lightBaker->hemicubeAtlasSize.y);
+	s_lightBaker->hemicubeData.resize(s_lightBaker->hemicubeAtlasSize.x * s_lightBaker->hemicubeAtlasSize.y * 4);
+}
+
+static bool BakeIndirectLight(uint32_t frameNo)
+{
+	if (!s_lightBaker->finishedHemicubeBatch)
+	{
+		Lightmap &lightmap = s_lightBaker->lightmaps[s_lightBaker->currentIndirectLightmap];
+		Luxel &luxel = lightmap.luxels[s_lightBaker->currentIndirectLuxel];
+		const vec2i rectOffset
+		(
+			(s_lightBaker->nHemicubesRenderedInBatch % s_lightBaker->hemicubeAtlasBatchSize.x) * s_lightBaker->hemicubeSize.x,
+			s_lightBaker->nHemicubesRenderedInBatch / s_lightBaker->hemicubeAtlasBatchSize.x * s_lightBaker->hemicubeSize.y
+		);
+
+		main::RenderHemicube(luxel.position, luxel.normal, vec3(0, 0, 1), rectOffset, s_lightBaker->hemicubeFaceSize);
+		s_lightBaker->nHemicubesRenderedInBatch++;
+		s_lightBaker->currentIndirectLuxel++;
+
+		if (s_lightBaker->nHemicubesRenderedInBatch >= s_lightBaker->hemicubeAtlasBatchSize.x * s_lightBaker->hemicubeAtlasBatchSize.y)
+		{
+			s_lightBaker->finishedHemicubeBatch = true;
+			s_lightBaker->nHemicubesRenderedInBatch = 0;
+		}
+
+		if (s_lightBaker->currentIndirectLuxel >= (int)lightmap.luxels.size())
+		{
+			// Processed all luxels in this lightmap, advance to the next one.
+			s_lightBaker->currentIndirectLightmap++;
+
+			if (s_lightBaker->currentIndirectLightmap >= (int)s_lightBaker->lightmaps.size())
+			{
+				// Processed all lightmaps.
+				s_lightBaker->finishedHemicubeBatch = true;
+			}
+		}
+
+		if (s_lightBaker->finishedHemicubeBatch)
+		{
+			// Finished with this batch, start async texture read.
+			s_lightBaker->hemicubeDataAvailableFrame = main::ReadHemicubeTexture(s_lightBaker->hemicubeData.data());
+		}
+	}
+	else if (frameNo >= s_lightBaker->hemicubeDataAvailableFrame)
+	{
+		// Async texture read is ready.
+		for (size_t i = 0; i < s_lightBaker->hemicubeData.size(); i += 4)
+		{
+			uint8_t *bgra = &s_lightBaker->hemicubeData[i];
+			uint8_t b = bgra[0];
+			bgra[0] = bgra[2];
+			bgra[2] = b;
+			bgra[3] = 0xff;
+		}
+
+		stbi_write_tga("hemicube.tga", s_lightBaker->hemicubeAtlasSize.x, s_lightBaker->hemicubeAtlasSize.y, 4, s_lightBaker->hemicubeData.data());
+		return false;
+	}
+
+	return true;
+}
+
+/*
+================================================================================
 LIGHT BAKER THREAD AND INTERFACE
 ================================================================================
 */
@@ -1555,18 +1633,18 @@ static int Thread(void *data)
 	}
 
 	// Ready for indirect lighting, which happens in the main thread. Wait until it finishes.
-	SetStatus(LightBaker::Status::BakingIndirectLight, 0);
+	SetStatus(LightBaker::Status::BakingIndirectLight_Started, 0);
 
-	while (GetStatus() == LightBaker::Status::BakingIndirectLight)
+	for (;;)
 	{
+		// Check for cancelling.
+		if (GetStatus() == LightBaker::Status::Cancelled)
+			return 1;
+		else if (GetStatus() == LightBaker::Status::BakingIndirectLight_Finished)
+			break;
+
 		SDL_Delay(50);
 	}
-
-	// Check for cancelling.
-	if (GetStatus() == LightBaker::Status::Cancelled)
-		return 1;
-
-	assert(GetStatus() == LightBaker::Status::FinishedBakingIndirectLight);
 
 	// Dilate lightmaps, then encode to RGBM.
 #define DILATE
@@ -1609,8 +1687,6 @@ void Start(int nSamples)
 
 	s_lightBaker = std::make_unique<LightBaker>();
 	s_lightBaker->nSamples = math::Clamped(nSamples, 1, (int)LightBaker::maxSamples);
-	main::InitializeHemicubeFramebuffer(s_lightBaker->hemicubeSize * 3, s_lightBaker->hemicubeSize);
-	s_lightBaker->hemicubeData.resize(s_lightBaker->hemicubeSize * 3 * s_lightBaker->hemicubeSize * 4);
 	LoadAreaLightTextures();
 	s_lightBaker->startTime = bx::getHPCounter();
 
@@ -1680,28 +1756,18 @@ void Update(uint32_t frameNo)
 	{
 		main::DebugPrint("Baking direct lighting... %d", progress);
 	}
-	else if (status == LightBaker::Status::BakingIndirectLight)
+	else if (status == LightBaker::Status::BakingIndirectLight_Started)
+	{
+		InitializeHemicubeRendering();
+		SetStatus(LightBaker::Status::BakingIndirectLight_Running);
+	}
+	else if (status == LightBaker::Status::BakingIndirectLight_Running)
 	{
 		main::DebugPrint("Baking indirect lighting... %d", progress);
 
-		if (s_lightBaker->hemicubeDataAvailableFrame == 0)
+		if (!BakeIndirectLight(frameNo))
 		{
-			main::RenderHemicube(main::GetMainCameraTransform().position, main::GetMainCameraTransform().rotation, s_lightBaker->hemicubeSize);
-			s_lightBaker->hemicubeDataAvailableFrame = main::ReadHemicubeTexture(s_lightBaker->hemicubeData.data());
-		}
-		else if (frameNo >= s_lightBaker->hemicubeDataAvailableFrame)
-		{
-			for (size_t i = 0; i < s_lightBaker->hemicubeData.size(); i += 4)
-			{
-				uint8_t *bgra = &s_lightBaker->hemicubeData[i];
-				uint8_t b = bgra[0];
-				bgra[0] = bgra[2];
-				bgra[2] = b;
-				bgra[3] = 0xff;
-			}
-
-			stbi_write_tga("hemicube.tga", s_lightBaker->hemicubeSize * 3, s_lightBaker->hemicubeSize, 4, s_lightBaker->hemicubeData.data());
-			SetStatus(LightBaker::Status::FinishedBakingIndirectLight);
+			SetStatus(LightBaker::Status::BakingIndirectLight_Finished);
 		}
 	}
 	else if (status == LightBaker::Status::WaitingForTextureUpload)

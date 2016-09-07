@@ -440,7 +440,7 @@ namespace main
 	bool IsCameraMirrored();
 	void LoadWorld(const char *name); 
 	void RegisterFont(const char *fontName, int pointSize, fontInfo_t *font);
-	void RenderHemicube(vec3 position, const mat3 &rotation, int size);
+	void RenderHemicube(vec3 position, const vec3 forward, const vec3 up, vec2i rectOffset, int faceSize);
 	uint32_t ReadHemicubeTexture(void *data);
 	void RenderScene(const SceneDefinition &scene);
 	bool SampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
