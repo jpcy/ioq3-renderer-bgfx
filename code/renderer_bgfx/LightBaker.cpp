@@ -73,8 +73,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "stb_image_write.h"
 #undef Status // unknown source. affects linux build.
 
-#define USE_LIGHT_BAKER_THREAD
-
 namespace renderer {
 namespace light_baker {
 
@@ -149,10 +147,8 @@ struct LightBaker
 		Error
 	};
 
-#ifdef USE_LIGHT_BAKER_THREAD
 	SDL_mutex *mutex = nullptr;
 	SDL_Thread *thread;
-#endif
 
 	// area lights
 	std::vector<AreaLightTexture> areaLightTextures;
@@ -198,10 +194,8 @@ struct LightBaker
 
 	~LightBaker()
 	{
-#ifdef USE_LIGHT_BAKER_THREAD
 		if (mutex)
 			SDL_DestroyMutex(mutex);
-#endif
 	}
 };
 
@@ -1420,16 +1414,13 @@ static LightBaker::Status GetStatus(int *progress = nullptr)
 {
 	auto status = LightBaker::Status::NotStarted;
 
-#ifdef USE_LIGHT_BAKER_THREAD
 	if (SDL_LockMutex(s_lightBaker->mutex) == 0)
 	{
-#endif
 		status = s_lightBaker->status;
 
 		if (progress)
 			*progress = s_lightBaker->progress;
 
-#ifdef USE_LIGHT_BAKER_THREAD
 		SDL_UnlockMutex(s_lightBaker->mutex);
 	}
 	else
@@ -1437,23 +1428,18 @@ static LightBaker::Status GetStatus(int *progress = nullptr)
 		if (progress)
 			*progress = 0;
 	}
-#endif
 
 	return status;
 }
 
 static void SetStatus(LightBaker::Status status, int progress = 0)
 {
-#ifdef USE_LIGHT_BAKER_THREAD
 	if (SDL_LockMutex(s_lightBaker->mutex) == 0)
 	{
-#endif
 		s_lightBaker->status = status;
 		s_lightBaker->progress = progress;
-#ifdef USE_LIGHT_BAKER_THREAD
 		SDL_UnlockMutex(s_lightBaker->mutex);
 	}
-#endif
 }
 
 static bool ThreadUpdateLightmaps()
@@ -1728,7 +1714,6 @@ void Start(int nSamples)
 	LoadAreaLightTextures();
 	s_lightBaker->startTime = bx::getHPCounter();
 
-#ifdef USE_LIGHT_BAKER_THREAD
 	s_lightBaker->mutex = SDL_CreateMutex();
 
 	if (!s_lightBaker->mutex)
@@ -1746,9 +1731,6 @@ void Start(int nSamples)
 		s_lightBaker.reset();
 		return;
 	}
-#else
-	Thread(nullptr);
-#endif
 }
 
 void Stop()
@@ -1756,7 +1738,6 @@ void Stop()
 	if (!s_lightBaker.get())
 		return;
 
-#ifdef USE_LIGHT_BAKER_THREAD
 	if (s_lightBaker->thread)
 	{
 		const LightBaker::Status status = GetStatus();
@@ -1766,7 +1747,6 @@ void Stop()
 
 		SDL_WaitThread(s_lightBaker->thread, NULL);
 	}
-#endif
 
 	DestroyEmbreeGeometry();
 	s_lightBaker.reset();
