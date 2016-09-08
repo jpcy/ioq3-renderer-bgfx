@@ -1565,8 +1565,9 @@ void RenderHemicube(vec3 position, const vec3 forward, const vec3 up, vec2i rect
 
 uint32_t ReadHemicubeTexture(void *data)
 {
-	bgfx::blit(s_main->firstFreeViewId, s_main->hemicubeReadTexture, 0, 0, s_main->hemicubeFb.handle);
-	bgfx::touch(s_main->firstFreeViewId);
+	const uint8_t viewId = PushView(s_main->defaultFb, BGFX_CLEAR_NONE, mat4::empty, mat4::empty, Rect());
+	bgfx::blit(viewId, s_main->hemicubeReadTexture, 0, 0, s_main->hemicubeFb.handle);
+	bgfx::touch(viewId);
 	return bgfx::readTexture(s_main->hemicubeReadTexture, data);
 }
 
