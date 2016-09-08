@@ -142,7 +142,8 @@ struct LightBaker
 		BakingIndirectLight_Started,
 		BakingIndirectLight_Running,
 		BakingIndirectLight_Finished,
-		WaitingForTextureUpload,
+		TextureUpdateWaiting,
+		TextureUpdateFinished,
 		Finished,
 		Cancelled,
 		Error
@@ -168,7 +169,7 @@ struct LightBaker
 	static const int maxSamples = 16;
 	std::array<vec3, maxSamples> dirJitter, posJitter;
 
-	uint32_t textureUploadFrameNo; // lightmap textures were uploaded this frame
+	uint32_t textureUpdateFrameNo = 0; // lightmap textures were updated this frame
 	int64_t startTime;
 	int nLuxelsProcessed;
 	std::vector<Lightmap> lightmaps;
@@ -1374,6 +1375,43 @@ static bool BakeIndirectLight(uint32_t frameNo)
 
 /*
 ================================================================================
+LIGHTMAP ENCODING
+================================================================================
+*/
+
+static void EncodeLightmaps()
+{
+	const vec2i lightmapSize = world::GetLightmapSize();
+
+	// Dilate lightmaps, then encode to RGBM.
+#define DILATE
+#ifdef DILATE
+	std::vector<vec4> dilatedLightmap;
+	dilatedLightmap.resize(lightmapSize.x * lightmapSize.y);
+#endif
+
+	for (Lightmap &lightmap : s_lightBaker->lightmaps)
+	{
+#ifdef DILATE
+		lmImageDilate(&lightmap.color[0].x, &dilatedLightmap[0].x, lightmapSize.x, lightmapSize.y, 4);
+#endif
+
+		for (int i = 0; i < lightmapSize.x * lightmapSize.y; i++)
+		{
+#ifdef DILATE
+			const vec4 &src = dilatedLightmap[i];
+#else
+			const vec4 &src = lightmap.color[i];
+#endif
+			uint8_t *dest = &lightmap.colorBytes[i * 4];
+			// Colors are floats, but in 0-255+ range.
+			util::EncodeRGBM(src.rgb() * g_overbrightFactor / 255.0f).toBytes(dest);
+		}
+	}
+}
+
+/*
+================================================================================
 LIGHT BAKER THREAD AND INTERFACE
 ================================================================================
 */
@@ -1416,6 +1454,26 @@ static void SetStatus(LightBaker::Status status, int progress = 0)
 		SDL_UnlockMutex(s_lightBaker->mutex);
 	}
 #endif
+}
+
+static bool ThreadUpdateLightmaps()
+{
+	// Update lightmaps. Wait for it to finish before continuing.
+	EncodeLightmaps();
+	SetStatus(LightBaker::Status::TextureUpdateWaiting);
+
+	for (;;)
+	{
+		// Check for cancelling.
+		if (GetStatus() == LightBaker::Status::Cancelled)
+			return false;
+		else if (GetStatus() == LightBaker::Status::TextureUpdateFinished)
+			break;
+
+		SDL_Delay(50);
+	}
+
+	return true;
 }
 
 static int Thread(void *data)
@@ -1632,8 +1690,12 @@ static int Thread(void *data)
 		}
 	}
 
+	// Update the lightmaps after the direct lighting pass has finished. Indirect lighting needs to render using the updated lightmaps.
+	if (!ThreadUpdateLightmaps())
+		return 1;
+
 	// Ready for indirect lighting, which happens in the main thread. Wait until it finishes.
-	SetStatus(LightBaker::Status::BakingIndirectLight_Started, 0);
+	SetStatus(LightBaker::Status::BakingIndirectLight_Started);
 
 	for (;;)
 	{
@@ -1646,34 +1708,10 @@ static int Thread(void *data)
 		SDL_Delay(50);
 	}
 
-	// Dilate lightmaps, then encode to RGBM.
-#define DILATE
-#ifdef DILATE
-	std::vector<vec4> dilatedLightmap;
-	dilatedLightmap.resize(lightmapSize.x * lightmapSize.y);
-#endif
+	if (!ThreadUpdateLightmaps())
+		return 1;
 
-	for (Lightmap &lightmap : s_lightBaker->lightmaps)
-	{
-#ifdef DILATE
-		lmImageDilate(&lightmap.color[0].x, &dilatedLightmap[0].x, lightmapSize.x, lightmapSize.y, 4);
-#endif
-
-		for (int i = 0; i < lightmapSize.x * lightmapSize.y; i++)
-		{
-#ifdef DILATE
-			const vec4 &src = dilatedLightmap[i];
-#else
-			const vec4 &src = lightmap.color[i];
-#endif
-			uint8_t *dest = &lightmap.colorBytes[i * 4];
-			// Colors are floats, but in 0-255+ range.
-			util::EncodeRGBM(src.rgb() * g_overbrightFactor / 255.0f).toBytes(dest);
-		}
-	}
-
-	// Finished. Stop the worker thread and wait for the main thread to upload the lightmaps.
-	SetStatus(LightBaker::Status::WaitingForTextureUpload);
+	SetStatus(LightBaker::Status::Finished);
 	return 0;
 }
 
@@ -1770,32 +1808,38 @@ void Update(uint32_t frameNo)
 			SetStatus(LightBaker::Status::BakingIndirectLight_Finished);
 		}
 	}
-	else if (status == LightBaker::Status::WaitingForTextureUpload)
+	else if (status == LightBaker::Status::TextureUpdateWaiting)
 	{
-		// Worker thread has finished. Update lightmap textures.
-		const vec2i lightmapSize = world::GetLightmapSize();
-
-		for (int i = 0; i < world::GetNumLightmaps(); i++)
+		if (s_lightBaker->textureUpdateFrameNo == 0)
 		{
-			const Lightmap &lightmap = s_lightBaker->lightmaps[i];
-			Texture *texture = world::GetLightmap(i);
-			texture->update(bgfx::makeRef(lightmap.colorBytes.data(), (uint32_t)lightmap.colorBytes.size()), 0, 0, lightmapSize.x, lightmapSize.y);
-		}
+			// Update lightmap textures.
+			const vec2i lightmapSize = world::GetLightmapSize();
 
-		s_lightBaker->textureUploadFrameNo = frameNo;
-		s_lightBaker->status = LightBaker::Status::Finished;
+			for (int i = 0; i < world::GetNumLightmaps(); i++)
+			{
+				const Lightmap &lightmap = s_lightBaker->lightmaps[i];
+				Texture *texture = world::GetLightmap(i);
+				texture->update(bgfx::makeRef(lightmap.colorBytes.data(), (uint32_t)lightmap.colorBytes.size()), 0, 0, lightmapSize.x, lightmapSize.y);
+			}
+
+			s_lightBaker->textureUpdateFrameNo = frameNo;
+		}
+		else if (frameNo > s_lightBaker->textureUpdateFrameNo + BGFX_NUM_BUFFER_FRAMES)
+		{
+			// bgfx has finished updating the texture data by now.
+			SetStatus(LightBaker::Status::TextureUpdateFinished);
+			s_lightBaker->textureUpdateFrameNo = 0;
+		}
+	}
+	else if (status == LightBaker::Status::Finished)
+	{
 		interface::Printf("Finished baking lights\n");
 		interface::Printf("   %0.2f seconds elapsed\n", (bx::getHPCounter() - s_lightBaker->startTime) * (1.0f / (float)bx::getHPFrequency()));
 		interface::Printf("   %d luxels processed\n", s_lightBaker->nLuxelsProcessed);
 		interface::Printf("   %0.2f ms elapsed per luxel\n", (bx::getHPCounter() - s_lightBaker->startTime) * (1000.0f / (float)bx::getHPFrequency()) / s_lightBaker->nLuxelsProcessed);
 		interface::Printf("   %d area lights\n", (int)s_areaLights.size());
 		interface::Printf("   %d entity lights\n", (int)s_lightBaker->lights.size());
-	}
-	else if (status == LightBaker::Status::Finished)
-	{
-		// Don't stop until we're sure bgfx is finished with the texture memory.
-		if (frameNo > s_lightBaker->textureUploadFrameNo + BGFX_NUM_BUFFER_FRAMES)
-			Stop();
+		Stop();
 	}
 	else if (status == LightBaker::Status::Error)
 	{
