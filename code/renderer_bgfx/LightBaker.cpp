@@ -121,6 +121,7 @@ struct Luxel
 {
 	vec3 position;
 	vec3 normal;
+	vec3 up;
 	int offset; // Offset into Lightmap::color.
 };
 
@@ -1374,7 +1375,7 @@ static bool BakeIndirectLight(uint32_t frameNo)
 				s_lightBaker->nHemicubesRenderedInBatch / s_lightBaker->hemicubeAtlasBatchSize.x * s_lightBaker->hemicubeSize.y
 			);
 
-			main::RenderHemicube(luxel.position, luxel.normal, vec3(0, 0, 1), rectOffset, s_lightBaker->hemicubeFaceSize);
+			main::RenderHemicube(luxel.position + luxel.normal * 1.0f, luxel.normal, luxel.up, rectOffset, s_lightBaker->hemicubeFaceSize);
 			s_lightBaker->nLuxelsProcessed++;
 			s_lightBaker->nHemicubesRenderedInBatch++;
 			s_lightBaker->currentLuxelIndex++;
@@ -1419,7 +1420,7 @@ static bool BakeIndirectLight(uint32_t frameNo)
 			bgra[3] = 0xff;
 		}
 
-#if 0
+#if 1
 		char filename[MAX_QPATH];
 		util::Sprintf(filename, sizeof(filename), "hemicubes/%08d.tga", s_lightBaker->nHemicubeBatchesProcessed);
 		stbi_write_tga(filename, s_lightBaker->hemicubeAtlasSize.x, s_lightBaker->hemicubeAtlasSize.y, 4, s_lightBaker->hemicubeData.data());
@@ -1622,12 +1623,11 @@ static int Thread(void *data)
 					if (!gotSample)
 						break;
 
-					const vec3 samplePosition(&ctx.sample.position.x);
-					const vec3 sampleNormal(-vec3(&ctx.sample.direction.x));
 					Lightmap &lightmap = s_lightBaker->lightmaps[surface.material->lightmapIndex];
 					Luxel luxel;
 					luxel.position = vec3(&ctx.sample.position.x);
 					luxel.normal = -vec3(&ctx.sample.direction.x);
+					luxel.up = vec3(&ctx.sample.up.x);
 					luxel.offset = ctx.rasterizer.x + ctx.rasterizer.y * world::GetLightmapSize().x;
 					lightmap.luxels.push_back(luxel);
 					s_lightBaker->totalLuxels++;
