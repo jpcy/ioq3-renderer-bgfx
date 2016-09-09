@@ -165,9 +165,12 @@ struct LightBaker
 	static const int maxSamples = 16;
 	std::array<vec3, maxSamples> dirJitter, posJitter;
 
+	// profiling
+	int64_t startTime, rasterizationTime, directBakeTime, indirectBakeStartTime, indirectBakeTime;
+
 	uint32_t textureUpdateFrameNo = 0; // lightmap textures were updated this frame
-	int64_t startTime;
-	int nLuxelsProcessed;
+	int nLuxelsProcessed; // used by direct and indirect passes to measure progress
+	int totalLuxels; // calculated when rasterizing
 	std::vector<Lightmap> lightmaps;
 	static const size_t maxErrorMessageLen = 2048;
 	char errorMessage[maxErrorMessageLen];
@@ -178,15 +181,18 @@ struct LightBaker
 	std::vector<uint8_t> faceFlags;
 
 	// hemicube / indirect light
-	const int hemicubeFaceSize = 128;
+	const int hemicubeFaceSize = 64;
 	const vec2i hemicubeSize = vec2i(hemicubeFaceSize * 3, hemicubeFaceSize);
-	const vec2i hemicubeAtlasBatchSize = vec2i(4, 8);
+	const vec2i hemicubeAtlasBatchSize = vec2i(8, 16);
 	const vec2i hemicubeAtlasSize = hemicubeSize * hemicubeAtlasBatchSize;
 	int nHemicubesRenderedInBatch = 0;
+	int nHemicubeBatchesProcessed = 0;
 	bool finishedHemicubeBatch = false;
-	int currentIndirectLightmap = 0, currentIndirectLuxel = 0;
+	bool finishedBakingIndirect = false;
+	int currentLightmapIndex = 0, currentLuxelIndex = 0;
 	uint32_t hemicubeDataAvailableFrame = 0;
 	std::vector<uint8_t> hemicubeData;
+	int indirectLightProgress = 0;
 
 	// mutex protected state
 	Status status;
@@ -211,6 +217,44 @@ static bool DoesSurfaceOccludeLight(const world::Surface &surface)
 	// Translucent surfaces (e.g. flames) shouldn't occlude.
 	// Not handling alpha-testing yet.
 	return surface.type != world::SurfaceType::Ignore && surface.type != world::SurfaceType::Flare && (surface.contentFlags & CONTENTS_TRANSLUCENT) == 0 && (surface.flags & SURF_ALPHASHADOW) == 0;
+}
+
+/*
+================================================================================
+LIGHT BAKER THREAD STATUS
+================================================================================
+*/
+
+static LightBaker::Status GetStatus(int *progress = nullptr)
+{
+	auto status = LightBaker::Status::NotStarted;
+
+	if (SDL_LockMutex(s_lightBaker->mutex) == 0)
+	{
+		status = s_lightBaker->status;
+
+		if (progress)
+			*progress = s_lightBaker->progress;
+
+		SDL_UnlockMutex(s_lightBaker->mutex);
+	}
+	else
+	{
+		if (progress)
+			*progress = 0;
+	}
+
+	return status;
+}
+
+static void SetStatus(LightBaker::Status status, int progress = 0)
+{
+	if (SDL_LockMutex(s_lightBaker->mutex) == 0)
+	{
+		s_lightBaker->status = status;
+		s_lightBaker->progress = progress;
+		SDL_UnlockMutex(s_lightBaker->mutex);
+	}
 }
 
 /*
@@ -1313,46 +1357,54 @@ static void InitializeHemicubeRendering()
 {
 	main::InitializeHemicubeFramebuffer(s_lightBaker->hemicubeAtlasSize.x, s_lightBaker->hemicubeAtlasSize.y);
 	s_lightBaker->hemicubeData.resize(s_lightBaker->hemicubeAtlasSize.x * s_lightBaker->hemicubeAtlasSize.y * 4);
+	s_lightBaker->nLuxelsProcessed = 0;
 }
 
 static bool BakeIndirectLight(uint32_t frameNo)
 {
 	if (!s_lightBaker->finishedHemicubeBatch)
 	{
-		Lightmap &lightmap = s_lightBaker->lightmaps[s_lightBaker->currentIndirectLightmap];
-		Luxel &luxel = lightmap.luxels[s_lightBaker->currentIndirectLuxel];
-		const vec2i rectOffset
-		(
-			(s_lightBaker->nHemicubesRenderedInBatch % s_lightBaker->hemicubeAtlasBatchSize.x) * s_lightBaker->hemicubeSize.x,
-			s_lightBaker->nHemicubesRenderedInBatch / s_lightBaker->hemicubeAtlasBatchSize.x * s_lightBaker->hemicubeSize.y
-		);
-
-		main::RenderHemicube(luxel.position, luxel.normal, vec3(0, 0, 1), rectOffset, s_lightBaker->hemicubeFaceSize);
-		s_lightBaker->nHemicubesRenderedInBatch++;
-		s_lightBaker->currentIndirectLuxel++;
-
-		if (s_lightBaker->nHemicubesRenderedInBatch >= s_lightBaker->hemicubeAtlasBatchSize.x * s_lightBaker->hemicubeAtlasBatchSize.y)
+		for (int i = 0; i < 8; i++)
 		{
-			s_lightBaker->finishedHemicubeBatch = true;
-			s_lightBaker->nHemicubesRenderedInBatch = 0;
-		}
+			Lightmap &lightmap = s_lightBaker->lightmaps[s_lightBaker->currentLightmapIndex];
+			Luxel &luxel = lightmap.luxels[s_lightBaker->currentLuxelIndex];
+			const vec2i rectOffset
+			(
+				(s_lightBaker->nHemicubesRenderedInBatch % s_lightBaker->hemicubeAtlasBatchSize.x) * s_lightBaker->hemicubeSize.x,
+				s_lightBaker->nHemicubesRenderedInBatch / s_lightBaker->hemicubeAtlasBatchSize.x * s_lightBaker->hemicubeSize.y
+			);
 
-		if (s_lightBaker->currentIndirectLuxel >= (int)lightmap.luxels.size())
-		{
-			// Processed all luxels in this lightmap, advance to the next one.
-			s_lightBaker->currentIndirectLightmap++;
+			main::RenderHemicube(luxel.position, luxel.normal, vec3(0, 0, 1), rectOffset, s_lightBaker->hemicubeFaceSize);
+			s_lightBaker->nLuxelsProcessed++;
+			s_lightBaker->nHemicubesRenderedInBatch++;
+			s_lightBaker->currentLuxelIndex++;
 
-			if (s_lightBaker->currentIndirectLightmap >= (int)s_lightBaker->lightmaps.size())
+			if (s_lightBaker->nHemicubesRenderedInBatch >= s_lightBaker->hemicubeAtlasBatchSize.x * s_lightBaker->hemicubeAtlasBatchSize.y)
 			{
-				// Processed all lightmaps.
 				s_lightBaker->finishedHemicubeBatch = true;
+				s_lightBaker->nHemicubesRenderedInBatch = 0;
 			}
-		}
 
-		if (s_lightBaker->finishedHemicubeBatch)
-		{
-			// Finished with this batch, start async texture read.
-			s_lightBaker->hemicubeDataAvailableFrame = main::ReadHemicubeTexture(s_lightBaker->hemicubeData.data());
+			if (s_lightBaker->currentLuxelIndex >= (int)lightmap.luxels.size())
+			{
+				// Processed all luxels in this lightmap, advance to the next one.
+				s_lightBaker->currentLightmapIndex++;
+				s_lightBaker->currentLuxelIndex = 0;
+
+				if (s_lightBaker->currentLightmapIndex >= (int)s_lightBaker->lightmaps.size())
+				{
+					// Processed all lightmaps.
+					s_lightBaker->finishedHemicubeBatch = true;
+					s_lightBaker->finishedBakingIndirect = true;
+				}
+			}
+
+			if (s_lightBaker->finishedHemicubeBatch)
+			{
+				// Finished with this batch, start async texture read.
+				s_lightBaker->hemicubeDataAvailableFrame = main::ReadHemicubeTexture(s_lightBaker->hemicubeData.data());
+				break; // Don't render any more hemicubes this frame when the batch is finished.
+			}
 		}
 	}
 	else if (frameNo >= s_lightBaker->hemicubeDataAvailableFrame)
@@ -1367,8 +1419,28 @@ static bool BakeIndirectLight(uint32_t frameNo)
 			bgra[3] = 0xff;
 		}
 
-		stbi_write_tga("hemicube.tga", s_lightBaker->hemicubeAtlasSize.x, s_lightBaker->hemicubeAtlasSize.y, 4, s_lightBaker->hemicubeData.data());
-		return false;
+#if 0
+		char filename[MAX_QPATH];
+		util::Sprintf(filename, sizeof(filename), "hemicubes/%08d.tga", s_lightBaker->nHemicubeBatchesProcessed);
+		stbi_write_tga(filename, s_lightBaker->hemicubeAtlasSize.x, s_lightBaker->hemicubeAtlasSize.y, 4, s_lightBaker->hemicubeData.data());
+#endif
+
+		s_lightBaker->nHemicubeBatchesProcessed++;
+
+		if (s_lightBaker->finishedBakingIndirect)
+			return false;
+
+		// Reset state to start the next batch.
+		s_lightBaker->finishedHemicubeBatch = false;
+	}
+
+	// Update progress.
+	const int progress = int(s_lightBaker->nLuxelsProcessed / (float)s_lightBaker->totalLuxels * 100.0f);
+
+	if (progress != s_lightBaker->indirectLightProgress)
+	{
+		s_lightBaker->indirectLightProgress = progress;
+		SetStatus(LightBaker::Status::BakingIndirectLight_Running, progress);
 	}
 
 	return true;
@@ -1416,38 +1488,6 @@ static void EncodeLightmaps()
 LIGHT BAKER THREAD AND INTERFACE
 ================================================================================
 */
-
-static LightBaker::Status GetStatus(int *progress = nullptr)
-{
-	auto status = LightBaker::Status::NotStarted;
-
-	if (SDL_LockMutex(s_lightBaker->mutex) == 0)
-	{
-		status = s_lightBaker->status;
-
-		if (progress)
-			*progress = s_lightBaker->progress;
-
-		SDL_UnlockMutex(s_lightBaker->mutex);
-	}
-	else
-	{
-		if (progress)
-			*progress = 0;
-	}
-
-	return status;
-}
-
-static void SetStatus(LightBaker::Status status, int progress = 0)
-{
-	if (SDL_LockMutex(s_lightBaker->mutex) == 0)
-	{
-		s_lightBaker->status = status;
-		s_lightBaker->progress = progress;
-		SDL_UnlockMutex(s_lightBaker->mutex);
-	}
-}
 
 static bool ThreadUpdateLightmaps()
 {
@@ -1517,8 +1557,9 @@ static int Thread(void *data)
 	}
 
 	// Rasterize surfaces.
-	int totalLuxels = 0;
-	
+	int64_t startTime = bx::getHPCounter();
+	s_lightBaker->totalLuxels = 0;
+
 	for (int mi = 0; mi < world::GetNumModels(); mi++)
 	{
 		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
@@ -1589,11 +1630,13 @@ static int Thread(void *data)
 					luxel.normal = -vec3(&ctx.sample.direction.x);
 					luxel.offset = ctx.rasterizer.x + ctx.rasterizer.y * world::GetLightmapSize().x;
 					lightmap.luxels.push_back(luxel);
-					totalLuxels++;
+					s_lightBaker->totalLuxels++;
 				}
 			}
 		}
 	}
+
+	s_lightBaker->rasterizationTime = bx::getHPCounter() - startTime;
 
 	// Setup jitter.
 	srand(1);
@@ -1614,7 +1657,8 @@ static int Thread(void *data)
 	CreateAreaLights();
 	CreateEntityLights();
 
-	// Bake luxels.
+	// Bake direct lighting.
+	startTime = bx::getHPCounter();
 	s_lightBaker->nLuxelsProcessed = 0;
 	const SunLight &sunLight = main::GetSunLight();
 	const float maxRayLength = world::GetBounds().toRadius() * 2; // World bounding sphere circumference.
@@ -1669,7 +1713,7 @@ static int Thread(void *data)
 			s_lightBaker->nLuxelsProcessed++;
 
 			// Update progress.
-			const int newProgress = int(s_lightBaker->nLuxelsProcessed / (float)totalLuxels * 100.0f);
+			const int newProgress = int(s_lightBaker->nLuxelsProcessed / (float)s_lightBaker->totalLuxels * 100.0f);
 
 			if (newProgress != progress)
 			{
@@ -1682,6 +1726,8 @@ static int Thread(void *data)
 			}
 		}
 	}
+
+	s_lightBaker->directBakeTime = bx::getHPCounter() - startTime;
 
 	// Update the lightmaps after the direct lighting pass has finished. Indirect lighting needs to render using the updated lightmaps.
 	if (!ThreadUpdateLightmaps())
@@ -1720,7 +1766,6 @@ void Start(int nSamples)
 	s_lightBaker->nSamples = math::Clamped(nSamples, 1, (int)LightBaker::maxSamples);
 	LoadAreaLightTextures();
 	s_lightBaker->startTime = bx::getHPCounter();
-
 	s_lightBaker->mutex = SDL_CreateMutex();
 
 	if (!s_lightBaker->mutex)
@@ -1759,6 +1804,11 @@ void Stop()
 	s_lightBaker.reset();
 }
 
+static float ToSeconds(int64_t t)
+{
+	return t * (1.0f / (float)bx::getHPFrequency());
+}
+
 void Update(uint32_t frameNo)
 {
 	if (!s_lightBaker.get())
@@ -1785,6 +1835,7 @@ void Update(uint32_t frameNo)
 	{
 		InitializeHemicubeRendering();
 		SetStatus(LightBaker::Status::BakingIndirectLight_Running);
+		s_lightBaker->indirectBakeStartTime = bx::getHPCounter();
 	}
 	else if (status == LightBaker::Status::BakingIndirectLight_Running)
 	{
@@ -1792,6 +1843,7 @@ void Update(uint32_t frameNo)
 
 		if (!BakeIndirectLight(frameNo))
 		{
+			s_lightBaker->indirectBakeTime = bx::getHPCounter() - s_lightBaker->indirectBakeStartTime;
 			SetStatus(LightBaker::Status::BakingIndirectLight_Finished);
 		}
 	}
@@ -1821,9 +1873,13 @@ void Update(uint32_t frameNo)
 	else if (status == LightBaker::Status::Finished)
 	{
 		interface::Printf("Finished baking lights\n");
-		interface::Printf("   %0.2f seconds elapsed\n", (bx::getHPCounter() - s_lightBaker->startTime) * (1.0f / (float)bx::getHPFrequency()));
-		interface::Printf("   %d luxels processed\n", s_lightBaker->nLuxelsProcessed);
-		interface::Printf("   %0.2f ms elapsed per luxel\n", (bx::getHPCounter() - s_lightBaker->startTime) * (1000.0f / (float)bx::getHPFrequency()) / s_lightBaker->nLuxelsProcessed);
+		interface::Printf("   %0.2f seconds elapsed\n", ToSeconds(bx::getHPCounter() - s_lightBaker->startTime));
+		interface::Printf("      %0.2f seconds for rasterization\n", ToSeconds(s_lightBaker->rasterizationTime));
+		interface::Printf("      %0.2f seconds for direct lighting\n", ToSeconds(s_lightBaker->directBakeTime));
+		interface::Printf("      %0.2f seconds for indirect lighting\n", ToSeconds(s_lightBaker->indirectBakeTime));
+		interface::Printf("   %d luxels\n", s_lightBaker->totalLuxels);
+		interface::Printf("   %0.2f ms elapsed per luxel\n", (bx::getHPCounter() - s_lightBaker->startTime) * (1000.0f / (float)bx::getHPFrequency()) / s_lightBaker->totalLuxels);
+		interface::Printf("   %d hemicube batches\n", s_lightBaker->nHemicubeBatchesProcessed);
 		interface::Printf("   %d area lights\n", (int)s_areaLights.size());
 		interface::Printf("   %d entity lights\n", (int)s_lightBaker->lights.size());
 		Stop();
