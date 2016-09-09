@@ -1137,6 +1137,9 @@ static void CreateAreaLights()
 	}
 
 	// Use the world PVS - leaf cluster to leaf cluster visibility - to precompute leaf cluster to area light visibility.
+	if (!s_areaLights.empty() || !world::s_world->visData)
+		return;
+
 	s_lightBaker->areaLightClusterBytes = (int)std::ceil(s_areaLights.size() / 8.0f); // Need 1 bit per area light.
 	s_lightBaker->areaLightVisData.resize(world::s_world->nClusters * s_lightBaker->areaLightClusterBytes);
 	memset(s_lightBaker->areaLightVisData.data(), 0, s_lightBaker->areaLightVisData.size());
@@ -1241,10 +1244,14 @@ static vec3 BakeAreaLights(vec3 samplePosition, vec3 sampleNormal)
 
 	for (size_t i = 0; i < s_areaLights.size(); i++)
 	{
-		const uint8_t *pvs = sampleLeaf->cluster == -1 ? nullptr : &s_lightBaker->areaLightVisData[sampleLeaf->cluster * s_lightBaker->areaLightClusterBytes];
+		// Skip PVS check if outside map or there's no vis data.
+		if (sampleLeaf->cluster != -1 && !s_lightBaker->areaLightVisData.empty())
+		{
+			const uint8_t *pvs = &s_lightBaker->areaLightVisData[sampleLeaf->cluster * s_lightBaker->areaLightClusterBytes];
 
-		if (pvs && !(pvs[i >> 3] & (1 << (i & 7))))
-			continue;
+			if (!(pvs[i >> 3] & (1 << (i & 7))))
+				continue;
+		}
 
 		const AreaLight &areaLight = s_areaLights[i];
 
