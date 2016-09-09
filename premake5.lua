@@ -227,6 +227,8 @@ newaction
 			{ "Fog", fogFragmentVariants },
 			{ "GaussianBlur" },
 			{ "Generic", genericFragmentVariants },
+			{ "HemicubeDownsample" },
+			{ "HemicubeWeightedDownsample" },
 			{ "LinearDepth" },
 			{ "SMAABlendingWeightCalculation" },
 			{ "SMAAEdgeDetection" },
