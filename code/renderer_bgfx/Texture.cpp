@@ -45,7 +45,11 @@ struct TextureImpl
 
 		const bgfx::Memory *mem = nullptr;
 
-		if (image.data)
+		if (image.flags & ImageFlags::DataIsBgfxMemory)
+		{
+			mem = (const bgfx::Memory *)image.data;
+		}
+		else if (image.data)
 		{
 			mem = bgfx::makeRef(image.data, image.dataSize, image.release);
 		}
@@ -236,12 +240,12 @@ struct TextureCache
 
 		if (flags & (TextureFlags::Mipmap | TextureFlags::Picmip))
 		{
-			imageFlags |= ImageFlags::GenerateMipmaps;
+			imageFlags |= CreateImageFlags::GenerateMipmaps;
 		}
 
 		if (flags & TextureFlags::Picmip)
 		{
-			imageFlags |= ImageFlags::Picmip;
+			imageFlags |= CreateImageFlags::Picmip;
 		}
 
 		Image image = LoadImage(name, imageFlags);

@@ -1596,7 +1596,7 @@ void EndFrame()
 	}
 	else if (s_main->debugDraw == DebugDraw::DynamicLight)
 	{
-		s_main->uniforms->textureDebug.set(vec4(TEXTURE_DEBUG_SINGLE_CHANNEL, 0, 0, 0));
+		s_main->uniforms->textureDebug.set(vec4(TEXTURE_DEBUG_R, 0, 0, 0));
 		RenderDebugDraw(s_main->dlightManager->getLightsTexture(), 0, 0, ShaderProgramId::TextureDebug);
 	}
 	else if (s_main->debugDraw == DebugDraw::Lightmap && world::IsLoaded())
@@ -1613,7 +1613,7 @@ void EndFrame()
 	}
 	else if (s_main->debugDraw == DebugDraw::SMAA && s_main->aa == AntiAliasing::SMAA)
 	{
-		s_main->uniforms->textureDebug.set(vec4(TEXTURE_DEBUG_SINGLE_CHANNEL, 0, 0, 0));
+		s_main->uniforms->textureDebug.set(vec4(TEXTURE_DEBUG_R, 0, 0, 0));
 		RenderDebugDraw(s_main->smaaEdgesFb, 0, 0, 0, ShaderProgramId::TextureDebug);
 		RenderDebugDraw(s_main->smaaBlendFb, 0, 1, 0, ShaderProgramId::TextureDebug);
 	}

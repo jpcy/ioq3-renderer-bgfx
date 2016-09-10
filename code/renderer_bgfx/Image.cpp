@@ -106,12 +106,12 @@ static void FinalizeImage(Image *image, int flags)
 {
 	assert(image);
 
-	if (flags & ImageFlags::GenerateMipmaps)
+	if (flags & CreateImageFlags::GenerateMipmaps)
 	{
 		// Mipmapping: allocate new data to make rooms for the mips.
 		uint8_t *oldData = image->data;
 
-		if ((flags & ImageFlags::Picmip) && g_cvars.picmip.getInt() > 0)
+		if ((flags & CreateImageFlags::Picmip) && g_cvars.picmip.getInt() > 0)
 		{
 			const int oldWidth = image->width, oldHeight = image->height;
 			image->width = std::max(1, image->width >> g_cvars.picmip.getInt());
@@ -155,7 +155,7 @@ static void FinalizeImage(Image *image, int flags)
 	}
 	else
 	{
-		// No mipmap generation. Image data will be destroyed by invoking the image handler free function when the image is purged.
+		// No mipmap generation. Image data will be destroyed by invoking the image handler free function when the texture has been updated.
 		image->dataSize = CalculateDataSize(image);
 	}
 }

@@ -213,6 +213,14 @@ static const float formFactorValueScale = 3.0f;
 static const float pointScale = 7500.0f;
 static const float linearScale = 1.0f / 8000.0f;
 
+// optional: set material characteristics by specifying cos(theta)-dependent weights for incoming light.
+typedef float (*lm_weight_func)(float cos_theta, void *userdata);
+
+static float lm_defaultWeights(float cos_theta, void *userdata)
+{
+	return 1.0f;
+}
+
 static bool DoesSurfaceOccludeLight(const world::Surface &surface)
 {
 	// Translucent surfaces (e.g. flames) shouldn't occlude.
@@ -1359,6 +1367,58 @@ static void InitializeHemicubeRendering()
 	main::InitializeHemicubeFramebuffer(s_lightBaker->hemicubeAtlasSize.x, s_lightBaker->hemicubeAtlasSize.y);
 	s_lightBaker->hemicubeData.resize(s_lightBaker->hemicubeAtlasSize.x * s_lightBaker->hemicubeAtlasSize.y * 4);
 	s_lightBaker->nLuxelsProcessed = 0;
+
+	// hemisphere weights texture. bakes in material dependent attenuation behaviour.
+	// precalculate weights for incoming light depending on its angle. (default: all weights are 1.0f)
+	lm_weight_func f = lm_defaultWeights;
+	void *userdata = nullptr;
+	const bgfx::Memory *weightsMem = bgfx::alloc(2 * 3 * s_lightBaker->hemicubeFaceSize * s_lightBaker->hemicubeFaceSize * sizeof(float));
+	memset(weightsMem->data, 0, weightsMem->size);
+	auto weights = (float *)weightsMem->data;
+	float center = (s_lightBaker->hemicubeFaceSize - 1) * 0.5f;
+	double sum = 0.0;
+	for (int y = 0; y < s_lightBaker->hemicubeFaceSize; y++)
+	{
+		float dy = 2.0f * (y - center) / (float)s_lightBaker->hemicubeFaceSize;
+		for (int x = 0; x < s_lightBaker->hemicubeFaceSize; x++)
+		{
+			float dx = 2.0f * (x - center) / (float)s_lightBaker->hemicubeFaceSize;
+			lm_vec3 v = lm_normalize3(lm_v3(dx, dy, 1.0f));
+
+			float solidAngle = v.z * v.z * v.z;
+
+			float *w0 = weights + 2 * (y * (3 * s_lightBaker->hemicubeFaceSize) + x);
+			float *w1 = w0 + 2 * s_lightBaker->hemicubeFaceSize;
+			float *w2 = w1 + 2 * s_lightBaker->hemicubeFaceSize;
+
+			// center weights
+			w0[0] = solidAngle * f(v.z, userdata);
+			w0[1] = solidAngle;
+
+			// left/right side weights
+			w1[0] = solidAngle * f(lm_absf(v.x), userdata);
+			w1[1] = solidAngle;
+
+			// up/down side weights
+			w2[0] = solidAngle * f(lm_absf(v.y), userdata);
+			w2[1] = solidAngle;
+
+			sum += 3.0 * (double)solidAngle;
+		}
+	}
+
+	// normalize weights
+	float weightScale = (float)(1.0 / sum);
+	for (int i = 0; i < 2 * s_lightBaker->hemicubeSize.x * s_lightBaker->hemicubeSize.y; i++)
+		weights[i] *= weightScale;
+
+	// upload weight texture
+	Image image;
+	image.width = s_lightBaker->hemicubeSize.x;
+	image.height = s_lightBaker->hemicubeSize.y;
+	image.data = (uint8_t *)weightsMem;
+	image.flags = ImageFlags::DataIsBgfxMemory;
+	Texture::create("*hemicube_weights", image, 0, bgfx::TextureFormat::RG32F);
 }
 
 static bool BakeIndirectLight(uint32_t frameNo)
@@ -1420,7 +1480,7 @@ static bool BakeIndirectLight(uint32_t frameNo)
 			bgra[3] = 0xff;
 		}
 
-#if 1
+#if 0
 		char filename[MAX_QPATH];
 		util::Sprintf(filename, sizeof(filename), "hemicubes/%08d.tga", s_lightBaker->nHemicubeBatchesProcessed);
 		stbi_write_tga(filename, s_lightBaker->hemicubeAtlasSize.x, s_lightBaker->hemicubeAtlasSize.y, 4, s_lightBaker->hemicubeData.data());

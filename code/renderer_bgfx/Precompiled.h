@@ -386,8 +386,7 @@ struct ImageFlags
 {
 	enum
 	{
-		GenerateMipmaps    = 1<<0,
-		Picmip             = 1<<1
+		DataIsBgfxMemory = 1<<0,
 	};
 };
 
@@ -400,6 +399,16 @@ struct Image
 	uint8_t *data = nullptr;
 	uint32_t dataSize = 0;
 	bgfx::ReleaseFn release = nullptr;
+	int flags = 0;
+};
+
+struct CreateImageFlags
+{
+	enum
+	{
+		GenerateMipmaps    = 1<<0,
+		Picmip             = 1<<1
+	};
 };
 
 Image CreateImage(int width, int height, int nComponents, uint8_t *data, int flags = 0);
