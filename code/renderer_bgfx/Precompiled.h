@@ -445,12 +445,12 @@ namespace main
 	float GetFloatTime();
 	Transform GetMainCameraTransform();
 	void Initialize();
-	void InitializeHemicubeFramebuffer(int width, int height);
+	void InitializeHemicubeFramebuffer(vec2i atlasBatches, int faceSize);
 	bool IsCameraMirrored();
 	void LoadWorld(const char *name); 
 	void RegisterFont(const char *fontName, int pointSize, fontInfo_t *font);
 	void RenderHemicube(vec3 position, const vec3 forward, const vec3 up, vec2i rectOffset, int faceSize);
-	uint32_t ReadHemicubeTexture(void *data);
+	uint32_t IntegrateHemicubeBatch(void *data);
 	void RenderScene(const SceneDefinition &scene);
 	bool SampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
 	void SetColor(vec4 c);
@@ -1465,6 +1465,8 @@ struct Uniforms
 	Uniform_int textureSampler = "u_TextureSampler";
 
 	Uniform_int bloomSampler = "u_BloomSampler";
+	Uniform_int hemicubeAtlasSampler = "u_HemicubeAtlas";
+	Uniform_int hemicubeWeightsSampler = "u_HemicubeWeights";
 	Uniform_int smaaColorSampler = "u_SmaaColorSampler";
 	Uniform_int smaaEdgesSampler = "u_SmaaEdgesSampler";
 	Uniform_int smaaAreaSampler = "u_SmaaAreaSampler";

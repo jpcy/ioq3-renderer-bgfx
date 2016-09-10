@@ -1013,7 +1013,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 	
 	if (isProbe)
 	{
-		mainViewId = PushView(s_main->hemicubeFb, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
+		mainViewId = PushView(s_main->hemicubeFb[0], BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
 	}
 	else if (s_main->isWorldCamera)
 	{
@@ -1563,10 +1563,34 @@ void RenderHemicube(vec3 position, const vec3 forward, const vec3 up, vec2i rect
 	}
 }
 
-uint32_t ReadHemicubeTexture(void *data)
+uint32_t IntegrateHemicubeBatch(void *data)
 {
+	int fbRead = 0;
+	int fbWrite = 1;
+
+	// Weighted downsampling pass.
+	const vec2i hemicubeTextureSize(s_main->hemicubeAtlasBatches.x * s_main->hemicubeFaceSize * 3, s_main->hemicubeAtlasBatches.y * s_main->hemicubeFaceSize);
+	bgfx::setTexture(0, s_main->uniforms->hemicubeAtlasSampler.handle, s_main->hemicubeFb[fbRead].handle, 0);
+	bgfx::setTexture(1, s_main->uniforms->hemicubeWeightsSampler.handle, s_main->hemicubeWeightsTexture->getHandle());
+	RenderScreenSpaceQuad(s_main->hemicubeFb[fbWrite], ShaderProgramId::HemicubeWeightedDownsample, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE, BGFX_CLEAR_COLOR, s_main->isTextureOriginBottomLeft, Rect(0, 0, hemicubeTextureSize.x, hemicubeTextureSize.y));
+
+	// Downsampling passes.
+	int outHemiSize = s_main->hemicubeFaceSize / 2;
+
+	while (outHemiSize > 1)
+	{
+		const int oldFbRead = fbRead;
+		fbRead = fbWrite;
+		fbWrite = oldFbRead;
+
+		outHemiSize /= 2;
+		bgfx::setTexture(0, s_main->uniforms->hemicubeAtlasSampler.handle, s_main->hemicubeFb[fbRead].handle, 0);
+		RenderScreenSpaceQuad(s_main->hemicubeFb[fbWrite], ShaderProgramId::HemicubeDownsample, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE, BGFX_CLEAR_COLOR, s_main->isTextureOriginBottomLeft, Rect(0, 0, outHemiSize * s_main->hemicubeAtlasBatches.x, outHemiSize * s_main->hemicubeAtlasBatches.y));
+	}
+
+	// Start async texture read.
 	const uint8_t viewId = PushView(s_main->defaultFb, BGFX_CLEAR_NONE, mat4::empty, mat4::empty, Rect());
-	bgfx::blit(viewId, s_main->hemicubeReadTexture, 0, 0, s_main->hemicubeFb.handle);
+	bgfx::blit(viewId, s_main->hemicubeReadTexture, 0, 0, s_main->hemicubeFb[fbRead].handle, 0, 0, 0, s_main->hemicubeAtlasBatches.x, s_main->hemicubeAtlasBatches.y);
 	bgfx::touch(viewId);
 	return bgfx::readTexture(s_main->hemicubeReadTexture, data);
 }

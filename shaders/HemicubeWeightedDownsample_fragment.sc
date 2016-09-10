@@ -15,14 +15,14 @@ $input v_texcoord0
 
 #include <bgfx_shader.sh>
 
-SAMPLER2D(u_HemicubeBatch, 0);
+SAMPLER2D(u_HemicubeAtlas, 0);
 SAMPLER2D(u_HemicubeWeights, 1);
 
 uniform vec4 u_HemicubeWeightsSize; // only x and y used
 
 vec4 weightedSample(ivec2 h_uv, ivec2 w_uv, ivec2 quadrant)
 {
-	vec4 sample = texelFetch(u_HemicubeBatch, h_uv + quadrant, 0);
+	vec4 sample = texelFetch(u_HemicubeAtlas, h_uv + quadrant, 0);
 	vec2 weight = texelFetch(u_HemicubeWeights, w_uv + quadrant, 0).rg;
 	return vec4(sample.rgb * weight.r, sample.a * weight.g);
 }

@@ -132,6 +132,12 @@ struct Lightmap
 	std::vector<uint8_t> colorBytes; // width * height * 4
 };
 
+struct HemicubeLocation
+{
+	Lightmap *lightmap;
+	Luxel *luxel;
+};
+
 struct LightBaker
 {
 	enum class Status
@@ -192,7 +198,8 @@ struct LightBaker
 	bool finishedBakingIndirect = false;
 	int currentLightmapIndex = 0, currentLuxelIndex = 0;
 	uint32_t hemicubeDataAvailableFrame = 0;
-	std::vector<uint8_t> hemicubeData;
+	std::vector<float> hemicubeData;
+	std::vector<HemicubeLocation> hemicubeBatchLocations;
 	int indirectLightProgress = 0;
 
 	// mutex protected state
@@ -1364,10 +1371,6 @@ HEMICUBES / INDIRECT LIGHTING
 
 static void InitializeHemicubeRendering()
 {
-	main::InitializeHemicubeFramebuffer(s_lightBaker->hemicubeAtlasSize.x, s_lightBaker->hemicubeAtlasSize.y);
-	s_lightBaker->hemicubeData.resize(s_lightBaker->hemicubeAtlasSize.x * s_lightBaker->hemicubeAtlasSize.y * 4);
-	s_lightBaker->nLuxelsProcessed = 0;
-
 	// hemisphere weights texture. bakes in material dependent attenuation behaviour.
 	// precalculate weights for incoming light depending on its angle. (default: all weights are 1.0f)
 	lm_weight_func f = lm_defaultWeights;
@@ -1419,6 +1422,11 @@ static void InitializeHemicubeRendering()
 	image.data = (uint8_t *)weightsMem;
 	image.flags = ImageFlags::DataIsBgfxMemory;
 	Texture::create("*hemicube_weights", image, 0, bgfx::TextureFormat::RG32F);
+
+	main::InitializeHemicubeFramebuffer(s_lightBaker->hemicubeAtlasBatchSize, s_lightBaker->hemicubeFaceSize);
+	s_lightBaker->hemicubeData.resize(s_lightBaker->hemicubeAtlasBatchSize.x * s_lightBaker->hemicubeAtlasBatchSize.y * 4);
+	s_lightBaker->hemicubeBatchLocations.resize(s_lightBaker->hemicubeAtlasBatchSize.x * s_lightBaker->hemicubeAtlasBatchSize.y);
+	s_lightBaker->nLuxelsProcessed = 0;
 }
 
 static bool BakeIndirectLight(uint32_t frameNo)
@@ -1436,6 +1444,8 @@ static bool BakeIndirectLight(uint32_t frameNo)
 			);
 
 			main::RenderHemicube(luxel.position + luxel.normal * 1.0f, luxel.normal, luxel.up, rectOffset, s_lightBaker->hemicubeFaceSize);
+			s_lightBaker->hemicubeBatchLocations[s_lightBaker->nHemicubesRenderedInBatch].lightmap = &lightmap;
+			s_lightBaker->hemicubeBatchLocations[s_lightBaker->nHemicubesRenderedInBatch].luxel = &luxel;
 			s_lightBaker->nLuxelsProcessed++;
 			s_lightBaker->nHemicubesRenderedInBatch++;
 			s_lightBaker->currentLuxelIndex++;
@@ -1462,8 +1472,8 @@ static bool BakeIndirectLight(uint32_t frameNo)
 
 			if (s_lightBaker->finishedHemicubeBatch)
 			{
-				// Finished with this batch, start async texture read.
-				s_lightBaker->hemicubeDataAvailableFrame = main::ReadHemicubeTexture(s_lightBaker->hemicubeData.data());
+				// Finished with this batch, integrate and start async texture read.
+				s_lightBaker->hemicubeDataAvailableFrame = main::IntegrateHemicubeBatch(s_lightBaker->hemicubeData.data());
 				break; // Don't render any more hemicubes this frame when the batch is finished.
 			}
 		}
@@ -1471,19 +1481,29 @@ static bool BakeIndirectLight(uint32_t frameNo)
 	else if (frameNo >= s_lightBaker->hemicubeDataAvailableFrame)
 	{
 		// Async texture read is ready.
-		for (size_t i = 0; i < s_lightBaker->hemicubeData.size(); i += 4)
+		for (int y = 0; y < s_lightBaker->hemicubeAtlasBatchSize.y; y++)
 		{
-			uint8_t *bgra = &s_lightBaker->hemicubeData[i];
-			uint8_t b = bgra[0];
-			bgra[0] = bgra[2];
-			bgra[2] = b;
-			bgra[3] = 0xff;
+			for (int x = 0; x < s_lightBaker->hemicubeAtlasBatchSize.x; x++)
+			{
+				const int offset = x + y * s_lightBaker->hemicubeAtlasBatchSize.x;
+				auto rgba = (const vec4 *)&s_lightBaker->hemicubeData[offset * 4];
+				HemicubeLocation &hemicube = s_lightBaker->hemicubeBatchLocations[offset];
+				hemicube.lightmap->color[hemicube.luxel->offset] += *rgba * 255.0f;
+			}
 		}
 
 #if 0
+		std::vector<uint8_t> data;
+		data.resize(s_lightBaker->hemicubeAtlasBatchSize.x * s_lightBaker->hemicubeAtlasBatchSize.y * 4);
+
+		for (size_t i = 0; i < s_lightBaker->hemicubeData.size(); i++)
+		{
+			data[i] = uint8_t(std::min(s_lightBaker->hemicubeData[i] * 255.0f, 255.0f));
+		}
+
 		char filename[MAX_QPATH];
 		util::Sprintf(filename, sizeof(filename), "hemicubes/%08d.tga", s_lightBaker->nHemicubeBatchesProcessed);
-		stbi_write_tga(filename, s_lightBaker->hemicubeAtlasSize.x, s_lightBaker->hemicubeAtlasSize.y, 4, s_lightBaker->hemicubeData.data());
+		stbi_write_tga(filename, s_lightBaker->hemicubeAtlasBatchSize.x, s_lightBaker->hemicubeAtlasBatchSize.y, 4, data.data());
 #endif
 
 		s_lightBaker->nHemicubeBatchesProcessed++;

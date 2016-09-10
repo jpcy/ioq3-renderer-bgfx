@@ -119,7 +119,9 @@ struct ShaderProgramId
 		Fog = Depth + DepthShaderProgramVariant::Num,
 		GaussianBlur = Fog + FogShaderProgramVariant::Num,
 		Generic,
-		LinearDepth = Generic + GenericShaderProgramVariant::Num,
+		HemicubeDownsample = Generic + GenericShaderProgramVariant::Num,
+		HemicubeWeightedDownsample,
+		LinearDepth,
 		SMAABlendingWeightCalculation,
 		SMAAEdgeDetection,
 		SMAANeighborhoodBlending,
@@ -262,7 +264,10 @@ struct Main
 	bool softSpritesEnabled = false;
 	SunLight sunLight;
 
-	FrameBuffer hemicubeFb;
+	FrameBuffer hemicubeFb[2];
+	vec2i hemicubeAtlasBatches;
+	int hemicubeFaceSize;
+	const Texture *hemicubeWeightsTexture;
 	bgfx::TextureHandle hemicubeReadTexture = BGFX_INVALID_HANDLE;
 
 	/// Convert from our coordinate system (looking down X) to OpenGL's coordinate system (looking down -Z)

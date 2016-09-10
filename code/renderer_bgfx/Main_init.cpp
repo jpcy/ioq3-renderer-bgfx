@@ -482,14 +482,16 @@ void Initialize()
 		}
 	}
 
-	programMap[ShaderProgramId::LinearDepth]          = { FragmentShaderId::LinearDepth, VertexShaderId::Texture };
+	programMap[ShaderProgramId::LinearDepth] = { FragmentShaderId::LinearDepth, VertexShaderId::Texture };
+	programMap[ShaderProgramId::HemicubeDownsample] = { FragmentShaderId::HemicubeDownsample, VertexShaderId::Texture };
+	programMap[ShaderProgramId::HemicubeWeightedDownsample] = { FragmentShaderId::HemicubeWeightedDownsample, VertexShaderId::Texture };
 	programMap[ShaderProgramId::SMAABlendingWeightCalculation] = { FragmentShaderId::SMAABlendingWeightCalculation, VertexShaderId::SMAABlendingWeightCalculation };
-	programMap[ShaderProgramId::SMAAEdgeDetection]    = { FragmentShaderId::SMAAEdgeDetection, VertexShaderId::SMAAEdgeDetection };
+	programMap[ShaderProgramId::SMAAEdgeDetection] = { FragmentShaderId::SMAAEdgeDetection, VertexShaderId::SMAAEdgeDetection };
 	programMap[ShaderProgramId::SMAANeighborhoodBlending] = { FragmentShaderId::SMAANeighborhoodBlending, VertexShaderId::SMAANeighborhoodBlending };
-	programMap[ShaderProgramId::Texture]              = { FragmentShaderId::Texture, VertexShaderId::Texture };
-	programMap[ShaderProgramId::TextureColor]         = { FragmentShaderId::TextureColor, VertexShaderId::Texture };
-	programMap[ShaderProgramId::TextureDebug]         = { FragmentShaderId::TextureDebug, VertexShaderId::Texture };
-	programMap[ShaderProgramId::ToneMap]              = { FragmentShaderId::ToneMap, VertexShaderId::Texture };
+	programMap[ShaderProgramId::Texture] = { FragmentShaderId::Texture, VertexShaderId::Texture };
+	programMap[ShaderProgramId::TextureColor] = { FragmentShaderId::TextureColor, VertexShaderId::Texture };
+	programMap[ShaderProgramId::TextureDebug] = { FragmentShaderId::TextureDebug, VertexShaderId::Texture };
+	programMap[ShaderProgramId::ToneMap] = { FragmentShaderId::ToneMap, VertexShaderId::Texture };
 
 	// Create shader programs.
 	for (size_t i = 0; i < ShaderProgramId::Num; i++)
@@ -605,16 +607,28 @@ void LoadWorld(const char *name)
 	s_main->dlightManager->initializeGrid();
 }
 
-void InitializeHemicubeFramebuffer(int width, int height)
+void InitializeHemicubeFramebuffer(vec2i atlasBatches, int faceSize)
 {
-	if (bgfx::isValid(s_main->hemicubeFb.handle))
+	if (bgfx::isValid(s_main->hemicubeFb[0].handle))
 		return; // already initialized
 
+	// Render directly into this. Ping-pong between this and the second hemicube FB when downsampling.
+	const vec2i size0(atlasBatches.x * faceSize * 3, atlasBatches.y * faceSize);
 	bgfx::TextureHandle hemicubeTextures[2];
-	hemicubeTextures[0] = bgfx::createTexture2D(width, height, false, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP);
-	hemicubeTextures[1] = bgfx::createTexture2D(width, height, false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT);
-	s_main->hemicubeFb.handle = bgfx::createFrameBuffer(2, hemicubeTextures, true);
-	s_main->hemicubeReadTexture = bgfx::createTexture2D(width, height, false, 1, bgfx::TextureFormat::BGRA8, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
+	hemicubeTextures[0] = bgfx::createTexture2D(size0.x, size0.y, false, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP);
+	hemicubeTextures[1] = bgfx::createTexture2D(size0.x, size0.y, false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT);
+	s_main->hemicubeFb[0].handle = bgfx::createFrameBuffer(2, hemicubeTextures, true);
+
+	// Downsampling.
+	const vec2i size1(atlasBatches.x * faceSize / 2, atlasBatches.y * faceSize / 2);
+	s_main->hemicubeFb[1].handle = bgfx::createFrameBuffer(size1.x, size1.y, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP);
+
+	// Reading destination. Source could be either FB.
+	s_main->hemicubeReadTexture = bgfx::createTexture2D(atlasBatches.x, atlasBatches.y, false, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
+
+	s_main->hemicubeAtlasBatches = atlasBatches;
+	s_main->hemicubeFaceSize = faceSize;
+	s_main->hemicubeWeightsTexture = Texture::find("*hemicube_weights");
 }
 
 void Shutdown(bool destroyWindow)
