@@ -197,21 +197,23 @@ struct LightBaker
 	const vec2i hemicubeBatchSize = hemicubeSize * nHemicubesInBatch;
 	const vec2i hemicubeDownsampleSize = vec2i(nHemicubesInBatch.x * hemicubeFaceSize / 2, nHemicubesInBatch.y * hemicubeFaceSize / 2);
 	const Texture *hemicubeWeightsTexture;
-	int nHemicubesToRenderPerFrame = 8;
-	int nHemicubesRenderedInBatch = 0;
-	int nHemicubeBatchesProcessed = 0;
-	bool finishedHemicubeBatch = false;
-	bool finishedBakingIndirect = false;
-	int currentLightmapIndex = 0, currentLuxelIndex = 0;
-	uint32_t hemicubeDataAvailableFrame = 0;
+	int nHemicubesToRenderPerFrame;
+	int nHemicubesRenderedInBatch;
+	int nHemicubeBatchesProcessed;
+	bool finishedHemicubeBatch;
+	bool finishedBakingIndirect;
+	int currentLightmapIndex, currentLuxelIndex;
+	uint32_t hemicubeDataAvailableFrame;
 #ifdef DEBUG_HEMICUBE_RENDERING
 	std::vector<float> hemicubeBatchData;
 	std::vector<float> hemicubeWeightedBatchData;
 #endif
 	std::vector<float> hemicubeIntegrationData;
 	std::vector<HemicubeLocation> hemicubeBatchLocations;
-	int indirectLightProgress = 0;
+	int indirectLightProgress;
 	const float indirectLightScale = 0.25f;
+	const int nIndirectPasses = 2;
+	int currentIndirectPass = 0;
 
 	// Indirect light frame ms measuring. Determines how many hemicubes to render per frame. Don't want to freeze, maintain a low frame rate instead.
 	int64_t lastFrameTime;
@@ -1427,66 +1429,78 @@ static void InitializeHemicubeRendering()
 		s_lightBakerPersistent->hemicubeIntegrationReadTexture = bgfx::createTexture2D(s_lightBaker->nHemicubesInBatch.x, s_lightBaker->nHemicubesInBatch.y, false, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
 	}
 
-	// hemisphere weights texture. bakes in material dependent attenuation behaviour.
-	// precalculate weights for incoming light depending on its angle. (default: all weights are 1.0f)
-	lm_weight_func f = lm_defaultWeights;
-	void *userdata = nullptr;
-	const bgfx::Memory *weightsMem = bgfx::alloc(2 * 3 * s_lightBaker->hemicubeFaceSize * s_lightBaker->hemicubeFaceSize * sizeof(float));
-	memset(weightsMem->data, 0, weightsMem->size);
-	auto weights = (float *)weightsMem->data;
-	float center = (s_lightBaker->hemicubeFaceSize - 1) * 0.5f;
-	double sum = 0.0;
-	for (int y = 0; y < s_lightBaker->hemicubeFaceSize; y++)
+	if (s_lightBaker->currentIndirectPass == 0)
 	{
-		float dy = 2.0f * (y - center) / (float)s_lightBaker->hemicubeFaceSize;
-		for (int x = 0; x < s_lightBaker->hemicubeFaceSize; x++)
+		// hemisphere weights texture. bakes in material dependent attenuation behaviour.
+		// precalculate weights for incoming light depending on its angle. (default: all weights are 1.0f)
+		lm_weight_func f = lm_defaultWeights;
+		void *userdata = nullptr;
+		const bgfx::Memory *weightsMem = bgfx::alloc(2 * 3 * s_lightBaker->hemicubeFaceSize * s_lightBaker->hemicubeFaceSize * sizeof(float));
+		memset(weightsMem->data, 0, weightsMem->size);
+		auto weights = (float *)weightsMem->data;
+		float center = (s_lightBaker->hemicubeFaceSize - 1) * 0.5f;
+		double sum = 0.0;
+		for (int y = 0; y < s_lightBaker->hemicubeFaceSize; y++)
 		{
-			float dx = 2.0f * (x - center) / (float)s_lightBaker->hemicubeFaceSize;
-			lm_vec3 v = lm_normalize3(lm_v3(dx, dy, 1.0f));
+			float dy = 2.0f * (y - center) / (float)s_lightBaker->hemicubeFaceSize;
+			for (int x = 0; x < s_lightBaker->hemicubeFaceSize; x++)
+			{
+				float dx = 2.0f * (x - center) / (float)s_lightBaker->hemicubeFaceSize;
+				lm_vec3 v = lm_normalize3(lm_v3(dx, dy, 1.0f));
 
-			float solidAngle = v.z * v.z * v.z;
+				float solidAngle = v.z * v.z * v.z;
 
-			float *w0 = weights + 2 * (y * (3 * s_lightBaker->hemicubeFaceSize) + x);
-			float *w1 = w0 + 2 * s_lightBaker->hemicubeFaceSize;
-			float *w2 = w1 + 2 * s_lightBaker->hemicubeFaceSize;
+				float *w0 = weights + 2 * (y * (3 * s_lightBaker->hemicubeFaceSize) + x);
+				float *w1 = w0 + 2 * s_lightBaker->hemicubeFaceSize;
+				float *w2 = w1 + 2 * s_lightBaker->hemicubeFaceSize;
 
-			// center weights
-			w0[0] = solidAngle * f(v.z, userdata);
-			w0[1] = solidAngle;
+				// center weights
+				w0[0] = solidAngle * f(v.z, userdata);
+				w0[1] = solidAngle;
 
-			// left/right side weights
-			w1[0] = solidAngle * f(lm_absf(v.x), userdata);
-			w1[1] = solidAngle;
+				// left/right side weights
+				w1[0] = solidAngle * f(lm_absf(v.x), userdata);
+				w1[1] = solidAngle;
 
-			// up/down side weights
-			w2[0] = solidAngle * f(lm_absf(v.y), userdata);
-			w2[1] = solidAngle;
+				// up/down side weights
+				w2[0] = solidAngle * f(lm_absf(v.y), userdata);
+				w2[1] = solidAngle;
 
-			sum += 3.0 * (double)solidAngle;
+				sum += 3.0 * (double)solidAngle;
+			}
 		}
+
+		// normalize weights
+		float weightScale = (float)(1.0 / sum);
+		for (int i = 0; i < 2 * s_lightBaker->hemicubeSize.x * s_lightBaker->hemicubeSize.y; i++)
+			weights[i] *= weightScale;
+
+		// upload weight texture
+		Image image;
+		image.width = s_lightBaker->hemicubeSize.x;
+		image.height = s_lightBaker->hemicubeSize.y;
+		image.data = (uint8_t *)weightsMem;
+		image.flags = ImageFlags::DataIsBgfxMemory;
+		s_lightBaker->hemicubeWeightsTexture = Texture::create("*hemicube_weights", image, 0, bgfx::TextureFormat::RG32F);
+
+		// Misc. state.
+	#ifdef DEBUG_HEMICUBE_RENDERING
+		s_lightBaker->hemicubeBatchData.resize(s_lightBaker->hemicubeBatchSize.x * s_lightBaker->hemicubeBatchSize.y * 4);
+		s_lightBaker->hemicubeWeightedBatchData.resize(s_lightBaker->hemicubeDownsampleSize.x * s_lightBaker->hemicubeDownsampleSize.y * 4);
+	#endif
+		s_lightBaker->hemicubeIntegrationData.resize(s_lightBaker->nHemicubesInBatch.x * s_lightBaker->nHemicubesInBatch.y * 4);
+		s_lightBaker->hemicubeBatchLocations.resize(s_lightBaker->nHemicubesInBatch.x * s_lightBaker->nHemicubesInBatch.y);
 	}
 
-	// normalize weights
-	float weightScale = (float)(1.0 / sum);
-	for (int i = 0; i < 2 * s_lightBaker->hemicubeSize.x * s_lightBaker->hemicubeSize.y; i++)
-		weights[i] *= weightScale;
-
-	// upload weight texture
-	Image image;
-	image.width = s_lightBaker->hemicubeSize.x;
-	image.height = s_lightBaker->hemicubeSize.y;
-	image.data = (uint8_t *)weightsMem;
-	image.flags = ImageFlags::DataIsBgfxMemory;
-	s_lightBaker->hemicubeWeightsTexture = Texture::create("*hemicube_weights", image, 0, bgfx::TextureFormat::RG32F);
-
-	// Misc. state.
-#ifdef DEBUG_HEMICUBE_RENDERING
-	s_lightBaker->hemicubeBatchData.resize(s_lightBaker->hemicubeBatchSize.x * s_lightBaker->hemicubeBatchSize.y * 4);
-	s_lightBaker->hemicubeWeightedBatchData.resize(s_lightBaker->hemicubeDownsampleSize.x * s_lightBaker->hemicubeDownsampleSize.y * 4);
-#endif
-	s_lightBaker->hemicubeIntegrationData.resize(s_lightBaker->nHemicubesInBatch.x * s_lightBaker->nHemicubesInBatch.y * 4);
-	s_lightBaker->hemicubeBatchLocations.resize(s_lightBaker->nHemicubesInBatch.x * s_lightBaker->nHemicubesInBatch.y);
 	s_lightBaker->nLuxelsProcessed = 0;
+	s_lightBaker->indirectLightProgress = 0;
+	s_lightBaker->nHemicubesToRenderPerFrame = 8;
+	s_lightBaker->nHemicubesRenderedInBatch = 0;
+	s_lightBaker->nHemicubeBatchesProcessed = 0;
+	s_lightBaker->finishedHemicubeBatch = false;
+	s_lightBaker->finishedBakingIndirect = false;
+	s_lightBaker->currentLightmapIndex = 0;
+	s_lightBaker->currentLuxelIndex = 0;
 }
 
 static uint32_t AsyncReadTexture(bgfx::FrameBufferHandle source, bgfx::TextureHandle dest, void *destData, uint16_t width, uint16_t height)
@@ -1648,7 +1662,7 @@ static bool BakeIndirectLight(uint32_t frameNo)
 				const int offset = x + y * s_lightBaker->nHemicubesInBatch.x;
 				auto rgba = (const vec4 *)&s_lightBaker->hemicubeIntegrationData[offset * 4];
 				HemicubeLocation &hemicube = s_lightBaker->hemicubeBatchLocations[offset];
-				hemicube.lightmap->color[hemicube.luxel->offset] += *rgba * 255.0f * s_lightBaker->indirectLightScale;
+				hemicube.lightmap->color[hemicube.luxel->offset] += *rgba * 255.0f * s_lightBaker->indirectLightScale / float(s_lightBaker->currentIndirectPass + 1);
 			}
 		}
 
@@ -1991,21 +2005,24 @@ static int Thread(void *data)
 		return 1;
 
 	// Ready for indirect lighting, which happens in the main thread. Wait until it finishes.
-	SetStatus(LightBaker::Status::BakingIndirectLight_Started);
-
-	for (;;)
+	for (int i = 0; i < s_lightBaker->nIndirectPasses; i++)
 	{
-		// Check for cancelling.
-		if (GetStatus() == LightBaker::Status::Cancelled)
+		SetStatus(LightBaker::Status::BakingIndirectLight_Started);
+
+		for (;;)
+		{
+			// Check for cancelling.
+			if (GetStatus() == LightBaker::Status::Cancelled)
+				return 1;
+			else if (GetStatus() == LightBaker::Status::BakingIndirectLight_Finished)
+				break;
+
+			SDL_Delay(50);
+		}
+
+		if (!ThreadUpdateLightmaps())
 			return 1;
-		else if (GetStatus() == LightBaker::Status::BakingIndirectLight_Finished)
-			break;
-
-		SDL_Delay(50);
 	}
-
-	if (!ThreadUpdateLightmaps())
-		return 1;
 
 	SetStatus(LightBaker::Status::Finished);
 	return 0;
@@ -2105,8 +2122,13 @@ void Update(uint32_t frameNo)
 	else if (status == LightBaker::Status::BakingIndirectLight_Started)
 	{
 		InitializeHemicubeRendering();
+
+		if (s_lightBaker->currentIndirectPass == 0)
+		{
+			s_lightBaker->indirectBakeStartTime = bx::getHPCounter();
+		}
+
 		SetStatus(LightBaker::Status::BakingIndirectLight_Running);
-		s_lightBaker->indirectBakeStartTime = bx::getHPCounter();
 		s_lightBaker->lastFrameTime = bx::getHPCounter();
 	}
 	else if (status == LightBaker::Status::BakingIndirectLight_Running)
@@ -2115,7 +2137,12 @@ void Update(uint32_t frameNo)
 
 		if (!BakeIndirectLight(frameNo))
 		{
-			s_lightBaker->indirectBakeTime = bx::getHPCounter() - s_lightBaker->indirectBakeStartTime;
+			if (s_lightBaker->currentIndirectPass == s_lightBaker->nIndirectPasses - 1)
+			{
+				s_lightBaker->indirectBakeTime = bx::getHPCounter() - s_lightBaker->indirectBakeStartTime;
+			}
+
+			s_lightBaker->currentIndirectPass++;
 			SetStatus(LightBaker::Status::BakingIndirectLight_Finished);
 		}
 	}
