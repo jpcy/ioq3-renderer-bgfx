@@ -25,5 +25,5 @@ void main()
 	vec4 rb = texelFetch(u_HemicubeAtlas, h_uv + ivec2(1, 0), 0);
 	vec4 lt = texelFetch(u_HemicubeAtlas, h_uv + ivec2(0, 1), 0);
 	vec4 rt = texelFetch(u_HemicubeAtlas, h_uv + ivec2(1, 1), 0);
-	gl_FragColor = lb + rb + lt + rt;
+	gl_FragColor = (lb + rb + lt + rt) / 4.0;
 }

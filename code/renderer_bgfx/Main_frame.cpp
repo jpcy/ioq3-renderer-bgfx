@@ -50,7 +50,22 @@ struct RenderCameraFlags
 	};
 };
 
-static uint8_t PushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags = 0)
+struct RenderCameraArgs
+{
+	VisibilityId visId = VisibilityId::None;
+	vec3 pvsPosition;
+	vec3 position;
+	mat3 rotation;
+	Rect rect;
+	vec2 fov;
+	const uint8_t *areaMask = nullptr;
+	Plane clippingPlane;
+	int flags = 0;
+	const mat4 *customProjectionMatrix = nullptr;
+	const FrameBuffer *customFrameBuffer = nullptr;
+};
+
+uint8_t PushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags)
 {
 #if 0
 	if (s_main->firstFreeViewId == 0)
@@ -204,7 +219,7 @@ void DrawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_
 }
 
 // From bgfx screenSpaceQuad.
-static void RenderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, uint16_t clearFlags = BGFX_CLEAR_NONE, bool originBottomLeft = false, Rect rect = Rect())
+void RenderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, uint16_t clearFlags, bool originBottomLeft, Rect rect)
 {
 	if (!bgfx::checkAvailTransientVertexBuffer(3, Vertex::decl))
 	{
@@ -773,20 +788,6 @@ static vec2 CalculateDepthRange(VisibilityId visId, vec3 position)
 	return vec2(zMin, zMax);
 }
 
-struct RenderCameraArgs
-{
-	VisibilityId visId = VisibilityId::None;
-	vec3 pvsPosition;
-	vec3 position;
-	mat3 rotation;
-	Rect rect;
-	vec2 fov;
-	const uint8_t *areaMask = nullptr;
-	Plane clippingPlane;
-	int flags = 0;
-	const mat4 *customProjectionMatrix = nullptr;
-};
-
 static void RenderCamera(const RenderCameraArgs &args)
 {
 	const float polygonDepthOffset = -0.001f;
@@ -1013,7 +1014,8 @@ static void RenderCamera(const RenderCameraArgs &args)
 	
 	if (isProbe)
 	{
-		mainViewId = PushView(s_main->hemicubeFb[0], BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
+		assert(bgfx::isValid(args.customFrameBuffer->handle));
+		mainViewId = PushView(*args.customFrameBuffer, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
 	}
 	else if (s_main->isWorldCamera)
 	{
@@ -1506,7 +1508,7 @@ void RenderScene(const SceneDefinition &scene)
 * you are granted a perpetual, irrevocable license to copy *
 * and modify this file however you want.                   *
 ***********************************************************/
-void RenderHemicube(vec3 position, const vec3 forward, const vec3 up, vec2i rectOffset, int faceSize)
+void RenderHemicube(const FrameBuffer &frameBuffer, vec3 position, const vec3 forward, const vec3 up, vec2i rectOffset, int faceSize)
 {
 	// +-------+---+---+-------+
 	// |       |   |   |   D   |
@@ -1553,6 +1555,7 @@ void RenderHemicube(vec3 position, const vec3 forward, const vec3 up, vec2i rect
 		s_main->sceneRotation = rotations[i];
 
 		RenderCameraArgs args;
+		args.customFrameBuffer = &frameBuffer;
 		args.customProjectionMatrix = &projectionMatrices[i];
 		args.position = position;
 		args.pvsPosition = position;
@@ -1561,38 +1564,6 @@ void RenderHemicube(vec3 position, const vec3 forward, const vec3 up, vec2i rect
 		args.visId = VisibilityId::Probe;
 		RenderCamera(args);
 	}
-}
-
-uint32_t IntegrateHemicubeBatch(void *data)
-{
-	int fbRead = 0;
-	int fbWrite = 1;
-
-	// Weighted downsampling pass.
-	const vec2i hemicubeTextureSize(s_main->hemicubeAtlasBatches.x * s_main->hemicubeFaceSize * 3, s_main->hemicubeAtlasBatches.y * s_main->hemicubeFaceSize);
-	bgfx::setTexture(0, s_main->uniforms->hemicubeAtlasSampler.handle, s_main->hemicubeFb[fbRead].handle, 0);
-	bgfx::setTexture(1, s_main->uniforms->hemicubeWeightsSampler.handle, s_main->hemicubeWeightsTexture->getHandle());
-	RenderScreenSpaceQuad(s_main->hemicubeFb[fbWrite], ShaderProgramId::HemicubeWeightedDownsample, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE, BGFX_CLEAR_COLOR, s_main->isTextureOriginBottomLeft, Rect(0, 0, hemicubeTextureSize.x, hemicubeTextureSize.y));
-
-	// Downsampling passes.
-	int outHemiSize = s_main->hemicubeFaceSize / 2;
-
-	while (outHemiSize > 1)
-	{
-		const int oldFbRead = fbRead;
-		fbRead = fbWrite;
-		fbWrite = oldFbRead;
-
-		outHemiSize /= 2;
-		bgfx::setTexture(0, s_main->uniforms->hemicubeAtlasSampler.handle, s_main->hemicubeFb[fbRead].handle, 0);
-		RenderScreenSpaceQuad(s_main->hemicubeFb[fbWrite], ShaderProgramId::HemicubeDownsample, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE, BGFX_CLEAR_COLOR, s_main->isTextureOriginBottomLeft, Rect(0, 0, outHemiSize * s_main->hemicubeAtlasBatches.x, outHemiSize * s_main->hemicubeAtlasBatches.y));
-	}
-
-	// Start async texture read.
-	const uint8_t viewId = PushView(s_main->defaultFb, BGFX_CLEAR_NONE, mat4::empty, mat4::empty, Rect());
-	bgfx::blit(viewId, s_main->hemicubeReadTexture, 0, 0, s_main->hemicubeFb[fbRead].handle, 0, 0, 0, s_main->hemicubeAtlasBatches.x, s_main->hemicubeAtlasBatches.y);
-	bgfx::touch(viewId);
-	return bgfx::readTexture(s_main->hemicubeReadTexture, data);
 }
 
 void EndFrame()
