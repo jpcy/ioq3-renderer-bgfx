@@ -1178,6 +1178,10 @@ static void CreateAreaLights()
 			if (surface.material->surfaceLight <= 0)
 				continue;
 
+			// Handle sky in the indirect pass(es).
+			if (surface.material->isSky || (surface.flags & SURF_SKY))
+				continue;
+
 			const AreaLightTexture *texture = FindAreaLightTexture(surface.material);
 
 			if (!texture)
