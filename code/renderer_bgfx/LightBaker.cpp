@@ -1877,8 +1877,17 @@ static int Thread(void *data)
 					luxel.normal = -vec3(&ctx.sample.direction.x);
 					luxel.up = vec3(&ctx.sample.up.x);
 					luxel.offset = ctx.rasterizer.x + ctx.rasterizer.y * world::GetLightmapSize().x;
-					lightmap.luxels.push_back(luxel);
-					s_lightBaker->totalLuxels++;
+
+					// Avoid adding luxels that occupy the same offset (different triangles rasterizing the same pixels).
+					// Can use Lightmap::colorBytes, it will be overwritten later anyway.
+					uint8_t &luxelExists = lightmap.colorBytes[luxel.offset * 4];
+
+					if (luxelExists == 0)
+					{
+						luxelExists = 1;
+						lightmap.luxels.push_back(luxel);
+						s_lightBaker->totalLuxels++;
+					}
 				}
 			}
 		}
