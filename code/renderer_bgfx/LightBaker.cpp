@@ -197,6 +197,7 @@ struct LightBaker
 	const vec2i hemicubeBatchSize = hemicubeSize * nHemicubesInBatch;
 	const vec2i hemicubeDownsampleSize = vec2i(nHemicubesInBatch.x * hemicubeFaceSize / 2, nHemicubesInBatch.y * hemicubeFaceSize / 2);
 	const Texture *hemicubeWeightsTexture;
+	int nHemicubesToRenderPerFrame = 8;
 	int nHemicubesRenderedInBatch = 0;
 	int nHemicubeBatchesProcessed = 0;
 	bool finishedHemicubeBatch = false;
@@ -210,6 +211,14 @@ struct LightBaker
 	std::vector<float> hemicubeIntegrationData;
 	std::vector<HemicubeLocation> hemicubeBatchLocations;
 	int indirectLightProgress = 0;
+	const float indirectLightScale = 0.25f;
+
+	// Indirect light frame ms measuring. Determines how many hemicubes to render per frame. Don't want to freeze, maintain a low frame rate instead.
+	int64_t lastFrameTime;
+	std::array<int, 50> frameMsHistory; // frame ms for the last n frames
+	int frameMsHistoryIndex = 0; // incremented every frame, wrapping back to 0
+	bool frameMsHistoryFilled = false; // true when frameMsHistoryIndex has wrapped
+	const int maxFrameMs = 40; // 25Hz
 
 	// mutex protected state
 	Status status;
@@ -1533,9 +1542,43 @@ static uint32_t IntegrateHemicubeBatch(void *integrationData)
 
 static bool BakeIndirectLight(uint32_t frameNo)
 {
+	// Update frame timing and add to history.
+	const int frameMs = int((bx::getHPCounter() - s_lightBaker->lastFrameTime) * (1000.0f / (float)bx::getHPFrequency()));
+	s_lightBaker->lastFrameTime = bx::getHPCounter();
+	s_lightBaker->frameMsHistory[s_lightBaker->frameMsHistoryIndex++] = frameMs;
+
+	if (s_lightBaker->frameMsHistoryIndex > (int)s_lightBaker->frameMsHistory.size())
+	{
+		s_lightBaker->frameMsHistoryIndex = 0;
+		s_lightBaker->frameMsHistoryFilled = true;
+	}
+
+	// Calculate running average frame ms.
+	float averageFrameMs = 0;
+	const int nFrameMsSamples = s_lightBaker->frameMsHistoryFilled ? (int)s_lightBaker->frameMsHistory.size() : s_lightBaker->frameMsHistoryIndex;
+
+	for (int i = 0; i < nFrameMsSamples; i++)
+	{
+		averageFrameMs += s_lightBaker->frameMsHistory[i];
+	}
+
+	averageFrameMs /= (float)nFrameMsSamples;
+
+	// Adjust the number of hemicubes to render per frame based on the average frame ms.
+	if (averageFrameMs < s_lightBaker->maxFrameMs)
+	{
+		s_lightBaker->nHemicubesToRenderPerFrame++;
+	}
+	else
+	{
+		s_lightBaker->nHemicubesToRenderPerFrame--;
+	}
+
+	s_lightBaker->nHemicubesToRenderPerFrame = math::Clamped(s_lightBaker->nHemicubesToRenderPerFrame, 1, 32);
+
 	if (!s_lightBaker->finishedHemicubeBatch)
 	{
-		for (int i = 0; i < 8; i++)
+		for (int i = 0; i < s_lightBaker->nHemicubesToRenderPerFrame; i++)
 		{
 			Lightmap &lightmap = s_lightBaker->lightmaps[s_lightBaker->currentLightmapIndex];
 			Luxel &luxel = lightmap.luxels[s_lightBaker->currentLuxelIndex];
@@ -1564,7 +1607,6 @@ static bool BakeIndirectLight(uint32_t frameNo)
 			if (s_lightBaker->nHemicubesRenderedInBatch >= s_lightBaker->nHemicubesInBatch.x * s_lightBaker->nHemicubesInBatch.y)
 			{
 				s_lightBaker->finishedHemicubeBatch = true;
-				s_lightBaker->nHemicubesRenderedInBatch = 0;
 			}
 
 			if (s_lightBaker->currentLuxelIndex >= (int)lightmap.luxels.size())
@@ -1606,7 +1648,7 @@ static bool BakeIndirectLight(uint32_t frameNo)
 				const int offset = x + y * s_lightBaker->nHemicubesInBatch.x;
 				auto rgba = (const vec4 *)&s_lightBaker->hemicubeIntegrationData[offset * 4];
 				HemicubeLocation &hemicube = s_lightBaker->hemicubeBatchLocations[offset];
-				hemicube.lightmap->color[hemicube.luxel->offset] += *rgba * 255.0f;
+				hemicube.lightmap->color[hemicube.luxel->offset] += *rgba * 255.0f * s_lightBaker->indirectLightScale;
 			}
 		}
 
@@ -1638,6 +1680,7 @@ static bool BakeIndirectLight(uint32_t frameNo)
 
 		// Reset state to start the next batch.
 		s_lightBaker->finishedHemicubeBatch = false;
+		s_lightBaker->nHemicubesRenderedInBatch = 0;
 	}
 
 	// Update progress.
@@ -2055,6 +2098,7 @@ void Update(uint32_t frameNo)
 		InitializeHemicubeRendering();
 		SetStatus(LightBaker::Status::BakingIndirectLight_Running);
 		s_lightBaker->indirectBakeStartTime = bx::getHPCounter();
+		s_lightBaker->lastFrameTime = bx::getHPCounter();
 	}
 	else if (status == LightBaker::Status::BakingIndirectLight_Running)
 	{
