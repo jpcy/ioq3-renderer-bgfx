@@ -1604,9 +1604,12 @@ static bool BakeIndirectLight(uint32_t frameNo)
 
 #if 1
 			vec3 up(0, 0, 1);
+			const float dot = vec3::dotProduct(luxel.normal, up);
 
-			if (fabs(vec3::dotProduct(luxel.normal, up) > 0.8f))
+			if (dot > 0.8f)
 				up = vec3(1, 0, 0);
+			else if (dot < -0.8f)
+				up = vec3(-1, 0, 0);
 #else
 			vec3 up(luxel.up);
 #endif
