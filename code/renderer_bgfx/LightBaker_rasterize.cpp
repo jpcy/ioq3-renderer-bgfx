@@ -19,6 +19,18 @@ along with Quake III Arena source code; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
 */
+/***********************************************************
+* A single header file OpenGL lightmapping library         *
+* https://github.com/ands/lightmapper                      *
+* no warranty implied | use at your own risk               *
+* author: Andreas Mantler (ands) | last change: 12.06.2016 *
+*                                                          *
+* License:                                                 *
+* This software is in the public domain.                   *
+* Where that dedication is not recognized,                 *
+* you are granted a perpetual, irrevocable license to copy *
+* and modify this file however you want.                   *
+***********************************************************/
 #include "Precompiled.h"
 #pragma hdrstop
 #include "LightBaker.h"

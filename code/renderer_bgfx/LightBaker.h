@@ -30,6 +30,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "../embree2/rtcore.h"
 #include "../embree2/rtcore_ray.h"
 
+#undef Status // unknown source. affects linux build.
+
 //#define DEBUG_HEMICUBE_RENDERING
 
 namespace renderer {
@@ -99,6 +101,12 @@ struct HemicubeLocation
 
 struct LightBaker
 {
+	~LightBaker()
+	{
+		if (mutex)
+			SDL_DestroyMutex(mutex);
+	}
+
 	enum class Status
 	{
 		NotStarted,
@@ -142,6 +150,7 @@ struct LightBaker
 	char errorMessage[maxErrorMessageLen];
 
 	// embree
+	void *embreeLibrary = nullptr;
 	RTCDevice embreeDevice = nullptr;
 	RTCScene embreeScene = nullptr;
 	std::vector<uint8_t> faceFlags;
@@ -186,12 +195,6 @@ struct LightBaker
 	const float formFactorValueScale = 3.0f;
 	const float pointScale = 7500.0f;
 	const float linearScale = 1.0f / 8000.0f;
-
-	~LightBaker()
-	{
-		if (mutex)
-			SDL_DestroyMutex(mutex);
-	}
 };
 
 struct LightBakerPersistent
@@ -213,8 +216,21 @@ struct LightBakerPersistent
 
 extern std::unique_ptr<LightBaker> s_lightBaker;
 extern std::unique_ptr<LightBakerPersistent> s_lightBakerPersistent;
+extern std::vector<AreaLight> s_areaLights;
+
+bool InitializeEmbree();
+void ShutdownEmbree();
+void LoadAreaLightTextures();
+bool InitializeDirectLight();
+bool BakeDirectLight();
+
+void InitializeIndirectLight();
+bool BakeIndirectLight(uint32_t frameNo);
 
 void RasterizeLightmappedSurfaces();
+
+LightBaker::Status GetStatus(int *progress = nullptr);
+void SetStatus(LightBaker::Status status, int progress = 0);
 
 } // namespace light_baker
 } // namespace renderer
