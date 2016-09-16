@@ -26,7 +26,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #ifdef __GNUC__
 #ifndef __forceinline
-#define __forceinline
+#define __forceinline inline
 #endif
 #endif
 #include "../embree2/rtcore.h"
