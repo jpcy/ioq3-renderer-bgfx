@@ -885,71 +885,72 @@ bool BakeDirectLight()
 {
 	int progress = 0;
 	int64_t startTime = bx::getHPCounter();
-	s_lightBaker->nLuxelsProcessed = 0;
 	const SunLight &sunLight = main::GetSunLight();
 	const float maxRayLength = world::GetBounds().toRadius() * 2; // World bounding sphere circumference.
+	InitializeRasterization();
 
-	for (Lightmap &lightmap : s_lightBaker->lightmaps)
+	for (;;)
 	{
-		for (Luxel &luxel : lightmap.luxels)
+		Luxel luxel = RasterizeLuxel();
+
+		if (luxel.sentinel)
+			break;
+
+		Lightmap &lightmap = s_lightBaker->lightmaps[luxel.lightmapIndex];
+		vec4 &luxelColor = lightmap.color[luxel.offset];
+		luxelColor = s_lightBaker->ambientLight;
+		luxelColor += BakeAreaLights(luxel.position, luxel.normal);
+		luxelColor += BakeEntityLights(luxel.position, luxel.normal);
+
+#if 1
+		// Sunlight.
+		float totalAttenuation = 0;
+
+		for (int si = 0; si < s_lightBaker->nSamples; si++)
 		{
-			vec4 &luxelColor = lightmap.color[luxel.offset];
-			luxelColor = s_lightBaker->ambientLight;
-			luxelColor += BakeAreaLights(luxel.position, luxel.normal);
-			luxelColor += BakeEntityLights(luxel.position, luxel.normal);
+			const vec3 dir(sunLight.direction + s_lightBaker->dirJitter[si]); // Jitter light direction.
+			const float attenuation = vec3::dotProduct(luxel.normal, dir) * (1.0f / s_lightBaker->nSamples);
 
-	#if 1
-			// Sunlight.
-			float totalAttenuation = 0;
+			if (attenuation < 0)
+				continue;
 
-			for (int si = 0; si < s_lightBaker->nSamples; si++)
+			RTCRay ray;
+			const vec3 org(luxel.position + luxel.normal * 0.1f); // push out from the surface a little
+			ray.org[0] = org.x;
+			ray.org[1] = org.y;
+			ray.org[2] = org.z;
+			ray.tnear = 0;
+			ray.tfar = maxRayLength;
+			ray.dir[0] = dir.x;
+			ray.dir[1] = dir.y;
+			ray.dir[2] = dir.z;
+			ray.geomID = RTC_INVALID_GEOMETRY_ID;
+			ray.primID = RTC_INVALID_GEOMETRY_ID;
+			ray.mask = -1;
+			ray.time = 0;
+			embreeIntersect(s_lightBaker->embreeScene, ray);
+
+			if (ray.geomID != RTC_INVALID_GEOMETRY_ID && (s_lightBaker->faceFlags[ray.primID] & FaceFlags::Sky))
 			{
-				const vec3 dir(sunLight.direction + s_lightBaker->dirJitter[si]); // Jitter light direction.
-				const float attenuation = vec3::dotProduct(luxel.normal, dir) * (1.0f / s_lightBaker->nSamples);
-
-				if (attenuation < 0)
-					continue;
-
-				RTCRay ray;
-				const vec3 org(luxel.position + luxel.normal * 0.1f); // push out from the surface a little
-				ray.org[0] = org.x;
-				ray.org[1] = org.y;
-				ray.org[2] = org.z;
-				ray.tnear = 0;
-				ray.tfar = maxRayLength;
-				ray.dir[0] = dir.x;
-				ray.dir[1] = dir.y;
-				ray.dir[2] = dir.z;
-				ray.geomID = RTC_INVALID_GEOMETRY_ID;
-				ray.primID = RTC_INVALID_GEOMETRY_ID;
-				ray.mask = -1;
-				ray.time = 0;
-				embreeIntersect(s_lightBaker->embreeScene, ray);
-
-				if (ray.geomID != RTC_INVALID_GEOMETRY_ID && (s_lightBaker->faceFlags[ray.primID] & FaceFlags::Sky))
-				{
-					totalAttenuation += attenuation;
-				}
+				totalAttenuation += attenuation;
 			}
+		}
 
-			if (totalAttenuation > 0)
-				luxelColor += sunLight.light * totalAttenuation * 255.0;
-	#endif
+		if (totalAttenuation > 0)
+			luxelColor += sunLight.light * totalAttenuation * 255.0;
+#endif
 
-			s_lightBaker->nLuxelsProcessed++;
+		// Update progress.
+		const int newProgress = int(GetNumRasterizedTriangles() / (float)s_lightBaker->totalLightmappedTriangles * 100.0f);
 
-			// Update progress.
-			const int newProgress = int(s_lightBaker->nLuxelsProcessed / (float)s_lightBaker->totalLuxels * 100.0f);
+		if (newProgress != progress)
+		{
+			// Check for cancelling.
+			if (GetStatus() == LightBaker::Status::Cancelled)
+				return false;
 
-			if (newProgress != progress)
-			{
-				// Check for cancelling.
-				if (GetStatus() == LightBaker::Status::Cancelled)
-					return false;
-
-				progress = newProgress;
-				SetStatus(LightBaker::Status::BakingDirectLight, progress);
-			}
+			progress = newProgress;
+			SetStatus(LightBaker::Status::BakingDirectLight, progress);
 		}
 	}
 

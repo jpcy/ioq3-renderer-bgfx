@@ -43,6 +43,11 @@ std::unique_ptr<LightBaker> s_lightBaker;
 std::unique_ptr<LightBakerPersistent> s_lightBakerPersistent;
 std::vector<AreaLight> s_areaLights;
 
+bool IsSurfaceLightmapped(const world::Surface &surface)
+{
+	return surface.type != world::SurfaceType::Ignore && surface.type != world::SurfaceType::Flare && surface.material->lightmapIndex >= 0;
+}
+
 /*
 ================================================================================
 LIGHTMAP ENCODING
@@ -169,12 +174,26 @@ static int Thread(void *data)
 
 	for (Lightmap &lightmap : s_lightBaker->lightmaps)
 	{
+		lightmap.duplicateBits.resize(lightmapSize.x * lightmapSize.y / 8);
 		lightmap.color.resize(lightmapSize.x * lightmapSize.y);
 		lightmap.colorBytes.resize(lightmapSize.x * lightmapSize.y * 4);
 	}
 
-	// Rasterize.
-	RasterizeLightmappedSurfaces();
+	// Count the total number of lightmapped triangles for measuring progress.
+	s_lightBaker->totalLightmappedTriangles = 0;
+
+	for (int mi = 0; mi < world::GetNumModels(); mi++)
+	{
+		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
+		{
+			const world::Surface &surface = world::GetSurface(mi, si);
+
+			if (IsSurfaceLightmapped(surface))
+			{
+				s_lightBaker->totalLightmappedTriangles += int(surface.indices.size() / 3);
+			}
+		}
+	}
 
 	// Bake direct lighting.
 	if (!InitializeDirectLight())

@@ -37,6 +37,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 //#define DEBUG_HEMICUBE_RENDERING
 
 namespace renderer {
+
+namespace world {
+struct Surface;
+}
+
 namespace light_baker {
 
 struct AreaLightTexture
@@ -82,6 +87,8 @@ struct FaceFlags
 
 struct Luxel
 {
+	bool sentinel; // True if finished rasterization.
+	int lightmapIndex;
 	vec3 position;
 	vec3 normal;
 	vec3 up;
@@ -90,7 +97,9 @@ struct Luxel
 
 struct Lightmap
 {
-	std::vector<Luxel> luxels; // sparse
+	/// @brief Avoid rasterizing the same luxel with different primitives.
+	std::vector<uint8_t> duplicateBits;
+
 	std::vector<vec4> color; // width * height
 	std::vector<uint8_t> colorBytes; // width * height * 4
 };
@@ -98,7 +107,7 @@ struct Lightmap
 struct HemicubeLocation
 {
 	Lightmap *lightmap;
-	Luxel *luxel;
+	int luxelOffset;
 };
 
 struct LightBaker
@@ -145,8 +154,8 @@ struct LightBaker
 	int64_t startTime, rasterizationTime, directBakeTime, indirectBakeStartTime, indirectBakeTime;
 
 	uint32_t textureUpdateFrameNo = 0; // lightmap textures were updated this frame
-	int nLuxelsProcessed; // used by direct and indirect passes to measure progress
 	int totalLuxels; // calculated when rasterizing
+	int totalLightmappedTriangles; // used to measure progress
 	std::vector<Lightmap> lightmaps;
 	static const size_t maxErrorMessageLen = 2048;
 	char errorMessage[maxErrorMessageLen];
@@ -169,7 +178,6 @@ struct LightBaker
 	int nHemicubeBatchesProcessed;
 	bool finishedHemicubeBatch;
 	bool finishedBakingIndirect;
-	int currentLightmapIndex, currentLuxelIndex;
 	uint32_t hemicubeDataAvailableFrame;
 #ifdef DEBUG_HEMICUBE_RENDERING
 	std::vector<float> hemicubeBatchData;
@@ -229,8 +237,11 @@ bool BakeDirectLight();
 void InitializeIndirectLight();
 bool BakeIndirectLight(uint32_t frameNo);
 
-void RasterizeLightmappedSurfaces();
+void InitializeRasterization();
+Luxel RasterizeLuxel();
+int GetNumRasterizedTriangles();
 
+bool IsSurfaceLightmapped(const world::Surface &surface);
 LightBaker::Status GetStatus(int *progress = nullptr);
 void SetStatus(LightBaker::Status status, int progress = 0);
 

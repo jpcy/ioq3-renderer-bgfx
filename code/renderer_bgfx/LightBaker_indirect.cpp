@@ -134,15 +134,13 @@ void InitializeIndirectLight()
 		s_lightBaker->hemicubeBatchLocations.resize(s_lightBaker->nHemicubesInBatch.x * s_lightBaker->nHemicubesInBatch.y);
 	}
 
-	s_lightBaker->nLuxelsProcessed = 0;
 	s_lightBaker->indirectLightProgress = 0;
 	s_lightBaker->nHemicubesToRenderPerFrame = 8;
 	s_lightBaker->nHemicubesRenderedInBatch = 0;
 	s_lightBaker->nHemicubeBatchesProcessed = 0;
 	s_lightBaker->finishedHemicubeBatch = false;
 	s_lightBaker->finishedBakingIndirect = false;
-	s_lightBaker->currentLightmapIndex = 0;
-	s_lightBaker->currentLuxelIndex = 0;
+	InitializeRasterization();
 }
 
 static uint32_t AsyncReadTexture(bgfx::FrameBufferHandle source, bgfx::TextureHandle dest, void *destData, uint16_t width, uint16_t height)
@@ -236,49 +234,44 @@ bool BakeIndirectLight(uint32_t frameNo)
 	{
 		for (int i = 0; i < s_lightBaker->nHemicubesToRenderPerFrame; i++)
 		{
-			Lightmap &lightmap = s_lightBaker->lightmaps[s_lightBaker->currentLightmapIndex];
-			Luxel &luxel = lightmap.luxels[s_lightBaker->currentLuxelIndex];
-			const vec2i rectOffset
-			(
-				(s_lightBaker->nHemicubesRenderedInBatch % s_lightBaker->nHemicubesInBatch.x) * s_lightBaker->hemicubeSize.x,
-				s_lightBaker->nHemicubesRenderedInBatch / s_lightBaker->nHemicubesInBatch.x * s_lightBaker->hemicubeSize.y
-			);
+			Luxel luxel = RasterizeLuxel();
+
+			if (luxel.sentinel)
+			{
+				// Processed all lightmaps.
+				s_lightBaker->finishedHemicubeBatch = true;
+				s_lightBaker->finishedBakingIndirect = true;
+			}
+			else
+			{
+				Lightmap &lightmap = s_lightBaker->lightmaps[luxel.lightmapIndex];
+
+				const vec2i rectOffset
+				(
+					(s_lightBaker->nHemicubesRenderedInBatch % s_lightBaker->nHemicubesInBatch.x) * s_lightBaker->hemicubeSize.x,
+					s_lightBaker->nHemicubesRenderedInBatch / s_lightBaker->nHemicubesInBatch.x * s_lightBaker->hemicubeSize.y
+				);
 
 #if 1
-			vec3 up(0, 0, 1);
-			const float dot = vec3::dotProduct(luxel.normal, up);
+				vec3 up(0, 0, 1);
+				const float dot = vec3::dotProduct(luxel.normal, up);
 
-			if (dot > 0.8f)
-				up = vec3(1, 0, 0);
-			else if (dot < -0.8f)
-				up = vec3(-1, 0, 0);
+				if (dot > 0.8f)
+					up = vec3(1, 0, 0);
+				else if (dot < -0.8f)
+					up = vec3(-1, 0, 0);
 #else
-			vec3 up(luxel.up);
+				vec3 up(luxel.up);
 #endif
 
-			main::RenderHemicube(s_lightBakerPersistent->hemicubeFb[0], luxel.position + luxel.normal * 1.0f, luxel.normal, up, rectOffset, s_lightBaker->hemicubeFaceSize);
-			s_lightBaker->hemicubeBatchLocations[s_lightBaker->nHemicubesRenderedInBatch].lightmap = &lightmap;
-			s_lightBaker->hemicubeBatchLocations[s_lightBaker->nHemicubesRenderedInBatch].luxel = &luxel;
-			s_lightBaker->nLuxelsProcessed++;
-			s_lightBaker->nHemicubesRenderedInBatch++;
-			s_lightBaker->currentLuxelIndex++;
+				main::RenderHemicube(s_lightBakerPersistent->hemicubeFb[0], luxel.position + luxel.normal * 1.0f, luxel.normal, up, rectOffset, s_lightBaker->hemicubeFaceSize);
+				s_lightBaker->hemicubeBatchLocations[s_lightBaker->nHemicubesRenderedInBatch].lightmap = &lightmap;
+				s_lightBaker->hemicubeBatchLocations[s_lightBaker->nHemicubesRenderedInBatch].luxelOffset = luxel.offset;
+				s_lightBaker->nHemicubesRenderedInBatch++;
 
-			if (s_lightBaker->nHemicubesRenderedInBatch >= s_lightBaker->nHemicubesInBatch.x * s_lightBaker->nHemicubesInBatch.y)
-			{
-				s_lightBaker->finishedHemicubeBatch = true;
-			}
-
-			if (s_lightBaker->currentLuxelIndex >= (int)lightmap.luxels.size())
-			{
-				// Processed all luxels in this lightmap, advance to the next one.
-				s_lightBaker->currentLightmapIndex++;
-				s_lightBaker->currentLuxelIndex = 0;
-
-				if (s_lightBaker->currentLightmapIndex >= (int)s_lightBaker->lightmaps.size())
+				if (s_lightBaker->nHemicubesRenderedInBatch >= s_lightBaker->nHemicubesInBatch.x * s_lightBaker->nHemicubesInBatch.y)
 				{
-					// Processed all lightmaps.
 					s_lightBaker->finishedHemicubeBatch = true;
-					s_lightBaker->finishedBakingIndirect = true;
 				}
 			}
 
@@ -307,7 +300,7 @@ bool BakeIndirectLight(uint32_t frameNo)
 				const int offset = x + y * s_lightBaker->nHemicubesInBatch.x;
 				auto rgba = (const vec4 *)&s_lightBaker->hemicubeIntegrationData[offset * 4];
 				HemicubeLocation &hemicube = s_lightBaker->hemicubeBatchLocations[offset];
-				hemicube.lightmap->color[hemicube.luxel->offset] += *rgba * 255.0f * s_lightBaker->indirectLightScale / float(s_lightBaker->currentIndirectPass + 1);
+				hemicube.lightmap->color[hemicube.luxelOffset] += *rgba * 255.0f * s_lightBaker->indirectLightScale / float(s_lightBaker->currentIndirectPass + 1);
 			}
 		}
 
@@ -343,7 +336,7 @@ bool BakeIndirectLight(uint32_t frameNo)
 	}
 
 	// Update progress.
-	const int progress = int(s_lightBaker->nLuxelsProcessed / (float)s_lightBaker->totalLuxels * 100.0f);
+	const int progress = int(GetNumRasterizedTriangles() / (float)s_lightBaker->totalLightmappedTriangles * 100.0f);
 
 	if (progress != s_lightBaker->indirectLightProgress)
 	{

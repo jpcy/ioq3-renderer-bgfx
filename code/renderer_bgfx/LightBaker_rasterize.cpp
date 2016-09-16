@@ -310,97 +310,162 @@ static lm_bool lm_findNextConservativeTriangleRasterizerPosition(lm_context *ctx
 	return lm_findFirstConservativeTriangleRasterizerPosition(ctx);
 }
 
-void RasterizeLightmappedSurfaces()
+struct Rasterizer
 {
-	int64_t startTime = bx::getHPCounter();
-	s_lightBaker->totalLuxels = 0;
-	const vec2i lightmapSize = world::GetLightmapSize();
+	lm_context ctx;
+	bool startedSamplingTriangle;
+	int modelIndex;
+	int surfaceIndex;
+	size_t triangleIndex;
+	int nTrianglesRasterized;
+};
 
-	for (int mi = 0; mi < world::GetNumModels(); mi++)
+static Rasterizer s_rasterizer;
+
+// If the current triangle isn't valid, increment until we find one that is.
+// Return false if there are no more triangles left.
+static bool CurrentOrNextValidTriangle()
+{
+	// Need to keep checking if we've moved to the next surface/model etc. until a valid triangle is found.
+	for (;;)
 	{
-		for (int si = 0; si < world::GetNumSurfaces(mi); si++)
+		if (s_rasterizer.modelIndex >= world::GetNumModels())
+			return false; // No triangles left.
+
+		if (s_rasterizer.surfaceIndex >= world::GetNumSurfaces(s_rasterizer.modelIndex))
 		{
-			const world::Surface &surface = world::GetSurface(mi, si);
+			// Finished with this model's surfaces. Move to the next model.
+			s_rasterizer.surfaceIndex = 0;
+			s_rasterizer.modelIndex++;
+			continue;
+		}
+		
+		const world::Surface &surface = world::GetSurface(s_rasterizer.modelIndex, s_rasterizer.surfaceIndex);
 
-			// Ignore surfaces that aren't lightmapped.
-			if (surface.type == world::SurfaceType::Ignore || surface.type == world::SurfaceType::Flare || surface.material->lightmapIndex < 0)
-				continue;
+		if (!IsSurfaceLightmapped(surface) || s_rasterizer.triangleIndex >= surface.indices.size() / 3)
+		{
+			// Surface is invalid, or we're finished with the surface's triangles. Move to the next surface.
+			s_rasterizer.triangleIndex = 0;
+			s_rasterizer.surfaceIndex++;
+			continue;
+		}
 
-			// Iterate surface triangles.
+		// Valid triangle.
+		break;
+	}
+
+	return true;
+}
+
+void InitializeRasterization()
+{
+	s_rasterizer.startedSamplingTriangle = false;
+	s_rasterizer.modelIndex = 0;
+	s_rasterizer.surfaceIndex = 0;
+	s_rasterizer.triangleIndex = 0;
+	s_rasterizer.nTrianglesRasterized = 0;
+	s_lightBaker->totalLuxels = 0;
+
+	for (Lightmap &lightmap : s_lightBaker->lightmaps)
+	{
+		memset(lightmap.duplicateBits.data(), 0, lightmap.duplicateBits.size());
+	}
+
+	// Move to the first valid triangle.
+	CurrentOrNextValidTriangle();
+}
+
+Luxel RasterizeLuxel()
+{
+	Luxel luxel;
+	luxel.sentinel = false;
+
+	// Need to keep iterating until we have a valid luxel, or have finished rasterization.
+	for (;;)
+	{
+		if (!CurrentOrNextValidTriangle())
+		{
+			luxel.sentinel = true;
+			break;
+		}
+
+		lm_context &ctx = s_rasterizer.ctx;
+		const world::Surface &surface = world::GetSurface(s_rasterizer.modelIndex, s_rasterizer.surfaceIndex);
+		lm_bool gotSample;
+
+		if (!s_rasterizer.startedSamplingTriangle)
+		{
+			// Setup rasterizer for this triangle.
+			const vec2i lightmapSize = world::GetLightmapSize();
 			const std::vector<Vertex> &vertices = world::GetVertexBuffer(surface.bufferIndex);
+			ctx.rasterizer.x = ctx.rasterizer.y = 0;
+			lm_vec2 uvMin = lm_v2(FLT_MAX, FLT_MAX), uvMax = lm_v2(-FLT_MAX, -FLT_MAX);
 
-			for (size_t ti = 0; ti < surface.indices.size() / 3; ti++)
+			for (int i = 0; i < 3; i++)
 			{
-				// Setup rasterizer.
-				lm_context ctx;
-				lm_vec2 uvMin = lm_v2(FLT_MAX, FLT_MAX), uvMax = lm_v2(-FLT_MAX, -FLT_MAX);
+				const Vertex &v = vertices[surface.indices[s_rasterizer.triangleIndex * 3 + i]];
+				ctx.triangle.p[i].x = v.pos.x;
+				ctx.triangle.p[i].y = v.pos.y;
+				ctx.triangle.p[i].z = v.pos.z;
+				ctx.triangle.uv[i].x = v.texCoord2.x * lightmapSize.x;
+				ctx.triangle.uv[i].y = v.texCoord2.y * lightmapSize.y;
 
-				for (int i = 0; i < 3; i++)
-				{
-					const Vertex &v = vertices[surface.indices[ti * 3 + i]];
-					ctx.triangle.p[i].x = v.pos.x;
-					ctx.triangle.p[i].y = v.pos.y;
-					ctx.triangle.p[i].z = v.pos.z;
-					ctx.triangle.uv[i].x = v.texCoord2.x * lightmapSize.x;
-					ctx.triangle.uv[i].y = v.texCoord2.y * lightmapSize.y;
-
-					// update bounds on lightmap
-					uvMin = lm_min2(uvMin, ctx.triangle.uv[i]);
-					uvMax = lm_max2(uvMax, ctx.triangle.uv[i]);
-				}
-
-				// Calculate area of interest (on lightmap) for conservative rasterization.
-				lm_vec2 bbMin = lm_floor2(uvMin);
-				lm_vec2 bbMax = lm_ceil2(uvMax);
-				ctx.rasterizer.minx = ctx.rasterizer.x = lm_maxi((int)bbMin.x - 1, 0);
-				ctx.rasterizer.miny = ctx.rasterizer.y = lm_maxi((int)bbMin.y - 1, 0);
-				ctx.rasterizer.maxx = lm_mini((int)bbMax.x + 1, lightmapSize.x);
-				ctx.rasterizer.maxy = lm_mini((int)bbMax.y + 1, lightmapSize.y);
-				assert(ctx.rasterizer.minx < ctx.rasterizer.maxx && ctx.rasterizer.miny < ctx.rasterizer.maxy);
-
-				// Rasterize.
-				bool startedSampling = false;
-
-				for (;;)
-				{
-					lm_bool gotSample;
-
-					if (!startedSampling)
-					{
-						gotSample = lm_findFirstConservativeTriangleRasterizerPosition(&ctx);
-						startedSampling = true;
-					}
-					else
-					{
-						gotSample = lm_findNextConservativeTriangleRasterizerPosition(&ctx);
-					}
-
-					if (!gotSample)
-						break;
-
-					Lightmap &lightmap = s_lightBaker->lightmaps[surface.material->lightmapIndex];
-					Luxel luxel;
-					luxel.position = vec3(&ctx.sample.position.x);
-					luxel.normal = -vec3(&ctx.sample.direction.x);
-					luxel.up = vec3(&ctx.sample.up.x);
-					luxel.offset = ctx.rasterizer.x + ctx.rasterizer.y * world::GetLightmapSize().x;
-
-					// Avoid adding luxels that occupy the same offset (different triangles rasterizing the same pixels).
-					// Can use Lightmap::colorBytes, it will be overwritten later anyway.
-					uint8_t &luxelExists = lightmap.colorBytes[luxel.offset * 4];
-
-					if (luxelExists == 0)
-					{
-						luxelExists = 1;
-						lightmap.luxels.push_back(luxel);
-						s_lightBaker->totalLuxels++;
-					}
-				}
+				// update bounds on lightmap
+				uvMin = lm_min2(uvMin, ctx.triangle.uv[i]);
+				uvMax = lm_max2(uvMax, ctx.triangle.uv[i]);
 			}
+
+			// Calculate area of interest (on lightmap) for conservative rasterization.
+			lm_vec2 bbMin = lm_floor2(uvMin);
+			lm_vec2 bbMax = lm_ceil2(uvMax);
+			ctx.rasterizer.minx = ctx.rasterizer.x = lm_maxi((int)bbMin.x - 1, 0);
+			ctx.rasterizer.miny = ctx.rasterizer.y = lm_maxi((int)bbMin.y - 1, 0);
+			ctx.rasterizer.maxx = lm_mini((int)bbMax.x + 1, lightmapSize.x);
+			ctx.rasterizer.maxy = lm_mini((int)bbMax.y + 1, lightmapSize.y);
+			assert(ctx.rasterizer.minx < ctx.rasterizer.maxx && ctx.rasterizer.miny < ctx.rasterizer.maxy);
+
+			gotSample = lm_findFirstConservativeTriangleRasterizerPosition(&s_rasterizer.ctx);
+			s_rasterizer.startedSamplingTriangle = true;
+		}
+		else
+		{
+			gotSample = lm_findNextConservativeTriangleRasterizerPosition(&s_rasterizer.ctx);
+		}
+
+		if (gotSample)
+		{
+			luxel.lightmapIndex = surface.material->lightmapIndex;
+			luxel.position = vec3(&ctx.sample.position.x);
+			luxel.normal = -vec3(&ctx.sample.direction.x);
+			luxel.up = vec3(&ctx.sample.up.x);
+			luxel.offset = ctx.rasterizer.x + ctx.rasterizer.y * world::GetLightmapSize().x;
+
+			// Ignore duplicates. It's possible for different triangles to rasterize the same luxel.
+			uint8_t &duplicateByte = s_lightBaker->lightmaps[luxel.lightmapIndex].duplicateBits[luxel.offset / 8];
+			const uint8_t duplicateBit = 1<<(luxel.offset % 8);
+
+			if ((duplicateByte & duplicateBit) == 0)
+			{
+				duplicateByte |= duplicateBit;
+				s_lightBaker->totalLuxels++;
+				break;
+			}
+		}
+		else
+		{
+			// No more samples, move to the next triangle.
+			s_rasterizer.triangleIndex++;
+			s_rasterizer.nTrianglesRasterized++;
+			s_rasterizer.startedSamplingTriangle = false;
 		}
 	}
 
-	s_lightBaker->rasterizationTime = bx::getHPCounter() - startTime;
+	return luxel;
+}
+
+int GetNumRasterizedTriangles()
+{
+	return s_rasterizer.nTrianglesRasterized;
 }
 
 } // namespace light_baker
