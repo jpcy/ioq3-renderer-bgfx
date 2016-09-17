@@ -100,7 +100,12 @@ struct Lightmap
 	/// @brief Avoid rasterizing the same luxel with different primitives.
 	std::vector<uint8_t> duplicateBits;
 
-	std::vector<vec4> color; // width * height
+	/// @brief Color data for this pass (direct/indirect bounce).
+	std::vector<vec3> passColor; // width * height
+
+	/// @brief Accumulated color data of all passes.
+	std::vector<vec3> accumulatedColor; // width * height
+
 	std::vector<uint8_t> colorBytes; // width * height * 4
 };
 

@@ -897,7 +897,7 @@ bool BakeDirectLight()
 			break;
 
 		Lightmap &lightmap = s_lightBaker->lightmaps[luxel.lightmapIndex];
-		vec4 &luxelColor = lightmap.color[luxel.offset];
+		vec3 &luxelColor = lightmap.passColor[luxel.offset];
 		luxelColor = s_lightBaker->ambientLight;
 		luxelColor += BakeAreaLights(luxel.position, luxel.normal);
 		luxelColor += BakeEntityLights(luxel.position, luxel.normal);

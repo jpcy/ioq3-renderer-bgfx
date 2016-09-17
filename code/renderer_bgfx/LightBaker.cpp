@@ -48,6 +48,31 @@ bool IsSurfaceLightmapped(const world::Surface &surface)
 	return surface.type != world::SurfaceType::Ignore && surface.type != world::SurfaceType::Flare && surface.material->lightmapIndex >= 0;
 }
 
+static void ClearPassColor()
+{
+	for (Lightmap &lightmap : s_lightBaker->lightmaps)
+	{
+		memset(lightmap.passColor.data(), 0, lightmap.passColor.size());
+	}
+}
+
+static void AccumulatePassColor()
+{
+	const vec2i lightmapSize = world::GetLightmapSize();
+
+	for (Lightmap &lightmap : s_lightBaker->lightmaps)
+	{
+		for (int y = 0; y < lightmapSize.y; y++)
+		{
+			for (int x = 0; x < lightmapSize.x; x++)
+			{
+				const int offset = x + y * lightmapSize.x;
+				lightmap.accumulatedColor[offset] += lightmap.passColor[offset];
+			}
+		}
+	}
+}
+
 /*
 ================================================================================
 LIGHTMAP ENCODING
@@ -114,26 +139,26 @@ static void EncodeLightmaps()
 	// Dilate lightmaps, then encode to RGBM.
 #define DILATE
 #ifdef DILATE
-	std::vector<vec4> dilatedLightmap;
+	std::vector<vec3> dilatedLightmap;
 	dilatedLightmap.resize(lightmapSize.x * lightmapSize.y);
 #endif
 
 	for (Lightmap &lightmap : s_lightBaker->lightmaps)
 	{
 #ifdef DILATE
-		lmImageDilate(&lightmap.color[0].x, &dilatedLightmap[0].x, lightmapSize.x, lightmapSize.y, 4);
+		lmImageDilate(&lightmap.accumulatedColor[0].x, &dilatedLightmap[0].x, lightmapSize.x, lightmapSize.y, 3);
 #endif
 
 		for (int i = 0; i < lightmapSize.x * lightmapSize.y; i++)
 		{
 #ifdef DILATE
-			const vec4 &src = dilatedLightmap[i];
+			const vec3 &src = dilatedLightmap[i];
 #else
-			const vec4 &src = lightmap.color[i];
+			const vec3 &src = lightmap.accumulatedColor[i];
 #endif
 			uint8_t *dest = &lightmap.colorBytes[i * 4];
 			// Colors are floats, but in 0-255+ range.
-			util::EncodeRGBM(src.rgb() * g_overbrightFactor / 255.0f).toBytes(dest);
+			util::EncodeRGBM(src * g_overbrightFactor / 255.0f).toBytes(dest);
 		}
 	}
 }
@@ -175,7 +200,8 @@ static int Thread(void *data)
 	for (Lightmap &lightmap : s_lightBaker->lightmaps)
 	{
 		lightmap.duplicateBits.resize(lightmapSize.x * lightmapSize.y / 8);
-		lightmap.color.resize(lightmapSize.x * lightmapSize.y);
+		lightmap.passColor.resize(lightmapSize.x * lightmapSize.y);
+		lightmap.accumulatedColor.resize(lightmapSize.x * lightmapSize.y);
 		lightmap.colorBytes.resize(lightmapSize.x * lightmapSize.y * 4);
 	}
 
@@ -196,11 +222,15 @@ static int Thread(void *data)
 	}
 
 	// Bake direct lighting.
+	ClearPassColor();
+
 	if (!InitializeDirectLight())
 		return 1;
 
 	if (!BakeDirectLight())
 		return 1;
+
+	AccumulatePassColor();
 
 	// Update the lightmaps after the direct lighting pass has finished. Indirect lighting needs to render using the updated lightmaps.
 	if (!ThreadUpdateLightmaps())
@@ -209,6 +239,7 @@ static int Thread(void *data)
 	// Ready for indirect lighting, which happens in the main thread. Wait until it finishes.
 	for (int i = 0; i < s_lightBaker->nIndirectPasses; i++)
 	{
+		ClearPassColor();
 		SetStatus(LightBaker::Status::BakingIndirectLight_Started);
 
 		for (;;)
@@ -221,6 +252,8 @@ static int Thread(void *data)
 
 			SDL_Delay(50);
 		}
+
+		AccumulatePassColor();
 
 		if (!ThreadUpdateLightmaps())
 			return 1;

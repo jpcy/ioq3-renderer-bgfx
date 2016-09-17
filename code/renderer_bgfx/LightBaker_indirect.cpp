@@ -298,9 +298,9 @@ bool BakeIndirectLight(uint32_t frameNo)
 			for (int x = 0; x < s_lightBaker->nHemicubesInBatch.x; x++)
 			{
 				const int offset = x + y * s_lightBaker->nHemicubesInBatch.x;
-				auto rgba = (const vec4 *)&s_lightBaker->hemicubeIntegrationData[offset * 4];
+				auto rgb = (const vec3 *)&s_lightBaker->hemicubeIntegrationData[offset * 4];
 				HemicubeLocation &hemicube = s_lightBaker->hemicubeBatchLocations[offset];
-				hemicube.lightmap->color[hemicube.luxelOffset] += *rgba * 255.0f * s_lightBaker->indirectLightScale / float(s_lightBaker->currentIndirectPass + 1);
+				hemicube.lightmap->passColor[hemicube.luxelOffset] = *rgb * 255.0f * s_lightBaker->indirectLightScale / float(s_lightBaker->currentIndirectPass + 1);
 			}
 		}
 
