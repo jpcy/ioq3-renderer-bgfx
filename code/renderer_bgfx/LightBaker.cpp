@@ -43,42 +43,6 @@ std::unique_ptr<LightBaker> s_lightBaker;
 std::unique_ptr<LightBakerPersistent> s_lightBakerPersistent;
 std::vector<AreaLight> s_areaLights;
 
-bool IsSurfaceLightmapped(const world::Surface &surface)
-{
-	return surface.type != world::SurfaceType::Ignore && surface.type != world::SurfaceType::Flare && surface.material->lightmapIndex >= 0;
-}
-
-static void ClearPassColor()
-{
-	for (Lightmap &lightmap : s_lightBaker->lightmaps)
-	{
-		memset(lightmap.passColor.data(), 0, lightmap.passColor.size());
-	}
-}
-
-static void AccumulatePassColor()
-{
-	const vec2i lightmapSize = world::GetLightmapSize();
-
-	for (Lightmap &lightmap : s_lightBaker->lightmaps)
-	{
-		for (int y = 0; y < lightmapSize.y; y++)
-		{
-			for (int x = 0; x < lightmapSize.x; x++)
-			{
-				const int offset = x + y * lightmapSize.x;
-				lightmap.accumulatedColor[offset] += lightmap.passColor[offset];
-			}
-		}
-	}
-}
-
-/*
-================================================================================
-LIGHTMAP ENCODING
-================================================================================
-*/
-
 static void lmImageDilate(const float *image, float *outImage, int w, int h, int c)
 {
 	assert(c > 0 && c <= 4);
@@ -132,11 +96,23 @@ static void lmImageDilate(const float *image, float *outImage, int w, int h, int
 	}
 }
 
-static void EncodeLightmaps()
+bool IsSurfaceLightmapped(const world::Surface &surface)
+{
+	return surface.type != world::SurfaceType::Ignore && surface.type != world::SurfaceType::Flare && surface.material->lightmapIndex >= 0;
+}
+
+static void ClearPassColor()
+{
+	for (Lightmap &lightmap : s_lightBaker->lightmaps)
+	{
+		memset(lightmap.passColor.data(), 0, lightmap.passColor.size() * sizeof(vec3));
+	}
+}
+
+static void AccumulatePassColor()
 {
 	const vec2i lightmapSize = world::GetLightmapSize();
 
-	// Dilate lightmaps, then encode to RGBM.
 #define DILATE
 #ifdef DILATE
 	std::vector<vec3> dilatedLightmap;
@@ -146,7 +122,7 @@ static void EncodeLightmaps()
 	for (Lightmap &lightmap : s_lightBaker->lightmaps)
 	{
 #ifdef DILATE
-		lmImageDilate(&lightmap.accumulatedColor[0].x, &dilatedLightmap[0].x, lightmapSize.x, lightmapSize.y, 3);
+		lmImageDilate(&lightmap.passColor[0].x, &dilatedLightmap[0].x, lightmapSize.x, lightmapSize.y, 3);
 #endif
 
 		for (int i = 0; i < lightmapSize.x * lightmapSize.y; i++)
@@ -154,11 +130,24 @@ static void EncodeLightmaps()
 #ifdef DILATE
 			const vec3 &src = dilatedLightmap[i];
 #else
-			const vec3 &src = lightmap.accumulatedColor[i];
+			const vec3 &src = lightmap.passColor[i];
 #endif
-			uint8_t *dest = &lightmap.colorBytes[i * 4];
+
+			lightmap.accumulatedColor[i] += src;
+		}
+	}
+}
+
+static void EncodeLightmaps()
+{
+	const vec2i lightmapSize = world::GetLightmapSize();
+
+	for (Lightmap &lightmap : s_lightBaker->lightmaps)
+	{
+		for (int i = 0; i < lightmapSize.x * lightmapSize.y; i++)
+		{
 			// Colors are floats, but in 0-255+ range.
-			util::EncodeRGBM(src * g_overbrightFactor / 255.0f).toBytes(dest);
+			util::EncodeRGBM(lightmap.accumulatedColor[i] * g_overbrightFactor / 255.0f).toBytes(&lightmap.colorBytes[i * 4]);
 		}
 	}
 }
@@ -454,6 +443,7 @@ void Update(uint32_t frameNo)
 		interface::Printf("   %d luxels\n", s_lightBaker->totalLuxels);
 		interface::Printf("   %0.2f ms elapsed per luxel\n", (bx::getHPCounter() - s_lightBaker->startTime) * (1000.0f / (float)bx::getHPFrequency()) / s_lightBaker->totalLuxels);
 		interface::Printf("   %d hemicube batches\n", s_lightBaker->nHemicubeBatchesProcessed);
+		interface::Printf("   %d interpolated luxels\n", s_lightBaker->nInterpolatedLuxels);
 		interface::Printf("   %d area lights\n", (int)s_areaLights.size());
 		interface::Printf("   %d entity lights\n", (int)s_lightBaker->lights.size());
 		Stop();

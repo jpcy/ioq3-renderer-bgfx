@@ -93,6 +93,7 @@ void ConsoleVariables::initialize()
 	}
 
 	bgfx_stats = interface::Cvar_Get("r_bgfx_stats", "0", ConsoleVariableFlags::Cheat);
+	debug = interface::Cvar_Get("r_debug", "", 0);
 	debugDraw = interface::Cvar_Get("r_debugDraw", "", 0);
 	debugDraw.setDescription(
 		"<empty>    None\n"

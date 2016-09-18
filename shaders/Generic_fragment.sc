@@ -36,6 +36,7 @@ uniform vec4 u_BloomEnabled; // only x used
 #endif
 
 uniform vec4 u_Animation_Enabled_Fraction; // only x and y used
+uniform vec4 u_Debug; // only x used
 uniform vec4 u_DiffuseRGBM; // only x used
 uniform vec4 u_PortalClip;
 uniform vec4 u_PortalPlane;
@@ -288,6 +289,11 @@ void main()
 #endif // USE_DYNAMIC_LIGHTS
 
 	vec4 fragColor = vec4(ToGamma(diffuse.rgb * vertexColor * diffuseLight), alpha);
+
+	if (lightType == LIGHT_MAP && int(u_Debug.x) == DEBUG_LIGHTMAP)
+	{
+		fragColor = vec4(DecodeRGBM(texture2D(u_LightSampler, v_texcoord1)), alpha);
+	}
 
 #if defined(USE_HDR)
 	gl_FragData[0] = fragColor;

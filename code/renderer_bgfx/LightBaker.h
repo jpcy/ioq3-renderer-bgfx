@@ -159,7 +159,7 @@ struct LightBaker
 	int64_t startTime, rasterizationTime, directBakeTime, indirectBakeStartTime, indirectBakeTime;
 
 	uint32_t textureUpdateFrameNo = 0; // lightmap textures were updated this frame
-	int totalLuxels; // calculated when rasterizing
+	int totalLuxels; // calculated when rasterizing direct light (since it doesn't use interpolation)
 	int totalLightmappedTriangles; // used to measure progress
 	std::vector<Lightmap> lightmaps;
 	static const size_t maxErrorMessageLen = 2048;
@@ -194,6 +194,7 @@ struct LightBaker
 	const float indirectLightScale = 0.25f;
 	const int nIndirectPasses = 1;
 	int currentIndirectPass = 0;
+	int nInterpolatedLuxels = 0;
 
 	// Indirect light frame ms measuring. Determines how many hemicubes to render per frame. Don't want to freeze, maintain a low frame rate instead.
 	int64_t lastFrameTime;
@@ -242,7 +243,7 @@ bool BakeDirectLight();
 void InitializeIndirectLight();
 bool BakeIndirectLight(uint32_t frameNo);
 
-void InitializeRasterization();
+void InitializeRasterization(int interpolationPasses, float interpolationThreshold);
 Luxel RasterizeLuxel();
 int GetNumRasterizedTriangles();
 

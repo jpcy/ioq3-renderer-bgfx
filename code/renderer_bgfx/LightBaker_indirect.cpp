@@ -140,7 +140,7 @@ void InitializeIndirectLight()
 	s_lightBaker->nHemicubeBatchesProcessed = 0;
 	s_lightBaker->finishedHemicubeBatch = false;
 	s_lightBaker->finishedBakingIndirect = false;
-	InitializeRasterization();
+	InitializeRasterization(2, 0.01f);
 }
 
 static uint32_t AsyncReadTexture(bgfx::FrameBufferHandle source, bgfx::TextureHandle dest, void *destData, uint16_t width, uint16_t height)

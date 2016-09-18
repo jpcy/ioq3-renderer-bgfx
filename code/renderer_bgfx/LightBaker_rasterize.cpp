@@ -180,6 +180,9 @@ static int lm_convexClip(lm_vec2 *poly, int nPoly, const lm_vec2 *clip, int nCli
 
 struct lm_context
 {
+	int pass;
+	int passCount;
+
 	struct
 	{
 		lm_vec3 p[3];
@@ -199,7 +202,66 @@ struct lm_context
 		lm_vec3 direction;
 		lm_vec3 up;
 	} sample;
+
+	struct
+	{
+		int width;
+		int height;
+		int channels;
+		float *data;
+
+#ifdef LM_DEBUG_INTERPOLATION
+		unsigned char *debug;
+#endif
+	} lightmap;
+
+	float interpolationThreshold;
 };
+
+struct Rasterizer
+{
+	lm_context ctx;
+	bool startedSamplingTriangle;
+	int modelIndex;
+	int surfaceIndex;
+	size_t triangleIndex;
+	int nTrianglesRasterized;
+};
+
+static Rasterizer s_rasterizer;
+
+// pass order of one 4x4 interpolation patch for two interpolation steps (and the next neighbors right of/below it)
+// 0 4 1 4 0
+// 5 6 5 6 5
+// 2 4 3 4 2
+// 5 6 5 6 5
+// 0 4 1 4 0
+
+static unsigned int lm_passStepSize(lm_context *ctx)
+{
+	unsigned int shift = ctx->passCount / 3 - (ctx->pass - 1) / 3;
+	unsigned int step = (1 << shift);
+	assert(step > 0);
+	return step;
+}
+
+static unsigned int lm_passOffsetX(lm_context *ctx)
+{
+	if (!ctx->pass)
+		return 0;
+	int passType = (ctx->pass - 1) % 3;
+	unsigned int halfStep = lm_passStepSize(ctx) >> 1;
+	return passType != 1 ? halfStep : 0;
+}
+
+static unsigned int lm_passOffsetY(lm_context *ctx)
+{
+	if (!ctx->pass)
+		return 0;
+	int passType = (ctx->pass - 1) % 3;
+	unsigned int halfStep = lm_passStepSize(ctx) >> 1;
+	return passType != 0 ? halfStep : 0;
+}
 
 static lm_bool lm_hasConservativeTriangleRasterizerFinished(lm_context *ctx)
 {
@@ -208,11 +270,29 @@ static lm_bool lm_hasConservativeTriangleRasterizerFinished(lm_context *ctx)
 
 static void lm_moveToNextPotentialConservativeTriangleRasterizerPosition(lm_context *ctx)
 {
-	if (++ctx->rasterizer.x >= ctx->rasterizer.maxx)
+	unsigned int step = lm_passStepSize(ctx);
+	ctx->rasterizer.x += step;
+	while (ctx->rasterizer.x >= ctx->rasterizer.maxx)
 	{
-		ctx->rasterizer.x = ctx->rasterizer.minx;
-		++ctx->rasterizer.y;
+		ctx->rasterizer.x = ctx->rasterizer.minx + lm_passOffsetX(ctx);
+		ctx->rasterizer.y += step;
+		if (lm_hasConservativeTriangleRasterizerFinished(ctx))
+			break;
 	}
+}
+
+static float *lm_getLightmapPixel(lm_context *ctx, int x, int y)
+{
+	assert(x >= 0 && x < ctx->lightmap.width && y >= 0 && y < ctx->lightmap.height);
+	return ctx->lightmap.data + (y * ctx->lightmap.width + x) * ctx->lightmap.channels;
+}
+
+static void lm_setLightmapPixel(lm_context *ctx, int x, int y, float *in)
+{
+	assert(x >= 0 && x < ctx->lightmap.width && y >= 0 && y < ctx->lightmap.height);
+	float *p = ctx->lightmap.data + (y * ctx->lightmap.width + x) * ctx->lightmap.channels;
+	for (int j = 0; j < ctx->lightmap.channels; j++)
+		*p++ = *in++;
 }
 
 static lm_bool lm_trySamplingConservativeTriangleRasterizerPosition(lm_context *ctx)
@@ -220,6 +300,90 @@ static lm_bool lm_trySamplingConservativeTriangleRasterizerPosition(lm_context *
 	if (lm_hasConservativeTriangleRasterizerFinished(ctx))
 		return LM_FALSE;
 
+	// check if lightmap pixel was already set
+	bool alreadySet = false;
+	float *pixelValue = lm_getLightmapPixel(ctx, ctx->rasterizer.x, ctx->rasterizer.y);
+	for (int j = 0; j < ctx->lightmap.channels; j++)
+	{
+		if (pixelValue[j] != 0.0f)
+		{
+			alreadySet = true;
+			break;
+		}
+	}
+
+	// try to interpolate from neighbors:
+	if (!alreadySet && ctx->pass > 0)
+	{
+		float *neighbors[4];
+		int neighborCount = 0;
+		int neighborsExpected = 0;
+		int d = (int)lm_passStepSize(ctx) / 2;
+		int dirs = ((ctx->pass - 1) % 3) + 1;
+		if (dirs & 1) // check x-neighbors with distance d
+		{
+			neighborsExpected += 2;
+			if (ctx->rasterizer.x - d >= ctx->rasterizer.minx &&
+				ctx->rasterizer.x + d <  ctx->rasterizer.maxx)
+			{
+				neighbors[neighborCount++] = lm_getLightmapPixel(ctx, ctx->rasterizer.x - d, ctx->rasterizer.y);
+				neighbors[neighborCount++] = lm_getLightmapPixel(ctx, ctx->rasterizer.x + d, ctx->rasterizer.y);
+			}
+		}
+		if (dirs & 2) // check y-neighbors with distance d
+		{
+			neighborsExpected += 2;
+			if (ctx->rasterizer.y - d >= ctx->rasterizer.miny &&
+				ctx->rasterizer.y + d <  ctx->rasterizer.maxy)
+			{
+				neighbors[neighborCount++] = lm_getLightmapPixel(ctx, ctx->rasterizer.x, ctx->rasterizer.y - d);
+				neighbors[neighborCount++] = lm_getLightmapPixel(ctx, ctx->rasterizer.x, ctx->rasterizer.y + d);
+			}
+		}
+		if (neighborCount == neighborsExpected) // are all interpolation neighbors available?
+		{
+			// calculate average neighbor pixel value
+			float avg[4] = { 0 };
+			for (int i = 0; i < neighborCount; i++)
+				for (int j = 0; j < ctx->lightmap.channels; j++)
+					avg[j] += neighbors[i][j];
+			float ni = 1.0f / neighborCount;
+			for (int j = 0; j < ctx->lightmap.channels; j++)
+				avg[j] *= ni;
+
+			// check if error from average pixel to neighbors is above the interpolation threshold
+			lm_bool interpolate = LM_TRUE;
+			for (int i = 0; i < neighborCount; i++)
+			{
+				lm_bool zero = LM_TRUE;
+				for (int j = 0; j < ctx->lightmap.channels; j++)
+				{
+					if (neighbors[i][j] != 0.0f)
+						zero = LM_FALSE;
+					if (fabs(neighbors[i][j] - avg[j]) > ctx->interpolationThreshold)
+						interpolate = LM_FALSE;
+				}
+				if (zero)
+					interpolate = LM_FALSE;
+				if (!interpolate)
+					break;
+			}
+
+			// set interpolated value and return if interpolation is acceptable
+			if (interpolate)
+			{
+				lm_setLightmapPixel(ctx, ctx->rasterizer.x, ctx->rasterizer.y, avg);
+#ifdef LM_DEBUG_INTERPOLATION
+				// set interpolated pixel to green in debug output
+				ctx->lightmap.debug[(ctx->rasterizer.y * ctx->lightmap.width + ctx->rasterizer.x) * 3 + 1] = 255;
+#endif
+				s_lightBaker->nInterpolatedLuxels++;
+				return LM_FALSE;
+			}
+		}
+	}
+
+	// could not interpolate. must render a hemisphere:
 	lm_vec2 pixel[16];
 	pixel[0] = lm_v2i(ctx->rasterizer.x, ctx->rasterizer.y);
 	pixel[1] = lm_v2i(ctx->rasterizer.x + 1, ctx->rasterizer.y);
@@ -228,63 +392,78 @@ static lm_bool lm_trySamplingConservativeTriangleRasterizerPosition(lm_context *
 
 	lm_vec2 res[16];
 	int nRes = lm_convexClip(pixel, 4, ctx->triangle.uv, 3, res);
-	if (nRes > 0)
+	if (nRes == 0)
+		return LM_FALSE;
+	
+	// Ignore duplicates. It's possible for different triangles to rasterize the same luxel.
+	const int luxelOffset = ctx->rasterizer.x + ctx->rasterizer.y * world::GetLightmapSize().x;
+	const world::Surface &surface = world::GetSurface(s_rasterizer.modelIndex, s_rasterizer.surfaceIndex);
+	uint8_t &duplicateByte = s_lightBaker->lightmaps[surface.material->lightmapIndex].duplicateBits[luxelOffset / 8];
+	const uint8_t duplicateBit = 1<<(luxelOffset % 8);
+
+	if ((duplicateByte & duplicateBit) == 0)
 	{
-		// do centroid sampling
-		lm_vec2 centroid = res[0];
-		float area = res[nRes - 1].x * res[0].y - res[nRes - 1].y * res[0].x;
-		for (int i = 1; i < nRes; i++)
-		{
-			centroid = lm_add2(centroid, res[i]);
-			area += res[i - 1].x * res[i].y - res[i - 1].y * res[i].x;
-		}
-		centroid = lm_div2(centroid, (float)nRes);
-		area = lm_absf(area / 2.0f);
+		duplicateByte |= duplicateBit;
+	}
+	else
+	{
+		return LM_FALSE;
+	}
 
-		if (area > 0.0f)
-		{
-			// calculate 3D sample position and orientation
-			lm_vec2 uv = lm_toBarycentric(
-				ctx->triangle.uv[0],
-				ctx->triangle.uv[1],
-				ctx->triangle.uv[2],
-				centroid);
+	// do centroid sampling
+	lm_vec2 centroid = res[0];
+	float area = res[nRes - 1].x * res[0].y - res[nRes - 1].y * res[0].x;
+	for (int i = 1; i < nRes; i++)
+	{
+		centroid = lm_add2(centroid, res[i]);
+		area += res[i - 1].x * res[i].y - res[i - 1].y * res[i].x;
+	}
+	centroid = lm_div2(centroid, (float)nRes);
+	area = lm_absf(area / 2.0f);
 
-			// sample it only if its's not degenerate
-			if (lm_finite2(uv))
+	if (area > 0.0f)
+	{
+		// calculate 3D sample position and orientation
+		lm_vec2 uv = lm_toBarycentric(
+			ctx->triangle.uv[0],
+			ctx->triangle.uv[1],
+			ctx->triangle.uv[2],
+			centroid);
+
+		// sample it only if its's not degenerate
+		if (lm_finite2(uv))
+		{
+			lm_vec3 p0 = ctx->triangle.p[0];
+			lm_vec3 p1 = ctx->triangle.p[1];
+			lm_vec3 p2 = ctx->triangle.p[2];
+			lm_vec3 v1 = lm_sub3(p1, p0);
+			lm_vec3 v2 = lm_sub3(p2, p0);
+			ctx->sample.position = lm_add3(p0, lm_add3(lm_scale3(v2, uv.x), lm_scale3(v1, uv.y)));
+			ctx->sample.direction = lm_normalize3(lm_cross3(v1, v2));
+
+			if (lm_finite3(ctx->sample.position) &&
+				lm_finite3(ctx->sample.direction) &&
+				lm_length3sq(ctx->sample.direction) > 0.5f) // don't allow 0.0f. should always be ~1.0f
 			{
-				lm_vec3 p0 = ctx->triangle.p[0];
-				lm_vec3 p1 = ctx->triangle.p[1];
-				lm_vec3 p2 = ctx->triangle.p[2];
-				lm_vec3 v1 = lm_sub3(p1, p0);
-				lm_vec3 v2 = lm_sub3(p2, p0);
-				ctx->sample.position = lm_add3(p0, lm_add3(lm_scale3(v2, uv.x), lm_scale3(v1, uv.y)));
-				ctx->sample.direction = lm_normalize3(lm_cross3(v1, v2));
+				// randomize rotation
+				lm_vec3 up = lm_v3(0.0f, 0.0f, 1.0f);
+				if (lm_absf(lm_dot3(up, ctx->sample.direction)) > 0.8f)
+					up = lm_v3(1.0f, 0.0f, 0.0f);
+				lm_vec3 side = lm_normalize3(lm_cross3(up, ctx->sample.direction));
+				up = lm_normalize3(lm_cross3(side, ctx->sample.direction));
+				int rx = ctx->rasterizer.x % 3;
+				int ry = ctx->rasterizer.y % 3;
+				const float pi = 3.14159265358979f; // no c++ M_PI?
+				const float baseAngle = 0.03f * pi;
+				const float baseAngles[3][3] = {
+					{ baseAngle, baseAngle + 1.0f / 3.0f, baseAngle + 2.0f / 3.0f },
+					{ baseAngle + 1.0f / 3.0f, baseAngle + 2.0f / 3.0f, baseAngle },
+					{ baseAngle + 2.0f / 3.0f, baseAngle, baseAngle + 1.0f / 3.0f }
+				};
+				float phi = 2.0f * pi * baseAngles[ry][rx] + 0.1f * ((float)rand() / (float)RAND_MAX);
+				ctx->sample.up = lm_normalize3(lm_add3(lm_scale3(side, cosf(phi)), lm_scale3(up, sinf(phi))));
 
-				if (lm_finite3(ctx->sample.position) &&
-					lm_finite3(ctx->sample.direction) &&
-					lm_length3sq(ctx->sample.direction) > 0.5f) // don't allow 0.0f. should always be ~1.0f
-				{
-					// randomize rotation
-					lm_vec3 up = lm_v3(0.0f, 0.0f, 1.0f);
-					if (lm_absf(lm_dot3(up, ctx->sample.direction)) > 0.8f)
-						up = lm_v3(1.0f, 0.0f, 0.0f);
-					lm_vec3 side = lm_normalize3(lm_cross3(up, ctx->sample.direction));
-					up = lm_normalize3(lm_cross3(side, ctx->sample.direction));
-					int rx = ctx->rasterizer.x % 3;
-					int ry = ctx->rasterizer.y % 3;
-					const float pi = 3.14159265358979f; // no c++ M_PI?
-					const float baseAngle = 0.03f * pi;
-					const float baseAngles[3][3] = {
-						{ baseAngle, baseAngle + 1.0f / 3.0f, baseAngle + 2.0f / 3.0f },
-						{ baseAngle + 1.0f / 3.0f, baseAngle + 2.0f / 3.0f, baseAngle },
-						{ baseAngle + 2.0f / 3.0f, baseAngle, baseAngle + 1.0f / 3.0f }
-					};
-					float phi = 2.0f * pi * baseAngles[ry][rx] + 0.1f * ((float)rand() / (float)RAND_MAX);
-					ctx->sample.up = lm_normalize3(lm_add3(lm_scale3(side, cosf(phi)), lm_scale3(up, sinf(phi))));
-
-					return LM_TRUE;
-				}
+				return LM_TRUE;
 			}
 		}
 	}
@@ -309,18 +488,6 @@ static lm_bool lm_findNextConservativeTriangleRasterizerPosition(lm_context *ctx
 	lm_moveToNextPotentialConservativeTriangleRasterizerPosition(ctx);
 	return lm_findFirstConservativeTriangleRasterizerPosition(ctx);
 }
-
-struct Rasterizer
-{
-	lm_context ctx;
-	bool startedSamplingTriangle;
-	int modelIndex;
-	int surfaceIndex;
-	size_t triangleIndex;
-	int nTrianglesRasterized;
-};
-
-static Rasterizer s_rasterizer;
 
 // If the current triangle isn't valid, increment until we find one that is.
 // Return false if there are no more triangles left.
@@ -357,14 +524,19 @@ static bool CurrentOrNextValidTriangle()
 	return true;
 }
 
-void InitializeRasterization()
+void InitializeRasterization(int interpolationPasses, float interpolationThreshold)
 {
+	assert(interpolationPasses >= 0 && interpolationPasses <= 8);
+	assert(interpolationThreshold >= 0.0f);
+
+	s_rasterizer.ctx.pass = 0;
+	s_rasterizer.ctx.passCount = 1 + 3 * interpolationPasses;
+	s_rasterizer.ctx.interpolationThreshold = interpolationThreshold * 255;
 	s_rasterizer.startedSamplingTriangle = false;
 	s_rasterizer.modelIndex = 0;
 	s_rasterizer.surfaceIndex = 0;
 	s_rasterizer.triangleIndex = 0;
 	s_rasterizer.nTrianglesRasterized = 0;
-	s_lightBaker->totalLuxels = 0;
 
 	for (Lightmap &lightmap : s_lightBaker->lightmaps)
 	{
@@ -377,6 +549,7 @@ void InitializeRasterization()
 
 Luxel RasterizeLuxel()
 {
+	lm_context &ctx = s_rasterizer.ctx;
 	Luxel luxel;
 	luxel.sentinel = false;
 
@@ -385,11 +558,28 @@ Luxel RasterizeLuxel()
 	{
 		if (!CurrentOrNextValidTriangle())
 		{
-			luxel.sentinel = true;
-			break;
+			// Finished all models/surfaces/triangles. Do the next pass.
+			ctx.pass++;
+
+			if (ctx.pass >= ctx.passCount)
+			{
+				luxel.sentinel = true;
+				break;
+			}
+
+			s_rasterizer.startedSamplingTriangle = false;
+			s_rasterizer.modelIndex = 0;
+			s_rasterizer.surfaceIndex = 0;
+			s_rasterizer.triangleIndex = 0;
+
+			if (!CurrentOrNextValidTriangle())
+			{
+				// Should only happen if there's no lightmapped surfaces.
+				luxel.sentinel = true;
+				break;
+			}
 		}
 
-		lm_context &ctx = s_rasterizer.ctx;
 		const world::Surface &surface = world::GetSurface(s_rasterizer.modelIndex, s_rasterizer.surfaceIndex);
 		lm_bool gotSample;
 
@@ -398,7 +588,6 @@ Luxel RasterizeLuxel()
 			// Setup rasterizer for this triangle.
 			const vec2i lightmapSize = world::GetLightmapSize();
 			const std::vector<Vertex> &vertices = world::GetVertexBuffer(surface.bufferIndex);
-			ctx.rasterizer.x = ctx.rasterizer.y = 0;
 			lm_vec2 uvMin = lm_v2(FLT_MAX, FLT_MAX), uvMax = lm_v2(-FLT_MAX, -FLT_MAX);
 
 			for (int i = 0; i < 3; i++)
@@ -423,6 +612,13 @@ Luxel RasterizeLuxel()
 			ctx.rasterizer.maxx = lm_mini((int)bbMax.x + 1, lightmapSize.x);
 			ctx.rasterizer.maxy = lm_mini((int)bbMax.y + 1, lightmapSize.y);
 			assert(ctx.rasterizer.minx < ctx.rasterizer.maxx && ctx.rasterizer.miny < ctx.rasterizer.maxy);
+			ctx.rasterizer.x = ctx.rasterizer.minx + lm_passOffsetX(&ctx);
+			ctx.rasterizer.y = ctx.rasterizer.miny + lm_passOffsetY(&ctx);
+
+			ctx.lightmap.width = lightmapSize.x;
+			ctx.lightmap.height = lightmapSize.y;
+			ctx.lightmap.channels = 3;
+			ctx.lightmap.data = &s_lightBaker->lightmaps[surface.material->lightmapIndex].passColor.data()[0].x;
 
 			gotSample = lm_findFirstConservativeTriangleRasterizerPosition(&s_rasterizer.ctx);
 			s_rasterizer.startedSamplingTriangle = true;
@@ -439,21 +635,11 @@ Luxel RasterizeLuxel()
 			luxel.normal = -vec3(&ctx.sample.direction.x);
 			luxel.up = vec3(&ctx.sample.up.x);
 			luxel.offset = ctx.rasterizer.x + ctx.rasterizer.y * world::GetLightmapSize().x;
-
-			// Ignore duplicates. It's possible for different triangles to rasterize the same luxel.
-			uint8_t &duplicateByte = s_lightBaker->lightmaps[luxel.lightmapIndex].duplicateBits[luxel.offset / 8];
-			const uint8_t duplicateBit = 1<<(luxel.offset % 8);
-
-			if ((duplicateByte & duplicateBit) == 0)
-			{
-				duplicateByte |= duplicateBit;
-				s_lightBaker->totalLuxels++;
-				break;
-			}
+			break;
 		}
 		else
 		{
-			// No more samples, move to the next triangle.
+			// No more samples. Move to the next triangle.
 			s_rasterizer.triangleIndex++;
 			s_rasterizer.nTrianglesRasterized++;
 			s_rasterizer.startedSamplingTriangle = false;
@@ -465,7 +651,7 @@ Luxel RasterizeLuxel()
 
 int GetNumRasterizedTriangles()
 {
-	return s_rasterizer.nTrianglesRasterized;
+	return s_rasterizer.nTrianglesRasterized / s_rasterizer.ctx.passCount;
 }
 
 } // namespace light_baker

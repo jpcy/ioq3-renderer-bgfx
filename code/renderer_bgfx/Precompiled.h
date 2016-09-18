@@ -118,6 +118,7 @@ struct ConsoleVariables
 	ConsoleVariable aa_hud;
 	ConsoleVariable backend;
 	ConsoleVariable bgfx_stats;
+	ConsoleVariable debug;
 	ConsoleVariable debugDraw;
 	ConsoleVariable debugDrawSize;
 	ConsoleVariable dynamicLightIntensity;
@@ -1384,6 +1385,9 @@ struct Uniforms
 {
 	/// @remarks x is offset, y is scale, z is near z, w is far z.
 	Uniform_vec4 depthRange = "u_DepthRange";
+
+	/// @remarks Only x used.
+	Uniform_vec4 debug = "u_Debug";
 
 	/// @remarks Used by entities and the world.
 	Uniform_vec4 localViewOrigin = "u_LocalViewOrigin";

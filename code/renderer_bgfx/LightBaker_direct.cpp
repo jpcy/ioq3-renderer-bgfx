@@ -887,7 +887,8 @@ bool BakeDirectLight()
 	int64_t startTime = bx::getHPCounter();
 	const SunLight &sunLight = main::GetSunLight();
 	const float maxRayLength = world::GetBounds().toRadius() * 2; // World bounding sphere circumference.
-	InitializeRasterization();
+	InitializeRasterization(0, 0);
+	s_lightBaker->totalLuxels = 0;
 
 	for (;;)
 	{
@@ -896,6 +897,7 @@ bool BakeDirectLight()
 		if (luxel.sentinel)
 			break;
 
+		s_lightBaker->totalLuxels++;
 		Lightmap &lightmap = s_lightBaker->lightmaps[luxel.lightmapIndex];
 		vec3 &luxelColor = lightmap.passColor[luxel.offset];
 		luxelColor = s_lightBaker->ambientLight;

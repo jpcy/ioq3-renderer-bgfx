@@ -12,6 +12,9 @@
 #define CGEN_EXACT_VERTEX     6
 #define CGEN_VERTEX           7
 
+#define DEBUG_NONE     0
+#define DEBUG_LIGHTMAP 1
+
 #define DGEN_NONE        0
 #define DGEN_BULGE       1
 #define DGEN_MOVE        2

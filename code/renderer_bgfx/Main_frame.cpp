@@ -103,6 +103,7 @@ static void FlushStretchPics()
 			memcpy(tib.data, &s_main->stretchPicIndices[0], sizeof(uint16_t) * s_main->stretchPicIndices.size());
 			s_main->time = interface::GetTime();
 			s_main->floatTime = s_main->time * 0.001f;
+			s_main->uniforms->debug.set(vec4::empty);
 			s_main->uniforms->dynamicLight_Num_Intensity.set(vec4::empty);
 			s_main->matUniforms->nDeforms.set(vec4(0, 0, 0, 0));
 			s_main->matUniforms->time.set(vec4(s_main->stretchPicMaterial->setTime(s_main->floatTime), 0, 0, 0));
@@ -1024,6 +1025,11 @@ static void RenderCamera(const RenderCameraArgs &args)
 	else
 	{
 		mainViewId = PushView(s_main->defaultFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
+	}
+
+	if (!s_main->drawCalls.empty() && !isProbe)
+	{
+		s_main->uniforms->debug.set(vec4((float)g_cvars.debug.getInt(), 0, 0, 0));
 	}
 
 	for (DrawCall &dc : s_main->drawCalls)
