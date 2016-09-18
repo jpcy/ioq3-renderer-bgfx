@@ -149,7 +149,7 @@ static void EncodeLightmaps()
 		for (int i = 0; i < lightmapSize.x * lightmapSize.y; i++)
 		{
 			// Colors are floats, but in 0-255+ range.
-			util::EncodeRGBM(lightmap.accumulatedColor[i] * g_overbrightFactor / 255.0f).toBytes(&lightmap.colorBytes[i * 4]);
+			util::EncodeRGBM(util::OverbrightenColor(lightmap.accumulatedColor[i] / 255.0f)).toBytes(&lightmap.colorBytes[i * 4]);
 		}
 	}
 }

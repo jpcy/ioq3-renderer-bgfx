@@ -1606,6 +1606,7 @@ namespace util
 
 	vec3 MirroredPoint(const vec3 in, const Transform &surface, const Transform &camera);
 	vec3 MirroredVector(const vec3 in, const Transform &surface, const Transform &camera);
+	vec3 OverbrightenColor(vec3 color);
 
 	char *SkipPath(char *pathname);
 	const char *GetFilename(const char *name);

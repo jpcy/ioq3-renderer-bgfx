@@ -722,7 +722,7 @@ void Load(const char *name)
 							const int lightmapX = (nAtlasedLightmaps % s_world->nLightmapsPerAtlas) % s_world->lightmapAtlasSize.x;
 							const int lightmapY = (nAtlasedLightmaps % s_world->nLightmapsPerAtlas) / s_world->lightmapAtlasSize.x;
 							uint8_t *dest = &image.data[((lightmapX * s_world->lightmapSize + x) + (lightmapY * s_world->lightmapSize + y) * (s_world->lightmapAtlasSize.x * s_world->lightmapSize)) * image.nComponents];
-							util::EncodeRGBM(vec3::fromBytes(src) * g_overbrightFactor).toBytes(dest);
+							util::EncodeRGBM(util::OverbrightenColor(vec3::fromBytes(src))).toBytes(dest);
 						}
 					}
 
@@ -806,14 +806,7 @@ void Load(const char *name)
 		v.normal = vec3(LittleFloat(fv.normal[0]), LittleFloat(fv.normal[1]), LittleFloat(fv.normal[2]));
 		v.texCoord = vec2(LittleFloat(fv.st[0]), LittleFloat(fv.st[1]));
 		v.texCoord2 = vec2(LittleFloat(fv.lightmap[0]), LittleFloat(fv.lightmap[1]));
-
-		v.color = util::ToLinear(vec4
-			(
-				fv.color[0] / 255.0f * g_overbrightFactor,
-				fv.color[1] / 255.0f * g_overbrightFactor,
-				fv.color[2] / 255.0f * g_overbrightFactor,
-				fv.color[3] / 255.0f
-				));
+		v.color = util::ToLinear(vec4(util::OverbrightenColor(vec3::fromBytes(fv.color)), fv.color[3] / 255.0f));
 	}
 
 	// Indices
@@ -1302,6 +1295,8 @@ void SampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec
 		(*directedLight) *= totalFactor;
 	}
 
+	//*ambientLight = util::OverbrightenColor(*ambientLight);
+	//*directedLight = util::OverbrightenColor(*directedLight);
 	(*lightDir) = direction;
 	lightDir->normalizeFast();
 }

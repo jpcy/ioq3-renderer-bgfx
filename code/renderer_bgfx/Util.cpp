@@ -394,6 +394,22 @@ vec3 MirroredVector(const vec3 in, const Transform &surface, const Transform &ca
 	return transformed;
 }
 
+vec3 OverbrightenColor(vec3 color)
+{
+	assert(in);
+	assert(out);
+
+	color *= g_overbrightFactor;
+
+	// Normalize by color instead of saturating to white.
+	if (color.r > 1 || color.g > 1 || color.b > 1)
+	{
+		color *= 1.0f / std::max(color.r, std::max(color.g, color.b));
+	}
+
+	return color;
+}
+
 char *SkipPath(char *pathname)
 {
 	char *last = pathname;
