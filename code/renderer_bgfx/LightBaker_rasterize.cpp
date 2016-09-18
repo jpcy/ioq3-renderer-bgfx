@@ -395,21 +395,6 @@ static lm_bool lm_trySamplingConservativeTriangleRasterizerPosition(lm_context *
 	if (nRes == 0)
 		return LM_FALSE;
 	
-	// Ignore duplicates. It's possible for different triangles to rasterize the same luxel.
-	const int luxelOffset = ctx->rasterizer.x + ctx->rasterizer.y * world::GetLightmapSize().x;
-	const world::Surface &surface = world::GetSurface(s_rasterizer.modelIndex, s_rasterizer.surfaceIndex);
-	uint8_t &duplicateByte = s_lightBaker->lightmaps[surface.material->lightmapIndex].duplicateBits[luxelOffset / 8];
-	const uint8_t duplicateBit = 1<<(luxelOffset % 8);
-
-	if ((duplicateByte & duplicateBit) == 0)
-	{
-		duplicateByte |= duplicateBit;
-	}
-	else
-	{
-		return LM_FALSE;
-	}
-
 	// do centroid sampling
 	lm_vec2 centroid = res[0];
 	float area = res[nRes - 1].x * res[0].y - res[nRes - 1].y * res[0].x;
@@ -445,6 +430,21 @@ static lm_bool lm_trySamplingConservativeTriangleRasterizerPosition(lm_context *
 				lm_finite3(ctx->sample.direction) &&
 				lm_length3sq(ctx->sample.direction) > 0.5f) // don't allow 0.0f. should always be ~1.0f
 			{
+				// Ignore duplicate sampling of the same luxel, e.g. triangles sharing an edge.
+				const int luxelOffset = ctx->rasterizer.x + ctx->rasterizer.y * world::GetLightmapSize().x;
+				const world::Surface &surface = world::GetSurface(s_rasterizer.modelIndex, s_rasterizer.surfaceIndex);
+				uint8_t &duplicateByte = s_lightBaker->lightmaps[surface.material->lightmapIndex].duplicateBits[luxelOffset / 8];
+				const uint8_t duplicateBit = 1<<(luxelOffset % 8);
+
+				if ((duplicateByte & duplicateBit) == 0)
+				{
+					duplicateByte |= duplicateBit;
+				}
+				else
+				{
+					return LM_FALSE;
+				}
+
 				// randomize rotation
 				lm_vec3 up = lm_v3(0.0f, 0.0f, 1.0f);
 				if (lm_absf(lm_dot3(up, ctx->sample.direction)) > 0.8f)
