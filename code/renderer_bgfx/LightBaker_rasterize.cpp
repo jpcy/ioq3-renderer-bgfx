@@ -210,8 +210,8 @@ struct lm_context
 		int channels;
 		float *data;
 
-#ifdef LM_DEBUG_INTERPOLATION
-		unsigned char *debug;
+#ifdef DEBUG_LIGHTMAP_INTERPOLATION
+		uint8_t *debug;
 #endif
 	} lightmap;
 
@@ -300,20 +300,17 @@ static lm_bool lm_trySamplingConservativeTriangleRasterizerPosition(lm_context *
 	if (lm_hasConservativeTriangleRasterizerFinished(ctx))
 		return LM_FALSE;
 
-	// check if lightmap pixel was already set
-	bool alreadySet = false;
-	float *pixelValue = lm_getLightmapPixel(ctx, ctx->rasterizer.x, ctx->rasterizer.y);
-	for (int j = 0; j < ctx->lightmap.channels; j++)
-	{
-		if (pixelValue[j] != 0.0f)
-		{
-			alreadySet = true;
-			break;
-		}
-	}
+	// Ignore duplicate sampling of the same luxel, e.g. triangles sharing an edge.
+	const int luxelOffset = ctx->rasterizer.x + ctx->rasterizer.y * world::GetLightmapSize().x;
+	const world::Surface &surface = world::GetSurface(s_rasterizer.modelIndex, s_rasterizer.surfaceIndex);
+	uint8_t &duplicateByte = s_lightBaker->lightmaps[surface.material->lightmapIndex].duplicateBits[luxelOffset / 8];
+	const uint8_t duplicateBit = 1<<(luxelOffset % 8);
+
+	if ((duplicateByte & duplicateBit) != 0)
+		return LM_FALSE;
 
 	// try to interpolate from neighbors:
-	if (!alreadySet && ctx->pass > 0)
+	if (ctx->pass > 0)
 	{
 		float *neighbors[4];
 		int neighborCount = 0;
@@ -373,7 +370,8 @@ static lm_bool lm_trySamplingConservativeTriangleRasterizerPosition(lm_context *
 			if (interpolate)
 			{
 				lm_setLightmapPixel(ctx, ctx->rasterizer.x, ctx->rasterizer.y, avg);
-#ifdef LM_DEBUG_INTERPOLATION
+				duplicateByte |= duplicateBit;
+#ifdef DEBUG_LIGHTMAP_INTERPOLATION
 				// set interpolated pixel to green in debug output
 				ctx->lightmap.debug[(ctx->rasterizer.y * ctx->lightmap.width + ctx->rasterizer.x) * 3 + 1] = 255;
 #endif
@@ -430,21 +428,6 @@ static lm_bool lm_trySamplingConservativeTriangleRasterizerPosition(lm_context *
 				lm_finite3(ctx->sample.direction) &&
 				lm_length3sq(ctx->sample.direction) > 0.5f) // don't allow 0.0f. should always be ~1.0f
 			{
-				// Ignore duplicate sampling of the same luxel, e.g. triangles sharing an edge.
-				const int luxelOffset = ctx->rasterizer.x + ctx->rasterizer.y * world::GetLightmapSize().x;
-				const world::Surface &surface = world::GetSurface(s_rasterizer.modelIndex, s_rasterizer.surfaceIndex);
-				uint8_t &duplicateByte = s_lightBaker->lightmaps[surface.material->lightmapIndex].duplicateBits[luxelOffset / 8];
-				const uint8_t duplicateBit = 1<<(luxelOffset % 8);
-
-				if ((duplicateByte & duplicateBit) == 0)
-				{
-					duplicateByte |= duplicateBit;
-				}
-				else
-				{
-					return LM_FALSE;
-				}
-
 				// randomize rotation
 				lm_vec3 up = lm_v3(0.0f, 0.0f, 1.0f);
 				if (lm_absf(lm_dot3(up, ctx->sample.direction)) > 0.8f)
@@ -463,6 +446,11 @@ static lm_bool lm_trySamplingConservativeTriangleRasterizerPosition(lm_context *
 				float phi = 2.0f * pi * baseAngles[ry][rx] + 0.1f * ((float)rand() / (float)RAND_MAX);
 				ctx->sample.up = lm_normalize3(lm_add3(lm_scale3(side, cosf(phi)), lm_scale3(up, sinf(phi))));
 
+#ifdef DEBUG_LIGHTMAP_INTERPOLATION
+				// set sampled pixel to red in debug output
+				ctx->lightmap.debug[(ctx->rasterizer.y * ctx->lightmap.width + ctx->rasterizer.x) * 3 + 0] = 255;
+#endif
+				duplicateByte |= duplicateBit;
 				return LM_TRUE;
 			}
 		}
@@ -619,6 +607,7 @@ Luxel RasterizeLuxel()
 			ctx.lightmap.height = lightmapSize.y;
 			ctx.lightmap.channels = 3;
 			ctx.lightmap.data = &s_lightBaker->lightmaps[surface.material->lightmapIndex].passColor.data()[0].x;
+			ctx.lightmap.debug = s_lightBaker->lightmaps[surface.material->lightmapIndex].interpolationDebug.data();
 
 			gotSample = lm_findFirstConservativeTriangleRasterizerPosition(&s_rasterizer.ctx);
 			s_rasterizer.startedSamplingTriangle = true;

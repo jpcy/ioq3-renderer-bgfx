@@ -34,7 +34,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #undef Status // unknown source. affects linux build.
 
-//#define DEBUG_HEMICUBE_RENDERING
+#define DEBUG_HEMICUBE_RENDERING
+#define DEBUG_LIGHTMAP_INTERPOLATION
 
 namespace renderer {
 
@@ -107,6 +108,10 @@ struct Lightmap
 	std::vector<vec3> accumulatedColor; // width * height
 
 	std::vector<uint8_t> colorBytes; // width * height * 4
+
+#ifdef DEBUG_LIGHTMAP_INTERPOLATION
+	std::vector<uint8_t> interpolationDebug; // width * height * 3
+#endif
 };
 
 struct HemicubeLocation

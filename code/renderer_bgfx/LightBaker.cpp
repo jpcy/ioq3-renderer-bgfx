@@ -36,6 +36,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "LightBaker.h"
 #include "World.h"
 
+#include "stb_image_write.h"
+
 namespace renderer {
 namespace light_baker {
 
@@ -192,6 +194,10 @@ static int Thread(void *data)
 		lightmap.passColor.resize(lightmapSize.x * lightmapSize.y);
 		lightmap.accumulatedColor.resize(lightmapSize.x * lightmapSize.y);
 		lightmap.colorBytes.resize(lightmapSize.x * lightmapSize.y * 4);
+
+#ifdef DEBUG_LIGHTMAP_INTERPOLATION
+		lightmap.interpolationDebug.resize(lightmapSize.x * lightmapSize.y * 3);
+#endif
 	}
 
 	// Count the total number of lightmapped triangles for measuring progress.
@@ -229,6 +235,14 @@ static int Thread(void *data)
 	for (int i = 0; i < s_lightBaker->nIndirectPasses; i++)
 	{
 		ClearPassColor();
+
+#ifdef DEBUG_LIGHTMAP_INTERPOLATION
+		for (Lightmap &lightmap : s_lightBaker->lightmaps)
+		{
+			memset(lightmap.interpolationDebug.data(), 0, lightmap.interpolationDebug.size());
+		}
+#endif
+
 		SetStatus(LightBaker::Status::BakingIndirectLight_Started);
 
 		for (;;)
@@ -243,6 +257,16 @@ static int Thread(void *data)
 		}
 
 		AccumulatePassColor();
+
+#ifdef DEBUG_LIGHTMAP_INTERPOLATION
+		for (int j = 0; j < (int)s_lightBaker->lightmaps.size(); j++)
+		{
+			const Lightmap &lightmap = s_lightBaker->lightmaps[j];
+			char filename[MAX_QPATH];
+			util::Sprintf(filename, sizeof(filename), "interpolation_lightmap%02d_bounce%02d.tga", j, i + 1);
+			stbi_write_tga(filename, lightmapSize.x, lightmapSize.y, 3, lightmap.interpolationDebug.data());
+		}
+#endif
 
 		if (!ThreadUpdateLightmaps())
 			return 1;
