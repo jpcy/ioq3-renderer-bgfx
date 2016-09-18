@@ -607,7 +607,9 @@ Luxel RasterizeLuxel()
 			ctx.lightmap.height = lightmapSize.y;
 			ctx.lightmap.channels = 3;
 			ctx.lightmap.data = &s_lightBaker->lightmaps[surface.material->lightmapIndex].passColor.data()[0].x;
+#ifdef DEBUG_LIGHTMAP_INTERPOLATION
 			ctx.lightmap.debug = s_lightBaker->lightmaps[surface.material->lightmapIndex].interpolationDebug.data();
+#endif
 
 			gotSample = lm_findFirstConservativeTriangleRasterizerPosition(&s_rasterizer.ctx);
 			s_rasterizer.startedSamplingTriangle = true;

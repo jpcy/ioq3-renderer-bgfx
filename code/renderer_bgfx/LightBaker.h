@@ -34,8 +34,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #undef Status // unknown source. affects linux build.
 
-#define DEBUG_HEMICUBE_RENDERING
-#define DEBUG_LIGHTMAP_INTERPOLATION
+//#define DEBUG_HEMICUBE_RENDERING
+//#define DEBUG_LIGHTMAP_INTERPOLATION
 
 namespace renderer {
 
