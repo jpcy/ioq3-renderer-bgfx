@@ -50,6 +50,7 @@ If you have questions concerning this license or the applicable additional terms
 
 #include <algorithm>
 #include <cmath>
+#include <map>
 #include <memory>
 #include <vector>
 #include "float.h"
@@ -1320,11 +1321,11 @@ public:
 	static Texture *find(const char *name, int flags = TextureFlags::None);
 
 	static Texture *get(const char *name);
-
 	static const Texture *getDefault();
 	static const Texture *getIdentityLight();
 	static const Texture *getWhite();
 	static Texture *getScratch(size_t index);
+	static void alias(Texture *from, Texture *to);
 
 	void resize(int width, int height);
 	void update(const bgfx::Memory *mem, int x, int y, int width, int height);
@@ -1634,7 +1635,7 @@ namespace util
 	vec4 ToGamma(vec4 color);
 	vec3 ToLinear(vec3 color);
 	vec4 ToLinear(vec4 color);
-	vec4 EncodeRGBM(vec3 color);
+	vec4b EncodeRGBM(vec3 color);
 }
 
 struct Vertex

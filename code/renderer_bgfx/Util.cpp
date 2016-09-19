@@ -618,7 +618,7 @@ vec4 ToLinear(vec4 color)
 	return vec4(ToLinear(color.xyz()), color.a);
 }
 
-vec4 EncodeRGBM(vec3 color)
+vec4b EncodeRGBM(vec3 color)
 {
 	// https://gist.github.com/aras-p/1199797
 	const float oneOverRGBMMaxRange = 1.0f / (float)RGBM_MAX_RANGE;
@@ -634,7 +634,7 @@ vec4 EncodeRGBM(vec3 color)
 	result.g = std::min(g / a, 1.0f);
 	result.b = std::min(b / a, 1.0f);
 	result.a = std::min(a, 1.0f);
-	return result;
+	return vec4b(result);
 }
 
 } // namespace util

@@ -121,6 +121,7 @@ struct TextureCache
 	static const size_t nScratchTextures = 32;
 	uint8_t scratchImageData[nScratchTextures][defaultImageDataSize];
 	std::array<TextureImpl *, nScratchTextures> scratchTextures;
+	std::map<Texture *, Texture *> aliases;
 
 	TextureCache() : hashTable()
 	{
@@ -274,6 +275,20 @@ struct TextureCache
 		return nullptr;
 	}
 
+	void alias(Texture *from, Texture *to)
+	{
+		assert(from);
+
+		if (!to)
+		{
+			aliases.erase(from);
+		}
+		else
+		{
+			aliases.insert(std::make_pair(from, to));
+		}
+	}
+
 	void hashTexture(TextureImpl *texture)
 	{
 		size_t hash = generateHash(texture->name);
@@ -307,13 +322,23 @@ struct TextureCache
 	TextureImpl *implFromTexture(Texture *texture)
 	{
 		assert(texture);
+
+		if (!aliases.empty())
+		{
+			auto alias = aliases.find(texture);
+
+			if (alias != aliases.end())
+			{
+				texture = alias->second;
+			}
+		}
+
 		return &textureImpls[size_t(texture - textures)];
 	}
 
 	const TextureImpl *implFromTexture(const Texture *texture)
 	{
-		assert(texture);
-		return &textureImpls[size_t(texture - textures)];
+		return (const TextureImpl *)implFromTexture((Texture *)texture);
 	}
 };
 
@@ -377,6 +402,11 @@ const Texture *Texture::getWhite()
 Texture *Texture::getScratch(size_t index)
 {
 	return s_textureCache->textureFromImpl(s_textureCache->scratchTextures[index]);
+}
+
+void Texture::alias(Texture *from, Texture *to)
+{
+	s_textureCache->alias(from, to);
 }
 
 void Texture::resize(int width, int height)

@@ -101,13 +101,17 @@ struct Lightmap
 	/// @brief Avoid rasterizing the same luxel with different primitives.
 	std::vector<uint8_t> duplicateBits;
 
-	/// @brief Color data for this pass (direct/indirect bounce).
-	std::vector<vec3> passColor; // width * height
+	/// @brief Color data for this pass (direct or an indirect bounce).
+	std::vector<vec3> passColor;
 
 	/// @brief Accumulated color data of all passes.
-	std::vector<vec3> accumulatedColor; // width * height
+	std::vector<vec3> accumulatedColor;
 
-	std::vector<uint8_t> colorBytes; // width * height * 4
+	/// @brief Pass color data encoded to RGBM.
+	std::vector<vec4b> encodedPassColor;
+
+	/// @brief Accumulated color data encoded to RGBM.
+	std::vector<vec4b> encodedAccumulatedColor;
 
 #ifdef DEBUG_LIGHTMAP_INTERPOLATION
 	std::vector<uint8_t> interpolationDebug; // width * height * 3
@@ -197,9 +201,13 @@ struct LightBaker
 	std::vector<HemicubeLocation> hemicubeBatchLocations;
 	int indirectLightProgress;
 	const float indirectLightScale = 0.25f;
-	const int nIndirectPasses = 1;
-	int currentIndirectPass = 0;
+	const int nIndirectBounces = 1;
+	int currentIndirectBounce = 0;
 	int nInterpolatedLuxels = 0;
+
+	/// @brief Lightmaps to use when rendering hemicubes.
+	/// @remarks The result from the previous pass (direct or indirect bounce) only, not accumulated with all previous passes.
+	std::vector<Texture *> hemicubeLightmaps;
 
 	// Indirect light frame ms measuring. Determines how many hemicubes to render per frame. Don't want to freeze, maintain a low frame rate instead.
 	int64_t lastFrameTime;

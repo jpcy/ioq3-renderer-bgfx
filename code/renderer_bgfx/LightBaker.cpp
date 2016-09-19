@@ -149,7 +149,8 @@ static void EncodeLightmaps()
 		for (int i = 0; i < lightmapSize.x * lightmapSize.y; i++)
 		{
 			// Colors are floats, but in 0-255+ range.
-			util::EncodeRGBM(util::OverbrightenColor(lightmap.accumulatedColor[i] / 255.0f)).toBytes(&lightmap.colorBytes[i * 4]);
+			lightmap.encodedPassColor[i] = util::EncodeRGBM(util::OverbrightenColor(lightmap.passColor[i] / 255.0f));
+			lightmap.encodedAccumulatedColor[i] = util::EncodeRGBM(util::OverbrightenColor(lightmap.accumulatedColor[i] / 255.0f));
 		}
 	}
 }
@@ -193,7 +194,8 @@ static int Thread(void *data)
 		lightmap.duplicateBits.resize(lightmapSize.x * lightmapSize.y / 8);
 		lightmap.passColor.resize(lightmapSize.x * lightmapSize.y);
 		lightmap.accumulatedColor.resize(lightmapSize.x * lightmapSize.y);
-		lightmap.colorBytes.resize(lightmapSize.x * lightmapSize.y * 4);
+		lightmap.encodedPassColor.resize(lightmapSize.x * lightmapSize.y);
+		lightmap.encodedAccumulatedColor.resize(lightmapSize.x * lightmapSize.y);
 
 #ifdef DEBUG_LIGHTMAP_INTERPOLATION
 		lightmap.interpolationDebug.resize(lightmapSize.x * lightmapSize.y * 3);
@@ -232,7 +234,7 @@ static int Thread(void *data)
 		return 1;
 
 	// Ready for indirect lighting, which happens in the main thread. Wait until it finishes.
-	for (int i = 0; i < s_lightBaker->nIndirectPasses; i++)
+	for (int i = 0; i < s_lightBaker->nIndirectBounces; i++)
 	{
 		ClearPassColor();
 
@@ -411,7 +413,7 @@ void Update(uint32_t frameNo)
 	{
 		InitializeIndirectLight();
 
-		if (s_lightBaker->currentIndirectPass == 0)
+		if (s_lightBaker->currentIndirectBounce == 0)
 		{
 			s_lightBaker->indirectBakeStartTime = bx::getHPCounter();
 		}
@@ -425,12 +427,12 @@ void Update(uint32_t frameNo)
 
 		if (!BakeIndirectLight(frameNo))
 		{
-			if (s_lightBaker->currentIndirectPass == s_lightBaker->nIndirectPasses - 1)
+			if (s_lightBaker->currentIndirectBounce == s_lightBaker->nIndirectBounces - 1)
 			{
 				s_lightBaker->indirectBakeTime = bx::getHPCounter() - s_lightBaker->indirectBakeStartTime;
 			}
 
-			s_lightBaker->currentIndirectPass++;
+			s_lightBaker->currentIndirectBounce++;
 			SetStatus(LightBaker::Status::BakingIndirectLight_Finished);
 		}
 	}
@@ -445,7 +447,13 @@ void Update(uint32_t frameNo)
 			{
 				const Lightmap &lightmap = s_lightBaker->lightmaps[i];
 				Texture *texture = world::GetLightmap(i);
-				texture->update(bgfx::makeRef(lightmap.colorBytes.data(), (uint32_t)lightmap.colorBytes.size()), 0, 0, lightmapSize.x, lightmapSize.y);
+				texture->update(bgfx::makeRef(lightmap.encodedAccumulatedColor.data(), uint32_t(lightmap.encodedAccumulatedColor.size() * sizeof(vec4b))), 0, 0, lightmapSize.x, lightmapSize.y);
+
+				if (!s_lightBaker->hemicubeLightmaps.empty())
+				{
+					texture = s_lightBaker->hemicubeLightmaps[i];
+					texture->update(bgfx::makeRef(lightmap.encodedPassColor.data(), uint32_t(lightmap.encodedPassColor.size() * sizeof(vec4b))), 0, 0, lightmapSize.x, lightmapSize.y);
+				}
 			}
 
 			s_lightBaker->textureUpdateFrameNo = frameNo;

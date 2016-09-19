@@ -581,6 +581,37 @@ public:
 	}
 };
 
+class vec4b
+{
+public:
+	vec4b() : x(0), y(0), z(0), w(0) {}
+	vec4b(uint8_t x, uint8_t y, uint8_t z, uint8_t w) : x(x), y(y), z(z), w(w) {}
+	explicit vec4b(vec4 v)
+	{
+		x = uint8_t(v.x * 255.0f);
+		y = uint8_t(v.y * 255.0f);
+		z = uint8_t(v.z * 255.0f);
+		w = uint8_t(v.w * 255.0f);
+	}
+
+	uint8_t &operator[](size_t index)
+	{
+		assert(index >= 0 && index <= 3);
+		return (&x)[index];
+	}
+
+	const uint8_t &operator[](size_t index) const
+	{
+		assert(index >= 0 && index <= 3);
+		return (&x)[index];
+	}
+
+	union { uint8_t x, r; };
+	union { uint8_t y, g; };
+	union { uint8_t z, b; };
+	union { uint8_t w, a; };
+};
+
 class Bounds
 {
 public:

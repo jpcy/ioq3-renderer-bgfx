@@ -71,7 +71,7 @@ void InitializeIndirectLight()
 		s_lightBakerPersistent->hemicubeIntegrationReadTexture = bgfx::createTexture2D(s_lightBaker->nHemicubesInBatch.x, s_lightBaker->nHemicubesInBatch.y, false, 1, bgfx::TextureFormat::RGBA32F, BGFX_TEXTURE_BLIT_DST | BGFX_TEXTURE_READ_BACK);
 	}
 
-	if (s_lightBaker->currentIndirectPass == 0)
+	if (s_lightBaker->currentIndirectBounce == 0)
 	{
 		// hemisphere weights texture. bakes in material dependent attenuation behaviour.
 		// precalculate weights for incoming light depending on its angle. (default: all weights are 1.0f)
@@ -124,6 +124,21 @@ void InitializeIndirectLight()
 		image.data = (uint8_t *)weightsMem;
 		image.flags = ImageFlags::DataIsBgfxMemory;
 		s_lightBaker->hemicubeWeightsTexture = Texture::create("*hemicube_weights", image, 0, bgfx::TextureFormat::RG32F);
+
+		// Create lightmap textures to use when rendering hemicubes. Initialized with direct light.
+		s_lightBaker->hemicubeLightmaps.resize(world::GetNumLightmaps());
+
+		for (int i = 0; i < world::GetNumLightmaps(); i++)
+		{
+			const vec2i lightmapSize = world::GetLightmapSize();
+			Image image;
+			image.width = lightmapSize.x;
+			image.height = lightmapSize.y;
+			image.nComponents = 4;
+			image.dataSize = image.width * image.height * image.nComponents;
+			image.data = &s_lightBaker->lightmaps[i].encodedPassColor[0].x;
+			s_lightBaker->hemicubeLightmaps[i] = Texture::create(util::VarArgs("*hemicube_lightmap%d", (int)i), image, TextureFlags::ClampToEdge | TextureFlags::Mutable);
+		}
 
 		// Misc. state.
 	#ifdef DEBUG_HEMICUBE_RENDERING
@@ -264,7 +279,18 @@ bool BakeIndirectLight(uint32_t frameNo)
 				vec3 up(luxel.up);
 #endif
 
+				for (int j = 0; j < world::GetNumLightmaps(); j++)
+				{
+					Texture::alias(world::GetLightmap(j), s_lightBaker->hemicubeLightmaps[j]);
+				}
+
 				main::RenderHemicube(s_lightBakerPersistent->hemicubeFb[0], luxel.position + luxel.normal * 1.0f, luxel.normal, up, rectOffset, s_lightBaker->hemicubeFaceSize);
+
+				for (int j = 0; j < world::GetNumLightmaps(); j++)
+				{
+					Texture::alias(world::GetLightmap(j), nullptr);
+				}
+
 				s_lightBaker->hemicubeBatchLocations[s_lightBaker->nHemicubesRenderedInBatch].lightmap = &lightmap;
 				s_lightBaker->hemicubeBatchLocations[s_lightBaker->nHemicubesRenderedInBatch].luxelOffset = luxel.offset;
 				s_lightBaker->nHemicubesRenderedInBatch++;
@@ -300,7 +326,7 @@ bool BakeIndirectLight(uint32_t frameNo)
 				const int offset = x + y * s_lightBaker->nHemicubesInBatch.x;
 				auto rgb = (const vec3 *)&s_lightBaker->hemicubeIntegrationData[offset * 4];
 				HemicubeLocation &hemicube = s_lightBaker->hemicubeBatchLocations[offset];
-				hemicube.lightmap->passColor[hemicube.luxelOffset] = *rgb * 255.0f * s_lightBaker->indirectLightScale / float(s_lightBaker->currentIndirectPass + 1);
+				hemicube.lightmap->passColor[hemicube.luxelOffset] = *rgb * 255.0f * s_lightBaker->indirectLightScale;
 			}
 		}
 
