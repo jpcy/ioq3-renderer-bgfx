@@ -45,8 +45,9 @@ struct RenderCameraFlags
 	{
 		ContainsSkyboxPortal = 1<<0,
 		IsSkyboxPortal       = 1<<1,
-		UseClippingPlane     = 1<<2,
-		UseStencilTest       = 1<<3
+		SkipUnlitSurfaces    = 1<<2,
+		UseClippingPlane     = 1<<3,
+		UseStencilTest       = 1<<4
 	};
 };
 
@@ -103,7 +104,7 @@ static void FlushStretchPics()
 			memcpy(tib.data, &s_main->stretchPicIndices[0], sizeof(uint16_t) * s_main->stretchPicIndices.size());
 			s_main->time = interface::GetTime();
 			s_main->floatTime = s_main->time * 0.001f;
-			s_main->uniforms->debug.set(vec4::empty);
+			s_main->uniforms->renderMode.set(vec4::empty);
 			s_main->uniforms->dynamicLight_Num_Intensity.set(vec4::empty);
 			s_main->matUniforms->nDeforms.set(vec4(0, 0, 0, 0));
 			s_main->matUniforms->time.set(vec4(s_main->stretchPicMaterial->setTime(s_main->floatTime), 0, 0, 0));
@@ -1027,9 +1028,16 @@ static void RenderCamera(const RenderCameraArgs &args)
 		mainViewId = PushView(s_main->defaultFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
 	}
 
-	if (!s_main->drawCalls.empty() && !isProbe)
+	if (!s_main->drawCalls.empty())
 	{
-		s_main->uniforms->debug.set(vec4((float)g_cvars.debug.getInt(), 0, 0, 0));
+		int renderMode = RENDER_MODE_NONE;
+
+		if (args.flags & RenderCameraFlags::SkipUnlitSurfaces)
+			renderMode = RENDER_MODE_LIT;
+		else if (!isProbe && g_cvars.debug.getInt() == 1)
+			renderMode = RENDER_MODE_LIGHTMAP;
+
+		s_main->uniforms->renderMode.set(vec4((float)renderMode, 0, 0, 0));
 	}
 
 	for (DrawCall &dc : s_main->drawCalls)
@@ -1514,7 +1522,7 @@ void RenderScene(const SceneDefinition &scene)
 * you are granted a perpetual, irrevocable license to copy *
 * and modify this file however you want.                   *
 ***********************************************************/
-void RenderHemicube(const FrameBuffer &frameBuffer, vec3 position, const vec3 forward, const vec3 up, vec2i rectOffset, int faceSize)
+void RenderHemicube(const FrameBuffer &frameBuffer, vec3 position, const vec3 forward, const vec3 up, vec2i rectOffset, int faceSize, bool skipUnlitSurfaces)
 {
 	// +-------+---+---+-------+
 	// |       |   |   |   D   |
@@ -1563,6 +1571,7 @@ void RenderHemicube(const FrameBuffer &frameBuffer, vec3 position, const vec3 fo
 		RenderCameraArgs args;
 		args.customFrameBuffer = &frameBuffer;
 		args.customProjectionMatrix = &projectionMatrices[i];
+		args.flags = skipUnlitSurfaces ? RenderCameraFlags::SkipUnlitSurfaces : 0;
 		args.position = position;
 		args.pvsPosition = position;
 		args.rect = rects[i];

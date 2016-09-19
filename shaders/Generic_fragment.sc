@@ -36,7 +36,7 @@ uniform vec4 u_BloomEnabled; // only x used
 #endif
 
 uniform vec4 u_Animation_Enabled_Fraction; // only x and y used
-uniform vec4 u_Debug; // only x used
+uniform vec4 u_RenderMode; // only x used
 uniform vec4 u_DiffuseRGBM; // only x used
 uniform vec4 u_PortalClip;
 uniform vec4 u_PortalPlane;
@@ -290,7 +290,13 @@ void main()
 
 	vec4 fragColor = vec4(ToGamma(diffuse.rgb * vertexColor * diffuseLight), alpha);
 
-	if (lightType == LIGHT_MAP && int(u_Debug.x) == DEBUG_LIGHTMAP)
+	int renderMode = int(u_RenderMode.x);
+
+	if (renderMode == RENDER_MODE_LIT && lightType != LIGHT_MAP)
+	{
+		fragColor = vec4(0, 0, 0, alpha);
+	}
+	else if (renderMode == RENDER_MODE_LIGHTMAP && lightType == LIGHT_MAP)
 	{
 		fragColor = vec4(DecodeRGBM(texture2D(u_LightSampler, v_texcoord1)), alpha);
 	}

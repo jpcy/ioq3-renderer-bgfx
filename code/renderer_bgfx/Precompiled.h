@@ -451,7 +451,7 @@ namespace main
 	bool IsCameraMirrored();
 	void LoadWorld(const char *name); 
 	void RegisterFont(const char *fontName, int pointSize, fontInfo_t *font);
-	void RenderHemicube(const FrameBuffer &frameBuffer, vec3 position, const vec3 forward, const vec3 up, vec2i rectOffset, int faceSize);
+	void RenderHemicube(const FrameBuffer &frameBuffer, vec3 position, const vec3 forward, const vec3 up, vec2i rectOffset, int faceSize, bool skipUnlitSurfaces);
 	void RenderScene(const SceneDefinition &scene);
 	bool SampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
 	void SetColor(vec4 c);
@@ -1388,7 +1388,7 @@ struct Uniforms
 	Uniform_vec4 depthRange = "u_DepthRange";
 
 	/// @remarks Only x used.
-	Uniform_vec4 debug = "u_Debug";
+	Uniform_vec4 renderMode = "u_RenderMode";
 
 	/// @remarks Used by entities and the world.
 	Uniform_vec4 localViewOrigin = "u_LocalViewOrigin";

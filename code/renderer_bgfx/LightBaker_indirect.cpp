@@ -284,7 +284,8 @@ bool BakeIndirectLight(uint32_t frameNo)
 					Texture::alias(world::GetLightmap(j), s_lightBaker->hemicubeLightmaps[j]);
 				}
 
-				main::RenderHemicube(s_lightBakerPersistent->hemicubeFb[0], luxel.position + luxel.normal * 1.0f, luxel.normal, up, rectOffset, s_lightBaker->hemicubeFaceSize);
+				// Only render lit surfaces after the first bounce.
+				main::RenderHemicube(s_lightBakerPersistent->hemicubeFb[0], luxel.position + luxel.normal * 1.0f, luxel.normal, up, rectOffset, s_lightBaker->hemicubeFaceSize, s_lightBaker->currentIndirectBounce > 0);
 
 				for (int j = 0; j < world::GetNumLightmaps(); j++)
 				{
