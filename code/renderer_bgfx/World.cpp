@@ -780,6 +780,13 @@ void Load(const char *name)
 			s_world->lightGridData.resize(lump.filelen);
 			memcpy(s_world->lightGridData.data(), &fileData[lump.fileofs], lump.filelen);
 		}
+
+		// deal with overbright bits
+		for (int i = 0; i < numGridPoints; i++)
+		{
+			util::OverbrightenColor(&s_world->lightGridData[i*8], &s_world->lightGridData[i*8]);
+			util::OverbrightenColor(&s_world->lightGridData[i*8+3], &s_world->lightGridData[i*8+3]);
+		}
 	}
 
 	// Materials
@@ -1266,12 +1273,12 @@ void SampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec
 
 		totalFactor += factor;
 
-		(*ambientLight)[0] += factor * data[0] * g_overbrightFactor;
-		(*ambientLight)[1] += factor * data[1] * g_overbrightFactor;
-		(*ambientLight)[2] += factor * data[2] * g_overbrightFactor;
-		(*directedLight)[0] += factor * data[3] * g_overbrightFactor;
-		(*directedLight)[1] += factor * data[4] * g_overbrightFactor;
-		(*directedLight)[2] += factor * data[5] * g_overbrightFactor;
+		(*ambientLight)[0] += factor * data[0];
+		(*ambientLight)[1] += factor * data[1];
+		(*ambientLight)[2] += factor * data[2];
+		(*directedLight)[0] += factor * data[3];
+		(*directedLight)[1] += factor * data[4];
+		(*directedLight)[2] += factor * data[5];
 
 		int lat = data[7];
 		int lng = data[6];
@@ -1295,8 +1302,6 @@ void SampleLightGrid(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec
 		(*directedLight) *= totalFactor;
 	}
 
-	//*ambientLight = util::OverbrightenColor(*ambientLight);
-	//*directedLight = util::OverbrightenColor(*directedLight);
 	(*lightDir) = direction;
 	lightDir->normalizeFast();
 }

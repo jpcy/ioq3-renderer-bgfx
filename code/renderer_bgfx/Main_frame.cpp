@@ -293,6 +293,20 @@ static void RenderDebugDraw(bgfx::TextureHandle texture, int x = 0, int y = 0, S
 	RenderScreenSpaceQuad(s_main->defaultFb, program, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft, Rect(g_cvars.debugDrawSize.getInt() * x, g_cvars.debugDrawSize.getInt() * y, g_cvars.debugDrawSize.getInt(), g_cvars.debugDrawSize.getInt()));
 }
 
+static void ClampEntityLight(vec3 *light)
+{
+	assert(light);
+	float max = std::max(light->r, std::max(light->g, light->b));
+
+	if (max > 255.0f)
+	{
+		max = 255.0f / max;
+		light->r *= max;
+		light->g *= max;
+		light->b *= max;
+	}
+}
+
 static void SetupEntityLighting(Entity *entity)
 {
 	assert(entity);
@@ -335,10 +349,8 @@ static void SetupEntityLighting(Entity *entity)
 		s_main->dlightManager->contribute(s_main->frameNo, lightPosition, &entity->directedLight, &entity->lightDir);
 	}
 
-	// Clamp ambient.
-	for (int i = 0; i < 3; i++)
-		entity->ambientLight[i] = std::min(entity->ambientLight[i], g_identityLight * 255);
-
+	ClampEntityLight(&entity->ambientLight);
+	ClampEntityLight(&entity->directedLight);
 	entity->lightDir.normalize();
 }
 
@@ -1134,8 +1146,8 @@ static void RenderCamera(const RenderCameraArgs &args)
 
 		if (s_main->currentEntity)
 		{
-			s_main->entityUniforms->ambientLight.set(vec4(s_main->currentEntity->ambientLight / 255.0f, 0));
-			s_main->entityUniforms->directedLight.set(vec4(s_main->currentEntity->directedLight / 255.0f, 0));
+			s_main->entityUniforms->ambientLight.set(vec4(util::ToLinear(s_main->currentEntity->ambientLight / 255.0f), 0));
+			s_main->entityUniforms->directedLight.set(vec4(util::ToLinear(s_main->currentEntity->directedLight / 255.0f), 0));
 			s_main->entityUniforms->lightDirection.set(vec4(s_main->currentEntity->lightDir, 0));
 		}
 

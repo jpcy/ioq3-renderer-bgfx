@@ -407,6 +407,28 @@ vec3 OverbrightenColor(vec3 color)
 	return color;
 }
 
+void OverbrightenColor(const uint8_t *src, uint8_t *dest)
+{
+	int r = int(src[0] * g_overbrightFactor);
+	int g = int(src[1] * g_overbrightFactor);
+	int b = int(src[2] * g_overbrightFactor);
+	
+	// Normalize by color instead of saturating to white.
+	if ((r | g | b) > 255)
+	{
+		int max = r > g ? r : g;
+		max = max > b ? max : b;
+		r = r * 255 / max;
+		g = g * 255 / max;
+		b = b * 255 / max;
+	}
+
+	dest[0] = r;
+	dest[1] = g;
+	dest[2] = b;
+	dest[3] = src[3];
+}
+
 char *SkipPath(char *pathname)
 {
 	char *last = pathname;
