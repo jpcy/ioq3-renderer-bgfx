@@ -64,9 +64,9 @@ struct ConsoleVariableFlags
 {
 	enum
 	{
-		Archive,
-		Cheat,
-		Latch
+		Archive = 1<<0,
+		Cheat   = 1<<1,
+		Latch   = 1<<2
 	};
 };
 
