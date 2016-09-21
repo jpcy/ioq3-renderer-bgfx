@@ -31,13 +31,12 @@ uniform vec4 u_DynamicLight_Num_Intensity; // x is the number of dynamic lights,
 uniform vec4 u_DynamicLightTextureSizes_Cells_Indices_Lights; // w not used
 #endif
 
-#if defined(USE_HDR)
-uniform vec4 u_BloomEnabled; // only x used
+#if defined(USE_BLOOM)
+uniform vec4 u_Bloom_Write_Scale;
 #endif
 
 uniform vec4 u_Animation_Enabled_Fraction; // only x and y used
 uniform vec4 u_RenderMode; // only x used
-uniform vec4 u_DiffuseRGBM; // only x used
 uniform vec4 u_PortalClip;
 uniform vec4 u_PortalPlane;
 uniform vec4 u_ViewOrigin;
@@ -140,11 +139,6 @@ void main()
 
 	vec4 diffuse = texture2D(u_DiffuseSampler, texCoord0);
 
-	if (int(u_DiffuseRGBM.x) == 1.0)
-	{
-		diffuse = vec4(DecodeRGBM(diffuse), 1.0);
-	}
-
 	if (int(u_Animation_Enabled_Fraction.x) == 1.0)
 	{
 		vec4 diffuse2 = texture2D(u_DiffuseSampler2, texCoord0);
@@ -217,7 +211,7 @@ void main()
 
 	if (lightType == LIGHT_MAP)
 	{
-		diffuseLight = ToLinear(DecodeRGBM(texture2D(u_LightSampler, v_texcoord1)));
+		diffuseLight = ToLinear(texture2D(u_LightSampler, v_texcoord1).rgb);
 	}
 	else if (lightType == LIGHT_VECTOR)
 	{
@@ -298,13 +292,13 @@ void main()
 	}
 	else if (renderMode == RENDER_MODE_LIGHTMAP && lightType == LIGHT_MAP)
 	{
-		fragColor = vec4(DecodeRGBM(texture2D(u_LightSampler, v_texcoord1)), alpha);
+		fragColor = vec4(texture2D(u_LightSampler, v_texcoord1).rgb, alpha);
 	}
 
-#if defined(USE_HDR)
+#if defined(USE_BLOOM)
 	gl_FragData[0] = fragColor;
 
-	if (int(u_BloomEnabled.x) != 0)
+	if (int(u_Bloom_Write_Scale.x) != 0)
 	{
 		gl_FragData[1] = fragColor;
 	}
@@ -314,5 +308,5 @@ void main()
 	}
 #else
 	gl_FragColor = fragColor;
-#endif // USE_HDR
+#endif // USE_BLOOM
 }

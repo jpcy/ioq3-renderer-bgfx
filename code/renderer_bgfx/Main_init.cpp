@@ -93,11 +93,13 @@ void ConsoleVariables::initialize()
 	}
 
 	bgfx_stats = interface::Cvar_Get("r_bgfx_stats", "0", ConsoleVariableFlags::Cheat);
+	bloom = interface::Cvar_Get("r_bloom", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	bloomScale = interface::Cvar_Get("r_bloomScale", "1.0", ConsoleVariableFlags::Archive);
 	debug = interface::Cvar_Get("r_debug", "", 0);
 	debugDraw = interface::Cvar_Get("r_debugDraw", "", 0);
 	debugDraw.setDescription(
 		"<empty>    None\n"
-		"bloom      HDR bloom\n"
+		"bloom      Bloom\n"
 		"depth      Linear depth\n"
 		"dlight     Dynamic light data\n"
 		"lightmap   Lightmaps\n"
@@ -106,10 +108,6 @@ void ConsoleVariables::initialize()
 	debugDrawSize = interface::Cvar_Get("r_debugDrawSize", "256", ConsoleVariableFlags::Archive);
 	dynamicLightIntensity = interface::Cvar_Get("r_dynamicLightIntensity", "1", ConsoleVariableFlags::Archive);
 	dynamicLightScale = interface::Cvar_Get("r_dynamicLightScale", "0.7", ConsoleVariableFlags::Archive);
-	hdr = interface::Cvar_Get("r_hdr", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	hdrBloomScale = interface::Cvar_Get("r_hdrBloomScale", "1.0", ConsoleVariableFlags::Archive);
-	hdrExposure = interface::Cvar_Get("r_hdrExposure", "0.5", ConsoleVariableFlags::Archive);
-	hdrGamma = interface::Cvar_Get("r_hdrGamma", "1.3", ConsoleVariableFlags::Archive);
 	lerpTextureAnimation = interface::Cvar_Get("r_lerpTextureAnimation", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	maxAnisotropy = interface::Cvar_Get("r_maxAnisotropy", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	picmip = interface::Cvar_Get("r_picmip", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
@@ -122,12 +120,9 @@ void ConsoleVariables::initialize()
 	waterReflections = interface::Cvar_Get("r_waterReflections", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	wireframe = interface::Cvar_Get("r_wireframe", "0", ConsoleVariableFlags::Cheat);
 
-	// Screen
-	brightness = interface::Cvar_Get("r_brightness", "1", ConsoleVariableFlags::Archive);
-	contrast = interface::Cvar_Get("r_contrast", "1", ConsoleVariableFlags::Archive);
+	// Gamma
 	gamma = interface::Cvar_Get("r_gamma", "1", ConsoleVariableFlags::Archive);
 	ignoreHardwareGamma = interface::Cvar_Get("r_ignorehwgamma", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	saturation = interface::Cvar_Get("r_saturation", "1", ConsoleVariableFlags::Archive);
 
 	// Window
 	allowResize = interface::Cvar_Get("r_allowResize", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
@@ -268,11 +263,6 @@ void Initialize()
 	s_main = std::make_unique<Main>();
 	g_cvars.initialize();
 	s_main->aa = AntiAliasingFromString(g_cvars.aa.getString());
-
-	// Don't allow MSAA if HDR is enabled.
-	if (g_cvars.hdr.getBool() && s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x)
-		s_main->aa = AntiAliasing::None;
-
 	s_main->aaHud = AntiAliasingFromString(g_cvars.aa_hud.getString());
 
 	// Non-world/HUD scenes can only use MSAA.
@@ -429,8 +419,9 @@ void Initialize()
 
 	// Map shader programs to their vertex and fragment shaders.
 	std::array<ShaderProgramIdMap, ShaderProgramId::Num> programMap;
-	programMap[ShaderProgramId::Color]            = { FragmentShaderId::Color, VertexShaderId::Color };
-	programMap[ShaderProgramId::Depth]            = { FragmentShaderId::Depth, VertexShaderId::Depth };
+	programMap[ShaderProgramId::Bloom] = { FragmentShaderId::Bloom, VertexShaderId::Texture };
+	programMap[ShaderProgramId::Color] = { FragmentShaderId::Color, VertexShaderId::Color };
+	programMap[ShaderProgramId::Depth] = { FragmentShaderId::Depth, VertexShaderId::Depth };
 
 	programMap[ShaderProgramId::Depth + DepthShaderProgramVariant::AlphaTest] =
 	{
@@ -452,9 +443,9 @@ void Initialize()
 
 	programMap[ShaderProgramId::Fog] = { FragmentShaderId::Fog, VertexShaderId::Fog };
 
-	programMap[ShaderProgramId::Fog + FogShaderProgramVariant::HDR] =
+	programMap[ShaderProgramId::Fog + FogShaderProgramVariant::Bloom] =
 	{
-		FragmentShaderId::Fog_HDR,
+		FragmentShaderId::Fog_Bloom,
 		VertexShaderId::Fog
 	};
 
@@ -464,9 +455,9 @@ void Initialize()
 		VertexShaderId::Fog_DepthRange
 	};
 
-	programMap[ShaderProgramId::Fog + (FogShaderProgramVariant::HDR | FogShaderProgramVariant::DepthRange)] =
+	programMap[ShaderProgramId::Fog + (FogShaderProgramVariant::Bloom | FogShaderProgramVariant::DepthRange)] =
 	{
-		FragmentShaderId::Fog_HDR,
+		FragmentShaderId::Fog_Bloom,
 		VertexShaderId::Fog_DepthRange
 	};
 
@@ -492,7 +483,6 @@ void Initialize()
 	programMap[ShaderProgramId::Texture] = { FragmentShaderId::Texture, VertexShaderId::Texture };
 	programMap[ShaderProgramId::TextureColor] = { FragmentShaderId::TextureColor, VertexShaderId::Texture };
 	programMap[ShaderProgramId::TextureDebug] = { FragmentShaderId::TextureDebug, VertexShaderId::Texture };
-	programMap[ShaderProgramId::ToneMap] = { FragmentShaderId::ToneMap, VertexShaderId::Texture };
 
 	// Create shader programs.
 	for (size_t i = 0; i < ShaderProgramId::Num; i++)
@@ -501,7 +491,7 @@ void Initialize()
 		if (s_main->aa != AntiAliasing::SMAA && (i == ShaderProgramId::SMAABlendingWeightCalculation || i == ShaderProgramId::SMAAEdgeDetection || i == ShaderProgramId::SMAANeighborhoodBlending))
 			continue;
 
-		if (g_cvars.hdr.getBool() == 0 && (i == ShaderProgramId::GaussianBlur || i == ShaderProgramId::ToneMap))
+		if (g_cvars.bloom.getBool() == 0 && (i == ShaderProgramId::Bloom || i == ShaderProgramId::GaussianBlur))
 			continue;
 
 		Shader &fragment = s_main->fragmentShaders[programMap[i].frag];
@@ -539,46 +529,39 @@ void LoadWorld(const char *name)
 	}
 
 	// Create frame buffers first.
+	uint32_t aaFlags = 0;
+
+	if (s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x)
+	{
+		aaFlags |= (1 + (int)s_main->aa - (int)AntiAliasing::MSAA2x) << BGFX_TEXTURE_RT_MSAA_SHIFT;
+	}
+
 	const uint32_t rtClampFlags = BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP;
 	s_main->linearDepthFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::R16F);
-	bgfx::TextureHandle reflectionTexture;
 
-	if (g_cvars.hdr.getBool())
+	if (g_cvars.bloom.getBool())
 	{
-		if (g_cvars.waterReflections.getBool())
-			reflectionTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::RGBA16F, rtClampFlags);
-
-		if (s_main->aa != AntiAliasing::None)
+		if (s_main->aa == AntiAliasing::SMAA)
 		{
-			// HDR needs a temp BGRA8 destination for AA.
+			// Bloom needs a temp BGRA8 destination for SMAA.
 			s_main->sceneTempFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::BGRA8, rtClampFlags);
-		}
-
+		}		
+		
 		bgfx::TextureHandle sceneTextures[3];
-		sceneTextures[0] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::RGBA16F, rtClampFlags);
-		sceneTextures[1] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags);
-		sceneTextures[2] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT);
+		sceneTextures[0] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
+		sceneTextures[1] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
+		sceneTextures[2] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT | aaFlags);
 		s_main->sceneFb.handle = bgfx::createFrameBuffer(3, sceneTextures, true);
 		s_main->sceneBloomAttachment = 1;
 		s_main->sceneDepthAttachment = 2;
 
 		for (size_t i = 0; i < s_main->nBloomFrameBuffers; i++)
 		{
-			s_main->bloomFb[i].handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Quarter, bgfx::TextureFormat::BGRA8, rtClampFlags);
+			s_main->bloomFb[i].handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Quarter, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
 		}
 	}
 	else
 	{
-		uint32_t aaFlags = 0;
-
-		if (s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x)
-		{
-			aaFlags |= (1 + (int)s_main->aa - (int)AntiAliasing::MSAA2x) << BGFX_TEXTURE_RT_MSAA_SHIFT;
-		}
-
-		if (g_cvars.waterReflections.getBool())
-			reflectionTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
-
 		bgfx::TextureHandle sceneTextures[2];
 		sceneTextures[0] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
 		sceneTextures[1] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_RT | aaFlags);
@@ -587,7 +570,13 @@ void LoadWorld(const char *name)
 	}
 
 	if (g_cvars.waterReflections.getBool())
+	{
+		bgfx::TextureHandle reflectionTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
 		s_main->reflectionFb.handle = bgfx::createFrameBuffer(1, &reflectionTexture); // Don't destroy the texture, that will be done by the texture cache.
+
+		// Register the reflection texture so it can accessed by materials.
+		Texture::create("*reflection", reflectionTexture);
+	}
 
 	if (s_main->aa == AntiAliasing::SMAA)
 	{
@@ -595,12 +584,6 @@ void LoadWorld(const char *name)
 		s_main->smaaEdgesFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::RG8, rtClampFlags);
 		s_main->smaaAreaTex = bgfx::createTexture2D(AREATEX_WIDTH, AREATEX_HEIGHT, false, 1, bgfx::TextureFormat::RG8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(areaTexBytes, AREATEX_SIZE));
 		s_main->smaaSearchTex = bgfx::createTexture2D(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, false, 1, bgfx::TextureFormat::R8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(searchTexBytes, SEARCHTEX_SIZE));
-	}
-
-	if (g_cvars.waterReflections.getBool())
-	{
-		// Register the reflection texture so it can accessed by materials.
-		Texture::create("*reflection", reflectionTexture);
 	}
 
 	// Load the world.

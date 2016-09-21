@@ -149,8 +149,8 @@ static void EncodeLightmaps()
 		for (int i = 0; i < lightmapSize.x * lightmapSize.y; i++)
 		{
 			// Colors are floats, but in 0-255+ range.
-			lightmap.encodedPassColor[i] = util::EncodeRGBM(util::OverbrightenColor(lightmap.passColor[i] / 255.0f));
-			lightmap.encodedAccumulatedColor[i] = util::EncodeRGBM(util::OverbrightenColor(lightmap.accumulatedColor[i] / 255.0f));
+			lightmap.encodedPassColor[i] = vec4b(vec4(util::OverbrightenColor(lightmap.passColor[i] / 255.0f), 1));
+			lightmap.encodedAccumulatedColor[i] = vec4b(vec4(util::OverbrightenColor(lightmap.accumulatedColor[i] / 255.0f), 1));
 		}
 	}
 }

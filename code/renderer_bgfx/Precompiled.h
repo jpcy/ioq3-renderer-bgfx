@@ -119,15 +119,13 @@ struct ConsoleVariables
 	ConsoleVariable aa_hud;
 	ConsoleVariable backend;
 	ConsoleVariable bgfx_stats;
+	ConsoleVariable bloom;
+	ConsoleVariable bloomScale;
 	ConsoleVariable debug;
 	ConsoleVariable debugDraw;
 	ConsoleVariable debugDrawSize;
 	ConsoleVariable dynamicLightIntensity;
 	ConsoleVariable dynamicLightScale;
-	ConsoleVariable hdr;
-	ConsoleVariable hdrBloomScale;
-	ConsoleVariable hdrExposure;
-	ConsoleVariable hdrGamma;
 	ConsoleVariable lerpTextureAnimation;
 	ConsoleVariable maxAnisotropy;
 	ConsoleVariable picmip;
@@ -139,13 +137,10 @@ struct ConsoleVariables
 	ConsoleVariable waterReflections;
 	ConsoleVariable wireframe;
 
-	/// @name Screen
+	/// @name Gamma
 	/// @{
-	ConsoleVariable brightness;
-	ConsoleVariable contrast;
 	ConsoleVariable gamma;
 	ConsoleVariable ignoreHardwareGamma;
-	ConsoleVariable saturation;
 	/// @}
 
 	/// @name Window
@@ -807,7 +802,6 @@ struct MaterialStage
 	uint64_t depthTestBits = BGFX_STATE_DEPTH_TEST_LEQUAL;
 
 	bool depthWrite = true;
-	bool decodeRGBM = false; // for lightmap only stages
 
 	MaterialAlphaTest alphaTest = MaterialAlphaTest::None;
 
@@ -1450,16 +1444,12 @@ struct Uniforms
 	Uniform_vec4 fogEyeT = "u_FogEyeT";
 	/// @}
 
-	/// @name HDR
+	/// @name Bloom
 	/// @{
-	Uniform_vec4 brightnessContrastGammaSaturation = "u_BrightnessContrastGammaSaturation";
 	Uniform_vec4 guassianBlurDirection = "u_GuassianBlurDirection";
 
-	/// @remarks Only x used.
-	Uniform_vec4 bloomEnabled = "u_BloomEnabled";
-
 	/// @remarks Only x and y used.
-	Uniform_vec4 hdr_BloomScale_Exposure = "u_Hdr_BloomScale_Exposure";
+	Uniform_vec4 bloom_Write_Scale = "u_Bloom_Write_Scale";
 	/// @}
 
 	/// @name Texture samplers
@@ -1513,9 +1503,6 @@ struct Uniforms_MaterialStage
 	Uniform_vec4 alphaTest = "u_AlphaTest";
 
 	Uniform_vec4 animation_Enabled_Fraction = "u_Animation_Enabled_Fraction";
-
-	/// @remarks Only x used.
-	Uniform_vec4 diffuseRGBM = "u_DiffuseRGBM";
 
 	Uniform_vec4 fogColorMask = "u_FogColorMask";
 

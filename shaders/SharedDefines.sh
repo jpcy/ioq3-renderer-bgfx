@@ -56,7 +56,6 @@
 #define TEXTURE_DEBUG_G    1
 #define TEXTURE_DEBUG_B    2
 #define TEXTURE_DEBUG_RG   3
-#define TEXTURE_DEBUG_RGBM 4
 
 #define TU_DIFFUSE               0
 #define TU_DIFFUSE2              1

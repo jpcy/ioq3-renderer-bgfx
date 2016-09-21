@@ -84,7 +84,7 @@ struct FogShaderProgramVariant
 	enum
 	{
 		None       = 0,
-		HDR        = 1 << 0, // Fragment
+		Bloom      = 1 << 0, // Fragment
 		DepthRange = 1 << 1, // Vertex
 		Num        = 1 << 2
 	};
@@ -99,8 +99,8 @@ struct GenericShaderProgramVariant
 
 		// Fragment
 		AlphaTest     = 1 << 0,
-		DynamicLights = 1 << 1,
-		HDR           = 1 << 2,
+		Bloom         = 1 << 1,
+		DynamicLights = 1 << 2,
 		SoftSprite    = 1 << 3,
 
 		// Vertex
@@ -114,6 +114,7 @@ struct ShaderProgramId
 {
 	enum Enum
 	{
+		Bloom,
 		Color,
 		Depth,
 		Fog = Depth + DepthShaderProgramVariant::Num,
@@ -128,7 +129,6 @@ struct ShaderProgramId
 		Texture,
 		TextureColor,
 		TextureDebug,
-		ToneMap,
 		Num
 	};
 };

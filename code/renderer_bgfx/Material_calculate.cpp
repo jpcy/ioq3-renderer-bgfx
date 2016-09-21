@@ -106,7 +106,6 @@ void MaterialStage::setShaderUniforms(Uniforms_MaterialStage *uniforms, int flag
 		uniforms->animation_Enabled_Fraction.set(vec4::empty);
 	}
 
-	uniforms->diffuseRGBM.set(vec4(decodeRGBM ? 1.0f : 0.0f, 0, 0, 0));
 	uniforms->lightType.set(vec4((float)light, 0, 0, 0));
 	uniforms->normalScale.set(normalScale);
 	uniforms->specularScale.set(specularScale);

@@ -199,7 +199,7 @@ newaction
 		
 		local fogFragmentVariants =
 		{
-			{ "HDR", "USE_HDR" }
+			{ "Bloom", "USE_BLOOM" }
 		}
 		
 		local fogVertexVariants =
@@ -210,8 +210,8 @@ newaction
 		local genericFragmentVariants =
 		{
 			{ "AlphaTest", "USE_ALPHA_TEST" },
+			{ "Bloom", "USE_BLOOM" },
 			{ "DynamicLights", "USE_DYNAMIC_LIGHTS" },
-			{ "HDR", "USE_HDR" },
 			{ "SoftSprite", "USE_SOFT_SPRITE" }
 		}
 		
@@ -222,6 +222,7 @@ newaction
 		
 		local fragmentShaders =
 		{
+			{ "Bloom" },
 			{ "Color" },
 			{ "Depth", depthFragmentVariants },
 			{ "Fog", fogFragmentVariants },
@@ -235,8 +236,7 @@ newaction
 			{ "SMAANeighborhoodBlending" },
 			{ "Texture" },
 			{ "TextureColor" },
-			{ "TextureDebug" },
-			{ "ToneMap" }
+			{ "TextureDebug" }
 		}
 		
 		local vertexShaders =

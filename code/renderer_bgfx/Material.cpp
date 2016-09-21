@@ -437,18 +437,6 @@ int Material::collapseStagesToGLSL()
 		}
 	}
 
-	// Lightmap only stages: decode RGBM
-	for (i = 0; i < maxStages; i++)
-	{
-		MaterialStage *stage = &stages[i];
-
-		if (stage->active && stage->bundles[MaterialTextureBundleIndex::DiffuseMap].tcGen == MaterialTexCoordGen::Lightmap)
-		{
-			stage->decodeRGBM = true;
-		}
-	}
-
-
 	return numStages;
 }
 

@@ -722,7 +722,7 @@ void Load(const char *name)
 							const int lightmapX = (nAtlasedLightmaps % s_world->nLightmapsPerAtlas) % s_world->lightmapAtlasSize.x;
 							const int lightmapY = (nAtlasedLightmaps % s_world->nLightmapsPerAtlas) / s_world->lightmapAtlasSize.x;
 							auto dest = (vec4b *)&image.data[((lightmapX * s_world->lightmapSize + x) + (lightmapY * s_world->lightmapSize + y) * (s_world->lightmapAtlasSize.x * s_world->lightmapSize)) * image.nComponents];
-							*dest = util::EncodeRGBM(util::OverbrightenColor(vec3::fromBytes(src)));
+							*dest = vec4b(vec4(util::OverbrightenColor(vec3::fromBytes(src)), 1));
 						}
 					}
 

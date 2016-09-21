@@ -27,10 +27,6 @@ void main()
 	{
 		gl_FragColor = vec4(tex.r, tex.g, 0.0, 1.0);
 	}
-	else if (int(u_TextureDebug.x) == TEXTURE_DEBUG_RGBM)
-	{
-		gl_FragColor = vec4(DecodeRGBM(tex), 1.0);
-	}
 	else
 	{
 		gl_FragColor = tex;
