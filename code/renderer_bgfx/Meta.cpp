@@ -74,6 +74,7 @@ static const char *s_reflectiveMaterialNames[] =
 
 static const char * s_bloomWhitelist[] =
 {
+	// Q3A
 	"models/mapobjects/baph/bapholamp_fx*",
 	"models/mapobjects/baph/wrist.*",
 	"models/mapobjects/barrel/barrel2fx.*",
@@ -192,7 +193,54 @@ static const char * s_bloomWhitelist[] =
 	"textures/sfx/xian_dm3padwallglow.*",
 	"textures/sfx/zap_scroll.*",
 	"textures/sfx/zap_scroll2.*",
-	"textures/skies/*"
+	"textures/skies/*",
+
+	// Team Arena
+	"models/mapobjects/gratelamp/lightbulb.*",
+	"models/mapobjects/slamp/slamp3*",
+	"models/mapobjects/spawn/spawn3_*",
+	"models/mapobjects/techlamp/techlamp_pole2.*",
+	"models/mapobjects/xlamp/xlamp_blue.*",
+	"models/mapobjects/xlamp/xlamp_ntrl.*",
+	"models/mapobjects/xlamp/xlamp_red.*",
+	"team_icon/*",
+	"textures/base_object/boxQ3_2.blend.*",
+	"textures/base_wall2/blue_arrow_small.*",
+	"textures/base_wall2/blue_circle.*",
+	"textures/base_wall2/blue_line_glow.*",
+	"textures/base_wall2/blue_solid.*",
+	"textures/base_wall2/bluearrows.*",
+	"textures/base_wall2/jumppad_shadow.*",
+	"textures/base_wall2/red_arrow_small.*",
+	"textures/base_wall2/red_circle.*",
+	"textures/base_wall2/red_line_glow.*",
+	"textures/base_wall2/red_solid.*",
+	"textures/base_wall2/redarrows.*",
+	"textures/base_wall2/techfloor_kc_shadow.*",
+	"textures/base_wall2/zzztblue_kc.*",
+	"textures/base_wall2/zzztntrl_kc.*",
+	"textures/base_wall2/zzztred_kc.*",
+	"textures/ctf2/blueteam01.*",
+	"textures/ctf2/redteam01.*",
+	"textures/ctf2/jaildr_blue.blend.*",
+	"textures/ctf2/pj_baseboardb_l.*",
+	"textures/ctf2/pj_baseboardr_l.*",
+	"textures/proto2/lightbulb.*",
+	"textures/proto2/marble02btrim03_lt.*",
+	"textures/proto2/marble02rtrim03_lt.*",
+	"textures/proto2/stadlight01fx.*",
+	"textures/sfx2/b_smack*",
+	"textures/sfx2/jumpadb.*",
+	"textures/sfx2/blaunch*",
+	"textures/sfx2/dm3padwallglow*",
+	"textures/sfx2/jumpadb2.*",
+	"textures/sfx2/jumpadn2.*",
+	"textures/sfx2/jumpadr*",
+	"textures/sfx2/nlaunch*",
+	"textures/sfx2/r_fight0*",
+	"textures/sfx2/rlaunch*",
+	"textures/sfx2/swirl_b*",
+	"textures/sfx2/swirl_r*"
 };
 
 void Initialize()
