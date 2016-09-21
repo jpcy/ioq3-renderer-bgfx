@@ -396,9 +396,6 @@ vec3 MirroredVector(const vec3 in, const Transform &surface, const Transform &ca
 
 vec3 OverbrightenColor(vec3 color)
 {
-	assert(in);
-	assert(out);
-
 	color *= g_overbrightFactor;
 
 	// Normalize by color instead of saturating to white.

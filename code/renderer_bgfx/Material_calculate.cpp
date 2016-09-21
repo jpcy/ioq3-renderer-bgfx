@@ -548,13 +548,28 @@ void MaterialStage::calculateColors(vec4 *baseColor, vec4 *vertColor) const
 			break;
 	}
 
-	// Multiply color by overbrightbits if this isn't a blend.
-	if (g_overbrightFactor > 1
-		&& blendSrc != BGFX_STATE_BLEND_DST_COLOR
-		&& blendSrc != BGFX_STATE_BLEND_INV_DST_COLOR
-		&& blendDst != BGFX_STATE_BLEND_SRC_COLOR
-		&& blendDst != BGFX_STATE_BLEND_INV_SRC_COLOR)
+	// Multiply color by overbright factor.
+	// The GL1 renderer does this to texture color at load time instead.
+	if (!g_hardwareGammaEnabled && g_overbrightFactor > 1)
 	{
+		const bool isBlend = (blendSrc == BGFX_STATE_BLEND_DST_COLOR || blendSrc == BGFX_STATE_BLEND_INV_DST_COLOR || blendDst == BGFX_STATE_BLEND_SRC_COLOR || blendDst == BGFX_STATE_BLEND_INV_SRC_COLOR);
+
+		// Hack around materials with lightmap only stages (white diffuse * lightmap) like textures/base_wall/bluemetal1b_shiny (q3dm12).
+		// These will have a lightmap only first stage with the second stage doing multiply blend.
+		// Normally, the first stage will be multiplied by overbright factor, but not the second stage, resulting in ugly clamping artifacts.
+		// Fix this by swapping which stage gets the overbright factor multiply.
+		if (material->stages[0].bundles[MaterialTextureBundleIndex::DiffuseMap].textures[0] == Texture::getWhite() && material->stages[0].bundles[MaterialTextureBundleIndex::Lightmap].isLightmap)
+		{
+			// First stage is lightmap only.
+			// If this is the first stage, don't multiply by overbright factor. Otherwise, multiply even if it's a blend.
+			if (this == &material->stages[0])
+				return;
+		}
+		else if (isBlend)
+		{
+			return;
+		}
+		
 		(*baseColor) = vec4(baseColor->xyz() * g_overbrightFactor, baseColor->a);
 		(*vertColor) = vec4(vertColor->xyz() * g_overbrightFactor, vertColor->a);
 	}

@@ -524,7 +524,7 @@ void SetWindowGamma()
 			value = int(255 * pow(i / 255.0f, 1.0f / gamma) + 0.5f);
 		}
 
-		g_gammaTable[i] = math::Clamped(value, 0, 255);
+		g_gammaTable[i] = math::Clamped(value * (int)g_overbrightFactor, 0, 255);
 	}
 
 	window::SetGamma(g_gammaTable, g_gammaTable, g_gammaTable);

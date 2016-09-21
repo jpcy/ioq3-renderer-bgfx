@@ -214,7 +214,16 @@ void DrawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_
 	bgfx::setVertexBuffer(&tvb);
 	bgfx::setIndexBuffer(&tib);
 	bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, Texture::getScratch(size_t(client))->getHandle());
-	s_main->matStageUniforms->color.set(vec4::white);
+	
+	if (g_hardwareGammaEnabled)
+	{
+		s_main->matStageUniforms->color.set(vec4(g_identityLight, g_identityLight, g_identityLight, 1));
+	}
+	else
+	{
+		s_main->matStageUniforms->color.set(vec4::white);
+	}
+
 	bgfx::setState(BGFX_STATE_RGB_WRITE);
 	const uint8_t viewId = PushView(s_main->defaultFb, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), Rect(x, y, w, h), PushViewFlags::Sequential);
 	bgfx::submit(viewId, s_main->shaderPrograms[ShaderProgramId::TextureColor].handle);
@@ -320,15 +329,15 @@ static void SetupEntityLighting(Entity *entity)
 		entity->ambientLight += vec3(g_identityLight * 32);
 	}
 
-	// Clamp ambient.
-	for (int i = 0; i < 3; i++)
-		entity->ambientLight[i] = std::min(entity->ambientLight[i], g_identityLight * 255);
-
 	// Modify the light by dynamic lights.
 	if (!s_main->isWorldCamera)
 	{
 		s_main->dlightManager->contribute(s_main->frameNo, lightPosition, &entity->directedLight, &entity->lightDir);
 	}
+
+	// Clamp ambient.
+	for (int i = 0; i < 3; i++)
+		entity->ambientLight[i] = std::min(entity->ambientLight[i], g_identityLight * 255);
 
 	entity->lightDir.normalize();
 }
