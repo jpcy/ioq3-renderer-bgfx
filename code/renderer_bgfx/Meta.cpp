@@ -67,9 +67,9 @@ static const LerpTextureAnimationMaterial s_lerpTextureAnimationMaterials[] =
 
 static const char *s_reflectiveMaterialNames[] =
 {
-	"textures/liquids/clear_ripple1",
-	"textures/liquids/calm_poollight",
-	"textures/liquids/clear_calm1"
+	//"textures/liquids/clear_ripple1",
+	"textures/liquids/calm_poollight", // q3dm2
+	//"textures/liquids/clear_calm1"
 };
 
 static const char * s_bloomWhitelist[] =
