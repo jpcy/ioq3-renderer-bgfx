@@ -9,11 +9,20 @@ Goal: Make Quake 3 Arena and derivitives look slightly better on a modern PC wit
 
 Status: Work in Progress. Not widely tested. Q3A and TA more or less look how they should.
 
-### Features
+## Features
 * Anti-aliasing - MSAA, SMAA
 * Soft sprites
 * Real dynamic lights
 * Extra dynamic lights for Q3A weapons - BFG, Lightning, Plasma, Railgun
+* Bloom
+
+## Screenshots
+
+[![](http://i.imgur.com/86x8FN2.png)](http://i.imgur.com/WHYjbF0.jpg)
+[![](http://i.imgur.com/eA2ydm8.png)](http://i.imgur.com/vPhQbMc.jpg)
+
+[![](http://i.imgur.com/1QPNbzr.png)](http://i.imgur.com/LvMyLgB.jpg)
+[![](http://i.imgur.com/KkGO5Hc.png)](http://i.imgur.com/ShxFR3o.jpg)
 
 ## Binaries
 
@@ -70,13 +79,13 @@ r_aa                    | Anti-aliasing.
 r_aa_hud                | Anti-aliasing for 3D HUD elements.
 r_backend               | Rendering backend - OpenGL, Direct3D 9 etc.
 r_bgfx_stats            | Show bgfx statistics.
-r_brightness            |
-r_contrast              |
+r_bloom                 | Enable bloom.
+r_bloomScale            | Scale the bloom effect.
 r_dynamicLightIntensity | Make dynamic lights brighter/dimmer.
 r_dynamicLightScale     | Scale the radius of dynamic lights.
-r_gamma                 |
+r_lerpTextureAnimation  | Use linear interpolation on texture animation - flames, explosions.
 r_maxAnisotropy         | Enable [anisotropic filtering](https://en.wikipedia.org/wiki/Anisotropic_filtering).
-r_saturation            |
+r_waterReflections      | Show planar water reflections. Only enabled on q3dm2 for now.
 
 ### Console Commands
 
