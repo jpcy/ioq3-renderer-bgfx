@@ -185,13 +185,14 @@ static void TakeScreenshot(const char *extension)
 			}
 			else
 			{
-				int a = lastNumber / 1000;
-				lastNumber -= a * 1000;
-				int b = lastNumber / 100;
-				lastNumber -= b * 100;
-				int c = lastNumber / 10;
-				lastNumber -= c * 10;
-				int d = lastNumber;
+				int number = lastNumber;
+				int a = number / 1000;
+				number -= a * 1000;
+				int b = number / 100;
+				number -= b * 100;
+				int c = number / 10;
+				number -= c * 10;
+				int d = number;
 				util::Sprintf(filename, MAX_OSPATH, "%cscreenshots/shot%i%i%i%i.%s", silent, a, b, c, d, extension);
 			}
 
