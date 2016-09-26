@@ -885,7 +885,7 @@ static void RE_BeginRegistration(glconfig_t *config)
 {
 	main::Initialize();
 	const bgfx::Caps *caps = bgfx::getCaps();
-	config->maxTextureSize = caps->maxTextureSize;
+	config->maxTextureSize = caps->limits.maxTextureSize;
 	config->deviceSupportsGamma = window::IsFullscreen() ? qtrue : qfalse;
 	config->vidWidth = window::GetWidth();
 	config->vidHeight = window::GetHeight();

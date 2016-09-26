@@ -371,7 +371,7 @@ void Initialize()
 	bgfx::reset(window::GetWidth(), window::GetHeight(), resetFlags);
 	const bgfx::Caps *caps = bgfx::getCaps();
 
-	if (caps->maxFBAttachments < 2)
+	if (caps->limits.maxFBAttachments < 2)
 	{
 		interface::Error("MRT not supported");
 	}
