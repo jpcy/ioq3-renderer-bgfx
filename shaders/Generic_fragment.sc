@@ -4,25 +4,25 @@ $input v_position, v_projPosition, v_texcoord0, v_texcoord1, v_normal, v_color0
 #include "Common.sh"
 #include "SharedDefines.sh"
 
-SAMPLER2D(u_DiffuseSampler, TU_DIFFUSE);
-SAMPLER2D(u_DiffuseSampler2, TU_DIFFUSE2);
-SAMPLER2D(u_LightSampler, TU_LIGHT);
+SAMPLER2D(u_DiffuseSampler, 0); // TU_DIFFUSE
+SAMPLER2D(u_DiffuseSampler2, 1); // TU_DIFFUSE2
+SAMPLER2D(u_LightSampler, 2); // TU_LIGHT
 
 #if defined(USE_ALPHA_TEST)
 uniform vec4 u_AlphaTest; // only x used
 #endif
 
 #if defined(USE_SOFT_SPRITE)
-SAMPLER2D(u_DepthSampler, TU_DEPTH);
+SAMPLER2D(u_DepthSampler, 3); // TU_DEPTH
 
 uniform vec4 u_DepthRange;
 uniform vec4 u_SoftSprite_Depth_UseAlpha; // only x and y used
 #endif
 
 #if defined(USE_DYNAMIC_LIGHTS)
-USAMPLER2D(u_DynamicLightCellsSampler, TU_DYNAMIC_LIGHT_CELLS);
-USAMPLER2D(u_DynamicLightIndicesSampler, TU_DYNAMIC_LIGHT_INDICES);
-SAMPLER2D(u_DynamicLightsSampler, TU_DYNAMIC_LIGHTS);
+USAMPLER2D(u_DynamicLightCellsSampler, 4); // TU_DYNAMIC_LIGHT_CELLS
+USAMPLER2D(u_DynamicLightIndicesSampler, 5); // TU_DYNAMIC_LIGHT_INDICES
+SAMPLER2D(u_DynamicLightsSampler, 6); // TU_DYNAMIC_LIGHTS
 
 uniform vec4 u_DynamicLightCellSize; // xyz is size
 uniform vec4 u_DynamicLightGridOffset; // w not used

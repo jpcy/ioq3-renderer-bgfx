@@ -281,12 +281,6 @@ void RenderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum
 	bgfx::submit(viewId, s_main->shaderPrograms[program].handle);
 }
 
-static void RenderDebugDraw(const FrameBuffer &texture, uint8_t attachment = 0, int x = 0, int y = 0, ShaderProgramId::Enum program = ShaderProgramId::Texture)
-{
-	bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, texture.handle, attachment);
-	RenderScreenSpaceQuad(s_main->defaultFb, program, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft, Rect(g_cvars.debugDrawSize.getInt() * x, g_cvars.debugDrawSize.getInt() * y, g_cvars.debugDrawSize.getInt(), g_cvars.debugDrawSize.getInt()));
-}
-
 static void RenderDebugDraw(bgfx::TextureHandle texture, int x = 0, int y = 0, ShaderProgramId::Enum program = ShaderProgramId::Texture)
 {
 	bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, texture);
@@ -871,7 +865,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 				s_main->isCameraMirrored = false;
 
 				// Blit the scene frame buffer to the reflection frame buffer.
-				bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, s_main->sceneFb.handle);
+				bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->sceneFb.handle));
 				RenderScreenSpaceQuad(s_main->reflectionFb, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
 			}
 		}
@@ -1029,7 +1023,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 
 		// Read depth, write linear depth.
 		s_main->uniforms->depthRange.set(vec4(0, 0, depthRange.x, depthRange.y));
-		bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, s_main->sceneFb.handle, s_main->sceneDepthAttachment);
+		bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->sceneFb.handle, s_main->sceneDepthAttachment));
 		RenderScreenSpaceQuad(s_main->linearDepthFb, ShaderProgramId::LinearDepth, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
 	}
 
@@ -1191,7 +1185,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 			else if (s_main->isWorldCamera && s_main->softSpritesEnabled && dc.softSpriteDepth > 0)
 			{
 				shaderVariant |= GenericShaderProgramVariant::SoftSprite;
-				bgfx::setTexture(TextureUnit::Depth, s_main->matStageUniforms->depthSampler.handle, s_main->linearDepthFb.handle);
+				bgfx::setTexture(TextureUnit::Depth, s_main->matStageUniforms->depthSampler.handle, bgfx::getTexture(s_main->linearDepthFb.handle));
 				
 				// Change additive blend from (1, 1) to (src alpha, 1) so the soft sprite shader can control alpha.
 				float useAlpha = 1;
@@ -1451,21 +1445,21 @@ void RenderScene(const SceneDefinition &scene)
 			{
 				// Blit to quarter size framebuffer.
 				const Rect bloomRect(0, 0, window::GetWidth() / 4, window::GetHeight() / 4);
-				bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, s_main->sceneFb.handle, s_main->sceneBloomAttachment);
+				bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->sceneFb.handle, s_main->sceneBloomAttachment));
 				RenderScreenSpaceQuad(s_main->bloomFb[0], ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft, bloomRect);
 
 				// Ping-pong guassian blur in quarter size framebuffers
 				for (int i = 0; i < 2; i++)
 				{
 					s_main->uniforms->guassianBlurDirection.set(i == 0 ? vec4(1, 0, 0, 0) : vec4(0, 1, 0, 0));
-					bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, s_main->bloomFb[i].handle);
+					bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->bloomFb[i].handle));
 					RenderScreenSpaceQuad(s_main->bloomFb[!i], ShaderProgramId::GaussianBlur, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft, bloomRect);
 				}
 
 				// Apply bloom. If using SMAA, we need to read color, so blit into the original bloom texture which is no longer used.
 				s_main->uniforms->bloom_Write_Scale.set(vec4(0, g_cvars.bloomScale.getFloat(), 0, 0));
-				bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, s_main->sceneFb.handle);
-				bgfx::setTexture(1, s_main->uniforms->bloomSampler.handle, s_main->bloomFb[0].handle);
+				bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->sceneFb.handle));
+				bgfx::setTexture(1, s_main->uniforms->bloomSampler.handle, bgfx::getTexture(s_main->bloomFb[0].handle));
 				RenderScreenSpaceQuad(s_main->aa == AntiAliasing::SMAA ? s_main->sceneTempFb : s_main->defaultFb, ShaderProgramId::Bloom, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
 			}
 
@@ -1476,17 +1470,17 @@ void RenderScene(const SceneDefinition &scene)
 				// Edge detection.
 				if (g_cvars.bloom.getBool())
 				{
-					bgfx::setTexture(0, s_main->uniforms->smaaColorSampler.handle, s_main->sceneTempFb.handle);
+					bgfx::setTexture(0, s_main->uniforms->smaaColorSampler.handle, bgfx::getTexture(s_main->sceneTempFb.handle));
 				}
 				else
 				{
-					bgfx::setTexture(0, s_main->uniforms->smaaColorSampler.handle, s_main->sceneFb.handle);
+					bgfx::setTexture(0, s_main->uniforms->smaaColorSampler.handle, bgfx::getTexture(s_main->sceneFb.handle));
 				}
 
 				RenderScreenSpaceQuad(s_main->smaaEdgesFb, ShaderProgramId::SMAAEdgeDetection, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_COLOR, s_main->isTextureOriginBottomLeft);
 
 				// Blending weight calculation.
-				bgfx::setTexture(0, s_main->uniforms->smaaEdgesSampler.handle, s_main->smaaEdgesFb.handle);
+				bgfx::setTexture(0, s_main->uniforms->smaaEdgesSampler.handle, bgfx::getTexture(s_main->smaaEdgesFb.handle));
 				bgfx::setTexture(1, s_main->uniforms->smaaAreaSampler.handle, s_main->smaaAreaTex);
 				bgfx::setTexture(2, s_main->uniforms->smaaSearchSampler.handle, s_main->smaaSearchTex);
 				RenderScreenSpaceQuad(s_main->smaaBlendFb, ShaderProgramId::SMAABlendingWeightCalculation, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE, BGFX_CLEAR_COLOR, s_main->isTextureOriginBottomLeft);
@@ -1494,20 +1488,20 @@ void RenderScene(const SceneDefinition &scene)
 				// Neighborhood blending.
 				if (g_cvars.bloom.getBool())
 				{
-					bgfx::setTexture(0, s_main->uniforms->smaaColorSampler.handle, s_main->sceneTempFb.handle);
+					bgfx::setTexture(0, s_main->uniforms->smaaColorSampler.handle, bgfx::getTexture(s_main->sceneTempFb.handle));
 				}
 				else
 				{
-					bgfx::setTexture(0, s_main->uniforms->smaaColorSampler.handle, s_main->sceneFb.handle);
+					bgfx::setTexture(0, s_main->uniforms->smaaColorSampler.handle, bgfx::getTexture(s_main->sceneFb.handle));
 				}
 
-				bgfx::setTexture(1, s_main->uniforms->smaaBlendSampler.handle, s_main->smaaBlendFb.handle);
+				bgfx::setTexture(1, s_main->uniforms->smaaBlendSampler.handle, bgfx::getTexture(s_main->smaaBlendFb.handle));
 				RenderScreenSpaceQuad(s_main->defaultFb, ShaderProgramId::SMAANeighborhoodBlending, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
 			}
 			else if (!g_cvars.bloom.getBool())
 			{
 				// Blit scene.
-				bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, s_main->sceneFb.handle);
+				bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->sceneFb.handle));
 				RenderScreenSpaceQuad(s_main->defaultFb, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
 			}
 		}
@@ -1608,13 +1602,13 @@ void EndFrame()
 
 	if (s_main->debugDraw == DebugDraw::Bloom)
 	{
-		RenderDebugDraw(s_main->sceneFb, s_main->sceneBloomAttachment);
-		RenderDebugDraw(s_main->bloomFb[0], 0, 1);
-		RenderDebugDraw(s_main->bloomFb[1], 0, 2);
+		RenderDebugDraw(bgfx::getTexture(s_main->sceneFb.handle, s_main->sceneBloomAttachment));
+		RenderDebugDraw(bgfx::getTexture(s_main->bloomFb[0].handle), 0, 1);
+		RenderDebugDraw(bgfx::getTexture(s_main->bloomFb[1].handle), 0, 2);
 	}
 	else if (s_main->debugDraw == DebugDraw::Depth)
 	{
-		RenderDebugDraw(s_main->linearDepthFb);
+		RenderDebugDraw(bgfx::getTexture(s_main->linearDepthFb.handle));
 	}
 	else if (s_main->debugDraw == DebugDraw::DynamicLight)
 	{
@@ -1630,13 +1624,13 @@ void EndFrame()
 	}
 	else if (s_main->debugDraw == DebugDraw::Reflection)
 	{
-		RenderDebugDraw(s_main->reflectionFb);
+		RenderDebugDraw(bgfx::getTexture(s_main->reflectionFb.handle));
 	}
 	else if (s_main->debugDraw == DebugDraw::SMAA && s_main->aa == AntiAliasing::SMAA)
 	{
 		s_main->uniforms->textureDebug.set(vec4(TEXTURE_DEBUG_R, 0, 0, 0));
-		RenderDebugDraw(s_main->smaaEdgesFb, 0, 0, 0, ShaderProgramId::TextureDebug);
-		RenderDebugDraw(s_main->smaaBlendFb, 0, 1, 0, ShaderProgramId::TextureDebug);
+		RenderDebugDraw(bgfx::getTexture(s_main->smaaEdgesFb.handle), 0, 0, ShaderProgramId::TextureDebug);
+		RenderDebugDraw(bgfx::getTexture(s_main->smaaBlendFb.handle), 1, 0, ShaderProgramId::TextureDebug);
 	}
 
 #ifdef USE_PROFILER

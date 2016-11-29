@@ -39,7 +39,7 @@ struct BackendMap
 
 static const std::array<const BackendMap, 5> s_backendMaps =
 {{
-	{ bgfx::RendererType::Null, "null" },
+	{ bgfx::RendererType::Noop, "noop" },
 	{ bgfx::RendererType::Direct3D11, "d3d11" },
 	{ bgfx::RendererType::Direct3D12, "d3d12" },
 	{ bgfx::RendererType::OpenGL, "gl" },
@@ -68,7 +68,7 @@ void ConsoleVariables::initialize()
 	{
 		// Have the r_backend cvar print a list of supported backends when invoked without any arguments.
 		bgfx::RendererType::Enum supportedBackends[bgfx::RendererType::Count];
-		const uint8_t nSupportedBackends = bgfx::getSupportedRenderers(supportedBackends);
+		const uint8_t nSupportedBackends = bgfx::getSupportedRenderers(bgfx::RendererType::Count, supportedBackends);
 
 		#define FORMAT "%-10s%s\n"
 		std::string description;
@@ -321,7 +321,7 @@ void Initialize()
 
 		// Get the selected backend, and make sure it's actually supported.
 		bgfx::RendererType::Enum supportedBackends[bgfx::RendererType::Count];
-		const uint8_t nSupportedBackends = bgfx::getSupportedRenderers(supportedBackends);
+		const uint8_t nSupportedBackends = bgfx::getSupportedRenderers(bgfx::RendererType::Count, supportedBackends);
 		bgfx::RendererType::Enum selectedBackend = bgfx::RendererType::Count;
 
 		for (const BackendMap &map : s_backendMaps)

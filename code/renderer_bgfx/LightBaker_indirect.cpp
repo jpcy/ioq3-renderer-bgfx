@@ -161,7 +161,7 @@ void InitializeIndirectLight()
 static uint32_t AsyncReadTexture(bgfx::FrameBufferHandle source, bgfx::TextureHandle dest, void *destData, uint16_t width, uint16_t height)
 {
 	const uint8_t viewId = main::PushView(main::s_main->defaultFb, BGFX_CLEAR_NONE, mat4::empty, mat4::empty, Rect());
-	bgfx::blit(viewId, dest, 0, 0, source, 0, 0, 0, width, height);
+	bgfx::blit(viewId, dest, 0, 0, bgfx::getTexture(source), 0, 0, width, height);
 	bgfx::touch(viewId);
 	return bgfx::readTexture(dest, destData);
 }
@@ -181,7 +181,7 @@ static uint32_t IntegrateHemicubeBatch(void *integrationData)
 	int fbWrite = 1;
 
 	// Weighted downsampling pass.
-	bgfx::setTexture(0, s_lightBakerPersistent->hemicubeAtlasSampler.handle, s_lightBakerPersistent->hemicubeFb[fbRead].handle, 0);
+	bgfx::setTexture(0, s_lightBakerPersistent->hemicubeAtlasSampler.handle, bgfx::getTexture(s_lightBakerPersistent->hemicubeFb[fbRead].handle));
 	bgfx::setTexture(1, s_lightBakerPersistent->hemicubeWeightsSampler.handle, s_lightBaker->hemicubeWeightsTexture->getHandle());
 	s_lightBakerPersistent->hemicubeWeightsTextureSizeUniform.set(vec4((float)s_lightBaker->hemicubeSize.x, (float)s_lightBaker->hemicubeSize.y, 0, 0));
 	main::RenderScreenSpaceQuad(s_lightBakerPersistent->hemicubeFb[fbWrite], main::ShaderProgramId::HemicubeWeightedDownsample, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE, BGFX_CLEAR_COLOR, main::s_main->isTextureOriginBottomLeft, Rect(0, 0, s_lightBaker->hemicubeDownsampleSize.x, s_lightBaker->hemicubeDownsampleSize.y));
@@ -201,7 +201,7 @@ static uint32_t IntegrateHemicubeBatch(void *integrationData)
 		fbWrite = oldFbRead;
 
 		outHemiSize /= 2;
-		bgfx::setTexture(0, s_lightBakerPersistent->hemicubeAtlasSampler.handle, s_lightBakerPersistent->hemicubeFb[fbRead].handle, 0);
+		bgfx::setTexture(0, s_lightBakerPersistent->hemicubeAtlasSampler.handle, bgfx::getTexture(s_lightBakerPersistent->hemicubeFb[fbRead].handle));
 		main::RenderScreenSpaceQuad(s_lightBakerPersistent->hemicubeFb[fbWrite], main::ShaderProgramId::HemicubeDownsample, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE, BGFX_CLEAR_COLOR, main::s_main->isTextureOriginBottomLeft, Rect(0, 0, outHemiSize * s_lightBaker->nHemicubesInBatch.x, outHemiSize * s_lightBaker->nHemicubesInBatch.y));
 	}
 
