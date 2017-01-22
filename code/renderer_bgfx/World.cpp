@@ -1930,15 +1930,16 @@ void RenderPortal(VisibilityId visId, DrawCallList *drawCallList)
 	for (const Visibility::Portal &portal : vis.cameraPortalSurfaces)
 	{
 		bgfx::TransientIndexBuffer tib;
+		auto nIndices = (const uint32_t)portal.surface->indices.size();
 
-		if (!bgfx::checkAvailTransientIndexBuffer((uint32_t)portal.surface->indices.size()))
+		if (bgfx::getAvailTransientIndexBuffer(nIndices) < nIndices)
 		{
 			WarnOnce(WarnOnceId::TransientBuffer);
 			return;
 		}
 
-		bgfx::allocTransientIndexBuffer(&tib, (uint32_t)portal.surface->indices.size());
-		memcpy(tib.data, portal.surface->indices.data(), (uint32_t)portal.surface->indices.size() * sizeof(uint16_t));
+		bgfx::allocTransientIndexBuffer(&tib, nIndices);
+		memcpy(tib.data, portal.surface->indices.data(), nIndices * sizeof(uint16_t));
 
 		DrawCall dc;
 		dc.material = portal.surface->material;
@@ -1947,7 +1948,7 @@ void RenderPortal(VisibilityId visId, DrawCallList *drawCallList)
 		dc.vb.nVertices = (uint32_t)s_world->vertices[portal.surface->bufferIndex].size();
 		dc.ib.type = DrawCall::BufferType::Transient;
 		dc.ib.transientHandle = tib;
-		dc.ib.nIndices = (uint32_t)portal.surface->indices.size();
+		dc.ib.nIndices = nIndices;
 		drawCallList->push_back(dc);
 	}
 }
@@ -1960,15 +1961,16 @@ void RenderReflective(VisibilityId visId, DrawCallList *drawCallList)
 	for (const Visibility::Reflective &reflective : vis.cameraReflectiveSurfaces)
 	{
 		bgfx::TransientIndexBuffer tib;
+		auto nIndices = (const uint32_t)reflective.surface->indices.size();
 
-		if (!bgfx::checkAvailTransientIndexBuffer((uint32_t)reflective.surface->indices.size()))
+		if (bgfx::getAvailTransientIndexBuffer(nIndices) < nIndices)
 		{
 			WarnOnce(WarnOnceId::TransientBuffer);
 			return;
 		}
 
-		bgfx::allocTransientIndexBuffer(&tib, (uint32_t)reflective.surface->indices.size());
-		memcpy(tib.data, reflective.surface->indices.data(), (uint32_t)reflective.surface->indices.size() * sizeof(uint16_t));
+		bgfx::allocTransientIndexBuffer(&tib, nIndices);
+		memcpy(tib.data, reflective.surface->indices.data(), nIndices * sizeof(uint16_t));
 
 		DrawCall dc;
 		dc.material = reflective.surface->material->reflectiveFrontSideMaterial;
@@ -1978,7 +1980,7 @@ void RenderReflective(VisibilityId visId, DrawCallList *drawCallList)
 		dc.vb.nVertices = (uint32_t)s_world->vertices[reflective.surface->bufferIndex].size();
 		dc.ib.type = DrawCall::BufferType::Transient;
 		dc.ib.transientHandle = tib;
-		dc.ib.nIndices = (uint32_t)reflective.surface->indices.size();
+		dc.ib.nIndices = nIndices;
 		drawCallList->push_back(dc);
 	}
 }

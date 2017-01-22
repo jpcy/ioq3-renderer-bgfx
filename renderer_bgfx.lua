@@ -16,6 +16,7 @@ function rendererProject(engine, bgfxPath, bxPath, rendererPath)
 	
 	files
 	{
+		path.join(bxPath, "src/*.cpp"),
 		path.join(bgfxPath, "src/amalgamated.cpp"),
 		path.join(rendererPath, "code/math/*.cpp"),
 		path.join(rendererPath, "code/math/*.h"),
@@ -37,6 +38,8 @@ function rendererProject(engine, bgfxPath, bxPath, rendererPath)
 	
 	vpaths
 	{
+		["bx"] = path.join(bxPath, "src"),
+		["bgfx"] = path.join(bgfxPath, "src"),
 		["shaders"] = path.join(rendererPath, "shaders/*.*"),
 		["*"] = path.join(rendererPath, "code")
 	}

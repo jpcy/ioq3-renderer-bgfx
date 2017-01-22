@@ -850,7 +850,7 @@ void Model_md3::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 	if (isAnimated)
 	{
 		// Build transient vertex buffer for animated models.
-		if (!bgfx::checkAvailTransientVertexBuffer(nVertices_, Vertex::decl))
+		if (bgfx::getAvailTransientVertexBuffer(nVertices_, Vertex::decl) < nVertices_)
 		{
 			WarnOnce(WarnOnceId::TransientBuffer);
 			return;
@@ -930,7 +930,7 @@ void Model_md3::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 			{
 				bgfx::TransientIndexBuffer tib;
 
-				if (!bgfx::checkAvailTransientIndexBuffer(surface.nIndices))
+				if (bgfx::getAvailTransientIndexBuffer(surface.nIndices) < surface.nIndices)
 				{
 					WarnOnce(WarnOnceId::TransientBuffer);
 					continue;

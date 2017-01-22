@@ -232,7 +232,8 @@ void DrawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_
 // From bgfx screenSpaceQuad.
 void RenderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, uint16_t clearFlags, bool originBottomLeft, Rect rect)
 {
-	if (!bgfx::checkAvailTransientVertexBuffer(3, Vertex::decl))
+	const uint32_t nVerts = 3;
+	if (bgfx::getAvailTransientVertexBuffer(nVerts, Vertex::decl) < nVerts)
 	{
 		WarnOnce(WarnOnceId::TransientBuffer);
 		return;
@@ -264,7 +265,7 @@ void RenderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum
 	}
 
 	bgfx::TransientVertexBuffer vb;
-	bgfx::allocTransientVertexBuffer(&vb, 3, Vertex::decl);
+	bgfx::allocTransientVertexBuffer(&vb, nVerts, Vertex::decl);
 	auto vertices = (Vertex *)vb.data;
 	vertices[0].pos = vec3(minx, miny, zz);
 	vertices[0].color = vec4::white;

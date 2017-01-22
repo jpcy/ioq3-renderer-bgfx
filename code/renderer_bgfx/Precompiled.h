@@ -78,7 +78,7 @@ extern "C"
 }
 
 #include "bgfx/bgfx.h"
-#include "bgfx/bgfxplatform.h"
+#include "bgfx/platform.h"
 #include "bx/debug.h"
 #include "bx/fpumath.h"
 #include "bx/string.h"
