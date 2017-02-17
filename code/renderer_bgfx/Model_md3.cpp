@@ -538,7 +538,7 @@ bool Model_md3::load(const ReadOnlyFile &file)
 	}
 
 	// Copy uncompressed and compression surface data into a common struct.
-	FileSurface fileSurfaces[MD3_MAX_SURFACES];
+	std::vector<FileSurface> fileSurfaces(header.nSurfaces);
 
 	if (compressed_)
 	{

@@ -156,7 +156,7 @@ Skin::Skin(const char *name, qhandle_t handle)
 	// If not a .skin file, load as a single shader
 	if (strcmp(name + strlen(name) - 5, ".skin"))
 	{
-		nSurfaces_ = 1;
+		surfaces_.resize(1);
 		surfaces_[0].name[0] = 0;
 		surfaces_[0].material = g_materialCache->findMaterial(name, MaterialLightmapId::None, true);
 		return;
@@ -168,61 +168,85 @@ Skin::Skin(const char *name, qhandle_t handle)
 	if (!file.getData())
 		return;
 
-	char *text_p = (char *)file.getData();
+	// 2 passes for a single memory alloc. First one counts the number of surfaces, second copies over surface data.
+	size_t nSurfaces = 0;
 
-	while (text_p && *text_p)
+	for (int i = 0; i < 2; i++)
 	{
-		// Get surface name.
-		const char *token = CommaParse(&text_p);
+		size_t currentSurface = 0;
 
-		if (!token[0])
-			break;
-
-		if (*text_p == ',')
-			text_p++;
-
-		if (strstr(token, "tag_"))
-			continue;
-
-		// this is specifying a model
-		if (strstr(token, "md3_"))
+		if (i == 1)
 		{
-			if (nModels_ >= maxModels_)
-			{
-				interface::PrintWarningf("WARNING: Ignoring models in '%s', the max is %d!\n", name, (int)maxModels_);
+			surfaces_.resize(nSurfaces);
+		}
+
+		char *text_p = (char *)file.getData();
+
+		while (text_p && *text_p)
+		{
+			// Get surface name.
+			const char *token = CommaParse(&text_p);
+
+			if (!token[0])
 				break;
+
+			if (*text_p == ',')
+				text_p++;
+
+			if (strstr(token, "tag_"))
+				continue;
+
+			// this is specifying a model
+			if (strstr(token, "md3_"))
+			{
+				if (i == 1)
+				{
+					CommaParse(&text_p); // skip name
+					continue;
+				}
+
+				if (nModels_ >= maxModels_)
+				{
+					interface::PrintWarningf("WARNING: Ignoring models in '%s', the max is %d!\n", name, (int)maxModels_);
+					break;
+				}
+
+				Model &model = models_[nModels_];
+				util::Strncpyz(model.type, token, sizeof(model.type));
+				token = CommaParse(&text_p);
+				util::Strncpyz(model.name, token, sizeof(model.name));
+				nModels_++;
+				continue;
 			}
 
-			Model &model = models_[nModels_];
-			util::Strncpyz(model.type, token, sizeof(model.type));
-			token = CommaParse(&text_p);
-			util::Strncpyz(model.name, token, sizeof(model.name));
-			nModels_++;
-			continue;
-		}
+			//----(SA)	added
+			if (strstr(token, "playerscale"))
+			{
+				token = CommaParse(&text_p);
+				
+				if (i == 0)
+					scale_ = (float)atof(token); // uniform scaling for now
 
-		//----(SA)	added
-		if (strstr(token, "playerscale"))
-		{
-			token = CommaParse(&text_p);
-			scale_ = (float)atof(token); // uniform scaling for now
-			continue;
-		}
-		//----(SA) end
+				continue;
+			}
+			//----(SA) end
 		
-		// Got this far, it's a surface.
-		if (nSurfaces_ >= maxSurfaces_)
-		{
-			interface::PrintWarningf("WARNING: Ignoring surfaces in '%s', the max is %d surfaces!\n", name, (int)maxSurfaces_);
-			break;
+			// Got this far, it's a surface.
+			if (i == 0)
+			{
+				CommaParse(&text_p); // skip material
+				nSurfaces++;
+			}
+			else
+			{
+				Surface &surface = surfaces_[currentSurface];
+				util::Strncpyz(surface.name, token, sizeof(surface.name));
+				util::ToLowerCase(surface.name); // Lowercase the surface name so skin compares are faster.
+				token = CommaParse(&text_p);
+				surface.material = g_materialCache->findMaterial(token, MaterialLightmapId::None, true);
+				currentSurface++;
+			}
 		}
-
-		Surface &surface = surfaces_[nSurfaces_];
-		util::Strncpyz(surface.name, token, sizeof(surface.name));
-		util::ToLowerCase(surface.name); // Lowercase the surface name so skin compares are faster.
-		token = CommaParse(&text_p);
-		surface.material = g_materialCache->findMaterial(token, MaterialLightmapId::None, true);
-		nSurfaces_++;
 	}
 }
 
@@ -230,7 +254,7 @@ Skin::Skin(const char *name, qhandle_t handle, Material *material)
 {
 	util::Strncpyz(name_, name, sizeof(name_));
 	handle_ = handle;
-	nSurfaces_ = 1;
+	surfaces_.resize(1);
 	surfaces_[0].name[0] = 0;
 	surfaces_[0].material = material;
 }

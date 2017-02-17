@@ -1209,7 +1209,7 @@ public:
 	/// Create a skin with a single surface using the supplied material.
 	Skin(const char *name, qhandle_t handle, Material *material);
 
-	bool hasSurfaces() const { return nSurfaces_ > 0; }
+	bool hasSurfaces() const { return !surfaces_.empty(); }
 	const char *getName() const { return name_; }
 	qhandle_t getHandle() const { return handle_; }
 	float getScale() const { return scale_; }
@@ -1219,7 +1219,6 @@ public:
 
 private:
 	static const size_t maxModels_ = 5;
-	static const size_t maxSurfaces_ = 32;
 
 	struct Model
 	{
@@ -1239,8 +1238,7 @@ private:
 	qhandle_t handle_;
 	Model models_[maxModels_];
 	size_t nModels_ = 0;
-	Surface surfaces_[maxSurfaces_];
-	size_t nSurfaces_ = 0;
+	std::vector<Surface> surfaces_;
 	float scale_ = 0;
 };
 
