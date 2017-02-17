@@ -16,7 +16,7 @@ function rendererProject(engine, bgfxPath, bxPath, rendererPath)
 	
 	files
 	{
-		path.join(bxPath, "src/*.cpp"),
+		path.join(bxPath, "src/amalgamated.cpp"),
 		path.join(bgfxPath, "src/amalgamated.cpp"),
 		path.join(rendererPath, "code/math/*.cpp"),
 		path.join(rendererPath, "code/math/*.h"),
