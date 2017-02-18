@@ -89,6 +89,7 @@ function rendererProject(engine, bgfxPath, bxPath, rendererPath)
 			"dl",
 			"GL",
 			"pthread",
+			"rt",
 			"SDL2",
 			"X11"
 		}
