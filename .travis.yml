@@ -7,8 +7,6 @@ install:
   - sudo apt-get update -qq
   - sudo apt-get install -qq gcc-4.8 g++-4.8 libgl1-mesa-dev libsdl2-dev
   - export CXX="g++-4.8" CC="gcc-4.8"
-  - git clone https://github.com/bkaradzic/bx ../bx
-  - git clone https://github.com/bkaradzic/bgfx.git ../bgfx
   - git clone https://github.com/premake/premake-core.git ../premake-core
   - cd ../premake-core
   - git submodule init

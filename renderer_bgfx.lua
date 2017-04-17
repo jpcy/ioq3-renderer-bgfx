@@ -1,4 +1,4 @@
-function rendererProject(engine, bgfxPath, bxPath, rendererPath)
+function rendererProject(engine, rendererPath)
 	project "renderer_bgfx"
 	kind "SharedLib"
 	language "C++"
@@ -14,10 +14,36 @@ function rendererProject(engine, bgfxPath, bxPath, rendererPath)
 		"USE_RENDERER_DLOPEN"
 	}
 	
+	local bxPath = path.join(rendererPath, "code/bx")
+	local bimgPath = path.join(rendererPath, "code/bimg")
+	local bgfxPath = path.join(rendererPath, "code/bgfx")
+	
 	files
 	{
 		path.join(bxPath, "src/amalgamated.cpp"),
-		path.join(bgfxPath, "src/amalgamated.cpp"),
+		path.join(bimgPath, "src/image.cpp"),
+		path.join(bimgPath, "src/image_decode.cpp"),
+		path.join(bgfxPath, "src/bgfx.cpp"),
+		path.join(bgfxPath, "src/glcontext_egl.cpp"),
+		path.join(bgfxPath, "src/glcontext_glx.cpp"),
+		path.join(bgfxPath, "src/glcontext_ppapi.cpp"),
+		path.join(bgfxPath, "src/glcontext_wgl.cpp"),
+		path.join(bgfxPath, "src/hmd.cpp"),
+		--path.join(bgfxPath, "src/hmd_ovr.cpp"),
+		--path.join(bgfxPath, "src/hmd_openvr.cpp"),
+		path.join(bgfxPath, "src/debug_renderdoc.cpp"),
+		path.join(bgfxPath, "src/renderer_d3d9.cpp"),
+		path.join(bgfxPath, "src/renderer_d3d11.cpp"),
+		path.join(bgfxPath, "src/renderer_d3d12.cpp"),
+		path.join(bgfxPath, "src/renderer_noop.cpp"),
+		path.join(bgfxPath, "src/renderer_gl.cpp"),
+		path.join(bgfxPath, "src/renderer_vk.cpp"),
+		path.join(bgfxPath, "src/renderer_gnm.cpp"),
+		path.join(bgfxPath, "src/shader_dxbc.cpp"),
+		path.join(bgfxPath, "src/shader_dx9bc.cpp"),
+		path.join(bgfxPath, "src/shader_spirv.cpp"),
+		path.join(bgfxPath, "src/topology.cpp"),
+		path.join(bgfxPath, "src/vertexdecl.cpp"),
 		path.join(rendererPath, "code/math/*.cpp"),
 		path.join(rendererPath, "code/math/*.h"),
 		path.join(rendererPath, "code/renderer_bgfx/*.cpp"),
@@ -29,6 +55,10 @@ function rendererProject(engine, bgfxPath, bxPath, rendererPath)
 	includedirs
 	{
 		path.join(bxPath, "include"),
+		path.join(bimgPath, "include"),
+		path.join(bimgPath, "3rdparty"),
+		path.join(bimgPath, "3rdparty/nvtt"),
+		path.join(bimgPath, "3rdparty/iqa/include"),
 		path.join(bgfxPath, "include"),
 		path.join(bgfxPath, "3rdparty"),
 		path.join(bgfxPath, "3rdparty/dxsdk/include"),
@@ -38,8 +68,6 @@ function rendererProject(engine, bgfxPath, bxPath, rendererPath)
 	
 	vpaths
 	{
-		["bx"] = path.join(bxPath, "src"),
-		["bgfx"] = path.join(bgfxPath, "src"),
 		["shaders"] = path.join(rendererPath, "shaders/*.*"),
 		["*"] = path.join(rendererPath, "code")
 	}

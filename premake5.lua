@@ -1,10 +1,3 @@
-local BGFX_PATH = path.join(path.getabsolute(".."), "bgfx")
-
-if _ACTION ~= nil and not os.isdir(BGFX_PATH) then
-	print("bgfx not found at " .. BGFX_PATH)
-	os.exit()
-end
-
 newaction
 {
 	trigger = "shaders",
@@ -126,7 +119,7 @@ newaction
 
 				variableName = variableName .. type .. "_" .. renderer
 				
-				command = command .. string.format(" -i \"shaders;%s\" -f \"%s\" -o \"%s\" --varyingdef shaders/varying.def.sc --bin2c \"%s\" --type %s", path.join(BGFX_PATH, "src"), inputFilename, tempOutputFilename, variableName, type)
+				command = command .. string.format(" -i \"shaders;code/bgfx/src\" -f \"%s\" -o \"%s\" --varyingdef shaders/varying.def.sc --bin2c \"%s\" --type %s", inputFilename, tempOutputFilename, variableName, type)
 			
 				if defines ~= nil then
 					command = command .. " --define \"" .. defines .. "\""
@@ -402,13 +395,6 @@ if not _OPTIONS["engine"] then
 	_OPTIONS["engine"] = "ioq3"
 end
 
-local BX_PATH = path.join(path.getabsolute(".."), "bx")
-
-if not os.isdir(BX_PATH) then
-	print("bx not found at " .. BX_PATH)
-	os.exit()
-end
-
 local IOQ3_PATH = path.join(path.getabsolute(".."), "ioq3")
 local IORTCW_PATH = path.join(path.getabsolute(".."), "iortcw")
 local RENDERER_PATH = path.getabsolute(".")
@@ -472,7 +458,7 @@ solution "renderer_bgfx"
 		defines { "_WIN64", "__WIN64__" }
 		
 dofile("renderer_bgfx.lua")
-rendererProject(_OPTIONS["engine"], BGFX_PATH, BX_PATH, RENDERER_PATH)
+rendererProject(_OPTIONS["engine"], BGFX_PATH, RENDERER_PATH)
 
 if os.is("windows") then
 	if _OPTIONS["engine"] == "ioq3" then

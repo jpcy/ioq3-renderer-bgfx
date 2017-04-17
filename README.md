@@ -34,9 +34,6 @@ These are updated after every commit.
 
 ## Compiling
 
-### Prerequisites
-Clone [bgfx](https://github.com/bkaradzic/bgfx) and [bx](https://github.com/bkaradzic/bx) to the same parent directory as ioq3-renderer-bgfx.
-
 ### Linux
 
 Required packages: libgl1-mesa-dev libsdl2-dev

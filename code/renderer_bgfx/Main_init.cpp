@@ -209,7 +209,7 @@ static void TakeScreenshot(const char *extension)
 		lastNumber++;
 	}
 
-	bgfx::saveScreenShot(filename);
+	bgfx::requestScreenShot(BGFX_INVALID_HANDLE, filename);
 }
 
 static void Cmd_BakeLights()

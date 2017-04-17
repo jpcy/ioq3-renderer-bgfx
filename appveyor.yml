@@ -5,8 +5,6 @@ branches:
     - master
 
 install:
-  - cmd: git clone https://github.com/bkaradzic/bx.git ../bx
-  - cmd: git clone https://github.com/bkaradzic/bgfx.git ../bgfx
   - cmd: git clone https://github.com/ioquake/ioq3.git ../ioq3
   - cmd: premake5.exe shaders
   - cmd: premake5.exe gmake
