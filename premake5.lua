@@ -5,42 +5,15 @@ newaction
 	
 	onStart = function()
 		-- No bitwise and in Lua 5.1
+		-- https://stackoverflow.com/questions/5977654/lua-bitwise-logical-operations
 		function isBitSet(a, b)
-			if a == 1 then
-				if b == 1 then return true end
-			elseif a == 2 then
-				if b == 2 then return true end
-			elseif a == 3 then
-				if b == 1 or b == 2 then return true end
-			elseif a == 4 then
-				if b == 4 then return true end
-			elseif a == 5 then
-				if b == 1 or b == 4 then return true end
-			elseif a == 6 then
-				if b == 2 or b == 4 then return true end
-			elseif a == 7 then
-				if b == 1 or b == 2 or b == 4 then return true end
-			elseif a == 8 then
-				if b == 8 then return true end
-			elseif a == 9 then
-				if b == 1 or b == 8 then return true end
-			elseif a == 10 then
-				if b == 2 or b == 8 then return true end
-			elseif a == 11 then
-				if b == 1 or b == 2 or b == 8 then return true end
-			elseif a == 12 then
-				if b == 4 or b == 8 then return true end
-			elseif a == 13 then
-				if b == 1 or b == 4 or b == 8 then return true end
-			elseif a == 14 then
-				if b == 2 or b == 4 or b == 8 then return true end
-			elseif a == 15 then
-				if b == 1 or b == 2 or b == 4 or b == 8 then return true end
-			elseif a == 16 then
-				if b == 16 then return true end
+			local p,c=1,0
+			while a>0 and b>0 do
+				local ra,rb=a%2,b%2
+				if ra+rb>1 then c=c+p end
+				a,b,p=(a-ra)/2,(b-rb)/2,p*2
 			end
-			
-			return false
+			return c ~= 0
 		end
 		
 		-- { name, { variantName, variantDefines } }
