@@ -26,7 +26,6 @@ function rendererProject(engine, rendererPath)
 		path.join(bgfxPath, "src/bgfx.cpp"),
 		path.join(bgfxPath, "src/glcontext_egl.cpp"),
 		path.join(bgfxPath, "src/glcontext_glx.cpp"),
-		path.join(bgfxPath, "src/glcontext_ppapi.cpp"),
 		path.join(bgfxPath, "src/glcontext_wgl.cpp"),
 		path.join(bgfxPath, "src/hmd.cpp"),
 		--path.join(bgfxPath, "src/hmd_ovr.cpp"),
@@ -48,6 +47,7 @@ function rendererProject(engine, rendererPath)
 		path.join(rendererPath, "code/math/*.h"),
 		path.join(rendererPath, "code/renderer_bgfx/*.cpp"),
 		path.join(rendererPath, "code/renderer_bgfx/*.h"),
+		path.join(rendererPath, "shaders/*.hlsl"),
 		path.join(rendererPath, "shaders/*.sc"),
 		path.join(rendererPath, "shaders/*.sh"),
 	}

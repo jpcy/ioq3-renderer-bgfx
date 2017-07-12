@@ -9,6 +9,8 @@
 #include <stdint.h> // uint32_t
 #include <stdlib.h> // NULL
 
+#define BIMG_API_VERSION UINT32_C(5)
+
 namespace bx
 {
 	struct AllocatorI;
@@ -114,7 +116,7 @@ namespace bimg
 			RGBA4,
 			RGB5A1,
 			RGB10A2,
-			R11G11B10F,
+			RG11B10F,
 
 			UnknownDepth, // Depth formats below.
 
@@ -265,7 +267,7 @@ namespace bimg
 		  void* _dst
 		, uint32_t _width
 		, uint32_t _height
-		, uint32_t _pitch
+		, uint32_t _srcPitch
 		, const void* _src
 		);
 
@@ -274,7 +276,7 @@ namespace bimg
 		  void* _dst
 		, uint32_t _width
 		, uint32_t _height
-		, uint32_t _pitch
+		, uint32_t _srcPitch
 		, const void* _src
 		);
 
@@ -283,7 +285,7 @@ namespace bimg
 		  void* _dst
 		, uint32_t _width
 		, uint32_t _height
-		, uint32_t _pitch
+		, uint32_t _srcPitch
 		, const void* _src
 		);
 
@@ -292,7 +294,7 @@ namespace bimg
 		  void* _dst
 		, uint32_t _width
 		, uint32_t _height
-		, uint32_t _pitch
+		, uint32_t _srcPitch
 		, const void* _src
 		);
 
@@ -301,7 +303,7 @@ namespace bimg
 		  void* _dst
 		, uint32_t _width
 		, uint32_t _height
-		, uint32_t _pitch
+		, uint32_t _srcPitch
 		, const void* _src
 		);
 
@@ -310,7 +312,7 @@ namespace bimg
 		  void* _dst
 		, uint32_t _width
 		, uint32_t _height
-		, uint32_t _pitch
+		, uint32_t _srcPitch
 		, const void* _src
 		);
 
@@ -329,9 +331,15 @@ namespace bimg
 		, uint32_t _width
 		, uint32_t _height
 		, uint32_t _bpp
-		, uint32_t _pitch
+		, uint32_t _srcPitch
 		, const void* _src
 		);
+
+	///
+	PackFn getPack(TextureFormat::Enum _format);
+
+	///
+	UnpackFn getUnpack(TextureFormat::Enum _format);
 
 	///
 	bool imageConvert(
@@ -406,11 +414,11 @@ namespace bimg
 		);
 
 	///
-	void imageWriteTga(
+	int32_t imageWriteTga(
 		  bx::WriterI* _writer
 		, uint32_t _width
 		, uint32_t _height
-		, uint32_t _pitch
+		, uint32_t _srcPitch
 		, const void* _src
 		, bool _grayscale
 		, bool _yflip
@@ -418,7 +426,16 @@ namespace bimg
 		);
 
 	///
-	void imageWriteKtx(
+	int32_t imageWriteDds(
+		  bx::WriterI* _writer
+		, ImageContainer& _imageContainer
+		, const void* _data
+		, uint32_t _size
+		, bx::Error* _err
+		);
+
+	///
+	int32_t imageWriteKtx(
 		  bx::WriterI* _writer
 		, TextureFormat::Enum _format
 		, bool _cubeMap
@@ -431,7 +448,7 @@ namespace bimg
 		);
 
 	///
-	void imageWriteKtx(
+	int32_t imageWriteKtx(
 		  bx::WriterI* _writer
 		, ImageContainer& _imageContainer
 		, const void* _data
@@ -443,6 +460,7 @@ namespace bimg
 	bool imageParse(
 		  ImageContainer& _imageContainer
 		, bx::ReaderSeekerI* _reader
+		, bx::Error* _err
 		);
 
 	///
@@ -450,6 +468,7 @@ namespace bimg
 		  ImageContainer& _imageContainer
 		, const void* _data
 		, uint32_t _size
+		, bx::Error* _err = NULL
 		);
 
 	///
@@ -457,6 +476,7 @@ namespace bimg
 		  bx::AllocatorI* _allocator
 		, const void* _src
 		, uint32_t _size
+		, bx::Error* _err
 		);
 
 	///
@@ -464,6 +484,7 @@ namespace bimg
 		  bx::AllocatorI* _allocator
 		, const void* _src
 		, uint32_t _size
+		, bx::Error* _err
 		);
 
 	///
@@ -471,6 +492,7 @@ namespace bimg
 		  bx::AllocatorI* _allocator
 		, const void* _src
 		, uint32_t _size
+		, bx::Error* _err
 		);
 
 	///
@@ -479,7 +501,7 @@ namespace bimg
 		, const void* _src
 		, uint32_t _width
 		, uint32_t _height
-		, uint32_t _pitch
+		, uint32_t _dstPitch
 		, TextureFormat::Enum _format
 		);
 
@@ -489,7 +511,7 @@ namespace bimg
 		, const void* _src
 		, uint32_t _width
 		, uint32_t _height
-		, uint32_t _pitch
+		, uint32_t _dstPitch
 		, TextureFormat::Enum _format
 		);
 
@@ -500,7 +522,7 @@ namespace bimg
 		, const void* _src
 		, uint32_t _width
 		, uint32_t _height
-		, uint32_t _pitch
+		, uint32_t _dstPitch
 		, TextureFormat::Enum _format
 		);
 

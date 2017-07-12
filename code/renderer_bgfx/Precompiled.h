@@ -220,7 +220,7 @@ typedef std::vector<DrawCall> DrawCallList;
 
 struct DynamicIndexBuffer
 {
-	DynamicIndexBuffer() { handle.idx = bgfx::invalidHandle; }
+	DynamicIndexBuffer() { handle.idx = bgfx::kInvalidHandle; }
 	~DynamicIndexBuffer() { if (bgfx::isValid(handle)) bgfx::destroyDynamicIndexBuffer(handle); }
 	bgfx::DynamicIndexBufferHandle handle;
 };
@@ -374,7 +374,7 @@ struct Entity
 
 struct FrameBuffer
 {
-	FrameBuffer() { handle.idx = bgfx::invalidHandle; }
+	FrameBuffer() { handle.idx = bgfx::kInvalidHandle; }
 	~FrameBuffer() { if (bgfx::isValid(handle)) bgfx::destroyFrameBuffer(handle); }
 	bgfx::FrameBufferHandle handle;
 };
@@ -413,7 +413,7 @@ Image LoadImage(const char *filename, int flags = 0);
 
 struct IndexBuffer
 {
-	IndexBuffer() { handle.idx = bgfx::invalidHandle; }
+	IndexBuffer() { handle.idx = bgfx::kInvalidHandle; }
 	~IndexBuffer() { if (bgfx::isValid(handle)) bgfx::destroyIndexBuffer(handle); }
 	bgfx::IndexBufferHandle handle;
 };
@@ -1188,14 +1188,14 @@ struct SceneDefinition
 
 struct Shader
 {
-	Shader() { handle.idx = bgfx::invalidHandle; }
+	Shader() { handle.idx = bgfx::kInvalidHandle; }
 	~Shader() { if (bgfx::isValid(handle)) bgfx::destroyShader(handle); }
 	bgfx::ShaderHandle handle;
 };
 
 struct ShaderProgram
 {
-	ShaderProgram() { handle.idx = bgfx::invalidHandle; }
+	ShaderProgram() { handle.idx = bgfx::kInvalidHandle; }
 	~ShaderProgram() { if (bgfx::isValid(handle)) bgfx::destroyProgram(handle); }
 	bgfx::ProgramHandle handle;
 };
@@ -1656,7 +1656,7 @@ struct Vertex
 
 struct VertexBuffer
 {
-	VertexBuffer() { handle.idx = bgfx::invalidHandle; }
+	VertexBuffer() { handle.idx = bgfx::kInvalidHandle; }
 	~VertexBuffer() { if (bgfx::isValid(handle)) bgfx::destroyVertexBuffer(handle); }
 	bgfx::VertexBufferHandle handle;
 };

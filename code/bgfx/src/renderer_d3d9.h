@@ -11,21 +11,6 @@
 #if BX_PLATFORM_WINDOWS
 #	include <sal.h>
 #	include <d3d9.h>
-
-#elif BX_PLATFORM_XBOX360
-#	include <xgraphics.h>
-#	define D3DUSAGE_DYNAMIC 0 // not supported on X360
-#	define D3DLOCK_DISCARD 0 // not supported on X360
-#	define D3DERR_DEVICEHUNG D3DERR_DEVICELOST // not supported on X360
-#	define D3DERR_DEVICEREMOVED D3DERR_DEVICELOST // not supported on X360
-#	define D3DMULTISAMPLE_8_SAMPLES D3DMULTISAMPLE_4_SAMPLES
-#	define D3DMULTISAMPLE_16_SAMPLES D3DMULTISAMPLE_4_SAMPLES
-
-#	define D3DFMT_DF24 D3DFMT_D24FS8
-
-#	define _PIX_SETMARKER(_col, _name) BX_NOOP()
-#	define _PIX_BEGINEVENT(_col, _name) BX_NOOP()
-#	define _PIX_ENDEVENT() BX_NOOP
 #endif // BX_PLATFORM_
 
 #ifndef D3DSTREAMSOURCE_INDEXEDDATA
@@ -206,24 +191,6 @@ namespace bgfx { namespace d3d9
 		uint32_t m_size;
 		VertexDeclHandle m_decl;
 		bool m_dynamic;
-	};
-
-	struct VertexDeclD3D9
-	{
-		VertexDeclD3D9()
-			: m_ptr(NULL)
-		{
-		}
-
-		void create(const VertexDecl& _decl);
-
-		void destroy()
-		{
-			DX_RELEASE(m_ptr, 0);
-		}
-
-		IDirect3DVertexDeclaration9* m_ptr;
-		VertexDecl m_decl;
 	};
 
 	struct ShaderD3D9

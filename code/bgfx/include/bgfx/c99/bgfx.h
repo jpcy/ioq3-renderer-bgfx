@@ -75,6 +75,8 @@ typedef enum bgfx_attrib
     BGFX_ATTRIB_BITANGENT,
     BGFX_ATTRIB_COLOR0,
     BGFX_ATTRIB_COLOR1,
+    BGFX_ATTRIB_COLOR2,
+    BGFX_ATTRIB_COLOR3,
     BGFX_ATTRIB_INDICES,
     BGFX_ATTRIB_WEIGHT,
     BGFX_ATTRIB_TEXCOORD0,
@@ -172,7 +174,7 @@ typedef enum bgfx_texture_format
     BGFX_TEXTURE_FORMAT_RGBA4,
     BGFX_TEXTURE_FORMAT_RGB5A1,
     BGFX_TEXTURE_FORMAT_RGB10A2,
-    BGFX_TEXTURE_FORMAT_R11G11B10F,
+    BGFX_TEXTURE_FORMAT_RG11B10F,
 
     BGFX_TEXTURE_FORMAT_UNKNOWN_DEPTH,
 
@@ -254,6 +256,17 @@ typedef enum bgfx_topology_sort
     BGFX_TOPOLOGY_SORT_COUNT
 
 } bgfx_topology_sort_t;
+
+typedef enum bgfx_view_mode
+{
+    BGFX_VIEW_MODE_DEFAULT,
+    BGFX_VIEW_MODE_SEQUENTIAL,
+    BGFX_VIEW_MODE_DEPTH_ASCENDING,
+    BGFX_VIEW_MODE_DEPTH_DESCENDING,
+
+    BGFX_VIEW_MODE_CCOUNT
+
+} bgfx_view_mode_t;
 
 #define BGFX_HANDLE_T(_name) \
     typedef struct _name { uint16_t idx; } _name##_t
@@ -783,7 +796,7 @@ BGFX_C_API void bgfx_set_view_clear(uint8_t _id, uint16_t _flags, uint32_t _rgba
 BGFX_C_API void bgfx_set_view_clear_mrt(uint8_t _id, uint16_t _flags, float _depth, uint8_t _stencil, uint8_t _0, uint8_t _1, uint8_t _2, uint8_t _3, uint8_t _4, uint8_t _5, uint8_t _6, uint8_t _7);
 
 /**/
-BGFX_C_API void bgfx_set_view_seq(uint8_t _id, bool _enabled);
+BGFX_C_API void bgfx_set_view_mode(uint8_t _id, bgfx_view_mode_t _mode);
 
 /**/
 BGFX_C_API void bgfx_set_view_frame_buffer(uint8_t _id, bgfx_frame_buffer_handle_t _handle);
@@ -840,13 +853,13 @@ BGFX_C_API void bgfx_set_dynamic_index_buffer(bgfx_dynamic_index_buffer_handle_t
 BGFX_C_API void bgfx_set_transient_index_buffer(const bgfx_transient_index_buffer_t* _tib, uint32_t _firstIndex, uint32_t _numIndices);
 
 /**/
-BGFX_C_API void bgfx_set_vertex_buffer(bgfx_vertex_buffer_handle_t _handle, uint32_t _startVertex, uint32_t _numVertices);
+BGFX_C_API void bgfx_set_vertex_buffer(uint8_t _stream, bgfx_vertex_buffer_handle_t _handle, uint32_t _startVertex, uint32_t _numVertices);
 
 /**/
-BGFX_C_API void bgfx_set_dynamic_vertex_buffer(bgfx_dynamic_vertex_buffer_handle_t _handle, uint32_t _startVertex, uint32_t _numVertices);
+BGFX_C_API void bgfx_set_dynamic_vertex_buffer(uint8_t _stream, bgfx_dynamic_vertex_buffer_handle_t _handle, uint32_t _startVertex, uint32_t _numVertices);
 
 /**/
-BGFX_C_API void bgfx_set_transient_vertex_buffer(const bgfx_transient_vertex_buffer_t* _tvb, uint32_t _startVertex, uint32_t _numVertices);
+BGFX_C_API void bgfx_set_transient_vertex_buffer(uint8_t _stream, const bgfx_transient_vertex_buffer_t* _tvb, uint32_t _startVertex, uint32_t _numVertices);
 
 /**/
 BGFX_C_API void bgfx_set_instance_data_buffer(const bgfx_instance_data_buffer_t* _idb, uint32_t _num);

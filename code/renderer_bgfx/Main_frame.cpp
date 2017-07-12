@@ -81,7 +81,7 @@ uint8_t PushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4
 
 	bgfx::setViewFrameBuffer(s_main->firstFreeViewId, frameBuffer.handle);
 	bgfx::setViewRect(s_main->firstFreeViewId, uint16_t(rect.x), uint16_t(rect.y), uint16_t(rect.w), uint16_t(rect.h));
-	bgfx::setViewSeq(s_main->firstFreeViewId, (flags & PushViewFlags::Sequential) != 0);
+	bgfx::setViewMode(s_main->firstFreeViewId, (flags & PushViewFlags::Sequential) ? bgfx::ViewMode::Sequential : bgfx::ViewMode::Default);
 	bgfx::setViewTransform(s_main->firstFreeViewId, viewMatrix.get(), projectionMatrix.get());
 	s_main->firstFreeViewId++;
 	return s_main->firstFreeViewId - 1;
@@ -128,7 +128,7 @@ static void FlushStretchPics()
 				state &= ~BGFX_STATE_DEPTH_WRITE;
 
 				bgfx::setState(state);
-				bgfx::setVertexBuffer(&tvb);
+				bgfx::setVertexBuffer(0, &tvb);
 				bgfx::setIndexBuffer(&tib);
 				bgfx::submit(s_main->stretchPicViewId, s_main->shaderPrograms[ShaderProgramId::Generic].handle);
 			}
@@ -211,7 +211,7 @@ void DrawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_
 	auto indices = (uint16_t *)tib.data;
 	indices[0] = 0; indices[1] = 1; indices[2] = 2;
 	indices[3] = 2; indices[4] = 3; indices[5] = 0;
-	bgfx::setVertexBuffer(&tvb);
+	bgfx::setVertexBuffer(0, &tvb);
 	bgfx::setIndexBuffer(&tib);
 	bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, Texture::getScratch(size_t(client))->getHandle());
 	
@@ -276,7 +276,7 @@ void RenderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum
 	vertices[2].pos = vec3(maxx, maxy, zz);
 	vertices[2].color = vec4::white;
 	vertices[2].texCoord = vec2(maxu, maxv);
-	bgfx::setVertexBuffer(&vb);
+	bgfx::setVertexBuffer(0, &vb);
 	bgfx::setState(state);
 	const uint8_t viewId = PushView(frameBuffer, clearFlags, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), rect);
 	bgfx::submit(viewId, s_main->shaderPrograms[program].handle);
@@ -742,15 +742,15 @@ static void SetDrawCallGeometry(const DrawCall &dc)
 
 	if (dc.vb.type == DrawCall::BufferType::Static)
 	{
-		bgfx::setVertexBuffer(dc.vb.staticHandle, dc.vb.firstVertex, dc.vb.nVertices);
+		bgfx::setVertexBuffer(0, dc.vb.staticHandle, dc.vb.firstVertex, dc.vb.nVertices);
 	}
 	else if (dc.vb.type == DrawCall::BufferType::Dynamic)
 	{
-		bgfx::setVertexBuffer(dc.vb.dynamicHandle, dc.vb.firstVertex, dc.vb.nVertices);
+		bgfx::setVertexBuffer(0, dc.vb.dynamicHandle, dc.vb.firstVertex, dc.vb.nVertices);
 	}
 	else if (dc.vb.type == DrawCall::BufferType::Transient)
 	{
-		bgfx::setVertexBuffer(&dc.vb.transientHandle, dc.vb.firstVertex, dc.vb.nVertices);
+		bgfx::setVertexBuffer(0, &dc.vb.transientHandle, dc.vb.firstVertex, dc.vb.nVertices);
 	}
 
 	if (dc.ib.type == DrawCall::BufferType::Static)
@@ -1301,7 +1301,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 		{
 			bgfx::setState(BGFX_STATE_DEPTH_TEST_LEQUAL | BGFX_STATE_PT_LINES | BGFX_STATE_RGB_WRITE);
 			bgfx::setTransform(mat4::translate(pos).get());
-			bgfx::setVertexBuffer(&tvb);
+			bgfx::setVertexBuffer(0, &tvb);
 			bgfx::submit(mainViewId, s_main->shaderPrograms[ShaderProgramId::Color].handle);
 		}
 	}
@@ -1354,7 +1354,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 		}
 
 		bgfx::setState(BGFX_STATE_DEPTH_TEST_LEQUAL | BGFX_STATE_PT_LINES | BGFX_STATE_RGB_WRITE);
-		bgfx::setVertexBuffer(&tvb);
+		bgfx::setVertexBuffer(0, &tvb);
 		bgfx::submit(mainViewId, s_main->shaderPrograms[ShaderProgramId::Color].handle);
 	}
 }

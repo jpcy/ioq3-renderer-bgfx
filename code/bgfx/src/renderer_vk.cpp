@@ -209,7 +209,7 @@ VK_IMPORT_DEVICE
 		{ VK_FORMAT_B4G4R4A4_UNORM_PACK16,     VK_FORMAT_B4G4R4A4_UNORM_PACK16,    VK_FORMAT_UNDEFINED,           VK_FORMAT_UNDEFINED                }, // RGBA4
 		{ VK_FORMAT_B5G5R5A1_UNORM_PACK16,     VK_FORMAT_B5G5R5A1_UNORM_PACK16,    VK_FORMAT_UNDEFINED,           VK_FORMAT_UNDEFINED                }, // RGB5A1
 		{ VK_FORMAT_A2R10G10B10_UNORM_PACK32,  VK_FORMAT_A2R10G10B10_UNORM_PACK32, VK_FORMAT_UNDEFINED,           VK_FORMAT_UNDEFINED                }, // RGB10A2
-		{ VK_FORMAT_B10G11R11_UFLOAT_PACK32,   VK_FORMAT_B10G11R11_UFLOAT_PACK32,  VK_FORMAT_UNDEFINED,           VK_FORMAT_UNDEFINED                }, // R11G11B10F
+		{ VK_FORMAT_B10G11R11_UFLOAT_PACK32,   VK_FORMAT_B10G11R11_UFLOAT_PACK32,  VK_FORMAT_UNDEFINED,           VK_FORMAT_UNDEFINED                }, // RG11B10F
 		{ VK_FORMAT_UNDEFINED,                 VK_FORMAT_UNDEFINED,                VK_FORMAT_UNDEFINED,           VK_FORMAT_UNDEFINED                }, // UnknownDepth
 		{ VK_FORMAT_UNDEFINED,                 VK_FORMAT_R16_UNORM,                VK_FORMAT_D16_UNORM,           VK_FORMAT_UNDEFINED                }, // D16
 		{ VK_FORMAT_UNDEFINED,                 VK_FORMAT_X8_D24_UNORM_PACK32,      VK_FORMAT_D24_UNORM_S8_UINT,   VK_FORMAT_UNDEFINED                }, // D24
@@ -725,7 +725,7 @@ VK_IMPORT_DEVICE
 
 			ErrorState::Enum errorState = ErrorState::Default;
 
-			m_fbh.idx = invalidHandle;
+			m_fbh.idx = kInvalidHandle;
 			bx::memSet(m_uniforms, 0, sizeof(m_uniforms) );
 			bx::memSet(&m_resolution, 0, sizeof(m_resolution) );
 
@@ -961,6 +961,8 @@ VK_IMPORT_INSTANCE
 				g_caps.vendorId = uint16_t(m_deviceProperties.vendorID);
 				g_caps.deviceId = uint16_t(m_deviceProperties.deviceID);
 
+				g_caps.limits.maxTextureSize   = m_deviceProperties.limits.maxImageDimension2D;
+				g_caps.limits.maxFBAttachments = uint8_t(bx::uint32_min(m_deviceProperties.limits.maxFragmentOutputAttachments, BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS) );
 
 				{
 //					VkFormatProperties fp;
@@ -1171,7 +1173,7 @@ VK_IMPORT_DEVICE
 
 			m_backBufferDepthStencilFormat =
 				VK_FORMAT_D32_SFLOAT_S8_UINT
-			//	VK_FORMAT_D24_UNORM_S8_UINT
+//				VK_FORMAT_D24_UNORM_S8_UINT
 				;
 
 			{
@@ -2119,6 +2121,8 @@ VK_IMPORT_DEVICE
 		{
 			BX_UNUSED(_handle);
 		}
+
+		void submitBlit(BlitState& _bs, uint16_t _view);
 
 		void submit(Frame* _render, ClearQuad& _clearQuad, TextVideoMemBlitter& _textVideoMemBlitter) BX_OVERRIDE;
 
@@ -3497,18 +3501,18 @@ VK_DESTROY
 			}
 		}
 
-		uint16_t shaderSize;
+		uint32_t shaderSize;
 		bx::read(&reader, shaderSize);
 
 #if 1
 		const void* code = reader.getDataPtr();
 		bx::skip(&reader, shaderSize+1);
 
-		m_code = alloc( ( (shaderSize+3)/4)*4);
+		m_code = alloc( ( ( (shaderSize+3)/4)*4) );
 		bx::memSet(m_code->data, 0, m_code->size);
 		bx::memCopy(m_code->data
 			, code
-			, shaderSize+1
+			, shaderSize
 			);
 #else
 #include "../examples/runtime/shaders/spv/vert.spv.h"
@@ -3533,7 +3537,12 @@ VK_DESTROY
 		smci.flags = 0;
 		smci.codeSize = m_code->size;
 		smci.pCode    = (const uint32_t*)m_code->data;
-		VK_CHECK(vkCreateShaderModule(s_renderVK->m_device, &smci, s_renderVK->m_allocatorCb, &m_module) );
+		VK_CHECK(vkCreateShaderModule(
+			  s_renderVK->m_device
+			, &smci
+			, s_renderVK->m_allocatorCb
+			, &m_module
+			) );
 
 		bx::memSet(m_attrMask, 0, sizeof(m_attrMask) );
 		m_attrMask[Attrib::Position] = UINT16_MAX;
@@ -3610,6 +3619,15 @@ VK_DESTROY
 	{
 	}
 
+	void RendererContextVK::submitBlit(BlitState& _bs, uint16_t _view)
+	{
+		while (_bs.hasItem(_view) )
+		{
+			const BlitItem& blit = _bs.advance();
+			BX_UNUSED(blit);
+		}
+	}
+
 	void RendererContextVK::submit(Frame* _render, ClearQuad& _clearQuad, TextVideoMemBlitter& _textVideoMemBlitter)
 	{
 		BX_UNUSED(_render, _clearQuad, _textVideoMemBlitter);
@@ -3649,8 +3667,8 @@ VK_DESTROY
 // 		bool wireframe = !!(_render->m_debug&BGFX_DEBUG_WIREFRAME);
 // 		setDebugWireframe(wireframe);
 
-		uint16_t currentSamplerStateIdx = invalidHandle;
-		uint16_t currentProgramIdx      = invalidHandle;
+		uint16_t currentSamplerStateIdx = kInvalidHandle;
+		uint16_t currentProgramIdx      = kInvalidHandle;
 		uint32_t currentBindHash        = 0;
 		bool     hasPredefined          = false;
 		bool     commandListChanged     = false;
@@ -3659,10 +3677,7 @@ VK_DESTROY
 		uint16_t view = UINT16_MAX;
 		FrameBufferHandle fbh = { BGFX_CONFIG_MAX_FRAME_BUFFERS };
 
-		BlitKey blitKey;
-		blitKey.decode(_render->m_blitKeys[0]);
-		uint16_t numBlitItems = _render->m_numBlitItems;
-		uint16_t blitItem = 0;
+		BlitState bs(_render);
 
 		uint32_t blendFactor = 0;
 
@@ -3772,9 +3787,9 @@ finishAll();
 
 					view = key.m_view;
 					currentPipeline = VK_NULL_HANDLE;
-					currentSamplerStateIdx = invalidHandle;
+					currentSamplerStateIdx = kInvalidHandle;
 BX_UNUSED(currentSamplerStateIdx);
-					currentProgramIdx      = invalidHandle;
+					currentProgramIdx      = kInvalidHandle;
 					hasPredefined          = false;
 
 					fbh = _render->m_fb[view];
@@ -3822,77 +3837,7 @@ BX_UNUSED(currentSamplerStateIdx);
 
 					prim = s_primInfo[BX_COUNTOF(s_primName)]; // Force primitive type update.
 
-					const uint8_t blitView = SortKey::decodeView(encodedKey);
-					for (; blitItem < numBlitItems && blitKey.m_view <= blitView; blitItem++)
-					{
-						const BlitItem& blit = _render->m_blitItem[blitItem];
-						blitKey.decode(_render->m_blitKeys[blitItem+1]);
-						BX_UNUSED(blit);
-
-//						const TextureD3D12& src = m_textures[blit.m_src.idx];
-//						const TextureD3D12& dst = m_textures[blit.m_dst.idx];
-//
-// 						uint32_t srcWidth  = bx::uint32_min(src.m_width,  blit.m_srcX + blit.m_width)  - blit.m_srcX;
-// 						uint32_t srcHeight = bx::uint32_min(src.m_height, blit.m_srcY + blit.m_height) - blit.m_srcY;
-// 						uint32_t srcDepth  = bx::uint32_min(src.m_depth,  blit.m_srcZ + blit.m_depth)  - blit.m_srcZ;
-// 						uint32_t dstWidth  = bx::uint32_min(dst.m_width,  blit.m_dstX + blit.m_width)  - blit.m_dstX;
-// 						uint32_t dstHeight = bx::uint32_min(dst.m_height, blit.m_dstY + blit.m_height) - blit.m_dstY;
-// 						uint32_t dstDepth  = bx::uint32_min(dst.m_depth,  blit.m_dstZ + blit.m_depth)  - blit.m_dstZ;
-// 						uint32_t width     = bx::uint32_min(srcWidth,  dstWidth);
-// 						uint32_t height    = bx::uint32_min(srcHeight, dstHeight);
-// 						uint32_t depth     = bx::uint32_min(srcDepth,  dstDepth);
-//
-//						if (TextureD3D12::Texture3D == src.m_type)
-//						{
-//							D3D12_BOX box;
-// 							box.left   = blit.m_srcX;
-// 							box.top    = blit.m_srcY;
-// 							box.front  = blit.m_srcZ;
-// 							box.right  = blit.m_srcX + width;
-// 							box.bottom = blit.m_srcY + height;;
-// 							box.back   = blit.m_srcZ + bx::uint32_imax(1, depth);
-//
-//							D3D12_TEXTURE_COPY_LOCATION dstLocation = { dst.m_ptr, D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX, {{ 0 }} };
-//							D3D12_TEXTURE_COPY_LOCATION srcLocation = { src.m_ptr, D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX, {{ 0 }} };
-//							m_commandList->CopyTextureRegion(&dstLocation
-//								, blit.m_dstX
-//								, blit.m_dstY
-//								, blit.m_dstZ
-//								, &srcLocation
-//								, &box
-//								);
-//						}
-//						else
-//						{
-//							D3D12_BOX box;
-// 							box.left   = blit.m_srcX;
-// 							box.top    = blit.m_srcY;
-// 							box.front  = 0;
-// 							box.right  = blit.m_srcX + width;
-// 							box.bottom = blit.m_srcY + height;;
-// 							box.back   = 1;
-//
-//							const uint32_t srcZ = TextureD3D12::TextureCube == src.m_type
-//								? blit.m_srcZ
-//								: 0
-//								;
-//							const uint32_t dstZ = TextureD3D12::TextureCube == dst.m_type
-//								? blit.m_dstZ
-//								: 0
-//								;
-//
-//							D3D12_TEXTURE_COPY_LOCATION dstLocation = { dst.m_ptr, D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX, {{ dstZ*dst.m_numMips+blit.m_dstMip }} };
-//							D3D12_TEXTURE_COPY_LOCATION srcLocation = { src.m_ptr, D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX, {{ srcZ*src.m_numMips+blit.m_srcMip }} };
-//							bool depthStencil = isDepth(TextureFormat::Enum(src.m_textureFormat) );
-//							m_commandList->CopyTextureRegion(&dstLocation
-//								, blit.m_dstX
-//								, blit.m_dstY
-//								, 0
-//								, &srcLocation
-//								, depthStencil ? NULL : &box
-//								);
-//						}
-					}
+					submitBlit(bs, view);
 				}
 
 				if (isCompute)
@@ -3933,7 +3878,7 @@ BX_UNUSED(currentSamplerStateIdx);
 //							for (uint32_t ii = 0; ii < BGFX_MAX_COMPUTE_BINDINGS; ++ii)
 //							{
 //								const Binding& bind = renderBind.m_bind[ii];
-//								if (invalidHandle != bind.m_idx)
+//								if (kInvalidHandle != bind.m_idx)
 //								{
 //									switch (bind.m_type)
 //									{
@@ -4110,8 +4055,8 @@ BX_UNUSED(currentSamplerStateIdx);
 
 					currentPipeline        = VK_NULL_HANDLE;
 					currentBindHash        = 0;
-					currentSamplerStateIdx = invalidHandle;
-					currentProgramIdx      = invalidHandle;
+					currentSamplerStateIdx = kInvalidHandle;
+					currentProgramIdx      = kInvalidHandle;
 					currentState.clear();
 					currentState.m_scissor = !draw.m_scissor;
 					changedFlags = BGFX_STATE_MASK;
@@ -4172,7 +4117,7 @@ BX_UNUSED(currentSamplerStateIdx);
 //								for (uint32_t stage = 0; stage < BGFX_CONFIG_MAX_TEXTURE_SAMPLERS; ++stage)
 //								{
 //									const Binding& bind = renderBind.m_bind[stage];
-//									if (invalidHandle != bind.m_idx)
+//									if (kInvalidHandle != bind.m_idx)
 //									{
 //										TextureD3D12& texture = m_textures[bind.m_idx];
 //										texture.setState(m_commandList, D3D12_RESOURCE_STATE_GENERIC_READ);
@@ -4262,7 +4207,7 @@ BX_UNUSED(currentSamplerStateIdx);
 								restoreScissor = false;
 								VkRect2D rc;
 								rc.offset.x      = viewScissorRect.m_x;
-								rc.offset.x      = viewScissorRect.m_y;
+								rc.offset.y      = viewScissorRect.m_y;
 								rc.extent.width  = viewScissorRect.m_x + viewScissorRect.m_width;
 								rc.extent.height = viewScissorRect.m_y + viewScissorRect.m_height;
 								vkCmdSetScissor(m_commandBuffer, 0, 1, &rc);
@@ -4280,7 +4225,7 @@ BX_UNUSED(currentSamplerStateIdx);
 
 							VkRect2D rc;
 							rc.offset.x      = scissorRect.m_x;
-							rc.offset.x      = scissorRect.m_y;
+							rc.offset.y      = scissorRect.m_y;
 							rc.extent.width  = scissorRect.m_x + scissorRect.m_width;
 							rc.extent.height = scissorRect.m_y + scissorRect.m_height;
 							vkCmdSetScissor(m_commandBuffer, 0, 1, &rc);
@@ -4399,6 +4344,8 @@ BX_UNUSED(currentSamplerStateIdx);
 					}
 				}
 			}
+
+			submitBlit(bs, BGFX_CONFIG_MAX_VIEWS);
 
 //			m_batch.end(m_commandList);
 		}
