@@ -8,7 +8,11 @@ install:
   - cmd: git clone https://github.com/ioquake/ioq3.git ../ioq3
   - cmd: premake5.exe shaders
   - cmd: premake5.exe gmake
-
+  - cmd: set PATH=C:\msys64\usr\bin;%PATH%
+  - cmd: bash -lc ""
+  - cmd: bash -lc "pacman --noconfirm --needed -Sy bash pacman pacman-mirrors msys2-runtime msys2-runtime-devel"
+  - cmd: bash -lc "pacman --noconfirm -S make"
+  
 build_script:
   - cmd: bash -lc "export PATH=C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1:$PATH && cd $APPVEYOR_BUILD_FOLDER && cd build && make config=release_x86"
 
