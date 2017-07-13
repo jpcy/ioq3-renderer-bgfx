@@ -82,6 +82,7 @@ r_dynamicLightIntensity | Make dynamic lights brighter/dimmer.
 r_dynamicLightScale     | Scale the radius of dynamic lights.
 r_lerpTextureAnimation  | Use linear interpolation on texture animation - flames, explosions.
 r_maxAnisotropy         | Enable [anisotropic filtering](https://en.wikipedia.org/wiki/Anisotropic_filtering).
+r_textureVariation      | Hide obvious texture tiling in a few Q3A maps.
 r_waterReflections      | Show planar water reflections. Only enabled on q3dm2 for now.
 
 ### Console Commands

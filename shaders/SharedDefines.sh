@@ -64,5 +64,6 @@
 #define TU_DYNAMIC_LIGHT_CELLS   4
 #define TU_DYNAMIC_LIGHT_INDICES 5
 #define TU_DYNAMIC_LIGHTS        6
+#define TU_NOISE                 7
 
 #define USE_HALF_LAMBERT

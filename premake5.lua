@@ -179,7 +179,8 @@ newaction
 			{ "AlphaTest", "USE_ALPHA_TEST" },
 			{ "Bloom", "USE_BLOOM" },
 			{ "DynamicLights", "USE_DYNAMIC_LIGHTS" },
-			{ "SoftSprite", "USE_SOFT_SPRITE" }
+			{ "SoftSprite", "USE_SOFT_SPRITE" },
+			{ "TextureVariation", "USE_TEXTURE_VARIATION" }
 		}
 		
 		local genericVertexVariants =

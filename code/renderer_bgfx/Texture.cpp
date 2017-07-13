@@ -118,6 +118,10 @@ struct TextureCache
 	uint8_t whiteImageData[defaultImageDataSize];
 	uint8_t identityLightImageData[defaultImageDataSize];
 	TextureImpl *defaultTexture, *identityLightTexture, *whiteTexture;
+	static const int noiseImageSize = 256;
+	static const uint32_t noiseImageDataSize = noiseImageSize * noiseImageSize * 4;
+	uint8_t noiseImageData[noiseImageDataSize];
+	TextureImpl *noiseTexture;
 	static const size_t nScratchTextures = 32;
 	uint8_t scratchImageData[nScratchTextures][defaultImageDataSize];
 	std::array<TextureImpl *, nScratchTextures> scratchTextures;
@@ -137,6 +141,17 @@ struct TextureCache
 		}
 
 		defaultTexture = createTexture("*default", CreateImage(defaultImageSize, defaultImageSize, 4, defaultImageData), TextureFlags::Mipmap, bgfx::TextureFormat::RGBA8);
+
+		// Noise texture.
+		for (uint32_t x = 0; x < noiseImageDataSize; x++)
+		{
+			auto r = uint8_t(rand() % 255);
+			auto g = uint8_t(rand() % 255);
+			auto b = uint8_t(rand() % 255);
+			noiseImageData[x] = (255 << 24) | (b << 16) | (g << 8) | r;
+		}
+
+		noiseTexture = createTexture("*noise", CreateImage(noiseImageSize, noiseImageSize, 4, noiseImageData), TextureFlags::None, bgfx::TextureFormat::RGBA8);
 
 		// White texture.
 		memset(whiteImageData, 255, defaultImageDataSize);
@@ -392,6 +407,11 @@ const Texture *Texture::getDefault()
 const Texture *Texture::getIdentityLight()
 {
 	return s_textureCache->textureFromImpl(s_textureCache->identityLightTexture);
+}
+
+const Texture *Texture::getNoise()
+{
+	return s_textureCache->textureFromImpl(s_textureCache->noiseTexture);
 }
 
 const Texture *Texture::getWhite()

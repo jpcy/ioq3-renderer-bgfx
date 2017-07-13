@@ -243,6 +243,22 @@ static const char * s_bloomWhitelist[] =
 	"textures/sfx2/swirl_r*"
 };
 
+static const char * s_textureVariationWhitelist[] =
+{
+	// q3dm7
+	"textures/organics/dirt",
+	"textures/organics/dirt2",
+	"textures/organics/dirt_trans",
+	// q3dm16
+	"textures/base_wall/metalfloor_wall_14_specular",
+	// q3dm17
+	"textures/base_wall/metalfloor_wall_15",
+	// q3dm18
+	"textures/base_wall/metalfloor_wall_11",
+	// q3dm19
+	"textures/base_floor/metaltechfloor01final"
+};
+
 void Initialize()
 {
 	s_meta = Meta();
@@ -335,6 +351,20 @@ void OnMaterialCreate(Material *material)
 		s_meta.plasmaExplosionMaterial = material;
 	}
 
+	// Enable texture variation.
+	bool textureVariation = false;
+
+	for (int k = 0; k < BX_COUNTOF(s_textureVariationWhitelist); k++)
+	{
+		const char *entry = s_textureVariationWhitelist[k];
+		const char *wildcard = strstr(entry, "*");
+
+		if (!util::Stricmp(material->name, entry) || (wildcard && !util::Stricmpn(material->name, entry, int(wildcard - entry))))
+		{
+			textureVariation = true;
+		}
+	}
+
 	for (int i = 0; i < Material::maxStages; i++)
 	{
 		MaterialStage &stage = material->stages[i];
@@ -360,6 +390,8 @@ void OnMaterialCreate(Material *material)
 					stage.bloom = true;
 				}
 			}
+
+			stage.textureVariation = textureVariation;
 		}
 	}
 

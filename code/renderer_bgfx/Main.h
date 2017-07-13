@@ -95,18 +95,19 @@ struct GenericShaderProgramVariant
 {
 	enum
 	{
-		None          = 0,
+		None = 0,
 
 		// Fragment
-		AlphaTest     = 1 << 0,
-		Bloom         = 1 << 1,
+		AlphaTest = 1 << 0,
+		Bloom  = 1 << 1,
 		DynamicLights = 1 << 2,
-		SoftSprite    = 1 << 3,
+		SoftSprite = 1 << 3,
+		TextureVariation = 1 << 4,
 
 		// Vertex
-		DepthRange    = 1 << 4,
+		DepthRange = 1 << 5,
 
-		Num           = 1 << 5
+		Num = 1 << 6
 	};
 };
 

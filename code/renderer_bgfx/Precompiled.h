@@ -134,6 +134,7 @@ struct ConsoleVariables
 	ConsoleVariable railSegmentLength;
 	ConsoleVariable screenshotJpegQuality;
 	ConsoleVariable softSprites;
+	ConsoleVariable textureVariation;
 	ConsoleVariable waterReflections;
 	ConsoleVariable wireframe;
 
@@ -815,6 +816,7 @@ struct MaterialStage
 	MaterialStageType type = MaterialStageType::ColorMap;
 	MaterialLight light = MaterialLight::None;
 	bool bloom = false;
+	bool textureVariation = false;
 
 	vec4 normalScale;
 	vec4 specularScale;
@@ -1315,6 +1317,7 @@ public:
 	static Texture *get(const char *name);
 	static const Texture *getDefault();
 	static const Texture *getIdentityLight();
+	static const Texture *getNoise();
 	static const Texture *getWhite();
 	static Texture *getScratch(size_t index);
 	static void alias(Texture *from, Texture *to);
@@ -1343,7 +1346,8 @@ struct TextureUnit
 		Depth               = TU_DEPTH,
 		DynamicLightCells   = TU_DYNAMIC_LIGHT_CELLS,
 		DynamicLightIndices = TU_DYNAMIC_LIGHT_INDICES,
-		DynamicLights       = TU_DYNAMIC_LIGHTS
+		DynamicLights       = TU_DYNAMIC_LIGHTS,
+		Noise               = TU_NOISE
 	};
 };
 
@@ -1457,6 +1461,7 @@ struct Uniforms
 	Uniform_int textureSampler = "u_TextureSampler";
 
 	Uniform_int bloomSampler = "u_BloomSampler";
+	Uniform_int noiseSampler = "u_NoiseSampler";
 	Uniform_int smaaColorSampler = "u_SmaaColorSampler";
 	Uniform_int smaaEdgesSampler = "u_SmaaEdgesSampler";
 	Uniform_int smaaAreaSampler = "u_SmaaAreaSampler";

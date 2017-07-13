@@ -1220,6 +1220,12 @@ static void RenderCamera(const RenderCameraArgs &args)
 				s_main->uniforms->bloom_Write_Scale.set(vec4(stage.bloom ? 1.0f : 0.0f, 0, 0, 0));
 			}
 
+			if (g_cvars.textureVariation.getBool() && stage.textureVariation)
+			{
+				shaderVariant |= GenericShaderProgramVariant::TextureVariation;
+				//bgfx::setTexture(TextureUnit::Noise, s_main->uniforms->noiseSampler.handle, Texture::getNoise()->getHandle());
+			}
+
 			bgfx::setState(state);
 
 			if (args.flags & RenderCameraFlags::UseStencilTest)
