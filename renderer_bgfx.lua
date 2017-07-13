@@ -20,9 +20,13 @@ function rendererProject(engine, rendererPath)
 	
 	files
 	{
+		path.join(bxPath, "include/bx/*.h"),
+		path.join(bxPath, "include/bx/inline/*.inl"),
 		path.join(bxPath, "src/amalgamated.cpp"),
+		path.join(bimgPath, "include/bimg/*.h"),
 		path.join(bimgPath, "src/image.cpp"),
 		path.join(bimgPath, "src/image_decode.cpp"),
+		path.join(bgfxPath, "include/bgfx/*.h"),
 		path.join(bgfxPath, "src/bgfx.cpp"),
 		path.join(bgfxPath, "src/glcontext_egl.cpp"),
 		path.join(bgfxPath, "src/glcontext_glx.cpp"),
