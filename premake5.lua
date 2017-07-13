@@ -405,7 +405,7 @@ solution "renderer_bgfx"
 	configuration "Debug"
 		optimize "Debug"
 		defines { "_DEBUG" }
-		flags "Symbols"
+		symbols "On"
 		
 	configuration { "Debug", "x86" }
 		targetdir "build/bin_x86_debug"
