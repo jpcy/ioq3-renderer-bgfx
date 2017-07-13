@@ -71,7 +71,7 @@ newaction
 			else
 				io.write(" " .. variant .. "\n")
 			end
-			--io.flush()
+			io.flush()
 			
 			local inputFilename = string.format("shaders/%s_%s.sc", input, type)
 			
