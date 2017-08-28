@@ -32,6 +32,15 @@ float CalcFog(vec3 position, vec4 fogDepth, vec4 fogDistance, float fogEyeT)
 	return s * t;
 }
 
+float Lambert(vec3 surfaceNormal, vec3 lightDir)
+{
+#if defined(USE_HALF_LAMBERT)
+	return pow(dot(surfaceNormal, lightDir) * 0.5 + 0.5, 2);
+#else
+	return saturate(dot(surfaceNormal, lightDir));
+#endif
+}
+
 float ToLinearDepth(float z, float near, float far)
 {
 	float linearDepth = 2.0 * near * far / (z * (far - near) - (far + near));
