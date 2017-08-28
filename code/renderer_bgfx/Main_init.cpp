@@ -431,18 +431,6 @@ void Initialize()
 		VertexShaderId::Depth_AlphaTest
 	};
 
-	programMap[ShaderProgramId::Depth + DepthShaderProgramVariant::DepthRange] =
-	{
-		FragmentShaderId::Depth,
-		VertexShaderId::Depth_DepthRange
-	};
-
-	programMap[ShaderProgramId::Depth + (DepthShaderProgramVariant::AlphaTest | DepthShaderProgramVariant::DepthRange)] =
-	{
-		FragmentShaderId::Depth_AlphaTest,
-		VertexShaderId::Depth_AlphaTestDepthRange
-	};
-
 	programMap[ShaderProgramId::Fog] = { FragmentShaderId::Fog, VertexShaderId::Fog };
 
 	programMap[ShaderProgramId::Fog + FogShaderProgramVariant::Bloom] =
@@ -451,29 +439,14 @@ void Initialize()
 		VertexShaderId::Fog
 	};
 
-	programMap[ShaderProgramId::Fog + FogShaderProgramVariant::DepthRange] =
-	{
-		FragmentShaderId::Fog,
-		VertexShaderId::Fog_DepthRange
-	};
-
-	programMap[ShaderProgramId::Fog + (FogShaderProgramVariant::Bloom | FogShaderProgramVariant::DepthRange)] =
-	{
-		FragmentShaderId::Fog_Bloom,
-		VertexShaderId::Fog_DepthRange
-	};
-
 	programMap[ShaderProgramId::GaussianBlur] = { FragmentShaderId::GaussianBlur, VertexShaderId::Texture };
 
-	// Sync with GenericShaderProgramVariant. Order matters - fragment first.
-	for (int y = 0; y < GenericVertexShaderVariant::Num; y++)
+	// Sync with GenericShaderProgramVariant.
+	for (int i = 0; i < GenericFragmentShaderVariant::Num; i++)
 	{
-		for (int x = 0; x < GenericFragmentShaderVariant::Num; x++)
-		{
-			ShaderProgramIdMap &pm = programMap[ShaderProgramId::Generic + x + y * GenericFragmentShaderVariant::Num];
-			pm.frag = FragmentShaderId::Enum(FragmentShaderId::Generic + x);
-			pm.vert = VertexShaderId::Enum(VertexShaderId::Generic + y);
-		}
+		ShaderProgramIdMap &pm = programMap[ShaderProgramId::Generic + i];
+		pm.frag = FragmentShaderId::Enum(FragmentShaderId::Generic + i);
+		pm.vert = VertexShaderId::Generic;
 	}
 
 	programMap[ShaderProgramId::LinearDepth] = { FragmentShaderId::LinearDepth, VertexShaderId::Texture };

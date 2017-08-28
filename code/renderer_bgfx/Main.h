@@ -74,8 +74,7 @@ struct DepthShaderProgramVariant
 	{
 		None       = 0,
 		AlphaTest  = 1 << 0,
-		DepthRange = 1 << 1,
-		Num        = 1 << 2
+		Num        = 1 << 1
 	};
 };
 
@@ -85,8 +84,7 @@ struct FogShaderProgramVariant
 	{
 		None       = 0,
 		Bloom      = 1 << 0, // Fragment
-		DepthRange = 1 << 1, // Vertex
-		Num        = 1 << 2
+		Num        = 1 << 1
 	};
 };
 
@@ -104,10 +102,7 @@ struct GenericShaderProgramVariant
 		SoftSprite = 1 << 3,
 		TextureVariation = 1 << 4,
 
-		// Vertex
-		DepthRange = 1 << 5,
-
-		Num = 1 << 6
+		Num = 1 << 5
 	};
 };
 

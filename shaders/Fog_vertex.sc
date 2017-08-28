@@ -10,6 +10,7 @@ uniform vec4 u_Color;
 uniform vec4 u_FogDistance;
 uniform vec4 u_FogDepth;
 uniform vec4 u_FogEyeT; // only x used
+uniform vec4 u_DepthRangeEnabled; // only x used
 uniform vec4 u_DepthRange;
 uniform vec4 u_Time; // only x used
 
@@ -23,11 +24,8 @@ void main()
 	}
 
 	vec4 projPosition = mul(u_viewProj, vec4(v_position, 1.0));
-
-#if defined(USE_DEPTH_RANGE)
-	projPosition = ApplyDepthRange(projPosition, u_DepthRange.x, u_DepthRange.y);
-#endif
-
+	if (int(u_DepthRangeEnabled.x) != 0)
+		projPosition = ApplyDepthRange(projPosition, u_DepthRange.x, u_DepthRange.y);
 	gl_Position = projPosition;
 	v_scale = CalcFog(a_position, u_FogDepth, u_FogDistance, u_FogEyeT.x) * u_Color.a * u_Color.a; // NOTE: fog wants modelspace position. Should really deform it too, but the difference isn't enough to matter.
 }

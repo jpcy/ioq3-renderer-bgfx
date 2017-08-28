@@ -775,6 +775,7 @@ static void RenderToStencil(const uint8_t viewId)
 	for (DrawCall &dc : s_main->drawCalls)
 	{
 		Material *mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
+		s_main->uniforms->depthRangeEnabled.set(vec4::empty);
 		s_main->uniforms->depthRange.set(vec4::empty);
 		s_main->matUniforms->time.set(vec4(mat->setTime(s_main->floatTime), 0, 0, 0));
 		mat->setDeformUniforms(s_main->matUniforms.get());
@@ -971,7 +972,17 @@ static void RenderCamera(const RenderCameraArgs &args)
 
 			s_main->currentEntity = dc.entity;
 			s_main->matUniforms->time.set(vec4(mat->setTime(s_main->floatTime), 0, 0, 0));
-			s_main->uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, depthRange.x, depthRange.y));
+
+			if (dc.zOffset > 0 || dc.zScale > 0)
+			{
+				s_main->uniforms->depthRangeEnabled.set(vec4(1, 0, 0, 0));
+				s_main->uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, depthRange.x, depthRange.y));
+			}
+			else
+			{
+				s_main->uniforms->depthRangeEnabled.set(vec4::empty);
+			}
+
 			mat->setDeformUniforms(s_main->matUniforms.get());
 
 			// See if any of the stages use alpha testing.
@@ -1004,11 +1015,6 @@ static void RenderCamera(const RenderCameraArgs &args)
 			else
 			{
 				s_main->matStageUniforms->alphaTest.set(vec4::empty);
-			}
-
-			if (dc.zOffset > 0 || dc.zScale > 0)
-			{
-				shaderVariant |= DepthShaderProgramVariant::DepthRange;
 			}
 
 			bgfx::setState(state);
@@ -1070,6 +1076,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 		// Special case for skybox.
 		if (dc.flags & DrawCallFlags::Skybox)
 		{
+			s_main->uniforms->depthRangeEnabled.set(vec4(1, 0, 0, 0));
 			s_main->uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, depthRange.x, depthRange.y));
 			s_main->uniforms->dynamicLight_Num_Intensity.set(vec4::empty);
 			s_main->matUniforms->nDeforms.set(vec4(0, 0, 0, 0));
@@ -1093,7 +1100,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 				bgfx::setStencil(stencilTest);
 			}
 
-			int shaderVariant = GenericShaderProgramVariant::DepthRange;
+			int shaderVariant = GenericShaderProgramVariant::None;
 
 			if (g_cvars.bloom.getBool())
 			{
@@ -1162,6 +1169,15 @@ static void RenderCamera(const RenderCameraArgs &args)
 			if (!stage.active)
 				continue;
 
+			if (mat->polygonOffset || dc.zOffset > 0 || dc.zScale > 0)
+			{
+				s_main->uniforms->depthRangeEnabled.set(vec4(1, 0, 0, 0));
+			}
+			else
+			{
+				s_main->uniforms->depthRangeEnabled.set(vec4::empty);
+			}
+
 			if (!dc.material->noFog && dc.fogIndex >= 0 && stage.adjustColorsForFog != MaterialAdjustColorsForFog::None)
 			{
 				s_main->uniforms->fogEnabled.set(vec4(1, 0, 0, 0));
@@ -1209,11 +1225,6 @@ static void RenderCamera(const RenderCameraArgs &args)
 				bgfx::setTexture(TextureUnit::DynamicLights, s_main->matStageUniforms->dynamicLightsSampler.handle, s_main->dlightManager->getLightsTexture());
 			}
 
-			if (mat->polygonOffset || dc.zOffset > 0 || dc.zScale > 0)
-			{
-				shaderVariant |= GenericShaderProgramVariant::DepthRange;
-			}
-
 			if (g_cvars.bloom.getBool())
 			{
 				shaderVariant |= GenericShaderProgramVariant::Bloom;
@@ -1250,6 +1261,15 @@ static void RenderCamera(const RenderCameraArgs &args)
 		// Do fog pass.
 		if (doFogPass)
 		{
+			if (dc.zOffset > 0 || dc.zScale > 0)
+			{
+				s_main->uniforms->depthRangeEnabled.set(vec4(1, 0, 0, 0));
+			}
+			else
+			{
+				s_main->uniforms->depthRangeEnabled.set(vec4::empty);
+			}
+
 			s_main->matStageUniforms->color.set(fogColor);
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
@@ -1272,11 +1292,6 @@ static void RenderCamera(const RenderCameraArgs &args)
 			}
 
 			int shaderVariant = FogShaderProgramVariant::None;
-
-			if (dc.zOffset > 0 || dc.zScale > 0)
-			{
-				shaderVariant |= FogShaderProgramVariant::DepthRange;
-			}
 
 			if (g_cvars.bloom.getBool())
 			{

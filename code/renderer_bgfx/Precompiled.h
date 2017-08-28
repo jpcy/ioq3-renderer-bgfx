@@ -1380,6 +1380,8 @@ struct Uniform_vec4
 
 struct Uniforms
 {
+	/// @remarks Only x used.
+	Uniform_vec4 depthRangeEnabled = "u_DepthRangeEnabled";
 	/// @remarks x is offset, y is scale, z is near z, w is far z.
 	Uniform_vec4 depthRange = "u_DepthRange";
 

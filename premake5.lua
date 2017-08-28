@@ -160,18 +160,12 @@ newaction
 		
 		local depthVertexVariants =
 		{
-			{ "AlphaTest", "USE_ALPHA_TEST" },
-			{ "DepthRange", "USE_DEPTH_RANGE" }
+			{ "AlphaTest", "USE_ALPHA_TEST" }
 		}
 		
 		local fogFragmentVariants =
 		{
 			{ "Bloom", "USE_BLOOM" }
-		}
-		
-		local fogVertexVariants =
-		{
-			{ "DepthRange", "USE_DEPTH_RANGE" }
 		}
 		
 		local genericFragmentVariants =
@@ -181,11 +175,6 @@ newaction
 			{ "DynamicLights", "USE_DYNAMIC_LIGHTS" },
 			{ "SoftSprite", "USE_SOFT_SPRITE" },
 			{ "TextureVariation", "USE_TEXTURE_VARIATION" }
-		}
-		
-		local genericVertexVariants =
-		{
-			{ "DepthRange", "USE_DEPTH_RANGE" }
 		}
 		
 		local fragmentShaders =
@@ -211,8 +200,8 @@ newaction
 		{
 			{ "Color" },
 			{ "Depth", depthVertexVariants },
-			{ "Fog", fogVertexVariants },
-			{ "Generic", genericVertexVariants },
+			{ "Fog" },
+			{ "Generic" },
 			{ "SMAABlendingWeightCalculation" },
 			{ "SMAAEdgeDetection" },
 			{ "SMAANeighborhoodBlending" },
@@ -291,8 +280,6 @@ newaction
 		writeShaderIdEnum(outputHeaderFile, expandedFragmentShaders, "FragmentShaderId")
 		writeShaderIdEnum(outputHeaderFile, expandedVertexShaders, "VertexShaderId")
 		writeShaderVariantEnum(outputHeaderFile, genericFragmentVariants, "GenericFragment")
-		writeShaderVariantEnum(outputHeaderFile, genericVertexVariants, "GenericVertex")
-		writeShaderVariantEnum(outputHeaderFile, fogVertexVariants, "FogVertex")
 		writeShaderVariantEnum(outputHeaderFile, depthFragmentVariants, "DepthFragment")
 		writeShaderVariantEnum(outputHeaderFile, depthVertexVariants, "DepthVertex")
 		outputHeaderFile:close()

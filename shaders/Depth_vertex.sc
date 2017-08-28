@@ -13,6 +13,7 @@ uniform vec4 u_DiffuseTexMatrix;
 uniform vec4 u_DiffuseTexOffTurb;
 #endif
 
+uniform vec4 u_DepthRangeEnabled; // only x used
 uniform vec4 u_DepthRange; // x is offset, y is scale
 uniform vec4 u_Time; // only x used
 
@@ -41,10 +42,7 @@ void main()
 	v_color0 = a_color0;
 	v_position = mul(u_model[0], vec4(position, 1.0)).xyz;
 	vec4 projPosition = mul(u_viewProj, vec4(v_position, 1.0));
-
-#if defined(USE_DEPTH_RANGE)
-	projPosition = ApplyDepthRange(projPosition, u_DepthRange.x, u_DepthRange.y);
-#endif
-
+	if (int(u_DepthRangeEnabled.x) != 0)
+		projPosition = ApplyDepthRange(projPosition, u_DepthRange.x, u_DepthRange.y);
 	gl_Position = projPosition;
 }
