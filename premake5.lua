@@ -113,7 +113,7 @@ newaction
 					if renderer == "d3d9" then
 						command = command .. "3_0"
 					elseif renderer == "d3d11" then
-						command = command .. "4_0"
+						command = command .. "5_0"
 					end
 					
 					command = command .. " -O 3"
