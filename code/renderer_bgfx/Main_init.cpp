@@ -432,13 +432,6 @@ void Initialize()
 	};
 
 	programMap[ShaderProgramId::Fog] = { FragmentShaderId::Fog, VertexShaderId::Fog };
-
-	programMap[ShaderProgramId::Fog + FogShaderProgramVariant::Bloom] =
-	{
-		FragmentShaderId::Fog_Bloom,
-		VertexShaderId::Fog
-	};
-
 	programMap[ShaderProgramId::GaussianBlur] = { FragmentShaderId::GaussianBlur, VertexShaderId::Texture };
 
 	// Sync with GenericShaderProgramVariant.

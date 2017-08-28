@@ -78,16 +78,6 @@ struct DepthShaderProgramVariant
 	};
 };
 
-struct FogShaderProgramVariant
-{
-	enum
-	{
-		None       = 0,
-		Bloom      = 1 << 0, // Fragment
-		Num        = 1 << 1
-	};
-};
-
 /// @remarks Sync with generated GenericFragmentShaderVariant and GenericVertexShaderVariant. Order matters - fragment first.
 struct GenericShaderProgramVariant
 {
@@ -97,12 +87,11 @@ struct GenericShaderProgramVariant
 
 		// Fragment
 		AlphaTest = 1 << 0,
-		Bloom  = 1 << 1,
-		DynamicLights = 1 << 2,
-		SoftSprite = 1 << 3,
-		TextureVariation = 1 << 4,
+		DynamicLights = 1 << 1,
+		SoftSprite = 1 << 2,
+		TextureVariation = 1 << 3,
 
-		Num = 1 << 5
+		Num = 1 << 4
 	};
 };
 
@@ -114,7 +103,7 @@ struct ShaderProgramId
 		Color,
 		Depth,
 		Fog = Depth + DepthShaderProgramVariant::Num,
-		GaussianBlur = Fog + FogShaderProgramVariant::Num,
+		GaussianBlur,
 		Generic,
 		HemicubeDownsample = Generic + GenericShaderProgramVariant::Num,
 		HemicubeWeightedDownsample,

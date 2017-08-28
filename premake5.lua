@@ -163,15 +163,9 @@ newaction
 			{ "AlphaTest", "USE_ALPHA_TEST" }
 		}
 		
-		local fogFragmentVariants =
-		{
-			{ "Bloom", "USE_BLOOM" }
-		}
-		
 		local genericFragmentVariants =
 		{
 			{ "AlphaTest", "USE_ALPHA_TEST" },
-			{ "Bloom", "USE_BLOOM" },
 			{ "DynamicLights", "USE_DYNAMIC_LIGHTS" },
 			{ "SoftSprite", "USE_SOFT_SPRITE" },
 			{ "TextureVariation", "USE_TEXTURE_VARIATION" }
@@ -182,7 +176,7 @@ newaction
 			{ "Bloom" },
 			{ "Color" },
 			{ "Depth", depthFragmentVariants },
-			{ "Fog", fogFragmentVariants },
+			{ "Fog" },
 			{ "GaussianBlur" },
 			{ "Generic", genericFragmentVariants },
 			{ "HemicubeDownsample" },

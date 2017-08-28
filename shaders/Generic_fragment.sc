@@ -31,9 +31,9 @@ uniform vec4 u_DynamicLight_Num_Intensity; // x is the number of dynamic lights,
 uniform vec4 u_DynamicLightTextureSizes_Cells_Indices_Lights; // w not used
 #endif
 
-#if defined(USE_BLOOM)
-uniform vec4 u_Bloom_Write_Scale;
-#endif
+uniform vec4 u_Bloom_Enabled_Write_Scale;
+#define u_BloomEnabled int(u_Bloom_Enabled_Write_Scale.x)
+#define u_BloomWrite int(u_Bloom_Enabled_Write_Scale.y)
 
 uniform vec4 u_Animation_Enabled_Fraction; // only x and y used
 uniform vec4 u_RenderMode; // only x used
@@ -344,18 +344,17 @@ void main()
 		fragColor = vec4(texture2D(u_LightSampler, v_texcoord1).rgb, alpha);
 	}
 
-#if defined(USE_BLOOM)
 	gl_FragData[0] = fragColor;
 
-	if (int(u_Bloom_Write_Scale.x) != 0)
+	if (u_BloomEnabled != 0)
 	{
-		gl_FragData[1] = fragColor;
+		if (u_BloomWrite != 0)
+		{
+			gl_FragData[1] = fragColor;
+		}
+		else
+		{
+			gl_FragData[1] = vec4(0.0, 0.0, 0.0, fragColor.a);
+		}
 	}
-	else
-	{
-		gl_FragData[1] = vec4(0.0, 0.0, 0.0, fragColor.a);
-	}
-#else
-	gl_FragColor = fragColor;
-#endif // USE_BLOOM
 }

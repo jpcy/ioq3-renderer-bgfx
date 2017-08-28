@@ -1076,6 +1076,15 @@ static void RenderCamera(const RenderCameraArgs &args)
 		// Special case for skybox.
 		if (dc.flags & DrawCallFlags::Skybox)
 		{
+			if (g_cvars.bloom.getBool())
+			{
+				s_main->uniforms->bloom_Enabled_Write_Scale.set(vec4(1, 0, 0, 0));
+			}
+			else
+			{
+				s_main->uniforms->bloom_Enabled_Write_Scale.set(vec4::empty);
+			}
+
 			s_main->uniforms->depthRangeEnabled.set(vec4(1, 0, 0, 0));
 			s_main->uniforms->depthRange.set(vec4(dc.zOffset, dc.zScale, depthRange.x, depthRange.y));
 			s_main->uniforms->dynamicLight_Num_Intensity.set(vec4::empty);
@@ -1100,15 +1109,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 				bgfx::setStencil(stencilTest);
 			}
 
-			int shaderVariant = GenericShaderProgramVariant::None;
-
-			if (g_cvars.bloom.getBool())
-			{
-				shaderVariant |= GenericShaderProgramVariant::Bloom;
-				s_main->uniforms->bloom_Write_Scale.set(vec4::empty);
-			}
-
-			bgfx::submit(mainViewId, s_main->shaderPrograms[ShaderProgramId::Generic + shaderVariant].handle);
+			bgfx::submit(mainViewId, s_main->shaderPrograms[ShaderProgramId::Generic].handle);
 			continue;
 		}
 
@@ -1169,6 +1170,15 @@ static void RenderCamera(const RenderCameraArgs &args)
 			if (!stage.active)
 				continue;
 
+			if (g_cvars.bloom.getBool())
+			{
+				s_main->uniforms->bloom_Enabled_Write_Scale.set(vec4(1, stage.bloom ? 1.0f : 0.0f, 0, 0));
+			}
+			else
+			{
+				s_main->uniforms->bloom_Enabled_Write_Scale.set(vec4::empty);
+			}
+
 			if (mat->polygonOffset || dc.zOffset > 0 || dc.zScale > 0)
 			{
 				s_main->uniforms->depthRangeEnabled.set(vec4(1, 0, 0, 0));
@@ -1225,12 +1235,6 @@ static void RenderCamera(const RenderCameraArgs &args)
 				bgfx::setTexture(TextureUnit::DynamicLights, s_main->matStageUniforms->dynamicLightsSampler.handle, s_main->dlightManager->getLightsTexture());
 			}
 
-			if (g_cvars.bloom.getBool())
-			{
-				shaderVariant |= GenericShaderProgramVariant::Bloom;
-				s_main->uniforms->bloom_Write_Scale.set(vec4(stage.bloom ? 1.0f : 0.0f, 0, 0, 0));
-			}
-
 			if (g_cvars.textureVariation.getBool() && stage.textureVariation)
 			{
 				shaderVariant |= GenericShaderProgramVariant::TextureVariation;
@@ -1261,6 +1265,15 @@ static void RenderCamera(const RenderCameraArgs &args)
 		// Do fog pass.
 		if (doFogPass)
 		{
+			if (g_cvars.bloom.getBool())
+			{
+				s_main->uniforms->bloom_Enabled_Write_Scale.set(vec4(1, 0, 0, 0));
+			}
+			else
+			{
+				s_main->uniforms->bloom_Enabled_Write_Scale.set(vec4::empty);
+			}
+
 			if (dc.zOffset > 0 || dc.zScale > 0)
 			{
 				s_main->uniforms->depthRangeEnabled.set(vec4(1, 0, 0, 0));
@@ -1291,14 +1304,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 				bgfx::setStencil(stencilTest);
 			}
 
-			int shaderVariant = FogShaderProgramVariant::None;
-
-			if (g_cvars.bloom.getBool())
-			{
-				shaderVariant |= FogShaderProgramVariant::Bloom;
-			}
-
-			bgfx::submit(mainViewId, s_main->shaderPrograms[ShaderProgramId::Fog + shaderVariant].handle);
+			bgfx::submit(mainViewId, s_main->shaderPrograms[ShaderProgramId::Fog].handle);
 		}
 
 		s_main->currentEntity = nullptr;
@@ -1479,7 +1485,7 @@ void RenderScene(const SceneDefinition &scene)
 				}
 
 				// Apply bloom. If using SMAA, we need to read color, so blit into the original bloom texture which is no longer used.
-				s_main->uniforms->bloom_Write_Scale.set(vec4(0, g_cvars.bloomScale.getFloat(), 0, 0));
+				s_main->uniforms->bloom_Enabled_Write_Scale.set(vec4(1, 0, g_cvars.bloomScale.getFloat(), 0));
 				bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->sceneFb.handle));
 				bgfx::setTexture(1, s_main->uniforms->bloomSampler.handle, bgfx::getTexture(s_main->bloomFb[0].handle));
 				RenderScreenSpaceQuad(s_main->aa == AntiAliasing::SMAA ? s_main->sceneTempFb : s_main->defaultFb, ShaderProgramId::Bloom, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
