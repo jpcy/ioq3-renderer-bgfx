@@ -3,14 +3,11 @@ $input v_position, v_projPosition, v_texcoord0, v_texcoord1, v_normal, v_color0
 #include <bgfx_shader.sh>
 #include "Common.sh"
 #include "SharedDefines.sh"
+#include "AlphaTest.sh"
 
 SAMPLER2D(u_DiffuseSampler, 0); // TU_DIFFUSE
 SAMPLER2D(u_DiffuseSampler2, 1); // TU_DIFFUSE2
 SAMPLER2D(u_LightSampler, 2); // TU_LIGHT
-
-#if defined(USE_ALPHA_TEST)
-uniform vec4 u_AlphaTest; // only x used
-#endif
 
 #if defined(USE_SOFT_SPRITE)
 SAMPLER2D(u_DepthSampler, 3); // TU_DEPTH
@@ -237,21 +234,8 @@ void main()
 #endif
 
 #if defined(USE_ALPHA_TEST)
-	if (int(u_AlphaTest.x) == ATEST_GT_0)
-	{
-		if (alpha <= 0.0)
-			discard;
-	}
-	else if (int(u_AlphaTest.x) == ATEST_LT_128)
-	{
-		if (alpha >= 0.5)
-			discard;
-	}
-	else if (int(u_AlphaTest.x) == ATEST_GE_128)
-	{
-		if (alpha < 0.5)
-			discard;
-	}
+	if (!AlphaTestPassed(alpha))
+		discard;
 #endif
 
 	vec3 vertexColor = v_color0.rgb;
