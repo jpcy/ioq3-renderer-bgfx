@@ -4,6 +4,7 @@ $input v_position, v_projPosition, v_texcoord0, v_texcoord1, v_normal, v_color0
 #include "Common.sh"
 #include "SharedDefines.sh"
 #include "AlphaTest.sh"
+#include "PortalClip.sh"
 
 SAMPLER2D(u_DiffuseSampler, 0); // TU_DIFFUSE
 SAMPLER2D(u_DiffuseSampler2, 1); // TU_DIFFUSE2
@@ -34,8 +35,6 @@ uniform vec4 u_Bloom_Enabled_Write_Scale;
 
 uniform vec4 u_Animation_Enabled_Fraction; // only x and y used
 uniform vec4 u_RenderMode; // only x used
-uniform vec4 u_PortalClip;
-uniform vec4 u_PortalPlane;
 uniform vec4 u_ViewOrigin;
 
 uniform vec4 u_Generators;
@@ -164,13 +163,8 @@ vec4 textureNoTile_4weights(vec2 uv)
 
 void main()
 {
-	if (u_PortalClip.x == 1.0)
-	{
-		float dist = dot(v_position, u_PortalPlane.xyz) - u_PortalPlane.w;
-
-		if (dist < 0.0)
-			discard;
-	}
+	if (PortalClipped(v_position))
+		discard;
 
 	vec2 texCoord0 = v_texcoord0;
 

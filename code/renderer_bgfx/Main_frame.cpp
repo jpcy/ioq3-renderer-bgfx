@@ -945,12 +945,12 @@ static void RenderCamera(const RenderCameraArgs &args)
 	// Set plane clipping.
 	if (args.flags & RenderCameraFlags::UseClippingPlane)
 	{
-		s_main->uniforms->portalClip.set(vec4(1, 0, 0, 0));
+		s_main->uniforms->portalClipEnabled.set(vec4(1, 0, 0, 0));
 		s_main->uniforms->portalPlane.set(args.clippingPlane.toVec4());
 	}
 	else
 	{
-		s_main->uniforms->portalClip.set(vec4(0, 0, 0, 0));
+		s_main->uniforms->portalClipEnabled.set(vec4::empty);
 	}
 
 	// Render depth. Probes skip this.

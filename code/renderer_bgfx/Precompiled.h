@@ -1408,7 +1408,7 @@ struct Uniforms
 	/// @{
 
 	/// @remarks Only x used.
-	Uniform_vec4 portalClip = "u_PortalClip";
+	Uniform_vec4 portalClipEnabled = "u_PortalClipEnabled";
 
 	/// World space portal plane.
 	Uniform_vec4 portalPlane = "u_PortalPlane";
