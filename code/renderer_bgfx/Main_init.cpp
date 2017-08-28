@@ -451,6 +451,7 @@ void Initialize()
 	programMap[ShaderProgramId::Texture] = { FragmentShaderId::Texture, VertexShaderId::Texture };
 	programMap[ShaderProgramId::TextureColor] = { FragmentShaderId::TextureColor, VertexShaderId::Texture };
 	programMap[ShaderProgramId::TextureDebug] = { FragmentShaderId::TextureDebug, VertexShaderId::Texture };
+	programMap[ShaderProgramId::TextureVariation] = { FragmentShaderId::TextureVariation, VertexShaderId::Generic };
 
 	// Create shader programs.
 	for (size_t i = 0; i < ShaderProgramId::Num; i++)

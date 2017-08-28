@@ -1235,12 +1235,6 @@ static void RenderCamera(const RenderCameraArgs &args)
 				bgfx::setTexture(TextureUnit::DynamicLights, s_main->matStageUniforms->dynamicLightsSampler.handle, s_main->dlightManager->getLightsTexture());
 			}
 
-			if (g_cvars.textureVariation.getBool() && stage.textureVariation)
-			{
-				shaderVariant |= GenericShaderProgramVariant::TextureVariation;
-				//bgfx::setTexture(TextureUnit::Noise, s_main->uniforms->noiseSampler.handle, Texture::getNoise()->getHandle());
-			}
-
 			bgfx::setState(state);
 
 			if (args.flags & RenderCameraFlags::UseStencilTest)
@@ -1248,7 +1242,15 @@ static void RenderCamera(const RenderCameraArgs &args)
 				bgfx::setStencil(stencilTest);
 			}
 
-			bgfx::submit(mainViewId, s_main->shaderPrograms[ShaderProgramId::Generic + shaderVariant].handle);
+			if (g_cvars.textureVariation.getBool() && stage.textureVariation)
+			{
+				//bgfx::setTexture(TextureUnit::Noise, s_main->uniforms->noiseSampler.handle, Texture::getNoise()->getHandle());
+				bgfx::submit(mainViewId, s_main->shaderPrograms[ShaderProgramId::TextureVariation].handle);
+			}
+			else
+			{
+				bgfx::submit(mainViewId, s_main->shaderPrograms[ShaderProgramId::Generic + shaderVariant].handle);
+			}
 		}
 
 		if (g_cvars.wireframe.getBool())

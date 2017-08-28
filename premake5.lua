@@ -167,8 +167,7 @@ newaction
 		{
 			{ "AlphaTest", "USE_ALPHA_TEST" },
 			{ "DynamicLights", "USE_DYNAMIC_LIGHTS" },
-			{ "SoftSprite", "USE_SOFT_SPRITE" },
-			{ "TextureVariation", "USE_TEXTURE_VARIATION" }
+			{ "SoftSprite", "USE_SOFT_SPRITE" }
 		}
 		
 		local fragmentShaders =
@@ -187,7 +186,8 @@ newaction
 			{ "SMAANeighborhoodBlending" },
 			{ "Texture" },
 			{ "TextureColor" },
-			{ "TextureDebug" }
+			{ "TextureDebug" },
+			{ "TextureVariation" }
 		}
 		
 		local vertexShaders =

@@ -89,9 +89,8 @@ struct GenericShaderProgramVariant
 		AlphaTest = 1 << 0,
 		DynamicLights = 1 << 1,
 		SoftSprite = 1 << 2,
-		TextureVariation = 1 << 3,
 
-		Num = 1 << 4
+		Num = 1 << 3
 	};
 };
 
@@ -114,6 +113,7 @@ struct ShaderProgramId
 		Texture,
 		TextureColor,
 		TextureDebug,
+		TextureVariation,
 		Num
 	};
 };

@@ -35,55 +35,8 @@ uniform vec4 u_Generators;
 uniform vec4 u_LightDirection;
 uniform vec4 u_DirectedLight;
 uniform vec4 u_AmbientLight;
-uniform vec4 u_NormalScale;
-uniform vec4 u_SpecularScale;
 
 uniform vec4 u_LightType; // only x used
-
-#if defined(USE_TEXTURE_VARIATION)
-// https://www.shadertoy.com/view/4tyGWK
-// http://www.iquilezles.org/www/articles/texturerepetition/texturerepetition.htm
-// Modification by huwb. Original shader by iq: https://www.shadertoy.com/view/lt2GDd
-// Created by inigo quilez - iq/2015
-// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
-
-// utilities for randomizing uvs
-vec4 hash4( vec2 p ) { return fract(sin(vec4( 1.0+dot(p,vec2(37.0,17.0)), 2.0+dot(p,vec2(11.0,47.0)), 3.0+dot(p,vec2(41.0,29.0)), 4.0+dot(p,vec2(23.0,31.0))))*103.); }
-vec2 transformUVs( vec2 iuvCorner, vec2 uv )
-{
-    // random in [0,1]^4
-	vec4 tx = hash4( iuvCorner );
-    // scale component is +/-1 to mirror
-    tx.zw = sign( tx.zw - 0.5 );
-    // random scale and offset
-	return tx.zw * uv + tx.xy;
-}
-
-// here is a derivative-free version of the 4 samples algorithm from iq
-vec4 textureNoTile_4weights(vec2 uv)
-{
-    // compute per-tile integral and fractional uvs.
-    // flip uvs for 'odd' tiles to make sure tex samples are coherent
-    vec2 fuv = mod( uv, 2. ), iuv = uv - fuv;
-    vec3 BL_one = vec3(0.,0.,1.); // xy = bot left coords, z = 1
-    if( fuv.x >= 1. ) fuv.x = 2.-fuv.x, BL_one.x = 2.;
-    if( fuv.y >= 1. ) fuv.y = 2.-fuv.y, BL_one.y = 2.;
-    
-    // smoothstep for fun and to limit blend overlap
-    vec2 b = smoothstep(0.25,0.75,fuv);
-    
-    // fetch and blend
-    vec4 res = mix(
-        		mix( texture2D( u_DiffuseSampler, transformUVs( iuv + BL_one.xy, uv ) ), 
-                     texture2D( u_DiffuseSampler, transformUVs( iuv + BL_one.zy, uv ) ), b.x ), 
-                mix( texture2D( u_DiffuseSampler, transformUVs( iuv + BL_one.xz, uv ) ),
-                     texture2D( u_DiffuseSampler, transformUVs( iuv + BL_one.zz, uv ) ), b.x),
-        		b.y );
-  
-    return res;
-}
-
-#endif
 
 void main()
 {
@@ -97,11 +50,7 @@ void main()
 		texCoord0 = gl_FragCoord.xy * u_viewTexel.xy;
 	}
 
-#if defined(USE_TEXTURE_VARIATION)
-	vec4 diffuse = textureNoTile_4weights(texCoord0);
-#else
 	vec4 diffuse = texture2D(u_DiffuseSampler, texCoord0);
-#endif
 
 	if (int(u_Animation_Enabled_Fraction.x) == 1.0)
 	{
@@ -120,7 +69,7 @@ void main()
 	}
 	else
 	{
-		alpha = diffuse.a * v_color0.a;;
+		alpha = diffuse.a * v_color0.a;
 	}
 
 #if defined(USE_SOFT_SPRITE)
