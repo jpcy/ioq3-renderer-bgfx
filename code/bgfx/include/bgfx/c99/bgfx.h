@@ -13,6 +13,8 @@
 #include <stdint.h>  // uint32_t
 #include <stdlib.h>  // size_t
 
+#include <bx/platform.h>
+
 #ifndef BGFX_SHARED_LIB_BUILD
 #    define BGFX_SHARED_LIB_BUILD 0
 #endif // BGFX_SHARED_LIB_BUILD
@@ -21,17 +23,21 @@
 #    define BGFX_SHARED_LIB_USE 0
 #endif // BGFX_SHARED_LIB_USE
 
-#if defined(_MSC_VER)
-#   if BGFX_SHARED_LIB_BUILD
-#       define BGFX_SHARED_LIB_API __declspec(dllexport)
-#   elif BGFX_SHARED_LIB_USE
-#       define BGFX_SHARED_LIB_API __declspec(dllimport)
-#   else
-#       define BGFX_SHARED_LIB_API
-#   endif // BGFX_SHARED_LIB_*
+#if BX_PLATFORM_WINDOWS
+#   define BGFX_SYMBOL_EXPORT __declspec(dllexport)
+#   define BGFX_SYMBOL_IMPORT __declspec(dllimport)
+#else
+#   define BGFX_SYMBOL_EXPORT __attribute__((visibility("default")))
+#   define BGFX_SYMBOL_IMPORT
+#endif // BX_PLATFORM_WINDOWS
+
+#if BGFX_SHARED_LIB_BUILD
+#   define BGFX_SHARED_LIB_API BGFX_SYMBOL_EXPORT
+#elif BGFX_SHARED_LIB_USE
+#   define BGFX_SHARED_LIB_API BGFX_SYMBOL_IMPORT
 #else
 #   define BGFX_SHARED_LIB_API
-#endif // defined(_MSC_VER)
+#endif // BGFX_SHARED_LIB_*
 
 #if defined(__cplusplus)
 #   define BGFX_C_API extern "C" BGFX_SHARED_LIB_API
@@ -330,6 +336,16 @@ typedef struct bgfx_hmd
 } bgfx_hmd_t;
 
 /**/
+typedef struct bgfx_view_stats
+{
+    char     name[256];
+    uint8_t  view;
+    uint64_t cpuTimeElapsed;
+    uint64_t gpuTimeElapsed;
+
+} bgfx_view_stats_t;
+
+/**/
 typedef struct bgfx_stats
 {
     uint64_t cpuTimeBegin;
@@ -351,6 +367,9 @@ typedef struct bgfx_stats
     uint16_t height;
     uint16_t textWidth;
     uint16_t textHeight;
+
+    uint16_t          numViews;
+    bgfx_view_stats_t viewStats[256];
 
 } bgfx_stats_t;
 
@@ -904,7 +923,7 @@ BGFX_C_API void bgfx_set_compute_dynamic_vertex_buffer(uint8_t _stage, bgfx_dyna
 BGFX_C_API void bgfx_set_compute_indirect_buffer(uint8_t _stage, bgfx_indirect_buffer_handle_t _handle, bgfx_access_t _access);
 
 /**/
-BGFX_C_API uint32_t bgfx_dispatch(uint8_t _id, bgfx_program_handle_t _handle, uint16_t _numX, uint16_t _numY, uint16_t _numZ, uint8_t _flags);
+BGFX_C_API uint32_t bgfx_dispatch(uint8_t _id, bgfx_program_handle_t _handle, uint32_t _numX, uint32_t _numY, uint32_t _numZ, uint8_t _flags);
 
 /**/
 BGFX_C_API uint32_t bgfx_dispatch_indirect(uint8_t _id, bgfx_program_handle_t _handle, bgfx_indirect_buffer_handle_t _indirectHandle, uint16_t _start, uint16_t _num, uint8_t _flags);

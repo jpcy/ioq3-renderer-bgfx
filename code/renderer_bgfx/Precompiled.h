@@ -80,7 +80,7 @@ extern "C"
 #include "bgfx/bgfx.h"
 #include "bgfx/platform.h"
 #include "bx/debug.h"
-#include "bx/fpumath.h"
+#include "bx/math.h"
 #include "bx/string.h"
 #include "bx/timer.h"
 
@@ -222,7 +222,7 @@ typedef std::vector<DrawCall> DrawCallList;
 struct DynamicIndexBuffer
 {
 	DynamicIndexBuffer() { handle.idx = bgfx::kInvalidHandle; }
-	~DynamicIndexBuffer() { if (bgfx::isValid(handle)) bgfx::destroyDynamicIndexBuffer(handle); }
+	~DynamicIndexBuffer() { if (bgfx::isValid(handle)) bgfx::destroy(handle); }
 	bgfx::DynamicIndexBufferHandle handle;
 };
 
@@ -376,7 +376,7 @@ struct Entity
 struct FrameBuffer
 {
 	FrameBuffer() { handle.idx = bgfx::kInvalidHandle; }
-	~FrameBuffer() { if (bgfx::isValid(handle)) bgfx::destroyFrameBuffer(handle); }
+	~FrameBuffer() { if (bgfx::isValid(handle)) bgfx::destroy(handle); }
 	bgfx::FrameBufferHandle handle;
 };
 
@@ -415,7 +415,7 @@ Image LoadImage(const char *filename, int flags = 0);
 struct IndexBuffer
 {
 	IndexBuffer() { handle.idx = bgfx::kInvalidHandle; }
-	~IndexBuffer() { if (bgfx::isValid(handle)) bgfx::destroyIndexBuffer(handle); }
+	~IndexBuffer() { if (bgfx::isValid(handle)) bgfx::destroy(handle); }
 	bgfx::IndexBufferHandle handle;
 };
 
@@ -1191,14 +1191,14 @@ struct SceneDefinition
 struct Shader
 {
 	Shader() { handle.idx = bgfx::kInvalidHandle; }
-	~Shader() { if (bgfx::isValid(handle)) bgfx::destroyShader(handle); }
+	~Shader() { if (bgfx::isValid(handle)) bgfx::destroy(handle); }
 	bgfx::ShaderHandle handle;
 };
 
 struct ShaderProgram
 {
 	ShaderProgram() { handle.idx = bgfx::kInvalidHandle; }
-	~ShaderProgram() { if (bgfx::isValid(handle)) bgfx::destroyProgram(handle); }
+	~ShaderProgram() { if (bgfx::isValid(handle)) bgfx::destroy(handle); }
 	bgfx::ProgramHandle handle;
 };
 
@@ -1354,7 +1354,7 @@ struct TextureUnit
 struct Uniform_int
 {
 	Uniform_int(const char *name, uint16_t num = 1) { handle = bgfx::createUniform(name, bgfx::UniformType::Int1, num); }
-	~Uniform_int() { bgfx::destroyUniform(handle); }
+	~Uniform_int() { bgfx::destroy(handle); }
 	void set(int value) { bgfx::setUniform(handle, &value, 1); }
 	void set(const int *values, uint16_t num) { bgfx::setUniform(handle, values, num); }
 	bgfx::UniformHandle handle;
@@ -1363,7 +1363,7 @@ struct Uniform_int
 struct Uniform_mat4
 {
 	Uniform_mat4(const char *name, uint16_t num = 1) { handle = bgfx::createUniform(name, bgfx::UniformType::Mat4, num); }
-	~Uniform_mat4() { bgfx::destroyUniform(handle); }
+	~Uniform_mat4() { bgfx::destroy(handle); }
 	void set(const mat4 &value) { bgfx::setUniform(handle, &value, 1); }
 	void set(const mat4 *values, uint16_t num) { bgfx::setUniform(handle, values, num); }
 	bgfx::UniformHandle handle;
@@ -1372,7 +1372,7 @@ struct Uniform_mat4
 struct Uniform_vec4
 {
 	Uniform_vec4(const char *name, uint16_t num = 1) { handle = bgfx::createUniform(name, bgfx::UniformType::Vec4, num); }
-	~Uniform_vec4() { bgfx::destroyUniform(handle); }
+	~Uniform_vec4() { bgfx::destroy(handle); }
 	void set(vec4 value) { bgfx::setUniform(handle, &value, 1); }
 	void set(const vec4 *values, uint16_t num) { bgfx::setUniform(handle, values, num); }
 	bgfx::UniformHandle handle;
@@ -1664,7 +1664,7 @@ struct Vertex
 struct VertexBuffer
 {
 	VertexBuffer() { handle.idx = bgfx::kInvalidHandle; }
-	~VertexBuffer() { if (bgfx::isValid(handle)) bgfx::destroyVertexBuffer(handle); }
+	~VertexBuffer() { if (bgfx::isValid(handle)) bgfx::destroy(handle); }
 	bgfx::VertexBufferHandle handle;
 };
 

@@ -42,11 +42,11 @@ DynamicLightManager::~DynamicLightManager()
 {
 	if (gridSize_.x > 0)
 	{
-		bgfx::destroyTexture(cellsTexture_);
-		bgfx::destroyTexture(indicesTexture_);
+		bgfx::destroy(cellsTexture_);
+		bgfx::destroy(indicesTexture_);
 	}
 
-	bgfx::destroyTexture(lightsTexture_);
+	bgfx::destroy(lightsTexture_);
 }
 
 void DynamicLightManager::add(uint32_t frameNo, const DynamicLight &light)

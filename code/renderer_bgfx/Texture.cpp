@@ -75,7 +75,7 @@ struct TextureImpl
 		if (width == this->width && height == this->height)
 			return;
 
-		bgfx::destroyTexture(handle);
+		bgfx::destroy(handle);
 		this->width = width;
 		this->height = height;
 		handle = bgfx::createTexture2D(width, height, nMips > 1, 1, format, calculateBgfxFlags());
@@ -178,7 +178,7 @@ struct TextureCache
 	{
 		for (size_t i = 0; i < nTextures; i++)
 		{
-			bgfx::destroyTexture(textureImpls[i].handle);
+			bgfx::destroy(textureImpls[i].handle);
 		}
 	}
 

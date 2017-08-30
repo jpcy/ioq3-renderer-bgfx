@@ -134,9 +134,88 @@ namespace bx
 		return strCmp<toNoop>(_lhs, _rhs, _max);
 	}
 
+	int32_t strCmp(const char* _lhs, const StringView& _rhs)
+	{
+		return strCmp(_lhs, _rhs.getPtr(), _rhs.getLength() );
+	}
+
 	int32_t strCmpI(const char* _lhs, const char* _rhs, int32_t _max)
 	{
 		return strCmp<toLower>(_lhs, _rhs, _max);
+	}
+
+	int32_t strCmpI(const char* _lhs, const StringView& _rhs)
+	{
+		return strCmpI(_lhs, _rhs.getPtr(), _rhs.getLength() );
+	}
+
+	int32_t strCmpV(const char* _lhs, const char* _rhs, int32_t _max)
+	{
+		int32_t ii   = 0;
+		int32_t idx  = 0;
+		bool    zero = true;
+
+		for (
+			; 0 < _max && _lhs[ii] == _rhs[ii]
+			; ++ii, --_max
+			)
+		{
+			const uint8_t ch = _lhs[ii];
+			if ('\0' == ch
+			||  '\0' == _rhs[ii])
+			{
+				break;
+			}
+
+			if (!isNumeric(ch) )
+			{
+				idx  = ii+1;
+				zero = true;
+			}
+			else if ('0' != ch)
+			{
+				zero = false;
+			}
+		}
+
+		if (0 == _max)
+		{
+			return 0;
+		}
+
+		if ('0' != _lhs[idx]
+		&&  '0' != _rhs[idx])
+		{
+			int32_t jj = 0;
+			for (jj = ii
+				; 0 < _max && isNumeric(_lhs[jj])
+				; ++jj, --_max
+				)
+			{
+				if (!isNumeric(_rhs[jj]) )
+				{
+					return 1;
+				}
+			}
+
+			if (isNumeric(_rhs[jj]))
+			{
+				return -1;
+			}
+		}
+		else if (zero
+			 &&  idx < ii
+			 && (isNumeric(_lhs[ii]) || isNumeric(_rhs[ii]) ) )
+		{
+			return (_lhs[ii] - '0') - (_rhs[ii] - '0');
+		}
+
+		return 0 == _max ? 0 : _lhs[ii] - _rhs[ii];
+	}
+
+	int32_t strCmpV(const char* _lhs, const StringView& _rhs)
+	{
+		return strCmpV(_lhs, _rhs.getPtr(), _rhs.getLength() );
 	}
 
 	int32_t strLen(const char* _str, int32_t _max)
@@ -166,6 +245,11 @@ namespace bx
 		return num;
 	}
 
+	int32_t strCopy(char* _dst, int32_t _dstSize, const StringView& _str)
+	{
+		return strCopy(_dst, _dstSize, _str.getPtr(), _str.getLength() );
+	}
+
 	int32_t strCat(char* _dst, int32_t _dstSize, const char* _src, int32_t _num)
 	{
 		BX_CHECK(NULL != _dst, "_dst can't be NULL!");
@@ -175,6 +259,11 @@ namespace bx
 		const int32_t max = _dstSize;
 		const int32_t len = strLen(_dst, max);
 		return strCopy(&_dst[len], max-len, _src, _num);
+	}
+
+	int32_t strCat(char* _dst, int32_t _dstSize, const StringView& _str)
+	{
+		return strCat(_dst, _dstSize, _str.getPtr(), _str.getLength() );
 	}
 
 	const char* strFind(const char* _str, char _ch, int32_t _max)
@@ -192,7 +281,7 @@ namespace bx
 
 	const char* strRFind(const char* _str, char _ch, int32_t _max)
 	{
-		for (int32_t ii = strLen(_str, _max); 0 < ii; --ii)
+		for (int32_t ii = strLen(_str, _max); 0 <= ii; --ii)
 		{
 			if (_str[ii] == _ch)
 			{
@@ -898,21 +987,6 @@ namespace bx
 		int32_t len = vsnwprintf(_out, _max, _format, argList);
 		va_end(argList);
 		return len;
-	}
-
-	const char* baseName(const char* _filePath)
-	{
-		const char* bs       = strRFind(_filePath, '\\');
-		const char* fs       = strRFind(_filePath, '/');
-		const char* slash    = (bs > fs ? bs : fs);
-		const char* colon    = strRFind(_filePath, ':');
-		const char* basename = slash > colon ? slash : colon;
-		if (NULL != basename)
-		{
-			return basename+1;
-		}
-
-		return _filePath;
 	}
 
 	static const char s_units[] = { 'B', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y' };

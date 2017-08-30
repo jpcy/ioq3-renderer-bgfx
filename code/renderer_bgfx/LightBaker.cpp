@@ -344,7 +344,7 @@ void Shutdown()
 
 	if (bgfx::isValid(s_lightBakerPersistent->hemicubeIntegrationReadTexture))
 	{
-		bgfx::destroyTexture(s_lightBakerPersistent->hemicubeIntegrationReadTexture);
+		bgfx::destroy(s_lightBakerPersistent->hemicubeIntegrationReadTexture);
 	}
 
 	s_lightBakerPersistent.reset();

@@ -580,9 +580,9 @@ void Shutdown(bool destroyWindow)
 		if (s_main->aa == AntiAliasing::SMAA)
 		{
 			if (bgfx::isValid(s_main->smaaAreaTex))
-				bgfx::destroyTexture(s_main->smaaAreaTex);
+				bgfx::destroy(s_main->smaaAreaTex);
 			if (bgfx::isValid(s_main->smaaSearchTex))
-				bgfx::destroyTexture(s_main->smaaSearchTex);
+				bgfx::destroy(s_main->smaaSearchTex);
 		}
 
 		s_main.reset(nullptr);
