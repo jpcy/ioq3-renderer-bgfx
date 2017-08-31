@@ -1635,11 +1635,9 @@ namespace util
 struct Vertex
 {
 	vec3 pos;
-	vec3 normal;
+	uint16_t normal[4];
 	uint16_t texCoord[4];
-
-	/// Linear space.
-	vec4b color;
+	vec4b color; // Linear space.
 
 	void setColor(vec4 c)
 	{
@@ -1652,6 +1650,28 @@ struct Vertex
 		color.g = uint8_t(std::min(g, 1.0f) * 255.0f);
 		color.b = uint8_t(std::min(b, 1.0f) * 255.0f);
 		color.a = uint8_t(std::min(a, 1.0f) * 255.0f);
+	}
+
+	vec3 getNormal() const
+	{
+		return vec3
+		(
+			bx::bitsToFloat(half_to_float(normal[0])),
+			bx::bitsToFloat(half_to_float(normal[1])),
+			bx::bitsToFloat(half_to_float(normal[2]))
+		);
+	}
+
+	void setNormal(vec3 n)
+	{
+		setNormal(n.x, n.y, n.z);
+	}
+
+	void setNormal(float x, float y, float z)
+	{
+		normal[0] = half_from_float(bx::floatToBits(x));
+		normal[1] = half_from_float(bx::floatToBits(y));
+		normal[2] = half_from_float(bx::floatToBits(z));
 	}
 
 	vec4 getTexCoord() const
@@ -1687,7 +1707,7 @@ struct Vertex
 	{
 		decl.begin();
 		decl.add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float);
-		decl.add(bgfx::Attrib::Normal, 3, bgfx::AttribType::Float);
+		decl.add(bgfx::Attrib::Normal, 3, bgfx::AttribType::Half);
 		decl.add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Half);
 		decl.add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true);
 		decl.m_stride = sizeof(Vertex);

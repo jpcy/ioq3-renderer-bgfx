@@ -362,7 +362,7 @@ bool IsGeometryBackfacing(vec3 cameraPosition, const uint16_t *indices, size_t n
 		if (shortestVertexDistanceSquared)
 			*shortestVertexDistanceSquared = std::min(*shortestVertexDistanceSquared, length);
 
-		if (vec3::dotProduct(normal, vertex.normal) >= 0)
+		if (vec3::dotProduct(normal, vertex.getNormal()) >= 0)
 			nTriangles--;
 	}
 

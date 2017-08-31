@@ -539,7 +539,10 @@ static void RenderSpriteEntity(mat3 viewRotation, Entity *entity)
 	vertices[3].pos = entity->position + left - up;
 
 	// Constant normal all the way around.
-	vertices[0].normal = vertices[1].normal = vertices[2].normal = vertices[3].normal = -viewRotation[0];
+	vertices[0].setNormal(-viewRotation[0]);
+	vertices[1].setNormal(-viewRotation[0]);
+	vertices[2].setNormal(-viewRotation[0]);
+	vertices[3].setNormal(-viewRotation[0]);
 
 	// Standard square texture coordinates.
 	vertices[0].setTexCoord(0, 0, 0, 0);

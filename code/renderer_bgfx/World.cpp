@@ -812,7 +812,7 @@ void Load(const char *name)
 		Vertex &v = vertices[i];
 		const drawVert_t &fv = fileDrawVerts[i];
 		v.pos = vec3(LittleFloat(fv.xyz[0]), LittleFloat(fv.xyz[1]), LittleFloat(fv.xyz[2]));
-		v.normal = vec3(LittleFloat(fv.normal[0]), LittleFloat(fv.normal[1]), LittleFloat(fv.normal[2]));
+		v.setNormal(LittleFloat(fv.normal[0]), LittleFloat(fv.normal[1]), LittleFloat(fv.normal[2]));
 		v.setTexCoord(LittleFloat(fv.st[0]), LittleFloat(fv.st[1]), LittleFloat(fv.lightmap[0]), LittleFloat(fv.lightmap[1]));
 		v.setColor(util::ToLinear(vec4(util::OverbrightenColor(vec3::fromBytes(fv.color)), fv.color[3] / 255.0f)));
 	}
@@ -1585,9 +1585,9 @@ int MarkFragments(int numPoints, const vec3 *points, vec3 projection, int maxPoi
 					*/
 					numClipPoints = 3;
 					Vertex *dv = surface->patch->verts + m * surface->patch->width + n;
-					clipPoints[0][0] = dv[0].pos + dv[0].normal * MARKER_OFFSET;
-					clipPoints[0][1] = dv[surface->patch->width].pos + dv[surface->patch->width].normal * MARKER_OFFSET;
-					clipPoints[0][2] = dv[1].pos + dv[1].normal * MARKER_OFFSET;
+					clipPoints[0][0] = dv[0].pos + dv[0].getNormal() * MARKER_OFFSET;
+					clipPoints[0][1] = dv[surface->patch->width].pos + dv[surface->patch->width].getNormal() * MARKER_OFFSET;
+					clipPoints[0][2] = dv[1].pos + dv[1].getNormal() * MARKER_OFFSET;
 
 					// check the normal of this triangle
 					vec3 v1 = clipPoints[0][0] - clipPoints[0][1];
@@ -1604,9 +1604,9 @@ int MarkFragments(int numPoints, const vec3 *points, vec3 projection, int maxPoi
 							return returnedFragments;	// not enough space for more fragments
 					}
 
-					clipPoints[0][0] = dv[1].pos + dv[1].normal * MARKER_OFFSET;
-					clipPoints[0][1] = dv[surface->patch->width].pos + dv[surface->patch->width].normal * MARKER_OFFSET;
-					clipPoints[0][2] = dv[surface->patch->width + 1].pos + dv[surface->patch->width + 1].normal * MARKER_OFFSET;
+					clipPoints[0][0] = dv[1].pos + dv[1].getNormal() * MARKER_OFFSET;
+					clipPoints[0][1] = dv[surface->patch->width].pos + dv[surface->patch->width].getNormal() * MARKER_OFFSET;
+					clipPoints[0][2] = dv[surface->patch->width + 1].pos + dv[surface->patch->width + 1].getNormal() * MARKER_OFFSET;
 
 					// check the normal of this triangle
 					v1 = clipPoints[0][0] - clipPoints[0][1];
@@ -1655,7 +1655,7 @@ int MarkFragments(int numPoints, const vec3 *points, vec3 projection, int maxPoi
 			{
 				for (j = 0; j < 3; j++)
 				{
-					clipPoints[0][j] = s_world->vertices[surface->bufferIndex][tri[j]].pos + s_world->vertices[surface->bufferIndex][tri[j]].normal * MARKER_OFFSET;
+					clipPoints[0][j] = s_world->vertices[surface->bufferIndex][tri[j]].pos + s_world->vertices[surface->bufferIndex][tri[j]].getNormal() * MARKER_OFFSET;
 				}
 
 				// add the fragments of this face

@@ -205,8 +205,9 @@ static	int	neighbors[8][2] = {
 			//	printf("bad normal\n");
 			//}
 			//VectorNormalize2( sum, dv->normal );
-			dv->normal = vec3(sum);
-			dv->normal.normalizeFast();
+			vec3 normal = vec3(sum);
+			normal.normalizeFast();
+			dv->setNormal(normal);
 		}
 	}
 }
