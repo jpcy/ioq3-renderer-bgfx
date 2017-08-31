@@ -178,8 +178,8 @@ void DrawStretchPicGradient(float x, float y, float w, float h, float s1, float 
 	v[1].texCoord = vec2(s2, t1);
 	v[2].texCoord = vec2(s2, t2);
 	v[3].texCoord = vec2(s1, t2);
-	v[0].color = v[1].color = util::ToLinear(s_main->stretchPicColor);
-	v[2].color = v[3].color = util::ToLinear(gradientColor);
+	v[0].setColor(util::ToLinear(s_main->stretchPicColor)); v[1].color = v[0].color;
+	v[2].setColor(util::ToLinear(gradientColor)); v[3].color = v[2].color;
 	i[0] = firstVertex + 3; i[1] = firstVertex + 0; i[2] = firstVertex + 2;
 	i[3] = firstVertex + 2; i[4] = firstVertex + 0; i[5] = firstVertex + 1;
 }
@@ -268,13 +268,13 @@ void RenderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum
 	bgfx::allocTransientVertexBuffer(&vb, nVerts, Vertex::decl);
 	auto vertices = (Vertex *)vb.data;
 	vertices[0].pos = vec3(minx, miny, zz);
-	vertices[0].color = vec4::white;
+	vertices[0].setColor(vec4::white);
 	vertices[0].texCoord = vec2(minu, minv);
 	vertices[1].pos = vec3(maxx, miny, zz);
-	vertices[1].color = vec4::white;
+	vertices[1].setColor(vec4::white);
 	vertices[1].texCoord = vec2(maxu, minv);
 	vertices[2].pos = vec3(maxx, maxy, zz);
-	vertices[2].color = vec4::white;
+	vertices[2].setColor(vec4::white);
 	vertices[2].texCoord = vec2(maxu, maxv);
 	bgfx::setVertexBuffer(0, &vb);
 	bgfx::setState(state);
@@ -373,8 +373,10 @@ static void RenderRailCore(vec3 start, vec3 end, vec3 up, float length, float sp
 	vertices[2].texCoord = vec2(t, 0);
 	vertices[3].texCoord = vec2(t, 1);
 
-	vertices[0].color = util::ToLinear(vec4(color.xyz() * 0.25f, 1));
-	vertices[1].color = vertices[2].color = vertices[3].color = util::ToLinear(color);
+	vertices[0].setColor(util::ToLinear(vec4(color.xyz() * 0.25f, 1)));
+	vertices[1].setColor(util::ToLinear(color));
+	vertices[2].setColor(util::ToLinear(color));
+	vertices[3].setColor(util::ToLinear(color));
 
 	auto indices = (uint16_t *)tib.data;
 	indices[0] = 0; indices[1] = 1; indices[2] = 2;
@@ -476,7 +478,7 @@ static void RenderRailRingsEntity(Entity *entity)
 			vertex->pos = positions[j];
 			vertex->texCoord[0] = j < 2;
 			vertex->texCoord[1] = j && j != 3;
-			vertex->color = entity->materialColor;
+			vertex->setColor(entity->materialColor);
 			positions[j] += dir;
 		}
 
@@ -547,7 +549,8 @@ static void RenderSpriteEntity(mat3 viewRotation, Entity *entity)
 	vertices[3].texCoord = vertices[3].texCoord2 = vec2(0, 1);
 
 	// Constant color all the way around.
-	vertices[0].color = vertices[1].color = vertices[2].color = vertices[3].color = util::ToLinear(entity->materialColor);
+	for (int i = 0; i < 4; i++)
+		vertices[i].setColor(util::ToLinear(entity->materialColor));
 
 	auto indices = (uint16_t *)tib.data;
 	indices[0] = 0; indices[1] = 1; indices[2] = 3;
@@ -705,7 +708,7 @@ static void RenderPolygons()
 				const polyVert_t &pv = s_main->scenePolygonVertices[p->firstVertex + j];
 				v.pos = pv.xyz;
 				v.texCoord = pv.st;
-				v.color = vec4::fromBytes(pv.modulate);
+				v.setColor(vec4::fromBytes(pv.modulate));
 			}
 
 			for (size_t j = 0; j < p->nVertices - 2; j++)
@@ -1319,12 +1322,12 @@ static void RenderCamera(const RenderCameraArgs &args)
 		bgfx::allocTransientVertexBuffer(&tvb, 6, Vertex::decl);
 		auto vertices = (Vertex *)tvb.data;
 		const float l = 16;
-		vertices[0].pos = { 0, 0, 0 }; vertices[0].color = vec4::red;
-		vertices[1].pos = { l, 0, 0 }; vertices[1].color = vec4::red;
-		vertices[2].pos = { 0, 0, 0 }; vertices[2].color = vec4::green;
-		vertices[3].pos = { 0, l, 0 }; vertices[3].color = vec4::green;
-		vertices[4].pos = { 0, 0, 0 }; vertices[4].color = vec4::blue;
-		vertices[5].pos = { 0, 0, l }; vertices[5].color = vec4::blue;
+		vertices[0].pos = { 0, 0, 0 }; vertices[0].setColor(vec4::red);
+		vertices[1].pos = { l, 0, 0 }; vertices[1].setColor(vec4::red);
+		vertices[2].pos = { 0, 0, 0 }; vertices[2].setColor(vec4::green);
+		vertices[3].pos = { 0, l, 0 }; vertices[3].setColor(vec4::green);
+		vertices[4].pos = { 0, 0, 0 }; vertices[4].setColor(vec4::blue);
+		vertices[5].pos = { 0, 0, l }; vertices[5].setColor(vec4::blue);
 
 		for (vec3 pos : s_main->sceneDebugAxis)
 		{
@@ -1358,7 +1361,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 			const std::array<vec3, 8> corners = s_main->sceneDebugBounds[i].toVertices();
 
 			for (int j = 0; j < nVertices; j++)
-				v[j].color = randomColors[i % BX_COUNTOF(randomColors)];
+				v[j].setColor(randomColors[i % BX_COUNTOF(randomColors)]);
 
 			// Top.
 			v[0].pos = corners[0]; v[1].pos = corners[1];

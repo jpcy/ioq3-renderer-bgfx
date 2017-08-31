@@ -1639,7 +1639,20 @@ struct Vertex
 	vec2 texCoord2;
 
 	/// Linear space.
-	vec4 color;
+	vec4b color;
+
+	void setColor(vec4 c)
+	{
+		setColor(c.r, c.g, c.b, c.a);
+	}
+
+	void setColor(float r, float g, float b, float a)
+	{
+		color.r = uint8_t(std::min(r, 1.0f) * 255.0f);
+		color.g = uint8_t(std::min(g, 1.0f) * 255.0f);
+		color.b = uint8_t(std::min(b, 1.0f) * 255.0f);
+		color.a = uint8_t(std::min(a, 1.0f) * 255.0f);
+	}
 
 	static void init()
 	{
@@ -1648,7 +1661,7 @@ struct Vertex
 		decl.add(bgfx::Attrib::Normal, 3, bgfx::AttribType::Float);
 		decl.add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float);
 		decl.add(bgfx::Attrib::TexCoord1, 2, bgfx::AttribType::Float);
-		decl.add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Float);
+		decl.add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true);
 		decl.m_stride = sizeof(Vertex);
 		decl.m_offset[bgfx::Attrib::Position] = offsetof(Vertex, pos);
 		decl.m_offset[bgfx::Attrib::Normal] = offsetof(Vertex, normal);

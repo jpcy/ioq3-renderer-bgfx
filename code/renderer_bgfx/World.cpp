@@ -813,7 +813,7 @@ void Load(const char *name)
 		v.normal = vec3(LittleFloat(fv.normal[0]), LittleFloat(fv.normal[1]), LittleFloat(fv.normal[2]));
 		v.texCoord = vec2(LittleFloat(fv.st[0]), LittleFloat(fv.st[1]));
 		v.texCoord2 = vec2(LittleFloat(fv.lightmap[0]), LittleFloat(fv.lightmap[1]));
-		v.color = util::ToLinear(vec4(util::OverbrightenColor(vec3::fromBytes(fv.color)), fv.color[3] / 255.0f));
+		v.setColor(util::ToLinear(vec4(util::OverbrightenColor(vec3::fromBytes(fv.color)), fv.color[3] / 255.0f)));
 	}
 
 	// Indices

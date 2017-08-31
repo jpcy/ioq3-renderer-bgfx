@@ -55,7 +55,7 @@ static void LerpDrawVert( Vertex *a, Vertex *b, Vertex *out )
 	out->pos = vec3::lerp(a->pos, b->pos, 0.5f);
 	out->texCoord = vec2::lerp(a->texCoord, b->texCoord, 0.5f);
 	out->texCoord2 = vec2::lerp(a->texCoord2, b->texCoord2, 0.5f);
-	out->color = vec4::lerp(a->color, b->color, 0.5f);
+	out->color = vec4b::lerp(a->color, b->color, 0.5f);
 }
 
 /*

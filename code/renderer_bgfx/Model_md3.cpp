@@ -685,7 +685,7 @@ bool Model_md3::load(const ReadOnlyFile &file)
 				v.pos.z = fileXyzNormals[j].xyz[2] * MD3_XYZ_SCALE;
 				v.normal = decodeNormal(fileXyzNormals[j].normal);
 				v.texCoord = vec2(fileTexCoords[j].st);
-				v.color = vec4::white;
+				v.setColor(vec4::white);
 			}
 
 			startVertex += fs.nVertices;
@@ -735,7 +735,7 @@ bool Model_md3::load(const ReadOnlyFile &file)
 					v.pos.z = fileXyzNormals[k].xyz[2] * MD3_XYZ_SCALE;
 					v.normal = decodeNormal(fileXyzNormals[k].normal);
 					v.texCoord = vec2(fileTexCoords[k].st);
-					v.color = vec4::white;
+					v.setColor(vec4::white);
 
 					if (compressed_)
 					{

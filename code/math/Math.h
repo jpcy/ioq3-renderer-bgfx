@@ -96,9 +96,10 @@ inline bool IsPowerOfTwo(T x)
 	return x != 0 && !(x & (x - 1));
 }
 
-inline float Lerp(float from, float to, float fraction)
+template<typename T>
+inline T Lerp(T from, T to, float fraction)
 {
-	return from + (to - from) * fraction;
+	return T(from + (to - from) * fraction);
 }
 
 inline float RandomFloat(float min, float max)
@@ -610,6 +611,11 @@ public:
 	union { uint8_t y, g; };
 	union { uint8_t z, b; };
 	union { uint8_t w, a; };
+
+	static vec4b lerp(vec4b from, vec4b to, float fraction)
+	{
+		return vec4b(math::Lerp(from.x, to.x, fraction), math::Lerp(from.y, to.y, fraction), math::Lerp(from.z, to.z, fraction), math::Lerp(from.w, to.w, fraction));
+	}
 };
 
 class Bounds
