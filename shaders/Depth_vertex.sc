@@ -23,20 +23,20 @@ void main()
 
 	if (int(u_NumDeforms.x) > 0)
 	{
-		CalculateDeform(position, a_normal, a_texcoord0, u_Time.x);
+		CalculateDeform(position, a_normal, a_texcoord0.xy, u_Time.x);
 	}
 
 #if defined(USE_ALPHA_TEST)
 	if (u_TCGen0 != TCGEN_NONE)
 	{
-		v_texcoord0 = ModTexCoords(a_texcoord0, position, u_DiffuseTexMatrix, u_DiffuseTexOffTurb);
+		v_texcoord0 = ModTexCoords(a_texcoord0.xy, position, u_DiffuseTexMatrix, u_DiffuseTexOffTurb);
 	}
 	else
 	{
-		v_texcoord0 = a_texcoord0;
+		v_texcoord0 = a_texcoord0.xy;
 	}
 #else
-	v_texcoord0 = a_texcoord0;
+	v_texcoord0 = a_texcoord0.xy;
 #endif
 
 	v_color0 = a_color0;

@@ -703,10 +703,10 @@ void Material::doAutoSpriteDeform(const mat3 &sceneRotation, Vertex *vertices, u
 			v[0]->normal = v[1]->normal = v[2]->normal = v[3]->normal = -sceneRotation[0];
 
 			// Standard square texture coordinates.
-			v[0]->texCoord = v[0]->texCoord2 = vec2(0, 0);
-			v[1]->texCoord = v[1]->texCoord2 = vec2(1, 0);
-			v[2]->texCoord = v[2]->texCoord2 = vec2(1, 1);
-			v[3]->texCoord = v[3]->texCoord2 = vec2(0, 1);
+			v[0]->setTexCoord(0, 0, 0, 0);
+			v[1]->setTexCoord(1, 0, 1, 0);
+			v[2]->setTexCoord(1, 1, 1, 1);
+			v[3]->setTexCoord(0, 1, 0, 1);
 
 			indices[firstIndex + 0] = vi[0];
 			indices[firstIndex + 1] = vi[1];

@@ -684,7 +684,7 @@ bool Model_md3::load(const ReadOnlyFile &file)
 				v.pos.y = fileXyzNormals[j].xyz[1] * MD3_XYZ_SCALE;
 				v.pos.z = fileXyzNormals[j].xyz[2] * MD3_XYZ_SCALE;
 				v.normal = decodeNormal(fileXyzNormals[j].normal);
-				v.texCoord = vec2(fileTexCoords[j].st);
+				v.setTexCoord(fileTexCoords[j].st[0], fileTexCoords[j].st[1]);
 				v.setColor(vec4::white);
 			}
 
@@ -734,7 +734,7 @@ bool Model_md3::load(const ReadOnlyFile &file)
 					v.pos.y = fileXyzNormals[k].xyz[1] * MD3_XYZ_SCALE;
 					v.pos.z = fileXyzNormals[k].xyz[2] * MD3_XYZ_SCALE;
 					v.normal = decodeNormal(fileXyzNormals[k].normal);
-					v.texCoord = vec2(fileTexCoords[k].st);
+					v.setTexCoord(fileTexCoords[k].st[0], fileTexCoords[k].st[1]);
 					v.setColor(vec4::white);
 
 					if (compressed_)
@@ -867,7 +867,7 @@ void Model_md3::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 			const float fraction = entity->lerp;
 			vertices[i].pos = vec3::lerp(fromVertex.pos, toVertex.pos, fraction);
 			vertices[i].normal = vec3::lerp(fromVertex.normal, toVertex.normal, fraction).normal();
-			vertices[i].texCoord = toVertex.texCoord;
+			vertices[i].setTexCoord(toVertex.getTexCoord());
 			vertices[i].color = toVertex.color;
 		}
 	}

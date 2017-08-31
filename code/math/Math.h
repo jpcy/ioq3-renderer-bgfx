@@ -555,6 +555,7 @@ public:
 		return math::FuzzyEquals(x, v.x, epsilon) && math::FuzzyEquals(y, v.y, epsilon) && math::FuzzyEquals(z, v.z, epsilon) && math::FuzzyEquals(w, v.w, epsilon);
 	}
 
+	vec2 xy() const { return vec2(x, y); }
 	vec3 xyz() const { return vec3(x, y, z); }
 	vec3 rgb() const { return vec3(x, y, z); }
 

@@ -372,6 +372,11 @@ void Initialize()
 	bgfx::reset(window::GetWidth(), window::GetHeight(), resetFlags);
 	const bgfx::Caps *caps = bgfx::getCaps();
 
+	if (!(caps->supported & BGFX_CAPS_VERTEX_ATTRIB_HALF))
+	{
+		interface::Error("Half float vertex attributes not supported");
+	}
+
 	if (caps->limits.maxFBAttachments < 2)
 	{
 		interface::Error("MRT not supported");

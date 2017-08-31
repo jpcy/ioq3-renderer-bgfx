@@ -274,7 +274,9 @@ static void SetSurfaceGeometry(Surface *surface, const Vertex *vertices, int nVe
 
 		if (lightmapIndex >= 0 && !s_world->lightmapAtlases.empty())
 		{
-			v->texCoord2 = AtlasTexCoord(v->texCoord2, lightmapIndex % s_world->nLightmapsPerAtlas, s_world->lightmapAtlasSize);
+			vec4 texCoord = v->getTexCoord();
+			const vec2 atlasTexCoord = AtlasTexCoord(vec2(texCoord.z, texCoord.w), lightmapIndex % s_world->nLightmapsPerAtlas, s_world->lightmapAtlasSize);
+			v->setTexCoord(texCoord.x, texCoord.y, atlasTexCoord.x, atlasTexCoord.y);
 		}
 	}
 
@@ -811,8 +813,7 @@ void Load(const char *name)
 		const drawVert_t &fv = fileDrawVerts[i];
 		v.pos = vec3(LittleFloat(fv.xyz[0]), LittleFloat(fv.xyz[1]), LittleFloat(fv.xyz[2]));
 		v.normal = vec3(LittleFloat(fv.normal[0]), LittleFloat(fv.normal[1]), LittleFloat(fv.normal[2]));
-		v.texCoord = vec2(LittleFloat(fv.st[0]), LittleFloat(fv.st[1]));
-		v.texCoord2 = vec2(LittleFloat(fv.lightmap[0]), LittleFloat(fv.lightmap[1]));
+		v.setTexCoord(LittleFloat(fv.st[0]), LittleFloat(fv.st[1]), LittleFloat(fv.lightmap[0]), LittleFloat(fv.lightmap[1]));
 		v.setColor(util::ToLinear(vec4(util::OverbrightenColor(vec3::fromBytes(fv.color)), fv.color[3] / 255.0f)));
 	}
 

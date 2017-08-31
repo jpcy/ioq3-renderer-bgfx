@@ -86,6 +86,7 @@ extern "C"
 
 #define BGFX_NUM_BUFFER_FRAMES 3
 
+#include "../math/half.h"
 #include "../math/Math.h"
 using namespace math;
 #include "Interface.h"
@@ -1635,8 +1636,7 @@ struct Vertex
 {
 	vec3 pos;
 	vec3 normal;
-	vec2 texCoord;
-	vec2 texCoord2;
+	uint16_t texCoord[4];
 
 	/// Linear space.
 	vec4b color;
@@ -1654,19 +1654,46 @@ struct Vertex
 		color.a = uint8_t(std::min(a, 1.0f) * 255.0f);
 	}
 
+	vec4 getTexCoord() const
+	{
+		return vec4
+		(
+			bx::bitsToFloat(half_to_float(texCoord[0])),
+			bx::bitsToFloat(half_to_float(texCoord[1])),
+			bx::bitsToFloat(half_to_float(texCoord[2])),
+			bx::bitsToFloat(half_to_float(texCoord[3]))
+		);
+	}
+
+	void setTexCoord(vec2 st)
+	{
+		setTexCoord(st.x, st.y);
+	}
+
+	void setTexCoord(vec4 stuv)
+	{
+		setTexCoord(stuv.x, stuv.y, stuv.z, stuv.w);
+	}
+
+	void setTexCoord(float s, float t, float u = 0.0f, float v = 0.0f)
+	{
+		texCoord[0] = half_from_float(bx::floatToBits(s));
+		texCoord[1] = half_from_float(bx::floatToBits(t));
+		texCoord[2] = half_from_float(bx::floatToBits(u));
+		texCoord[3] = half_from_float(bx::floatToBits(v));
+	}
+
 	static void init()
 	{
 		decl.begin();
 		decl.add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float);
 		decl.add(bgfx::Attrib::Normal, 3, bgfx::AttribType::Float);
-		decl.add(bgfx::Attrib::TexCoord0, 2, bgfx::AttribType::Float);
-		decl.add(bgfx::Attrib::TexCoord1, 2, bgfx::AttribType::Float);
+		decl.add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Half);
 		decl.add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true);
 		decl.m_stride = sizeof(Vertex);
 		decl.m_offset[bgfx::Attrib::Position] = offsetof(Vertex, pos);
 		decl.m_offset[bgfx::Attrib::Normal] = offsetof(Vertex, normal);
 		decl.m_offset[bgfx::Attrib::TexCoord0] = offsetof(Vertex, texCoord);
-		decl.m_offset[bgfx::Attrib::TexCoord1] = offsetof(Vertex, texCoord2);
 		decl.m_offset[bgfx::Attrib::Color0] = offsetof(Vertex, color);
 		decl.end();
 	}

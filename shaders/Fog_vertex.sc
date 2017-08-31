@@ -20,7 +20,7 @@ void main()
 
 	if (int(u_NumDeforms.x) > 0)
 	{
-		CalculateDeform(v_position, a_normal, a_texcoord0, u_Time.x);
+		CalculateDeform(v_position, a_normal, a_texcoord0.xy, u_Time.x);
 	}
 
 	vec4 projPosition = mul(u_viewProj, vec4(v_position, 1.0));

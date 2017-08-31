@@ -10,8 +10,8 @@ $output v_texcoord0, v_texcoord2, v_texcoord3, v_texcoord4
 void main()
 {
 	vec4 offset[3];
-	SMAAEdgeDetectionVS(a_texcoord0, offset);
-	v_texcoord0 = a_texcoord0;
+	SMAAEdgeDetectionVS(a_texcoord0.xy, offset);
+	v_texcoord0 = a_texcoord0.xy;
 	v_texcoord2 = offset[0];
 	v_texcoord3 = offset[1];
 	v_texcoord4 = offset[2];

@@ -11,8 +11,8 @@ void main()
 {
 	vec2 pixcoord;
 	vec4 offset[3];
-	SMAABlendingWeightCalculationVS(a_texcoord0, pixcoord, offset);
-	v_texcoord0 = a_texcoord0;
+	SMAABlendingWeightCalculationVS(a_texcoord0.xy, pixcoord, offset);
+	v_texcoord0 = a_texcoord0.xy;
 	v_texcoord1 = pixcoord;
 	v_texcoord2 = offset[0];
 	v_texcoord3 = offset[1];

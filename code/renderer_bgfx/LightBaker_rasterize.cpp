@@ -584,8 +584,9 @@ Luxel RasterizeLuxel()
 				ctx.triangle.p[i].x = v.pos.x;
 				ctx.triangle.p[i].y = v.pos.y;
 				ctx.triangle.p[i].z = v.pos.z;
-				ctx.triangle.uv[i].x = v.texCoord2.x * lightmapSize.x;
-				ctx.triangle.uv[i].y = v.texCoord2.y * lightmapSize.y;
+				const vec4 texCoord = v.getTexCoord();
+				ctx.triangle.uv[i].x = texCoord.z * lightmapSize.x;
+				ctx.triangle.uv[i].y = texCoord.w * lightmapSize.y;
 
 				// update bounds on lightmap
 				uvMin = lm_min2(uvMin, ctx.triangle.uv[i]);

@@ -1,4 +1,4 @@
-$input a_position, a_normal, a_tangent, a_texcoord0, a_texcoord1, a_color0
+$input a_position, a_normal, a_tangent, a_texcoord0, a_color0
 $output v_position, v_projPosition, v_texcoord0, v_texcoord1, v_normal, v_color0
 
 /*
@@ -113,17 +113,17 @@ void main()
 
 	if (int(u_NumDeforms.x) > 0)
 	{
-		CalculateDeform(position, normal, a_texcoord0, u_Time.x);
+		CalculateDeform(position, normal, a_texcoord0.xy, u_Time.x);
 	}
 
 	if (u_TCGen0 != TCGEN_NONE)
 	{
-		vec2 tex = GenTexCoords(position, normal, a_texcoord0, a_texcoord1);
+		vec2 tex = GenTexCoords(position, normal, a_texcoord0.xy, a_texcoord0.zw);
 		v_texcoord0 = ModTexCoords(tex, position, u_DiffuseTexMatrix, u_DiffuseTexOffTurb);
 	}
 	else
 	{
-		v_texcoord0 = a_texcoord0;
+		v_texcoord0 = a_texcoord0.xy;
 	}
 
 	if ((u_ColorGen != CGEN_IDENTITY || u_AlphaGen != AGEN_IDENTITY) && int(u_LightType.x) == LIGHT_NONE)
@@ -141,7 +141,7 @@ void main()
 	}
 
 	vec3 wsPosition = mul(u_model[0], vec4(position, 1.0)).xyz;
-	v_texcoord1 = a_texcoord1;
+	v_texcoord1 = a_texcoord0.zw;
 	v_position = wsPosition;
 	v_normal = mul(u_model[0], vec4(normal, 0.0));
 	v_projPosition = mul(u_viewProj, vec4(v_position, 1.0));

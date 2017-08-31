@@ -645,7 +645,7 @@ static void CreateAreaLights()
 				sample.position = (v[0]->pos + v[1]->pos + v[2]->pos) / 3.0f;
 				const vec3 normal((v[0]->normal + v[1]->normal + v[2]->normal) / 3.0f);
 				sample.position += normal * 0.1f; // push out a little
-				sample.texCoord = (v[0]->texCoord + v[1]->texCoord + v[2]->texCoord) / 3.0f;
+				sample.texCoord = (v[0]->getTexCoord().xy() + v[1]->getTexCoord().xy() + v[2]->getTexCoord().xy()) / 3.0f;
 				//sample.photons = surface.material->surfaceLight * area * areaScale;
 				sample.photons = surface.material->surfaceLight * s_lightBaker->formFactorValueScale * s_lightBaker->areaScale;
 				sample.winding.numpoints = 3;
