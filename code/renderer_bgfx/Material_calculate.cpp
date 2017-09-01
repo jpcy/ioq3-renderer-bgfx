@@ -168,7 +168,7 @@ void MaterialStage::setTextureSamplers(Uniforms_MaterialStage *uniforms) const
 		bgfx::setTexture(TextureUnit::Diffuse, uniforms->diffuseSampler.handle, diffuseBundle.textures[0]->getHandle());
 
 #ifdef _DEBUG
-		bgfx::setTexture(TextureUnit::Diffuse2, uniforms->diffuseSampler2.handle, Texture::getWhite()->getHandle());
+		bgfx::setTexture(TextureUnit::Diffuse2, uniforms->diffuseSampler2.handle, g_textureCache->getWhite()->getHandle());
 #endif
 	}
 	else
@@ -184,7 +184,7 @@ void MaterialStage::setTextureSamplers(Uniforms_MaterialStage *uniforms) const
 #ifdef _DEBUG
 		else
 		{
-			bgfx::setTexture(TextureUnit::Diffuse2, uniforms->diffuseSampler2.handle, Texture::getWhite()->getHandle());
+			bgfx::setTexture(TextureUnit::Diffuse2, uniforms->diffuseSampler2.handle, g_textureCache->getWhite()->getHandle());
 		}
 #endif
 	}
@@ -199,7 +199,7 @@ void MaterialStage::setTextureSamplers(Uniforms_MaterialStage *uniforms) const
 #ifdef _DEBUG
 	else
 	{
-		bgfx::setTexture(TextureUnit::Light, uniforms->lightSampler.handle, Texture::getWhite()->getHandle());
+		bgfx::setTexture(TextureUnit::Light, uniforms->lightSampler.handle, g_textureCache->getWhite()->getHandle());
 	}
 #endif
 }
@@ -557,7 +557,7 @@ void MaterialStage::calculateColors(vec4 *baseColor, vec4 *vertColor) const
 		// These will have a lightmap only first stage with the second stage doing multiply blend.
 		// Normally, the first stage will be multiplied by overbright factor, but not the second stage, resulting in ugly clamping artifacts.
 		// Fix this by swapping which stage gets the overbright factor multiply.
-		if (material->stages[0].bundles[MaterialTextureBundleIndex::DiffuseMap].textures[0] == Texture::getWhite() && material->stages[0].bundles[MaterialTextureBundleIndex::Lightmap].isLightmap)
+		if (material->stages[0].bundles[MaterialTextureBundleIndex::DiffuseMap].textures[0] == g_textureCache->getWhite() && material->stages[0].bundles[MaterialTextureBundleIndex::Lightmap].isLightmap)
 		{
 			// First stage is lightmap only.
 			// If this is the first stage, don't multiply by overbright factor. Otherwise, multiply even if it's a blend.

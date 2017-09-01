@@ -213,7 +213,7 @@ void DrawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_
 	indices[3] = 2; indices[4] = 3; indices[5] = 0;
 	bgfx::setVertexBuffer(0, &tvb);
 	bgfx::setIndexBuffer(&tib);
-	bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, Texture::getScratch(size_t(client))->getHandle());
+	bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, g_textureCache->getScratch(size_t(client))->getHandle());
 	
 	if (g_hardwareGammaEnabled)
 	{
@@ -1102,8 +1102,8 @@ static void RenderCamera(const RenderCameraArgs &args)
 			const int sky_texorder[6] = { 0, 2, 1, 3, 4, 5 };
 			bgfx::setTexture(TextureUnit::Diffuse, s_main->matStageUniforms->diffuseSampler.handle, mat->sky.outerbox[sky_texorder[dc.skyboxSide]]->getHandle());
 #ifdef _DEBUG
-			bgfx::setTexture(TextureUnit::Diffuse2, s_main->matStageUniforms->diffuseSampler2.handle, Texture::getWhite()->getHandle());
-			bgfx::setTexture(TextureUnit::Light, s_main->matStageUniforms->lightSampler.handle, Texture::getWhite()->getHandle());
+			bgfx::setTexture(TextureUnit::Diffuse2, s_main->matStageUniforms->diffuseSampler2.handle, g_textureCache->getWhite()->getHandle());
+			bgfx::setTexture(TextureUnit::Light, s_main->matStageUniforms->lightSampler.handle, g_textureCache->getWhite()->getHandle());
 #endif
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
@@ -1249,7 +1249,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 
 			if (g_cvars.textureVariation.getBool() && stage.textureVariation)
 			{
-				//bgfx::setTexture(TextureUnit::Noise, s_main->uniforms->noiseSampler.handle, Texture::getNoise()->getHandle());
+				//bgfx::setTexture(TextureUnit::Noise, s_main->uniforms->noiseSampler.handle, g_textureCache->getNoise()->getHandle());
 				bgfx::submit(mainViewId, s_main->shaderPrograms[ShaderProgramId::TextureVariation].handle);
 			}
 			else
@@ -1264,7 +1264,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 			s_main->matStageUniforms->color.set(vec4::white);
 			SetDrawCallGeometry(dc);
 			bgfx::setState(dc.state | BGFX_STATE_DEPTH_TEST_ALWAYS | BGFX_STATE_PT_LINES);
-			bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, Texture::getWhite()->getHandle());
+			bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, g_textureCache->getWhite()->getHandle());
 			bgfx::setTransform(dc.modelMatrix.get());
 			bgfx::submit(mainViewId, s_main->shaderPrograms[ShaderProgramId::TextureColor].handle);
 		}

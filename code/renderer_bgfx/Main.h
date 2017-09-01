@@ -177,6 +177,7 @@ struct Main
 
 	/// @name Resource caches
 	/// @{
+	std::unique_ptr<TextureCache> textureCache;
 	std::unique_ptr<MaterialCache> materialCache;
 	std::unique_ptr<ModelCache> modelCache;
 	/// @}

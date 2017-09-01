@@ -123,7 +123,7 @@ void InitializeIndirectLight()
 		image.height = s_lightBaker->hemicubeSize.y;
 		image.data = (uint8_t *)weightsMem;
 		image.flags = ImageFlags::DataIsBgfxMemory;
-		s_lightBaker->hemicubeWeightsTexture = Texture::create("*hemicube_weights", image, 0, bgfx::TextureFormat::RG32F);
+		s_lightBaker->hemicubeWeightsTexture = g_textureCache->create("*hemicube_weights", image, 0, bgfx::TextureFormat::RG32F);
 
 		// Create lightmap textures to use when rendering hemicubes. Initialized with direct light.
 		s_lightBaker->hemicubeLightmaps.resize(world::GetNumLightmaps());
@@ -137,7 +137,7 @@ void InitializeIndirectLight()
 			image.nComponents = 4;
 			image.dataSize = image.width * image.height * image.nComponents;
 			image.data = &s_lightBaker->lightmaps[i].encodedPassColor[0].x;
-			s_lightBaker->hemicubeLightmaps[i] = Texture::create(util::VarArgs("*hemicube_lightmap%d", (int)i), image, TextureFlags::ClampToEdge | TextureFlags::Mutable);
+			s_lightBaker->hemicubeLightmaps[i] = g_textureCache->create(util::VarArgs("*hemicube_lightmap%d", (int)i), image, TextureFlags::ClampToEdge | TextureFlags::Mutable);
 		}
 
 		// Misc. state.
@@ -281,7 +281,7 @@ bool BakeIndirectLight(uint32_t frameNo)
 
 				for (int j = 0; j < world::GetNumLightmaps(); j++)
 				{
-					Texture::alias(world::GetLightmap(j), s_lightBaker->hemicubeLightmaps[j]);
+					g_textureCache->alias(world::GetLightmap(j), s_lightBaker->hemicubeLightmaps[j]);
 				}
 
 				// Only render lit surfaces after the first bounce.
@@ -289,7 +289,7 @@ bool BakeIndirectLight(uint32_t frameNo)
 
 				for (int j = 0; j < world::GetNumLightmaps(); j++)
 				{
-					Texture::alias(world::GetLightmap(j), nullptr);
+					g_textureCache->alias(world::GetLightmap(j), nullptr);
 				}
 
 				s_lightBaker->hemicubeBatchLocations[s_lightBaker->nHemicubesRenderedInBatch].lightmap = &lightmap;

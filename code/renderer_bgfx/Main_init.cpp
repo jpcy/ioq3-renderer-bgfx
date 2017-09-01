@@ -400,7 +400,8 @@ void Initialize()
 	s_main->entityUniforms = std::make_unique<Uniforms_Entity>();
 	s_main->matUniforms = std::make_unique<Uniforms_Material>();
 	s_main->matStageUniforms = std::make_unique<Uniforms_MaterialStage>();
-	Texture::initializeCache();
+	s_main->textureCache = std::make_unique<TextureCache>();
+	g_textureCache = s_main->textureCache.get();
 	s_main->materialCache = std::make_unique<MaterialCache>();
 	g_materialCache = s_main->materialCache.get();
 	s_main->modelCache = std::make_unique<ModelCache>();
@@ -549,7 +550,7 @@ void LoadWorld(const char *name)
 		s_main->reflectionFb.handle = bgfx::createFrameBuffer(1, &reflectionTexture); // Don't destroy the texture, that will be done by the texture cache.
 
 		// Register the reflection texture so it can accessed by materials.
-		Texture::create("*reflection", reflectionTexture);
+		g_textureCache->create("*reflection", reflectionTexture);
 	}
 
 	if (s_main->aa == AntiAliasing::SMAA)
@@ -578,7 +579,7 @@ void Shutdown(bool destroyWindow)
 	interface::Cmd_Remove("screenshotPNG");
 	g_materialCache = nullptr;
 	g_modelCache = nullptr;
-	Texture::shutdownCache();
+	g_textureCache = nullptr;
 
 	if (s_main.get())
 	{

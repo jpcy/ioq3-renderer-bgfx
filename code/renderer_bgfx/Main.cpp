@@ -39,6 +39,7 @@ ConsoleVariables g_cvars;
 const uint8_t *g_externalVisData = nullptr;
 MaterialCache *g_materialCache = nullptr;
 ModelCache *g_modelCache = nullptr;
+TextureCache *g_textureCache = nullptr;
 
 float g_sinTable[g_funcTableSize];
 float g_squareTable[g_funcTableSize];
@@ -532,7 +533,7 @@ void SetWindowGamma()
 
 void UploadCinematic(int w, int h, int cols, int rows, const uint8_t *data, int client, bool dirty)
 {
-	Texture *scratch = Texture::getScratch(size_t(client));
+	Texture *scratch = g_textureCache->getScratch(size_t(client));
 	
 	if (cols != scratch->getWidth() || rows != scratch->getHeight())
 	{

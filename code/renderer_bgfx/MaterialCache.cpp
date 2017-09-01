@@ -361,7 +361,7 @@ Material *MaterialCache::findMaterial(const char *name, int lightmapIndex, bool 
 		flags |= TextureFlags::ClampToEdge;
 	}
 
-	Texture *texture = Texture::find(name, flags);
+	Texture *texture = g_textureCache->find(name, flags);
 
 	if (!texture)
 	{
@@ -399,7 +399,7 @@ Material *MaterialCache::findMaterial(const char *name, int lightmapIndex, bool 
 	else if (m.lightmapIndex == MaterialLightmapId::White)
 	{
 		// fullbright level
-		m.stages[0].bundles[0].textures[0] = Texture::getWhite();
+		m.stages[0].bundles[0].textures[0] = g_textureCache->getWhite();
 		m.stages[0].active = true;
 		m.stages[0].rgbGen = MaterialColorGen::IdentityLighting;
 
@@ -573,7 +573,7 @@ size_t MaterialCache::generateHash(const char *fname, size_t size)
 void MaterialCache::createInternalShaders()
 {
 	Material m("<default>");
-	m.stages[0].bundles[0].textures[0] = Texture::getDefault();
+	m.stages[0].bundles[0].textures[0] = g_textureCache->getDefault();
 	m.stages[0].active = true;
 	defaultMaterial_ = createMaterial(m);
 }

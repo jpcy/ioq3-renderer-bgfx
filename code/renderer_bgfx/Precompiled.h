@@ -106,7 +106,7 @@ class ReadOnlyFile;
 struct SceneDefinition;
 class Skin;
 struct SunLight;
-struct Texture;
+class Texture;
 struct Uniforms;
 struct Uniforms_Material;
 struct Uniforms_MaterialStage;
@@ -1303,37 +1303,76 @@ struct TextureFlags
 	};
 };
 
-struct Texture
+class Texture
 {
 public:
-	static void initializeCache();
-	static void shutdownCache();
-	static Texture *create(const char *name, const Image &image, int flags = TextureFlags::None, bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8);
-	static Texture *create(const char *name, bgfx::TextureHandle handle);
+	void resize(int width, int height);
+	void update(const bgfx::Memory *mem, int x, int y, int width, int height);
+	int getFlags() const { return flags_; }
+	bgfx::TextureHandle getHandle() const { return handle_; }
+	const char *getName() const { return name_; }
+	int getWidth() const { return width_; }
+	int getHeight() const { return height_; }
+
+private:
+	void initialize(const char *name, const Image &image, int flags, bgfx::TextureFormat::Enum format);
+	void initialize(const char *name, bgfx::TextureHandle handle);
+	uint32_t calculateBgfxFlags() const;
+
+	char name_[MAX_QPATH];
+	int flags_;
+	int width_, height_;
+	int nMips_;
+	bgfx::TextureFormat::Enum format_;
+	bgfx::TextureHandle handle_;
+	Texture *next_;
+
+	friend class TextureCache;
+};
+
+class TextureCache
+{
+public:
+	TextureCache();
+	~TextureCache();
+	Texture *create(const char *name, const Image &image, int flags = TextureFlags::None, bgfx::TextureFormat::Enum format = bgfx::TextureFormat::RGBA8);
+	Texture *create(const char *name, bgfx::TextureHandle handle);
 
 	/// Finds or loads the given image.
 	/// @return nullptr if it fails, not the default image.
-	static Texture *find(const char *name, int flags = TextureFlags::None);
+	Texture *find(const char *name, int flags = TextureFlags::None);
 
-	static Texture *get(const char *name);
-	static const Texture *getDefault();
-	static const Texture *getIdentityLight();
-	static const Texture *getNoise();
-	static const Texture *getWhite();
-	static Texture *getScratch(size_t index);
-	static void alias(Texture *from, Texture *to);
+	Texture *get(const char *name);
+	const Texture *getDefault() const { return defaultTexture_; }
+	const Texture *getIdentityLight() const { return identityLightTexture_; }
+	const Texture *getNoise() const { return noiseTexture_; }
+	const Texture *getWhite() const { return whiteTexture_; }
+	Texture *getScratch(size_t index) { return scratchTextures_[index]; }
+	void alias(Texture *from, Texture *to);
 
-	void resize(int width, int height);
-	void update(const bgfx::Memory *mem, int x, int y, int width, int height);
-	int getFlags() const;
-	bgfx::TextureHandle getHandle() const;
-	const char *getName() const;
-	int getWidth() const;
-	int getHeight() const;
+private:
+	void hashTexture(Texture *texture);
+	size_t generateHash(const char *name) const;
 
-#ifdef _DEBUG
-	char name[MAX_QPATH];
-#endif
+	static const size_t maxTextures_ = 2048;
+	Texture textures_[maxTextures_];
+	size_t nTextures_ = 0;
+	static const size_t hashTableSize_ = 1024;
+	Texture *hashTable_[hashTableSize_];
+	static const int defaultImageSize_ = 16;
+	static const uint32_t defaultImageDataSize_ = defaultImageSize_ * defaultImageSize_ * 4;
+	uint8_t defaultImageData_[defaultImageDataSize_];
+	uint8_t whiteImageData_[defaultImageDataSize_];
+	uint8_t identityLightImageData_[defaultImageDataSize_];
+	Texture *defaultTexture_, *identityLightTexture_, *whiteTexture_;
+	static const int noiseImageSize_ = 256;
+	static const uint32_t noiseImageDataSize_ = noiseImageSize_ * noiseImageSize_ * 4;
+	uint8_t noiseImageData_[noiseImageDataSize_];
+	Texture *noiseTexture_;
+	static const size_t nScratchTextures_ = 32;
+	uint8_t scratchImageData_[nScratchTextures_][defaultImageDataSize_];
+	std::array<Texture *, nScratchTextures_> scratchTextures_;
+	std::map<Texture *, Texture *> aliases_;
 };
 
 /// Texture units used by the generic shader(s).
@@ -1805,6 +1844,7 @@ extern ConsoleVariables g_cvars;
 extern const uint8_t *g_externalVisData;
 extern MaterialCache *g_materialCache;
 extern ModelCache *g_modelCache;
+extern TextureCache *g_textureCache;
 
 extern float g_sinTable[g_funcTableSize];
 extern float g_squareTable[g_funcTableSize];

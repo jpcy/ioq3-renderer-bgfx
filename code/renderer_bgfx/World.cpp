@@ -99,7 +99,7 @@ public:
 			bool mipRawImage = true;
 
 			// Get mipmap info for original texture.
-			Texture *texture = Texture::get(surface.material->name);
+			Texture *texture = g_textureCache->get(surface.material->name);
 
 			if (texture)
 				mipRawImage = (texture->getFlags() & TextureFlags::Mipmap) != 0;
@@ -736,7 +736,7 @@ void Load(const char *name)
 						break;
 				}
 
-				s_world->lightmapAtlases[i] = Texture::create(util::VarArgs("*lightmap%d", (int)i), image, TextureFlags::ClampToEdge | TextureFlags::Mutable);
+				s_world->lightmapAtlases[i] = g_textureCache->create(util::VarArgs("*lightmap%d", (int)i), image, TextureFlags::ClampToEdge | TextureFlags::Mutable);
 			}
 		}
 	}

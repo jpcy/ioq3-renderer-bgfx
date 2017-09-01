@@ -733,7 +733,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 			if (!util::Stricmp(token, "$whiteimage"))
 			{
-				stage->bundles[0].textures[0] = Texture::getWhite();
+				stage->bundles[0].textures[0] = g_textureCache->getWhite();
 			}
 			else if (!util::Stricmp(token, "$lightmap"))
 			{
@@ -742,7 +742,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 
 				if (!lightmap)
 				{
-					lightmap = Texture::getWhite();
+					lightmap = g_textureCache->getWhite();
 				}
 				
 				stage->bundles[0].textures[0] = lightmap;
@@ -756,11 +756,11 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				}*/
 
 				stage->bundles[0].isLightmap = true;
-				stage->bundles[0].textures[0] = Texture::getWhite();
+				stage->bundles[0].textures[0] = g_textureCache->getWhite();
 
 				/*if (lightmapIndex < 0)
 				{
-					stage->bundles[0].textures[0] = Texture::getWhite();
+					stage->bundles[0].textures[0] = g_textureCache->getWhite();
 				}
 				else
 				{
@@ -777,7 +777,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 				if (!noPicMip)
 					flags |= TextureFlags::Picmip;
 
-				stage->bundles[0].textures[0] = Texture::find(token, flags);
+				stage->bundles[0].textures[0] = g_textureCache->find(token, flags);
 
 				if (!stage->bundles[0].textures[0])
 				{
@@ -804,7 +804,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			if (!noPicMip)
 				flags |= TextureFlags::Picmip;
 
-			stage->bundles[0].textures[0] = Texture::find(token, flags);
+			stage->bundles[0].textures[0] = g_textureCache->find(token, flags);
 
 			if (!stage->bundles[0].textures[0])
 			{
@@ -845,7 +845,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 					if (!noPicMip)
 						flags |= TextureFlags::Picmip;
 
-					stage->bundles[0].textures[num] = Texture::find(token, flags);
+					stage->bundles[0].textures[num] = g_textureCache->find(token, flags);
 
 					if (!stage->bundles[0].textures[num])
 					{
@@ -872,7 +872,7 @@ bool Material::parseStage(MaterialStage *stage, char **text)
 			if (stage->bundles[0].videoMapHandle != -1)
 			{
 				stage->bundles[0].isVideoMap = true;
-				stage->bundles[0].textures[0] = Texture::getScratch(size_t(stage->bundles[0].videoMapHandle));
+				stage->bundles[0].textures[0] = g_textureCache->getScratch(size_t(stage->bundles[0].videoMapHandle));
 			}
 		}
 		// alphafunc <func>
@@ -1840,11 +1840,11 @@ void Material::parseSkyParms(char **text)
 		{
 			char pathname[MAX_QPATH];
 			util::Sprintf(pathname, sizeof(pathname), "%s_%s.tga", token, suf[i]);
-			sky.outerbox[i] = Texture::find(pathname, imgFlags | TextureFlags::ClampToEdge);
+			sky.outerbox[i] = g_textureCache->find(pathname, imgFlags | TextureFlags::ClampToEdge);
 
 			if (!sky.outerbox[i])
 			{
-				sky.outerbox[i] = Texture::getDefault();
+				sky.outerbox[i] = g_textureCache->getDefault();
 			}
 		}
 	}
@@ -1882,11 +1882,11 @@ void Material::parseSkyParms(char **text)
 		{
 			char pathname[MAX_QPATH];
 			util::Sprintf(pathname, sizeof(pathname), "%s_%s.tga", token, suf[i]);
-			sky.innerbox[i] = Texture::find(pathname, imgFlags);
+			sky.innerbox[i] = g_textureCache->find(pathname, imgFlags);
 
 			if (!sky.innerbox[i])
 			{
-				sky.innerbox[i] = Texture::getDefault();
+				sky.innerbox[i] = g_textureCache->getDefault();
 			}
 		}
 	}

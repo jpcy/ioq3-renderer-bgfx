@@ -24,444 +24,268 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 namespace renderer {
 
-struct TextureImpl
+void Texture::initialize(const char *name, const Image &image, int flags, bgfx::TextureFormat::Enum format)
 {
-	char name[MAX_QPATH];
-	int flags;
-	int width, height;
-	int nMips;
-	bgfx::TextureFormat::Enum format;
-	bgfx::TextureHandle handle;
-	TextureImpl *next;
+	strcpy(name_, name);
+	width_ = image.width;
+	height_ = image.height;
+	nMips_ = image.nMips;
+	flags_ = flags;
+	format_ = format;
 
-	void initialize(const char *name, const Image &image, int flags, bgfx::TextureFormat::Enum format)
+	const bgfx::Memory *mem = nullptr;
+
+	if (image.flags & ImageFlags::DataIsBgfxMemory)
 	{
-		strcpy(this->name, name);
-		width = image.width;
-		height = image.height;
-		nMips = image.nMips;
-		this->flags = flags;
-		this->format = format;
-
-		const bgfx::Memory *mem = nullptr;
-
-		if (image.flags & ImageFlags::DataIsBgfxMemory)
-		{
-			mem = (const bgfx::Memory *)image.data;
-		}
-		else if (image.data)
-		{
-			mem = bgfx::makeRef(image.data, image.dataSize, image.release);
-		}
-
-		// Create with data: immutable. Create without data: mutable, update whenever.
-		handle = bgfx::createTexture2D(width, height, nMips > 1, 1, format, calculateBgfxFlags(), (flags & TextureFlags::Mutable) ? nullptr : mem);
-
-		if (flags & TextureFlags::Mutable)
-		{
-			update(mem, 0, 0, width, height);
-		}
+		mem = (const bgfx::Memory *)image.data;
 	}
-
-	void initialize(const char *name, bgfx::TextureHandle handle)
+	else if (image.data)
 	{
-		strcpy(this->name, name);
-		this->handle = handle;
-		flags = 0;
+		mem = bgfx::makeRef(image.data, image.dataSize, image.release);
 	}
 
-	void resize(int width, int height)
+	// Create with data: immutable. Create without data: mutable, update whenever.
+	handle_ = bgfx::createTexture2D(width_, height_, nMips_ > 1, 1, format_, calculateBgfxFlags(), (flags_ & TextureFlags::Mutable) ? nullptr : mem);
+
+	if (flags & TextureFlags::Mutable)
 	{
-		if (width == this->width && height == this->height)
-			return;
-
-		bgfx::destroy(handle);
-		this->width = width;
-		this->height = height;
-		handle = bgfx::createTexture2D(width, height, nMips > 1, 1, format, calculateBgfxFlags());
+		update(mem, 0, 0, width_, height_);
 	}
-
-	void update(const bgfx::Memory *mem, int x, int y, int width, int height)
-	{
-		bgfx::updateTexture2D(handle, 0, 0, x, y, width, height, mem);
-	}
-
-	uint32_t calculateBgfxFlags() const
-	{
-		uint32_t bgfxFlags = BGFX_TEXTURE_NONE;
-
-		if (flags & TextureFlags::ClampToEdge)
-		{
-			bgfxFlags |= BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP;
-		}
-
-		if (g_cvars.maxAnisotropy.getBool())
-		{
-			bgfxFlags |= BGFX_TEXTURE_MIN_ANISOTROPIC | BGFX_TEXTURE_MAG_ANISOTROPIC;
-		}
-
-		return bgfxFlags;
-	}
-};
-
-struct TextureCache
-{
-	static const size_t maxTextures = 2048;
-	Texture textures[maxTextures];
-	TextureImpl textureImpls[maxTextures];
-	size_t nTextures = 0;
-	static const size_t hashTableSize = 1024;
-	TextureImpl *hashTable[hashTableSize];
-	static const int defaultImageSize = 16;
-	static const uint32_t defaultImageDataSize = defaultImageSize * defaultImageSize * 4;
-	uint8_t defaultImageData[defaultImageDataSize];
-	uint8_t whiteImageData[defaultImageDataSize];
-	uint8_t identityLightImageData[defaultImageDataSize];
-	TextureImpl *defaultTexture, *identityLightTexture, *whiteTexture;
-	static const int noiseImageSize = 256;
-	static const uint32_t noiseImageDataSize = noiseImageSize * noiseImageSize * 4;
-	uint8_t noiseImageData[noiseImageDataSize];
-	TextureImpl *noiseTexture;
-	static const size_t nScratchTextures = 32;
-	uint8_t scratchImageData[nScratchTextures][defaultImageDataSize];
-	std::array<TextureImpl *, nScratchTextures> scratchTextures;
-	std::map<Texture *, Texture *> aliases;
-
-	TextureCache() : hashTable()
-	{
-		// Default texture (black box with white border).
-		memset(defaultImageData, 32, defaultImageDataSize);
-
-		for (int x = 0; x < defaultImageSize; x++)
-		{
-			*((uint32_t *)&defaultImageData[x * defaultImageSize * 4]) = 0xffffffff;
-			*((uint32_t *)&defaultImageData[x * 4]) = 0xffffffff;
-			*((uint32_t *)&defaultImageData[(defaultImageSize - 1 + x * defaultImageSize) * 4]) = 0xffffffff;
-			*((uint32_t *)&defaultImageData[(x + (defaultImageSize - 1) * defaultImageSize) * 4]) = 0xffffffff;
-		}
-
-		defaultTexture = createTexture("*default", CreateImage(defaultImageSize, defaultImageSize, 4, defaultImageData), TextureFlags::Mipmap, bgfx::TextureFormat::RGBA8);
-
-		// Noise texture.
-		for (uint32_t x = 0; x < noiseImageDataSize; x++)
-		{
-			auto r = uint8_t(rand() % 255);
-			auto g = uint8_t(rand() % 255);
-			auto b = uint8_t(rand() % 255);
-			noiseImageData[x] = (255 << 24) | (b << 16) | (g << 8) | r;
-		}
-
-		noiseTexture = createTexture("*noise", CreateImage(noiseImageSize, noiseImageSize, 4, noiseImageData), TextureFlags::None, bgfx::TextureFormat::RGBA8);
-
-		// White texture.
-		memset(whiteImageData, 255, defaultImageDataSize);
-		whiteTexture = createTexture("*white", CreateImage(defaultImageSize, defaultImageSize, 4, whiteImageData), 0, bgfx::TextureFormat::RGBA8);
-
-		// With overbright bits active, we need an image which is some fraction of full color, for default lightmaps, etc.
-		for (int x = 0; x < defaultImageSize * defaultImageSize; x++)
-		{
-			identityLightImageData[x * 4 + 0] = identityLightImageData[x * 4 + 1] = identityLightImageData[x * 4 + 2] = uint8_t(255 * g_identityLight);
-			identityLightImageData[x * 4 + 3] = 0xff;
-		}
-
-		identityLightTexture = createTexture("*identityLight", CreateImage(defaultImageSize, defaultImageSize, 4, identityLightImageData), 0, bgfx::TextureFormat::RGBA8);
-
-		// Scratch textures.
-		for (size_t i = 0; i < scratchTextures.size(); i++)
-		{
-			memset(scratchImageData[i], 0, defaultImageDataSize);
-			scratchTextures[i] = createTexture("*scratch", CreateImage(defaultImageSize, defaultImageSize, 4, scratchImageData[i]), TextureFlags::Picmip | TextureFlags::ClampToEdge, bgfx::TextureFormat::RGBA8);
-		}
-	}
-
-	~TextureCache()
-	{
-		for (size_t i = 0; i < nTextures; i++)
-		{
-			bgfx::destroy(textureImpls[i].handle);
-		}
-	}
-
-	TextureImpl *createTexture(const char *name, const Image &image, int flags, bgfx::TextureFormat::Enum format)
-	{
-		if (strlen(name) >= MAX_QPATH)
-		{
-			interface::Error("Texture name \"%s\" is too long", name);
-		}
-
-		if (nTextures == maxTextures)
-		{
-			interface::Error("Exceeded max textures");
-		}
-
-		TextureImpl *texture = &textureImpls[nTextures];
-#ifdef _DEBUG
-		strcpy(textures[nTextures].name, name);
-#endif
-		nTextures++;
-		texture->initialize(name, image, flags, format);
-		hashTexture(texture);
-		return texture;
-	}
-
-	TextureImpl *createTexture(const char *name, bgfx::TextureHandle handle)
-	{
-		if (strlen(name) >= MAX_QPATH)
-		{
-			interface::Error("Texture name \"%s\" is too long", name);
-		}
-
-		if (nTextures == maxTextures)
-		{
-			interface::Error("Exceeded max textures");
-	}
-
-		TextureImpl *texture = &textureImpls[nTextures];
-#ifdef _DEBUG
-		strcpy(textures[nTextures].name, name);
-#endif
-		nTextures++;
-		texture->initialize(name, handle);
-		hashTexture(texture);
-		return texture;
-	}
-
-	TextureImpl *findTexture(const char *name, int flags)
-	{
-		if (!name)
-			return nullptr;
-
-		size_t hash = generateHash(name);
-
-		// See if the image is already loaded.
-		for (TextureImpl *t = hashTable[hash]; t; t = t->next)
-		{
-			if (!strcmp(name, t->name))
-			{
-				// The white image can be used with any set of parms, but other mismatches are errors.
-				if (strcmp(name, "*white"))
-				{
-					if (t->flags != flags)
-					{
-						interface::PrintDeveloperf("WARNING: reused image %s with mixed flags (%i vs %i)\n", name, t->flags, flags);
-					}
-				}
-
-				return t;
-			}
-		}
-
-		// Load it from a file.
-		int imageFlags = 0;
-
-		if (flags & (TextureFlags::Mipmap | TextureFlags::Picmip))
-		{
-			imageFlags |= CreateImageFlags::GenerateMipmaps;
-		}
-
-		if (flags & TextureFlags::Picmip)
-		{
-			imageFlags |= CreateImageFlags::Picmip;
-		}
-
-		Image image = LoadImage(name, imageFlags);
-
-		if (!image.data)
-			return nullptr;
-
-		return createTexture(name, image, flags, bgfx::TextureFormat::RGBA8);
-	}
-
-	TextureImpl *getTexture(const char *name)
-	{
-		if (!name)
-			return nullptr;
-
-		size_t hash = generateHash(name);
-
-		for (TextureImpl *t = hashTable[hash]; t; t = t->next)
-		{
-			if (!strcmp(name, t->name))
-			{
-				return t;
-			}
-		}
-
-		return nullptr;
-	}
-
-	void alias(Texture *from, Texture *to)
-	{
-		assert(from);
-
-		if (!to)
-		{
-			aliases.erase(from);
-		}
-		else
-		{
-			aliases.insert(std::make_pair(from, to));
-		}
-	}
-
-	void hashTexture(TextureImpl *texture)
-	{
-		size_t hash = generateHash(texture->name);
-		texture->next = hashTable[hash];
-		hashTable[hash] = texture;
-	}
-
-	size_t generateHash(const char *name) const
-	{
-		size_t hash = 0, i = 0;
-
-		while (name[i] != '\0')
-		{
-			char letter = tolower(name[i]);
-			if (letter == '.') break; // don't include extension
-			if (letter == '\\') letter = '/'; // damn path names
-			hash += (long)(letter)*(i + 119);
-			i++;
-		}
-
-		hash &= (hashTableSize - 1);
-		return hash;
-	}
-
-	Texture *textureFromImpl(TextureImpl *impl)
-	{
-		assert(impl);
-		return &textures[size_t(impl - textureImpls)];
-	}
-
-	TextureImpl *implFromTexture(Texture *texture)
-	{
-		assert(texture);
-
-		if (!aliases.empty())
-		{
-			auto alias = aliases.find(texture);
-
-			if (alias != aliases.end())
-			{
-				texture = alias->second;
-			}
-		}
-
-		return &textureImpls[size_t(texture - textures)];
-	}
-
-	const TextureImpl *implFromTexture(const Texture *texture)
-	{
-		return (const TextureImpl *)implFromTexture((Texture *)texture);
-	}
-};
-
-static std::unique_ptr<TextureCache> s_textureCache;
-
-void Texture::initializeCache()
-{
-	s_textureCache = std::make_unique<TextureCache>();
 }
 
-void Texture::shutdownCache()
+void Texture::initialize(const char *name, bgfx::TextureHandle handle)
 {
-	s_textureCache.reset();
-}
-
-Texture *Texture::create(const char *name, const Image &image, int flags, bgfx::TextureFormat::Enum format)
-{
-	return s_textureCache->textureFromImpl(s_textureCache->createTexture(name, image, flags, format));
-}
-
-Texture *Texture::create(const char *name, bgfx::TextureHandle handle)
-{
-	return s_textureCache->textureFromImpl(s_textureCache->createTexture(name, handle));
-}
-
-Texture *Texture::find(const char *name, int flags)
-{
-	TextureImpl *impl = s_textureCache->findTexture(name, flags);
-
-	if (!impl)
-		return nullptr;
-
-	return s_textureCache->textureFromImpl(impl);
-}
-
-Texture *Texture::get(const char *name)
-{
-	TextureImpl *impl = s_textureCache->getTexture(name);
-
-	if (!impl)
-		return nullptr;
-
-	return s_textureCache->textureFromImpl(impl);
-}
-
-const Texture *Texture::getDefault()
-{
-	return s_textureCache->textureFromImpl(s_textureCache->defaultTexture);
-}
-
-const Texture *Texture::getIdentityLight()
-{
-	return s_textureCache->textureFromImpl(s_textureCache->identityLightTexture);
-}
-
-const Texture *Texture::getNoise()
-{
-	return s_textureCache->textureFromImpl(s_textureCache->noiseTexture);
-}
-
-const Texture *Texture::getWhite()
-{
-	return s_textureCache->textureFromImpl(s_textureCache->whiteTexture);
-}
-
-Texture *Texture::getScratch(size_t index)
-{
-	return s_textureCache->textureFromImpl(s_textureCache->scratchTextures[index]);
-}
-
-void Texture::alias(Texture *from, Texture *to)
-{
-	s_textureCache->alias(from, to);
+	strcpy(name_, name);
+	handle_ = handle;
+	flags_ = 0;
 }
 
 void Texture::resize(int width, int height)
 {
-	s_textureCache->implFromTexture(this)->resize(width, height);
+	if (width == width_ && height == height_)
+		return;
+
+	bgfx::destroy(handle_);
+	width_ = width;
+	height_ = height;
+	handle_ = bgfx::createTexture2D(width_, height_, nMips_ > 1, 1, format_, calculateBgfxFlags());
 }
 
 void Texture::update(const bgfx::Memory *mem, int x, int y, int width, int height)
 {
-	s_textureCache->implFromTexture(this)->update(mem, x, y, width, height);
+	bgfx::updateTexture2D(handle_, 0, 0, x, y, width, height, mem);
 }
 
-int Texture::getFlags() const
+uint32_t Texture::calculateBgfxFlags() const
 {
-	return s_textureCache->implFromTexture(this)->flags;
+	uint32_t bgfxFlags = BGFX_TEXTURE_NONE;
+
+	if (flags_ & TextureFlags::ClampToEdge)
+	{
+		bgfxFlags |= BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP;
+	}
+
+	if (g_cvars.maxAnisotropy.getBool())
+	{
+		bgfxFlags |= BGFX_TEXTURE_MIN_ANISOTROPIC | BGFX_TEXTURE_MAG_ANISOTROPIC;
+	}
+
+	return bgfxFlags;
 }
 
-bgfx::TextureHandle Texture::getHandle() const
+TextureCache::TextureCache() : hashTable_()
 {
-	return s_textureCache->implFromTexture(this)->handle;
+	// Default texture (black box with white border).
+	memset(defaultImageData_, 32, defaultImageDataSize_);
+
+	for (int x = 0; x < defaultImageSize_; x++)
+	{
+		*((uint32_t *)&defaultImageData_[x * defaultImageSize_ * 4]) = 0xffffffff;
+		*((uint32_t *)&defaultImageData_[x * 4]) = 0xffffffff;
+		*((uint32_t *)&defaultImageData_[(defaultImageSize_ - 1 + x * defaultImageSize_) * 4]) = 0xffffffff;
+		*((uint32_t *)&defaultImageData_[(x + (defaultImageSize_ - 1) * defaultImageSize_) * 4]) = 0xffffffff;
+	}
+
+	defaultTexture_ = create("*default", CreateImage(defaultImageSize_, defaultImageSize_, 4, defaultImageData_), TextureFlags::Mipmap, bgfx::TextureFormat::RGBA8);
+
+	// Noise texture.
+	for (uint32_t x = 0; x < noiseImageDataSize_; x++)
+	{
+		auto r = uint8_t(rand() % 255);
+		auto g = uint8_t(rand() % 255);
+		auto b = uint8_t(rand() % 255);
+		noiseImageData_[x] = (255 << 24) | (b << 16) | (g << 8) | r;
+	}
+
+	noiseTexture_ = create("*noise", CreateImage(noiseImageSize_, noiseImageSize_, 4, noiseImageData_), TextureFlags::None, bgfx::TextureFormat::RGBA8);
+
+	// White texture.
+	memset(whiteImageData_, 255, defaultImageDataSize_);
+	whiteTexture_ = create("*white", CreateImage(defaultImageSize_, defaultImageSize_, 4, whiteImageData_), 0, bgfx::TextureFormat::RGBA8);
+
+	// With overbright bits active, we need an image which is some fraction of full color, for default lightmaps, etc.
+	for (int x = 0; x < defaultImageSize_ * defaultImageSize_; x++)
+	{
+		identityLightImageData_[x * 4 + 0] = identityLightImageData_[x * 4 + 1] = identityLightImageData_[x * 4 + 2] = uint8_t(255 * g_identityLight);
+		identityLightImageData_[x * 4 + 3] = 0xff;
+	}
+
+	identityLightTexture_ = create("*identityLight", CreateImage(defaultImageSize_, defaultImageSize_, 4, identityLightImageData_), 0, bgfx::TextureFormat::RGBA8);
+
+	// Scratch textures.
+	for (size_t i = 0; i < scratchTextures_.size(); i++)
+	{
+		memset(scratchImageData_[i], 0, defaultImageDataSize_);
+		scratchTextures_[i] = create("*scratch", CreateImage(defaultImageSize_, defaultImageSize_, 4, scratchImageData_[i]), TextureFlags::Picmip | TextureFlags::ClampToEdge, bgfx::TextureFormat::RGBA8);
+	}
 }
 
-const char *Texture::getName() const
+TextureCache::~TextureCache()
 {
-	return s_textureCache->implFromTexture(this)->name;
+	for (size_t i = 0; i < nTextures_; i++)
+	{
+		bgfx::destroy(textures_[i].handle_);
+	}
 }
 
-int Texture::getWidth() const
+Texture *TextureCache::create(const char *name, const Image &image, int flags, bgfx::TextureFormat::Enum format)
 {
-	return s_textureCache->implFromTexture(this)->width;
+	if (strlen(name) >= MAX_QPATH)
+	{
+		interface::Error("Texture name \"%s\" is too long", name);
+	}
+
+	if (nTextures_ == maxTextures_)
+	{
+		interface::Error("Exceeded max textures");
+	}
+
+	Texture *texture = &textures_[nTextures_];
+	nTextures_++;
+	texture->initialize(name, image, flags, format);
+	hashTexture(texture);
+	return texture;
 }
 
-int Texture::getHeight() const
+Texture *TextureCache::create(const char *name, bgfx::TextureHandle handle)
 {
-	return s_textureCache->implFromTexture(this)->height;
+	if (strlen(name) >= MAX_QPATH)
+	{
+		interface::Error("Texture name \"%s\" is too long", name);
+	}
+
+	if (nTextures_ == maxTextures_)
+	{
+		interface::Error("Exceeded max textures");
+}
+
+	Texture *texture = &textures_[nTextures_];
+	nTextures_++;
+	texture->initialize(name, handle);
+	hashTexture(texture);
+	return texture;
+}
+
+Texture *TextureCache::find(const char *name, int flags)
+{
+	if (!name)
+		return nullptr;
+
+	size_t hash = generateHash(name);
+
+	// See if the image is already loaded.
+	for (Texture *t = hashTable_[hash]; t; t = t->next_)
+	{
+		if (!strcmp(name, t->name_))
+		{
+			// The white image can be used with any set of parms, but other mismatches are errors.
+			if (strcmp(name, "*white"))
+			{
+				if (t->flags_ != flags)
+				{
+					interface::PrintDeveloperf("WARNING: reused image %s with mixed flags (%i vs %i)\n", name, t->flags_, flags);
+				}
+			}
+
+			return t;
+		}
+	}
+
+	// Load it from a file.
+	int imageFlags = 0;
+
+	if (flags & (TextureFlags::Mipmap | TextureFlags::Picmip))
+	{
+		imageFlags |= CreateImageFlags::GenerateMipmaps;
+	}
+
+	if (flags & TextureFlags::Picmip)
+	{
+		imageFlags |= CreateImageFlags::Picmip;
+	}
+
+	Image image = LoadImage(name, imageFlags);
+
+	if (!image.data)
+		return nullptr;
+
+	return create(name, image, flags, bgfx::TextureFormat::RGBA8);
+}
+
+Texture *TextureCache::get(const char *name)
+{
+	if (!name)
+		return nullptr;
+
+	size_t hash = generateHash(name);
+
+	for (Texture *t = hashTable_[hash]; t; t = t->next_)
+	{
+		if (!strcmp(name, t->name_))
+		{
+			return t;
+		}
+	}
+
+	return nullptr;
+}
+
+void TextureCache::alias(Texture *from, Texture *to)
+{
+	assert(from);
+
+	if (!to)
+	{
+		aliases_.erase(from);
+	}
+	else
+	{
+		aliases_.insert(std::make_pair(from, to));
+	}
+}
+
+void TextureCache::hashTexture(Texture *texture)
+{
+	size_t hash = generateHash(texture->name_);
+	texture->next_ = hashTable_[hash];
+	hashTable_[hash] = texture;
+}
+
+size_t TextureCache::generateHash(const char *name) const
+{
+	size_t hash = 0, i = 0;
+
+	while (name[i] != '\0')
+	{
+		char letter = tolower(name[i]);
+		if (letter == '.') break; // don't include extension
+		if (letter == '\\') letter = '/'; // damn path names
+		hash += (long)(letter)*(i + 119);
+		i++;
+	}
+
+	hash &= (hashTableSize_ - 1);
+	return hash;
 }
 
 } // namespace renderer
