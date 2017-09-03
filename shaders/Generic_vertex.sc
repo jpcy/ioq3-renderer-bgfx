@@ -1,5 +1,5 @@
 $input a_position, a_normal, a_tangent, a_texcoord0, a_color0
-$output v_position, v_projPosition, v_texcoord0, v_texcoord1, v_normal, v_color0
+$output v_position, v_projPosition, v_shadowPosition, v_texcoord0, v_texcoord1, v_normal, v_color0
 
 /*
 ===========================================================================
@@ -28,6 +28,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Gen_Deform.sh"
 #include "Gen_Tex.sh"
 #include "SharedDefines.sh"
+#include "SunLight.sh"
 
 uniform vec4 u_DepthRangeEnabled; // only x used
 uniform vec4 u_DepthRange;
@@ -147,5 +148,8 @@ void main()
 	v_projPosition = mul(u_viewProj, vec4(v_position, 1.0));
 	if (int(u_DepthRangeEnabled.x) != 0)
 		v_projPosition = ApplyDepthRange(v_projPosition, u_DepthRange.x, u_DepthRange.y);
+#if defined(USE_SUN_LIGHT)
+	v_shadowPosition = mul(u_LightModelViewProj, vec4(mul(u_model[0], vec4(a_position, 1.0)).xyz + v_normal.xyz * u_ShadowMapNormalBias, 1.0));
+#endif
 	gl_Position = v_projPosition;
 }

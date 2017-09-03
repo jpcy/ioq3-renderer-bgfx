@@ -5,6 +5,7 @@ vec4 v_texcoord3       : TEXCOORD3 = vec4(0.0, 0.0, 0.0, 0.0);
 vec4 v_texcoord4       : TEXCOORD4 = vec4(0.0, 0.0, 0.0, 0.0);
 vec3 v_position        : TEXCOORD5 = vec3(0.0, 0.0, 0.0);
 vec4 v_projPosition    : TEXCOORD6 = vec4(0.0, 0.0, 0.0, 1.0);
+vec4 v_shadowPosition  : TEXCOORD7 = vec4(0.0, 0.0, 0.0, 0.0);
 vec4 v_normal          : NORMAL    = vec4(0.0, 0.0, 1.0, 0.0);
 vec4 v_tangent         : TANGENT   = vec4(1.0, 0.0, 0.0, 0.0);
 vec4 v_bitangent       : BINORMAL  = vec4(0.0, 1.0, 0.0, 0.0);

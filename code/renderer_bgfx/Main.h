@@ -65,6 +65,7 @@ enum class DebugDraw
 	DynamicLight,
 	Lightmap,
 	Reflection,
+	Shadow,
 	SMAA
 };
 
@@ -89,8 +90,19 @@ struct GenericShaderProgramVariant
 		AlphaTest = 1 << 0,
 		DynamicLights = 1 << 1,
 		SoftSprite = 1 << 2,
+		SunLight = 1 << 3,
 
-		Num = 1 << 3
+		Num = 1 << 4
+	};
+};
+
+struct TextureVariationShaderProgramVariant
+{
+	enum
+	{
+		None     = 0,
+		SunLight = 1 << 0,
+		Num      = 1 << 1
 	};
 };
 
@@ -114,7 +126,7 @@ struct ShaderProgramId
 		TextureColor,
 		TextureDebug,
 		TextureVariation,
-		Num
+		Num = TextureVariation + TextureVariationShaderProgramVariant::Num
 	};
 };
 
@@ -209,6 +221,12 @@ struct Main
 	std::array<Shader, FragmentShaderId::Num> fragmentShaders;
 	std::array<Shader, VertexShaderId::Num> vertexShaders;
 	std::array<ShaderProgram, (int)ShaderProgramId::Num> shaderPrograms;
+	/// @}
+
+	/// @name Shadows
+	/// @{
+	FrameBuffer shadowMapFb;
+	static const int shadowMapSize = 4096;
 	/// @}
 
 	/// @name Skybox portals

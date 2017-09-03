@@ -346,6 +346,8 @@ DebugDraw DebugDrawFromString(const char *s)
 		return DebugDraw::Lightmap;
 	else if (util::Stricmp(s, "reflection") == 0)
 		return DebugDraw::Reflection;
+	else if (util::Stricmp(s, "shadow") == 0)
+		return DebugDraw::Shadow;
 	else if (util::Stricmp(s, "smaa") == 0)
 		return DebugDraw::SMAA;
 

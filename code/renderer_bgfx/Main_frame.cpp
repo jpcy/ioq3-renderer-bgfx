@@ -958,6 +958,56 @@ static void RenderCamera(const RenderCameraArgs &args)
 		s_main->uniforms->portalClipEnabled.set(vec4::empty);
 	}
 
+	// Render to shadow map. Probes skip this.
+	if (g_cvars.sunLight.getBool() && s_main->isWorldCamera && !isProbe)
+	{
+		Bounds bounds(world::GetBounds());
+		vec3 eye;
+		vec3 center = -s_main->sunLight.direction;
+		vec3 up(0.0f, 1.0f, 0.0f);
+		mat4 shadowViewMatrix;
+		bx::mtxLookAt((float *)&shadowViewMatrix, (float *)&eye, (float *)&center, (float *)&up);
+		std::array<vec3, 8> corners = bounds.toVertices();
+		bounds.setupForAddingPoints();
+
+		for (size_t i = 0; i < corners.size(); i++)
+		{
+			bounds.addPoint(shadowViewMatrix.transform(corners[i]));
+		}
+
+		mat4 shadowProjectionMatrix;
+		bx::mtxOrtho((float *)&shadowProjectionMatrix, bounds.min.x, bounds.max.x, bounds.min.y, bounds.max.y, bounds.min.z, bounds.max.z, 0.0f, bgfx::getCaps()->homogeneousDepth);
+		const uint8_t viewId = PushView(s_main->shadowMapFb, BGFX_CLEAR_DEPTH, shadowViewMatrix, shadowProjectionMatrix, Rect(0, 0, s_main->shadowMapSize, s_main->shadowMapSize));
+
+		for (DrawCall &dc : s_main->drawCalls)
+		{
+			// Material remapping.
+			Material *mat = dc.material->remappedShader ? dc.material->remappedShader : dc.material;
+
+			if (mat->sort != MaterialSort::Opaque || mat->numUnfoggedPasses == 0 || dc.flags & DrawCallFlags::Sky)
+				continue;
+
+			// Don't render first person models.
+			if (dc.entity && (dc.entity->flags & EntityFlags::FirstPerson))
+				continue;
+
+			s_main->currentEntity = dc.entity;
+			s_main->matUniforms->time.set(vec4(mat->setTime(s_main->floatTime), 0, 0, 0));
+			s_main->uniforms->depthRangeEnabled.set(vec4::empty);
+			mat->setDeformUniforms(s_main->matUniforms.get());
+			SetDrawCallGeometry(dc);
+			bgfx::setTransform(dc.modelMatrix.get());
+			bgfx::setState(BGFX_STATE_DEPTH_TEST_LEQUAL | BGFX_STATE_DEPTH_WRITE/* | BGFX_STATE_CULL_CW*/);
+			bgfx::submit(viewId, s_main->shaderPrograms[ShaderProgramId::Depth].handle);
+			s_main->currentEntity = nullptr;
+		}
+
+		s_main->uniforms->lightModelViewProj.set(shadowProjectionMatrix * shadowViewMatrix);
+		s_main->uniforms->shadowMap_TexelSize_DepthBias_NormalBias_SlopeScaleDepthBias.set(vec4(1.0f / s_main->shadowMapSize, g_cvars.shadowDepthBias.getFloat(), g_cvars.shadowNormalBias.getFloat(), g_cvars.shadowSlopeScaleDepthBias.getFloat()));
+		s_main->uniforms->sunLightColor.set(vec4(s_main->sunLight.light * g_cvars.sunLightIntensity.getFloat(), 0));
+		s_main->uniforms->sunLightDir.set(vec4(-s_main->sunLight.direction, 0));
+	}
+
 	// Render depth. Probes skip this.
 	if (s_main->isWorldCamera && !isProbe)
 	{
@@ -1240,6 +1290,12 @@ static void RenderCamera(const RenderCameraArgs &args)
 				bgfx::setTexture(TextureUnit::DynamicLights, s_main->matStageUniforms->dynamicLightsSampler.handle, s_main->dlightManager->getLightsTexture());
 			}
 
+			if (g_cvars.sunLight.getBool() && s_main->isWorldCamera && mat->sort == MaterialSort::Opaque && !(dc.flags & DrawCallFlags::Sky))
+			{
+				shaderVariant |= GenericShaderProgramVariant::SunLight;
+				bgfx::setTexture(TextureUnit::ShadowMap, s_main->uniforms->shadowMapSampler.handle, bgfx::getTexture(s_main->shadowMapFb.handle));
+			}
+
 			bgfx::setState(state);
 
 			if (args.flags & RenderCameraFlags::UseStencilTest)
@@ -1249,8 +1305,17 @@ static void RenderCamera(const RenderCameraArgs &args)
 
 			if (g_cvars.textureVariation.getBool() && stage.textureVariation)
 			{
+				if (shaderVariant & GenericShaderProgramVariant::SunLight)
+				{
+					shaderVariant = TextureVariationShaderProgramVariant::SunLight;
+				}
+				else
+				{
+					shaderVariant = 0;
+				}
+
 				//bgfx::setTexture(TextureUnit::Noise, s_main->uniforms->noiseSampler.handle, g_textureCache->getNoise()->getHandle());
-				bgfx::submit(mainViewId, s_main->shaderPrograms[ShaderProgramId::TextureVariation].handle);
+				bgfx::submit(mainViewId, s_main->shaderPrograms[ShaderProgramId::TextureVariation + shaderVariant].handle);
 			}
 			else
 			{
@@ -1666,6 +1731,11 @@ void EndFrame()
 		s_main->uniforms->textureDebug.set(vec4(TEXTURE_DEBUG_R, 0, 0, 0));
 		RenderDebugDraw(bgfx::getTexture(s_main->smaaEdgesFb.handle), 0, 0, ShaderProgramId::TextureDebug);
 		RenderDebugDraw(bgfx::getTexture(s_main->smaaBlendFb.handle), 1, 0, ShaderProgramId::TextureDebug);
+	}
+	else if (s_main->debugDraw == DebugDraw::Shadow && g_cvars.sunLight.getBool())
+	{
+		s_main->uniforms->textureDebug.set(vec4(TEXTURE_DEBUG_R, 0, 0, 0));
+		RenderDebugDraw(bgfx::getTexture(s_main->shadowMapFb.handle), 0, 0, ShaderProgramId::TextureDebug);
 	}
 
 #ifdef USE_PROFILER

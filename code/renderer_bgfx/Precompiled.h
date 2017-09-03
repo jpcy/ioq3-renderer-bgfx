@@ -134,7 +134,12 @@ struct ConsoleVariables
 	ConsoleVariable railCoreWidth;
 	ConsoleVariable railSegmentLength;
 	ConsoleVariable screenshotJpegQuality;
+	ConsoleVariable shadowDepthBias;
+	ConsoleVariable shadowNormalBias;
+	ConsoleVariable shadowSlopeScaleDepthBias;
 	ConsoleVariable softSprites;
+	ConsoleVariable sunLight;
+	ConsoleVariable sunLightIntensity;
 	ConsoleVariable textureVariation;
 	ConsoleVariable waterReflections;
 	ConsoleVariable wireframe;
@@ -1387,6 +1392,7 @@ struct TextureUnit
 		DynamicLightCells   = TU_DYNAMIC_LIGHT_CELLS,
 		DynamicLightIndices = TU_DYNAMIC_LIGHT_INDICES,
 		DynamicLights       = TU_DYNAMIC_LIGHTS,
+		ShadowMap           = TU_SHADOWMAP,
 		Noise               = TU_NOISE
 	};
 };
@@ -1496,6 +1502,14 @@ struct Uniforms
 	Uniform_vec4 bloom_Enabled_Write_Scale = "u_Bloom_Enabled_Write_Scale";
 	/// @}
 
+	/// @name Sun light
+	/// @{
+	Uniform_mat4 lightModelViewProj = "u_LightModelViewProj";
+	Uniform_vec4 shadowMap_TexelSize_DepthBias_NormalBias_SlopeScaleDepthBias = "u_ShadowMap_TexelSize_DepthBias_NormalBias_SlopeScaleDepthBias";
+	Uniform_vec4 sunLightColor = "u_SunLightColor";
+	Uniform_vec4 sunLightDir = "u_SunLightDir";
+	/// @}
+
 	/// @name Texture samplers
 	/// @{
 
@@ -1503,6 +1517,7 @@ struct Uniforms
 	Uniform_int textureSampler = "u_TextureSampler";
 
 	Uniform_int bloomSampler = "u_BloomSampler";
+	Uniform_int shadowMapSampler = "u_ShadowMapSampler";
 	Uniform_int noiseSampler = "u_NoiseSampler";
 	Uniform_int smaaColorSampler = "u_SmaaColorSampler";
 	Uniform_int smaaEdgesSampler = "u_SmaaEdgesSampler";

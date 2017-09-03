@@ -1,4 +1,4 @@
-$input v_position, v_projPosition, v_texcoord0, v_texcoord1, v_normal, v_color0
+$input v_position, v_projPosition, v_shadowPosition, v_texcoord0, v_texcoord1, v_normal, v_color0
 
 #include <bgfx_shader.sh>
 #include "Common.sh"
@@ -6,6 +6,7 @@ $input v_position, v_projPosition, v_texcoord0, v_texcoord1, v_normal, v_color0
 #define USE_DYNAMIC_LIGHTS
 #include "DynamicLight.sh"
 #include "PortalClip.sh"
+#include "SunLight.sh"
 
 SAMPLER2D(u_DiffuseSampler, 0); // TU_DIFFUSE
 SAMPLER2D(u_LightSampler, 2); // TU_LIGHT
@@ -80,6 +81,9 @@ void main()
 	vec3 vertexColor = v_color0.rgb;
 	vec3 diffuseLight = ToLinear(texture2D(u_LightSampler, v_texcoord1).rgb);
 	diffuseLight += CalculateDynamicLight(v_position, v_normal.xyz);
+#if defined(USE_SUN_LIGHT)
+	diffuseLight += CalculateSunLight(v_position, v_normal.xyz, v_shadowPosition);
+#endif
 	vec4 fragColor = vec4(ToGamma(diffuse.rgb * vertexColor * diffuseLight), alpha);
 	if (int(u_RenderMode.x) == RENDER_MODE_LIGHTMAP)
 	{

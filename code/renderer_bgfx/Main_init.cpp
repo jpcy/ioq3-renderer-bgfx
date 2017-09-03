@@ -104,6 +104,7 @@ void ConsoleVariables::initialize()
 		"dlight     Dynamic light data\n"
 		"lightmap   Lightmaps\n"
 		"reflection Planar reflection\n"
+		"shadow     Shadows\n"
 		"smaa       SMAA edges and weights\n");
 	debugDrawSize = interface::Cvar_Get("r_debugDrawSize", "256", ConsoleVariableFlags::Archive);
 	dynamicLightIntensity = interface::Cvar_Get("r_dynamicLightIntensity", "1", ConsoleVariableFlags::Archive);
@@ -115,8 +116,13 @@ void ConsoleVariables::initialize()
 	railWidth = interface::Cvar_Get("r_railWidth", "16", ConsoleVariableFlags::Archive);
 	railCoreWidth = interface::Cvar_Get("r_railCoreWidth", "6", ConsoleVariableFlags::Archive);
 	railSegmentLength = interface::Cvar_Get("r_railSegmentLength", "32", ConsoleVariableFlags::Archive);
-	softSprites = interface::Cvar_Get("r_softSprites", "1", ConsoleVariableFlags::Archive);
 	screenshotJpegQuality = interface::Cvar_Get("r_screenshotJpegQuality", "90", ConsoleVariableFlags::Archive);
+	softSprites = interface::Cvar_Get("r_softSprites", "1", ConsoleVariableFlags::Archive);
+	shadowDepthBias = interface::Cvar_Get("r_shadowDepthBias", "0", ConsoleVariableFlags::Archive);
+	shadowNormalBias = interface::Cvar_Get("r_shadowNormalBias", "1", ConsoleVariableFlags::Archive);
+	shadowSlopeScaleDepthBias = interface::Cvar_Get("r_shadowSlopeScaleDepthBias", "0", ConsoleVariableFlags::Archive);
+	sunLight = interface::Cvar_Get("r_sunLight", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	sunLightIntensity = interface::Cvar_Get("r_sunLightIntensity", "1", ConsoleVariableFlags::Archive);
 	textureVariation = interface::Cvar_Get("r_textureVariation", "0", ConsoleVariableFlags::Archive);
 	waterReflections = interface::Cvar_Get("r_waterReflections", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	wireframe = interface::Cvar_Get("r_wireframe", "0", ConsoleVariableFlags::Cheat);
@@ -445,7 +451,11 @@ void Initialize()
 	{
 		ShaderProgramIdMap &pm = programMap[ShaderProgramId::Generic + i];
 		pm.frag = FragmentShaderId::Enum(FragmentShaderId::Generic + i);
-		pm.vert = VertexShaderId::Generic;
+
+		if (i & GenericFragmentShaderVariant::SunLight)
+			pm.vert = VertexShaderId::Generic_SunLight;
+		else
+			pm.vert = VertexShaderId::Generic;
 	}
 
 	programMap[ShaderProgramId::LinearDepth] = { FragmentShaderId::LinearDepth, VertexShaderId::Texture };
@@ -458,32 +468,47 @@ void Initialize()
 	programMap[ShaderProgramId::TextureColor] = { FragmentShaderId::TextureColor, VertexShaderId::Texture };
 	programMap[ShaderProgramId::TextureDebug] = { FragmentShaderId::TextureDebug, VertexShaderId::Texture };
 	programMap[ShaderProgramId::TextureVariation] = { FragmentShaderId::TextureVariation, VertexShaderId::Generic };
+	programMap[ShaderProgramId::TextureVariation + TextureVariationShaderProgramVariant::SunLight] =
+	{
+		FragmentShaderId::TextureVariation_SunLight,
+		VertexShaderId::Generic_SunLight
+	};
 
 	// Create shader programs.
 	for (size_t i = 0; i < ShaderProgramId::Num; i++)
 	{
+		const ShaderProgramIdMap &pm = programMap[i];
+
 		// Don't create shader programs that won't be used.
 		if (s_main->aa != AntiAliasing::SMAA && (i == ShaderProgramId::SMAABlendingWeightCalculation || i == ShaderProgramId::SMAAEdgeDetection || i == ShaderProgramId::SMAANeighborhoodBlending))
 			continue;
 
-		if (g_cvars.bloom.getBool() == 0 && (i == ShaderProgramId::Bloom || i == ShaderProgramId::GaussianBlur))
+		if (!g_cvars.bloom.getBool() && (i == ShaderProgramId::Bloom || i == ShaderProgramId::GaussianBlur))
 			continue;
 
-		Shader &fragment = s_main->fragmentShaders[programMap[i].frag];
+		if (i >= (int)ShaderProgramId::Generic && i <= int(ShaderProgramId::Generic + GenericShaderProgramVariant::Num))
+		{
+			const int variant = i - (int)ShaderProgramId::Generic;
+
+			if (!g_cvars.sunLight.getBool() && (variant & GenericShaderProgramVariant::SunLight))
+				continue;
+		}
+
+		Shader &fragment = s_main->fragmentShaders[pm.frag];
 
 		if (!bgfx::isValid(fragment.handle))
 		{
-			fragment.handle = bgfx::createShader(bgfx::makeRef(fragMem[programMap[i].frag].mem, (uint32_t)fragMem[programMap[i].frag].size));
+			fragment.handle = bgfx::createShader(bgfx::makeRef(fragMem[pm.frag].mem, (uint32_t)fragMem[pm.frag].size));
 
 			if (!bgfx::isValid(fragment.handle))
 				interface::Error("Error creating fragment shader");
 		}
 
-		Shader &vertex = s_main->vertexShaders[programMap[i].vert];
+		Shader &vertex = s_main->vertexShaders[pm.vert];
 	
 		if (!bgfx::isValid(vertex.handle))
 		{
-			vertex.handle = bgfx::createShader(bgfx::makeRef(vertMem[programMap[i].vert].mem, (uint32_t)vertMem[programMap[i].vert].size));
+			vertex.handle = bgfx::createShader(bgfx::makeRef(vertMem[pm.vert].mem, (uint32_t)vertMem[pm.vert].size));
 
 			if (!bgfx::isValid(vertex.handle))
 				interface::Error("Error creating vertex shader");
@@ -559,6 +584,11 @@ void LoadWorld(const char *name)
 		s_main->smaaEdgesFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::RG8, rtClampFlags);
 		s_main->smaaAreaTex = bgfx::createTexture2D(AREATEX_WIDTH, AREATEX_HEIGHT, false, 1, bgfx::TextureFormat::RG8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(areaTexBytes, AREATEX_SIZE));
 		s_main->smaaSearchTex = bgfx::createTexture2D(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, false, 1, bgfx::TextureFormat::R8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(searchTexBytes, SEARCHTEX_SIZE));
+	}
+
+	if (g_cvars.sunLight.getBool())
+	{
+		s_main->shadowMapFb.handle = bgfx::createFrameBuffer(s_main->shadowMapSize, s_main->shadowMapSize, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_COMPARE_LEQUAL | rtClampFlags);
 	}
 
 	// Load the world.

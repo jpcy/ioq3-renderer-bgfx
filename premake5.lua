@@ -100,7 +100,7 @@ newaction
 				end
 				
 				if renderer == "gl" then
-					command = command .. " --platform linux -p 140"
+					command = command .. " --platform linux -p 130"
 				elseif renderer == "d3d9" or renderer == "d3d11" then
 					command = command .. " --platform windows"
 				
@@ -167,7 +167,18 @@ newaction
 		{
 			{ "AlphaTest", "USE_ALPHA_TEST" },
 			{ "DynamicLights", "USE_DYNAMIC_LIGHTS" },
-			{ "SoftSprite", "USE_SOFT_SPRITE" }
+			{ "SoftSprite", "USE_SOFT_SPRITE" },
+			{ "SunLight", "USE_SUN_LIGHT" }
+		}
+		
+		local genericVertexVariants =
+		{
+			{ "SunLight", "USE_SUN_LIGHT" }
+		}
+		
+		local textureVariationFragmentVariants =
+		{
+			{ "SunLight", "USE_SUN_LIGHT" }
 		}
 		
 		local fragmentShaders =
@@ -187,7 +198,7 @@ newaction
 			{ "Texture" },
 			{ "TextureColor" },
 			{ "TextureDebug" },
-			{ "TextureVariation" }
+			{ "TextureVariation", textureVariationFragmentVariants }
 		}
 		
 		local vertexShaders =
@@ -195,7 +206,7 @@ newaction
 			{ "Color" },
 			{ "Depth", depthVertexVariants },
 			{ "Fog" },
-			{ "Generic" },
+			{ "Generic", genericVertexVariants },
 			{ "SMAABlendingWeightCalculation" },
 			{ "SMAAEdgeDetection" },
 			{ "SMAANeighborhoodBlending" },
@@ -276,6 +287,7 @@ newaction
 		writeShaderVariantEnum(outputHeaderFile, genericFragmentVariants, "GenericFragment")
 		writeShaderVariantEnum(outputHeaderFile, depthFragmentVariants, "DepthFragment")
 		writeShaderVariantEnum(outputHeaderFile, depthVertexVariants, "DepthVertex")
+		writeShaderVariantEnum(outputHeaderFile, textureVariationFragmentVariants, "TextureVariationFragment")
 		outputHeaderFile:close()
 
 		-- Generate functions to map shader ID enums to source strings, appending them to the output source file.

@@ -1,4 +1,4 @@
-$input v_position, v_projPosition, v_texcoord0, v_texcoord1, v_normal, v_color0
+$input v_position, v_projPosition, v_shadowPosition, v_texcoord0, v_texcoord1, v_normal, v_color0
 
 #include <bgfx_shader.sh>
 #include "Common.sh"
@@ -6,6 +6,7 @@ $input v_position, v_projPosition, v_texcoord0, v_texcoord1, v_normal, v_color0
 #include "AlphaTest.sh"
 #include "DynamicLight.sh"
 #include "PortalClip.sh"
+#include "SunLight.sh"
 
 SAMPLER2D(u_DiffuseSampler, 0); // TU_DIFFUSE
 SAMPLER2D(u_DiffuseSampler2, 1); // TU_DIFFUSE2
@@ -52,7 +53,7 @@ void main()
 
 	vec4 diffuse = texture2D(u_DiffuseSampler, texCoord0);
 
-	if (int(u_Animation_Enabled_Fraction.x) == 1.0)
+	if (int(u_Animation_Enabled_Fraction.x) != 0)
 	{
 		vec4 diffuse2 = texture2D(u_DiffuseSampler2, texCoord0);
 		diffuse = mix(diffuse, diffuse2, u_Animation_Enabled_Fraction.y);
@@ -128,6 +129,10 @@ void main()
 
 	diffuseLight += CalculateDynamicLight(v_position, v_normal.xyz);
 #endif // USE_DYNAMIC_LIGHTS
+
+#if defined(USE_SUN_LIGHT)
+	diffuseLight += CalculateSunLight(v_position, v_normal.xyz, v_shadowPosition);
+#endif
 
 	vec4 fragColor = vec4(ToGamma(diffuse.rgb * vertexColor * diffuseLight), alpha);
 
