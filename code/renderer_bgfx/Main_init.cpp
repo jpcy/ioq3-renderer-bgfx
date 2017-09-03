@@ -117,7 +117,7 @@ void ConsoleVariables::initialize()
 	railCoreWidth = interface::Cvar_Get("r_railCoreWidth", "6", ConsoleVariableFlags::Archive);
 	railSegmentLength = interface::Cvar_Get("r_railSegmentLength", "32", ConsoleVariableFlags::Archive);
 	screenshotJpegQuality = interface::Cvar_Get("r_screenshotJpegQuality", "90", ConsoleVariableFlags::Archive);
-	softSprites = interface::Cvar_Get("r_softSprites", "1", ConsoleVariableFlags::Archive);
+	softSprites = interface::Cvar_Get("r_softSprites", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	shadowDepthBias = interface::Cvar_Get("r_shadowDepthBias", "0", ConsoleVariableFlags::Archive);
 	shadowNormalBias = interface::Cvar_Get("r_shadowNormalBias", "1", ConsoleVariableFlags::Archive);
 	shadowSlopeScaleDepthBias = interface::Cvar_Get("r_shadowSlopeScaleDepthBias", "0", ConsoleVariableFlags::Archive);
@@ -491,6 +491,9 @@ void Initialize()
 			const int variant = i - (int)ShaderProgramId::Generic;
 
 			if (!g_cvars.sunLight.getBool() && (variant & GenericShaderProgramVariant::SunLight))
+				continue;
+
+			if (!s_main->softSpritesEnabled && (variant & GenericShaderProgramVariant::SoftSprite))
 				continue;
 		}
 
