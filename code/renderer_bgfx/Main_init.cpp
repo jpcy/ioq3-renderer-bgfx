@@ -231,6 +231,11 @@ static void Cmd_BakeLights()
 	light_baker::Start(nSamples);
 }
 
+static void Cmd_CaptureFrame()
+{
+	s_main->captureFrame = true;
+}
+
 static void Cmd_PickMaterial()
 {
 	if (world::IsLoaded())
@@ -280,6 +285,7 @@ void Initialize()
 	s_main->softSpritesEnabled = g_cvars.softSprites.getBool() && !(s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x);
 
 	interface::Cmd_Add("r_bakeLights", Cmd_BakeLights);
+	interface::Cmd_Add("r_captureFrame", Cmd_CaptureFrame);
 	interface::Cmd_Add("r_pickMaterial", Cmd_PickMaterial);
 	interface::Cmd_Add("r_printMaterials", Cmd_PrintMaterials);
 	interface::Cmd_Add("screenshot", Cmd_Screenshot);
@@ -505,6 +511,10 @@ void Initialize()
 
 			if (!bgfx::isValid(fragment.handle))
 				interface::Error("Error creating fragment shader");
+
+#ifdef _DEBUG
+			bgfx::setName(fragment.handle, s_fragmentShaderNames[pm.frag]);
+#endif
 		}
 
 		Shader &vertex = s_main->vertexShaders[pm.vert];
@@ -515,6 +525,10 @@ void Initialize()
 
 			if (!bgfx::isValid(vertex.handle))
 				interface::Error("Error creating vertex shader");
+
+#ifdef _DEBUG
+			bgfx::setName(vertex.handle, s_vertexShaderNames[pm.vert]);
+#endif
 		}
 
 		s_main->shaderPrograms[i].handle = bgfx::createProgram(vertex.handle, fragment.handle);
@@ -605,6 +619,7 @@ void Shutdown(bool destroyWindow)
 	light_baker::Shutdown();
 	world::Unload();
 	interface::Cmd_Remove("r_bakeLights");
+	interface::Cmd_Remove("r_captureFrame");
 	interface::Cmd_Remove("r_pickMaterial");
 	interface::Cmd_Remove("r_printMaterials");
 	interface::Cmd_Remove("screenshot");

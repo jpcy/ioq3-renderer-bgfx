@@ -47,6 +47,10 @@ void Texture::initialize(const char *name, const Image &image, int flags, bgfx::
 	// Create with data: immutable. Create without data: mutable, update whenever.
 	handle_ = bgfx::createTexture2D(width_, height_, nMips_ > 1, 1, format_, calculateBgfxFlags(), (flags_ & TextureFlags::Mutable) ? nullptr : mem);
 
+#ifdef _DEBUG
+	bgfx::setName(handle_, name_);
+#endif
+
 	if (flags & TextureFlags::Mutable)
 	{
 		update(mem, 0, 0, width_, height_);
@@ -69,6 +73,10 @@ void Texture::resize(int width, int height)
 	width_ = width;
 	height_ = height;
 	handle_ = bgfx::createTexture2D(width_, height_, nMips_ > 1, 1, format_, calculateBgfxFlags());
+
+#ifdef _DEBUG
+	bgfx::setName(handle_, name_);
+#endif
 }
 
 void Texture::update(const bgfx::Memory *mem, int x, int y, int width, int height)

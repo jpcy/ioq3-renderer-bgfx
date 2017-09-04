@@ -260,6 +260,7 @@ struct Main
 	/// @}
 
 	AntiAliasing aa, aaHud;
+	bool captureFrame = false;
 	const Entity *currentEntity = nullptr;
 	DebugDraw debugDraw = DebugDraw::None;
 	std::unique_ptr<DynamicLightManager> dlightManager;

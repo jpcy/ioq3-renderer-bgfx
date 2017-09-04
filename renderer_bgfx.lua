@@ -11,6 +11,7 @@ function rendererProject(engine, rendererPath)
 		"__STDC_FORMAT_MACROS",
 		"__STDC_LIMIT_MACROS",
 		"BGFX_CONFIG_RENDERER_OPENGL=31",
+		"BGFX_CONFIG_RENDERDOC_LOG_FILEPATH=\"ioq3-renderer-bgfx\"",
 		"USE_RENDERER_DLOPEN"
 	}
 	
