@@ -503,6 +503,9 @@ void Initialize()
 				continue;
 		}
 
+		if (!s_main->softSpritesEnabled && i == ShaderProgramId::LinearDepth)
+			continue;
+
 		Shader &fragment = s_main->fragmentShaders[pm.frag];
 
 		if (!bgfx::isValid(fragment.handle))
