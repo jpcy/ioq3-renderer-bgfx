@@ -65,7 +65,7 @@ vec3 ClosestPointOnLineSegment(vec3 A, vec3 B, vec3 P)
 
 vec3 CalculateDynamicLight(vec3 position, vec3 normal)
 {
-	vec3 diffuseLight;
+	vec3 diffuseLight = vec3_splat(0.0);
 
 	if (int(u_DynamicLight_Num_Intensity.x) > 0)
 	{
