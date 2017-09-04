@@ -557,7 +557,11 @@ void LoadWorld(const char *name)
 	}
 
 	const uint32_t rtClampFlags = BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP;
-	s_main->linearDepthFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::R16F);
+
+	if (s_main->softSpritesEnabled)
+	{
+		s_main->linearDepthFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::R16F);
+	}
 
 	if (g_cvars.bloom.getBool())
 	{
