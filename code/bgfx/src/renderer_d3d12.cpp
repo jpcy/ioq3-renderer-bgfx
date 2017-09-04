@@ -1683,6 +1683,24 @@ namespace bgfx { namespace d3d12
 			m_occlusionQuery.invalidate(_handle);
 		}
 
+		virtual void setName(Handle _handle, const char* _name) override
+		{
+			switch (_handle.type)
+			{
+			case Handle::Shader:
+//				setDebugObjectName(m_shaders[_handle.idx].m_ptr, _name);
+				break;
+
+			case Handle::Texture:
+				setDebugObjectName(m_textures[_handle.idx].m_ptr, _name);
+				break;
+
+			default:
+				BX_CHECK(false, "Invalid handle type?! %d", _handle.type);
+				break;
+			}
+		}
+
 		void submitBlit(BlitState& _bs, uint16_t _view);
 
 		void submit(Frame* _render, ClearQuad& _clearQuad, TextVideoMemBlitter& _textVideoMemBlitter) override;

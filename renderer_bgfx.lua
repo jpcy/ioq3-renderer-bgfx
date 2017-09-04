@@ -41,7 +41,7 @@ function rendererProject(engine, rendererPath)
 		path.join(bxPath, "src/timer.cpp"),
 		path.join(bimgPath, "include/bimg/*.h"),
 		path.join(bimgPath, "src/image.cpp"),
-		path.join(bimgPath, "src/image_decode.cpp"),
+		path.join(bimgPath, "src/*.h"),
 		path.join(bgfxPath, "include/bgfx/*.h"),
 		path.join(bgfxPath, "src/bgfx.cpp"),
 		--path.join(bgfxPath, "src/glcontext_egl.cpp"),
