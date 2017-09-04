@@ -1084,9 +1084,12 @@ static void RenderCamera(const RenderCameraArgs &args)
 		}
 
 		// Read depth, write linear depth.
-		s_main->uniforms->depthRange.set(vec4(0, 0, depthRange.x, depthRange.y));
-		bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->sceneFb.handle, s_main->sceneDepthAttachment));
-		RenderScreenSpaceQuad(s_main->linearDepthFb, ShaderProgramId::LinearDepth, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
+		if (s_main->softSpritesEnabled)
+		{
+			s_main->uniforms->depthRange.set(vec4(0, 0, depthRange.x, depthRange.y));
+			bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->sceneFb.handle, s_main->sceneDepthAttachment));
+			RenderScreenSpaceQuad(s_main->linearDepthFb, ShaderProgramId::LinearDepth, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
+		}
 	}
 
 	uint8_t mainViewId;
@@ -1708,7 +1711,8 @@ void EndFrame()
 	}
 	else if (s_main->debugDraw == DebugDraw::Depth)
 	{
-		RenderDebugDraw(bgfx::getTexture(s_main->linearDepthFb.handle));
+		s_main->uniforms->textureDebug.set(vec4(TEXTURE_DEBUG_R, 0, 0, 0));
+		RenderDebugDraw(bgfx::getTexture(s_main->linearDepthFb.handle), 0, 0, ShaderProgramId::TextureDebug);
 	}
 	else if (s_main->debugDraw == DebugDraw::DynamicLight)
 	{
