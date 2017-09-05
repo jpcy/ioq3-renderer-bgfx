@@ -294,6 +294,11 @@ bool AreWaterReflectionsEnabled()
 	return s_main->waterReflectionsEnabled;
 }
 
+bool AreExtraDynamicLightsEnabled()
+{
+	return s_main->extraDynamicLightsEnabled;
+}
+
 #define NOISE_PERM(a) s_main->noisePerm[(a) & (s_main->noiseSize - 1)]
 #define NOISE_TABLE(x, y, z, t) s_main->noiseTable[NOISE_PERM(x + NOISE_PERM(y + NOISE_PERM(z + NOISE_PERM(t))))]
 #define NOISE_LERP( a, b, w ) ( ( a ) * ( 1.0f - ( w ) ) + ( b ) * ( w ) )

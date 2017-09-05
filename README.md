@@ -80,6 +80,7 @@ r_bloom                 | Enable bloom.
 r_bloomScale            | Scale the bloom effect.
 r_dynamicLightIntensity | Make dynamic lights brighter/dimmer.
 r_dynamicLightScale     | Scale the radius of dynamic lights.
+r_extraDynamicLights    | Enable extra dynamic lights on Q3A weapons.
 r_lerpTextureAnimation  | Use linear interpolation on texture animation - flames, explosions.
 r_maxAnisotropy         | Enable [anisotropic filtering](https://en.wikipedia.org/wiki/Anisotropic_filtering).
 r_textureVariation      | Hide obvious texture tiling in a few Q3A maps.

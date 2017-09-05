@@ -277,7 +277,7 @@ static float CalculateExplosionLight(float entityShaderTime, float durationMilli
 
 void OnEntityAddedToScene(const Entity &entity, bool isWorldScene)
 {
-	if (!isWorldScene)
+	if (!isWorldScene || !main::AreExtraDynamicLightsEnabled())
 		return;
 
 	// Hack in extra dlights for Quake 3 content.

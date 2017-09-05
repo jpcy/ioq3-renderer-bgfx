@@ -430,6 +430,7 @@ namespace main
 	void AddEntityToScene(const Entity &entity);
 	void AddPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int nPolys);
 	bool AreWaterReflectionsEnabled();
+	bool AreExtraDynamicLightsEnabled();
 	float CalculateNoise(float x, float y, float z, float t);
 	void DebugPrint(const char *format, ...);
 	void DrawAxis(vec3 position);

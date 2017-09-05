@@ -263,6 +263,7 @@ struct Main
 	/// @{
 	AntiAliasing aa, aaHud;
 	bool bloomEnabled;
+	bool extraDynamicLightsEnabled;
 	bool fastPathEnabled;
 	bool lerpTextureAnimationEnabled;
 	bool maxAnisotropyEnabled;

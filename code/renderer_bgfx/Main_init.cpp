@@ -277,6 +277,8 @@ void Initialize()
 
 	ConsoleVariable bloom = interface::Cvar_Get("r_bloom", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	s_main->bloomEnabled = bloom.getBool();
+	ConsoleVariable extraDynamicLights = interface::Cvar_Get("r_extraDynamicLights", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	s_main->extraDynamicLightsEnabled = extraDynamicLights.getBool();
 	ConsoleVariable fastPath = interface::Cvar_Get("r_fastPath", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	s_main->fastPathEnabled = fastPath.getBool();
 	ConsoleVariable lerpTextureAnimation = interface::Cvar_Get("r_lerpTextureAnimation", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
@@ -298,6 +300,7 @@ void Initialize()
 		s_main->aa = AntiAliasing::None;
 		s_main->aaHud = AntiAliasing::None;
 		s_main->bloomEnabled = false;
+		s_main->extraDynamicLightsEnabled = false;
 		s_main->lerpTextureAnimationEnabled = false;
 		s_main->maxAnisotropyEnabled = false;
 		s_main->softSpritesEnabled = false;
