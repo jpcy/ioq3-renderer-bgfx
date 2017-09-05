@@ -116,19 +116,14 @@ struct ConsoleVariables
 {
 	void initialize();
 
-	ConsoleVariable aa;
-	ConsoleVariable aa_hud;
 	ConsoleVariable backend;
 	ConsoleVariable bgfx_stats;
-	ConsoleVariable bloom;
 	ConsoleVariable bloomScale;
 	ConsoleVariable debug;
 	ConsoleVariable debugDraw;
 	ConsoleVariable debugDrawSize;
 	ConsoleVariable dynamicLightIntensity;
 	ConsoleVariable dynamicLightScale;
-	ConsoleVariable lerpTextureAnimation;
-	ConsoleVariable maxAnisotropy;
 	ConsoleVariable picmip;
 	ConsoleVariable railWidth;
 	ConsoleVariable railCoreWidth;
@@ -137,11 +132,7 @@ struct ConsoleVariables
 	ConsoleVariable shadowDepthBias;
 	ConsoleVariable shadowNormalBias;
 	ConsoleVariable shadowSlopeScaleDepthBias;
-	ConsoleVariable softSprites;
-	ConsoleVariable sunLight;
 	ConsoleVariable sunLightIntensity;
-	ConsoleVariable textureVariation;
-	ConsoleVariable waterReflections;
 	ConsoleVariable wireframe;
 
 	/// @name Gamma
@@ -438,6 +429,7 @@ namespace main
 	void AddDynamicLightToScene(const DynamicLight &light);
 	void AddEntityToScene(const Entity &entity);
 	void AddPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int nPolys);
+	bool AreWaterReflectionsEnabled();
 	float CalculateNoise(float x, float y, float z, float t);
 	void DebugPrint(const char *format, ...);
 	void DrawAxis(vec3 position);
@@ -451,6 +443,8 @@ namespace main
 	Transform GetMainCameraTransform();
 	void Initialize();
 	bool IsCameraMirrored();
+	bool IsLerpTextureAnimationEnabled();
+	bool IsMaxAnisotropyEnabled();
 	void LoadWorld(const char *name); 
 	void RegisterFont(const char *fontName, int pointSize, fontInfo_t *font);
 	void RenderHemicube(const FrameBuffer &frameBuffer, vec3 position, const vec3 forward, const vec3 up, vec2i rectOffset, int faceSize, bool skipUnlitSurfaces);

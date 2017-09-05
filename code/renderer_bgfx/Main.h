@@ -259,14 +259,25 @@ struct Main
 	std::unique_ptr<Uniforms_MaterialStage> matStageUniforms;
 	/// @}
 
+	/// @name Derived from console variables
+	/// @{
 	AntiAliasing aa, aaHud;
+	bool bloomEnabled;
+	bool fastPathEnabled;
+	bool lerpTextureAnimationEnabled;
+	bool maxAnisotropyEnabled;
+	bool softSpritesEnabled;
+	bool sunLightEnabled;
+	bool textureVariationEnabled;
+	bool waterReflectionsEnabled;
+	/// @}
+	
 	bool captureFrame = false;
 	const Entity *currentEntity = nullptr;
 	DebugDraw debugDraw = DebugDraw::None;
 	std::unique_ptr<DynamicLightManager> dlightManager;
 	float halfTexelOffset = 0;
 	bool isTextureOriginBottomLeft = false;
-	bool softSpritesEnabled = false;
 	SunLight sunLight;
 
 	/// Convert from our coordinate system (looking down X) to OpenGL's coordinate system (looking down -Z)

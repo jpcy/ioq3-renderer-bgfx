@@ -846,7 +846,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 		s_main->mainCameraTransform.rotation = args.rotation;
 
 		// Render a reflection camera if there's a reflecting surface visible.
-		if (g_cvars.waterReflections.getBool())
+		if (s_main->waterReflectionsEnabled)
 		{
 			Transform reflectionCamera;
 			Plane reflectionPlane;
@@ -896,7 +896,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 			s_main->drawCalls.clear();
 			world::RenderPortal(args.visId, &s_main->drawCalls);
 			assert(!s_main->drawCalls.empty());
-			const uint8_t viewId = PushView(s_main->sceneFb, BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, viewMatrix, projectionMatrix, args.rect);
+			const uint8_t viewId = PushView(s_main->fastPathEnabled ? s_main->defaultFb : s_main->sceneFb, BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, viewMatrix, projectionMatrix, args.rect);
 #ifdef _DEBUG
 			bgfx::setViewName(viewId, "PortalStencilMask");
 #endif
@@ -969,7 +969,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 	}
 
 	// Render to shadow map. Probes skip this.
-	if (g_cvars.sunLight.getBool() && s_main->isWorldCamera && !isProbe)
+	if (s_main->sunLightEnabled && s_main->isWorldCamera && !isProbe)
 	{
 		Bounds bounds(world::GetBounds());
 		vec3 eye;
@@ -1021,8 +1021,8 @@ static void RenderCamera(const RenderCameraArgs &args)
 		s_main->uniforms->sunLightDir.set(vec4(-s_main->sunLight.direction, 0));
 	}
 
-	// Render depth. Probes skip this.
-	if (s_main->isWorldCamera && !isProbe)
+	// Render depth.
+	if (s_main->isWorldCamera && !s_main->fastPathEnabled && !isProbe)
 	{
 		const uint8_t viewId = PushView(s_main->sceneFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect);
 
@@ -1122,7 +1122,14 @@ static void RenderCamera(const RenderCameraArgs &args)
 	}
 	else if (s_main->isWorldCamera)
 	{
-		mainViewId = PushView(s_main->sceneFb, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
+		if (s_main->fastPathEnabled)
+		{
+			mainViewId = PushView(s_main->defaultFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
+		}
+		else
+		{
+			mainViewId = PushView(s_main->sceneFb, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
+		}
 
 #ifdef _DEBUG
 		bgfx::setViewName(mainViewId, "Scene");
@@ -1163,7 +1170,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 		// Special case for skybox.
 		if (dc.flags & DrawCallFlags::Skybox)
 		{
-			if (g_cvars.bloom.getBool())
+			if (s_main->bloomEnabled)
 			{
 				s_main->uniforms->bloom_Enabled_Write_Scale.set(vec4(1, 0, 0, 0));
 			}
@@ -1257,7 +1264,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 			if (!stage.active)
 				continue;
 
-			if (g_cvars.bloom.getBool())
+			if (s_main->bloomEnabled)
 			{
 				s_main->uniforms->bloom_Enabled_Write_Scale.set(vec4(1, stage.bloom ? 1.0f : 0.0f, 0, 0));
 			}
@@ -1322,7 +1329,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 				bgfx::setTexture(TextureUnit::DynamicLights, s_main->matStageUniforms->dynamicLightsSampler.handle, s_main->dlightManager->getLightsTexture());
 			}
 
-			if (g_cvars.sunLight.getBool() && s_main->isWorldCamera && mat->sort == MaterialSort::Opaque && !(dc.flags & DrawCallFlags::Sky))
+			if (s_main->sunLightEnabled && s_main->isWorldCamera && mat->sort == MaterialSort::Opaque && !(dc.flags & DrawCallFlags::Sky))
 			{
 				shaderVariant |= GenericShaderProgramVariant::SunLight;
 				bgfx::setTexture(TextureUnit::ShadowMap, s_main->uniforms->shadowMapSampler.handle, bgfx::getTexture(s_main->shadowMapFb.handle));
@@ -1335,7 +1342,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 				bgfx::setStencil(stencilTest);
 			}
 
-			if (g_cvars.textureVariation.getBool() && stage.textureVariation)
+			if (s_main->textureVariationEnabled && stage.textureVariation)
 			{
 				if (shaderVariant & GenericShaderProgramVariant::SunLight)
 				{
@@ -1369,7 +1376,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 		// Do fog pass.
 		if (doFogPass)
 		{
-			if (g_cvars.bloom.getBool())
+			if (s_main->bloomEnabled)
 			{
 				s_main->uniforms->bloom_Enabled_Write_Scale.set(vec4(1, 0, 0, 0));
 			}
@@ -1573,7 +1580,7 @@ void RenderScene(const SceneDefinition &scene)
 
 		if (isWorldScene)
 		{
-			if (g_cvars.bloom.getBool())
+			if (s_main->bloomEnabled)
 			{
 				// Render to quarter size framebuffer.
 				const Rect bloomRect(0, 0, window::GetWidth() / 4, window::GetHeight() / 4);
@@ -1600,7 +1607,7 @@ void RenderScene(const SceneDefinition &scene)
 				s_main->uniforms->smaaMetrics.set(vec4(1.0f / rect.w, 1.0f / rect.h, (float)rect.w, (float)rect.h));
 
 				// Edge detection.
-				if (g_cvars.bloom.getBool())
+				if (s_main->bloomEnabled)
 				{
 					bgfx::setTexture(0, s_main->uniforms->smaaColorSampler.handle, bgfx::getTexture(s_main->sceneTempFb.handle));
 				}
@@ -1618,7 +1625,7 @@ void RenderScene(const SceneDefinition &scene)
 				RenderScreenSpaceQuad("SMAABlendingWeightCalculation", s_main->smaaBlendFb, ShaderProgramId::SMAABlendingWeightCalculation, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE, BGFX_CLEAR_COLOR, s_main->isTextureOriginBottomLeft);
 
 				// Neighborhood blending.
-				if (g_cvars.bloom.getBool())
+				if (s_main->bloomEnabled)
 				{
 					bgfx::setTexture(0, s_main->uniforms->smaaColorSampler.handle, bgfx::getTexture(s_main->sceneTempFb.handle));
 				}
@@ -1630,7 +1637,7 @@ void RenderScene(const SceneDefinition &scene)
 				bgfx::setTexture(1, s_main->uniforms->smaaBlendSampler.handle, bgfx::getTexture(s_main->smaaBlendFb.handle));
 				RenderScreenSpaceQuad("SMAANeighborhoodBlending", s_main->defaultFb, ShaderProgramId::SMAANeighborhoodBlending, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
 			}
-			else if (!g_cvars.bloom.getBool())
+			else if (!s_main->bloomEnabled && !s_main->fastPathEnabled)
 			{
 				// Render scene to backbuffer.
 				bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->sceneFb.handle));
@@ -1732,13 +1739,13 @@ void EndFrame()
 		bgfx::touch(viewId);
 	}
 
-	if (s_main->debugDraw == DebugDraw::Bloom)
+	if (s_main->debugDraw == DebugDraw::Bloom && s_main->bloomEnabled)
 	{
 		RenderDebugDraw(bgfx::getTexture(s_main->sceneFb.handle, s_main->sceneBloomAttachment));
 		RenderDebugDraw(bgfx::getTexture(s_main->bloomFb[0].handle), 0, 1);
 		RenderDebugDraw(bgfx::getTexture(s_main->bloomFb[1].handle), 0, 2);
 	}
-	else if (s_main->debugDraw == DebugDraw::Depth)
+	else if (s_main->debugDraw == DebugDraw::Depth && !s_main->fastPathEnabled)
 	{
 		s_main->uniforms->textureDebug.set(vec4(TEXTURE_DEBUG_R, 0, 0, 0));
 		RenderDebugDraw(bgfx::getTexture(s_main->linearDepthFb.handle), 0, 0, ShaderProgramId::TextureDebug);
@@ -1755,7 +1762,7 @@ void EndFrame()
 			RenderDebugDraw(world::GetLightmap(i)->getHandle(), i, 0, ShaderProgramId::Texture);
 		}
 	}
-	else if (s_main->debugDraw == DebugDraw::Reflection)
+	else if (s_main->debugDraw == DebugDraw::Reflection && s_main->waterReflectionsEnabled)
 	{
 		RenderDebugDraw(bgfx::getTexture(s_main->reflectionFb.handle));
 	}
@@ -1765,7 +1772,7 @@ void EndFrame()
 		RenderDebugDraw(bgfx::getTexture(s_main->smaaEdgesFb.handle), 0, 0, ShaderProgramId::TextureDebug);
 		RenderDebugDraw(bgfx::getTexture(s_main->smaaBlendFb.handle), 1, 0, ShaderProgramId::TextureDebug);
 	}
-	else if (s_main->debugDraw == DebugDraw::Shadow && g_cvars.sunLight.getBool())
+	else if (s_main->debugDraw == DebugDraw::Shadow && s_main->sunLightEnabled)
 	{
 		s_main->uniforms->textureDebug.set(vec4(TEXTURE_DEBUG_R, 0, 0, 0));
 		RenderDebugDraw(bgfx::getTexture(s_main->shadowMapFb.handle), 0, 0, ShaderProgramId::TextureDebug);

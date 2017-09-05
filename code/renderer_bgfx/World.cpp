@@ -2154,7 +2154,7 @@ void Render(VisibilityId visId, DrawCallList *drawCallList, const mat3 &sceneRot
 		dc.fogIndex = surface.fogIndex;
 		dc.material = surface.material;
 
-		if (g_cvars.waterReflections.getBool())
+		if (main::AreWaterReflectionsEnabled())
 		{
 			// If this is a back side reflective material, use the front side material if there's any reflective surfaces visible to the camera.
 			if (dc.material->reflective == MaterialReflective::BackSide && !vis.cameraReflectiveSurfaces.empty())

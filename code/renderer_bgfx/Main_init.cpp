@@ -48,21 +48,6 @@ static const std::array<const BackendMap, 5> s_backendMaps =
 
 void ConsoleVariables::initialize()
 {
-	aa = interface::Cvar_Get("r_aa", "", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	aa.setDescription(
-		"<empty>   None\n"
-		"msaa2x    MSAA 2x\n"
-		"msaa4x    MSAA 4x\n"
-		"msaa8x    MSAA 8x\n"
-		"msaa16x   MSAA 16x\n"
-		"smaa      SMAA 1x\n");
-	aa_hud = interface::Cvar_Get("r_aa_hud", "", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	aa_hud.setDescription(
-		"<empty>   None\n"
-		"msaa2x    MSAA 2x\n"
-		"msaa4x    MSAA 4x\n"
-		"msaa8x    MSAA 8x\n"
-		"msaa16x   MSAA 16x\n");
 	backend = interface::Cvar_Get("r_backend", "", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 
 	{
@@ -93,7 +78,6 @@ void ConsoleVariables::initialize()
 	}
 
 	bgfx_stats = interface::Cvar_Get("r_bgfx_stats", "0", ConsoleVariableFlags::Cheat);
-	bloom = interface::Cvar_Get("r_bloom", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	bloomScale = interface::Cvar_Get("r_bloomScale", "1.0", ConsoleVariableFlags::Archive);
 	debug = interface::Cvar_Get("r_debug", "", 0);
 	debugDraw = interface::Cvar_Get("r_debugDraw", "", 0);
@@ -109,22 +93,16 @@ void ConsoleVariables::initialize()
 	debugDrawSize = interface::Cvar_Get("r_debugDrawSize", "256", ConsoleVariableFlags::Archive);
 	dynamicLightIntensity = interface::Cvar_Get("r_dynamicLightIntensity", "1", ConsoleVariableFlags::Archive);
 	dynamicLightScale = interface::Cvar_Get("r_dynamicLightScale", "0.7", ConsoleVariableFlags::Archive);
-	lerpTextureAnimation = interface::Cvar_Get("r_lerpTextureAnimation", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	maxAnisotropy = interface::Cvar_Get("r_maxAnisotropy", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	picmip = interface::Cvar_Get("r_picmip", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	picmip.checkRange(0, 16, true);
 	railWidth = interface::Cvar_Get("r_railWidth", "16", ConsoleVariableFlags::Archive);
 	railCoreWidth = interface::Cvar_Get("r_railCoreWidth", "6", ConsoleVariableFlags::Archive);
 	railSegmentLength = interface::Cvar_Get("r_railSegmentLength", "32", ConsoleVariableFlags::Archive);
 	screenshotJpegQuality = interface::Cvar_Get("r_screenshotJpegQuality", "90", ConsoleVariableFlags::Archive);
-	softSprites = interface::Cvar_Get("r_softSprites", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	shadowDepthBias = interface::Cvar_Get("r_shadowDepthBias", "0", ConsoleVariableFlags::Archive);
 	shadowNormalBias = interface::Cvar_Get("r_shadowNormalBias", "1", ConsoleVariableFlags::Archive);
 	shadowSlopeScaleDepthBias = interface::Cvar_Get("r_shadowSlopeScaleDepthBias", "0", ConsoleVariableFlags::Archive);
-	sunLight = interface::Cvar_Get("r_sunLight", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	sunLightIntensity = interface::Cvar_Get("r_sunLightIntensity", "1", ConsoleVariableFlags::Archive);
-	textureVariation = interface::Cvar_Get("r_textureVariation", "0", ConsoleVariableFlags::Archive);
-	waterReflections = interface::Cvar_Get("r_waterReflections", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	wireframe = interface::Cvar_Get("r_wireframe", "0", ConsoleVariableFlags::Cheat);
 
 	// Gamma
@@ -275,14 +253,58 @@ void Initialize()
 {
 	s_main = std::make_unique<Main>();
 	g_cvars.initialize();
-	s_main->aa = AntiAliasingFromString(g_cvars.aa.getString());
-	s_main->aaHud = AntiAliasingFromString(g_cvars.aa_hud.getString());
+	ConsoleVariable aa = interface::Cvar_Get("r_aa", "", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	aa.setDescription(
+		"<empty>   None\n"
+		"msaa2x    MSAA 2x\n"
+		"msaa4x    MSAA 4x\n"
+		"msaa8x    MSAA 8x\n"
+		"msaa16x   MSAA 16x\n"
+		"smaa      SMAA 1x\n");
+	ConsoleVariable aa_hud = interface::Cvar_Get("r_aa_hud", "", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	aa_hud.setDescription(
+		"<empty>   None\n"
+		"msaa2x    MSAA 2x\n"
+		"msaa4x    MSAA 4x\n"
+		"msaa8x    MSAA 8x\n"
+		"msaa16x   MSAA 16x\n");
+	s_main->aa = AntiAliasingFromString(aa.getString());
+	s_main->aaHud = AntiAliasingFromString(aa_hud.getString());
 
 	// Non-world/HUD scenes can only use MSAA.
 	if (!(s_main->aaHud >= AntiAliasing::MSAA2x && s_main->aaHud <= AntiAliasing::MSAA16x))
 		s_main->aaHud = AntiAliasing::None;
 
-	s_main->softSpritesEnabled = g_cvars.softSprites.getBool() && !(s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x);
+	ConsoleVariable bloom = interface::Cvar_Get("r_bloom", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	s_main->bloomEnabled = bloom.getBool();
+	ConsoleVariable fastPath = interface::Cvar_Get("r_fastPath", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	s_main->fastPathEnabled = fastPath.getBool();
+	ConsoleVariable lerpTextureAnimation = interface::Cvar_Get("r_lerpTextureAnimation", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	s_main->lerpTextureAnimationEnabled = lerpTextureAnimation.getBool();
+	ConsoleVariable maxAnisotropy = interface::Cvar_Get("r_maxAnisotropy", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	s_main->maxAnisotropyEnabled = maxAnisotropy.getBool();
+	ConsoleVariable softSprites = interface::Cvar_Get("r_softSprites", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	s_main->softSpritesEnabled = softSprites.getBool() && !(s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x);
+	ConsoleVariable sunLight = interface::Cvar_Get("r_sunLight", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	s_main->sunLightEnabled = sunLight.getBool();
+	ConsoleVariable textureVariation = interface::Cvar_Get("r_textureVariation", "0", ConsoleVariableFlags::Archive);
+	s_main->textureVariationEnabled = textureVariation.getBool();
+	ConsoleVariable waterReflections = interface::Cvar_Get("r_waterReflections", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	s_main->waterReflectionsEnabled = waterReflections.getBool();
+
+	if (s_main->fastPathEnabled)
+	{
+		// Fast path disables all the fancy features without messing with their cvars.
+		s_main->aa = AntiAliasing::None;
+		s_main->aaHud = AntiAliasing::None;
+		s_main->bloomEnabled = false;
+		s_main->lerpTextureAnimationEnabled = false;
+		s_main->maxAnisotropyEnabled = false;
+		s_main->softSpritesEnabled = false;
+		s_main->sunLightEnabled = false;
+		s_main->textureVariationEnabled = false;
+		s_main->waterReflectionsEnabled = false;
+	}
 
 	interface::Cmd_Add("r_bakeLights", Cmd_BakeLights);
 	interface::Cmd_Add("r_captureFrame", Cmd_CaptureFrame);
@@ -376,7 +398,7 @@ void Initialize()
 		resetFlags |= (1 + (int)s_main->aaHud - (int)AntiAliasing::MSAA2x) << BGFX_RESET_MSAA_SHIFT;
 	}
 
-	if (g_cvars.maxAnisotropy.getBool())
+	if (s_main->maxAnisotropyEnabled)
 	{
 		resetFlags |= BGFX_RESET_MAXANISOTROPY;
 	}
@@ -489,14 +511,14 @@ void Initialize()
 		if (s_main->aa != AntiAliasing::SMAA && (i == ShaderProgramId::SMAABlendingWeightCalculation || i == ShaderProgramId::SMAAEdgeDetection || i == ShaderProgramId::SMAANeighborhoodBlending))
 			continue;
 
-		if (!g_cvars.bloom.getBool() && (i == ShaderProgramId::Bloom || i == ShaderProgramId::GaussianBlur))
+		if (!s_main->bloomEnabled && (i == ShaderProgramId::Bloom || i == ShaderProgramId::GaussianBlur))
 			continue;
 
 		if (i >= (int)ShaderProgramId::Generic && i <= int(ShaderProgramId::Generic + GenericShaderProgramVariant::Num))
 		{
 			const int variant = i - (int)ShaderProgramId::Generic;
 
-			if (!g_cvars.sunLight.getBool() && (variant & GenericShaderProgramVariant::SunLight))
+			if (!s_main->sunLightEnabled && (variant & GenericShaderProgramVariant::SunLight))
 				continue;
 
 			if (!s_main->softSpritesEnabled && (variant & GenericShaderProgramVariant::SoftSprite))
@@ -563,7 +585,7 @@ void LoadWorld(const char *name)
 		s_main->linearDepthFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::R16F);
 	}
 
-	if (g_cvars.bloom.getBool())
+	if (s_main->bloomEnabled)
 	{
 		if (s_main->aa == AntiAliasing::SMAA)
 		{
@@ -584,7 +606,7 @@ void LoadWorld(const char *name)
 			s_main->bloomFb[i].handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Quarter, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
 		}
 	}
-	else
+	else if (!s_main->fastPathEnabled)
 	{
 		bgfx::TextureHandle sceneTextures[2];
 		sceneTextures[0] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
@@ -593,7 +615,7 @@ void LoadWorld(const char *name)
 		s_main->sceneDepthAttachment = 1;
 	}
 
-	if (g_cvars.waterReflections.getBool())
+	if (s_main->waterReflectionsEnabled)
 	{
 		bgfx::TextureHandle reflectionTexture = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
 		s_main->reflectionFb.handle = bgfx::createFrameBuffer(1, &reflectionTexture); // Don't destroy the texture, that will be done by the texture cache.
@@ -610,7 +632,7 @@ void LoadWorld(const char *name)
 		s_main->smaaSearchTex = bgfx::createTexture2D(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, false, 1, bgfx::TextureFormat::R8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(searchTexBytes, SEARCHTEX_SIZE));
 	}
 
-	if (g_cvars.sunLight.getBool())
+	if (s_main->sunLightEnabled)
 	{
 		s_main->shadowMapFb.handle = bgfx::createFrameBuffer(s_main->shadowMapSize, s_main->shadowMapSize, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_COMPARE_LEQUAL | rtClampFlags);
 	}

@@ -395,7 +395,7 @@ void OnMaterialCreate(Material *material)
 		}
 	}
 
-	if (g_cvars.lerpTextureAnimation.getBool())
+	if (main::IsLerpTextureAnimationEnabled())
 	{
 		for (const LerpTextureAnimationMaterial &m : s_lerpTextureAnimationMaterials)
 		{
@@ -423,7 +423,7 @@ void OnMaterialCreate(Material *material)
 		}
 	}
 
-	if (g_cvars.waterReflections.getBool())
+	if (main::AreWaterReflectionsEnabled())
 	{
 		for (size_t i = 0; i < BX_COUNTOF(s_reflectiveMaterialNames); i++)
 		{

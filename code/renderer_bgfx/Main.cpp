@@ -289,6 +289,11 @@ void AddPolyToScene(qhandle_t hShader, int nVerts, const polyVert_t *verts, int 
 	}
 }
 
+bool AreWaterReflectionsEnabled()
+{
+	return s_main->waterReflectionsEnabled;
+}
+
 #define NOISE_PERM(a) s_main->noisePerm[(a) & (s_main->noiseSize - 1)]
 #define NOISE_TABLE(x, y, z, t) s_main->noiseTable[NOISE_PERM(x + NOISE_PERM(y + NOISE_PERM(z + NOISE_PERM(t))))]
 #define NOISE_LERP( a, b, w ) ( ( a ) * ( 1.0f - ( w ) ) + ( b ) * ( w ) )
@@ -394,6 +399,16 @@ const SunLight &GetSunLight()
 bool IsCameraMirrored()
 {
 	return s_main->isCameraMirrored;
+}
+
+bool IsLerpTextureAnimationEnabled()
+{
+	return s_main->lerpTextureAnimationEnabled;
+}
+
+bool IsMaxAnisotropyEnabled()
+{
+	return s_main->maxAnisotropyEnabled;
 }
 
 static int Font_ReadInt(const uint8_t *data, int *offset)
