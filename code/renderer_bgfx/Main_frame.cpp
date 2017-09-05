@@ -68,23 +68,16 @@ struct RenderCameraArgs
 
 uint8_t PushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags)
 {
-#if 0
-	if (s_main->firstFreeViewId == 0)
-	{
-		bgfx::setViewClear(s_main->firstFreeViewId, clearFlags | BGFX_CLEAR_COLOR, 0xff00ffff);
-	}
-	else
+	const uint8_t viewId = s_main->firstFreeViewId++;
+	bgfx::setViewClear(viewId, clearFlags);
+	bgfx::setViewFrameBuffer(viewId, frameBuffer.handle);
+	bgfx::setViewRect(viewId, uint16_t(rect.x), uint16_t(rect.y), uint16_t(rect.w), uint16_t(rect.h));
+	bgfx::setViewMode(viewId, (flags & PushViewFlags::Sequential) ? bgfx::ViewMode::Sequential : bgfx::ViewMode::Default);
+	bgfx::setViewTransform(viewId, viewMatrix.get(), projectionMatrix.get());
+#ifdef _DEBUG
+	bgfx::setViewName(viewId, "");
 #endif
-	{
-		bgfx::setViewClear(s_main->firstFreeViewId, clearFlags);
-	}
-
-	bgfx::setViewFrameBuffer(s_main->firstFreeViewId, frameBuffer.handle);
-	bgfx::setViewRect(s_main->firstFreeViewId, uint16_t(rect.x), uint16_t(rect.y), uint16_t(rect.w), uint16_t(rect.h));
-	bgfx::setViewMode(s_main->firstFreeViewId, (flags & PushViewFlags::Sequential) ? bgfx::ViewMode::Sequential : bgfx::ViewMode::Default);
-	bgfx::setViewTransform(s_main->firstFreeViewId, viewMatrix.get(), projectionMatrix.get());
-	s_main->firstFreeViewId++;
-	return s_main->firstFreeViewId - 1;
+	return viewId;
 }
 
 static void FlushStretchPics()
@@ -112,6 +105,9 @@ static void FlushStretchPics()
 			if (s_main->stretchPicViewId == UINT8_MAX)
 			{
 				s_main->stretchPicViewId = PushView(s_main->defaultFb, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, (float)window::GetWidth(), 0, (float)window::GetHeight(), -1, 1), Rect(0, 0, window::GetWidth(), window::GetHeight()), PushViewFlags::Sequential);
+#ifdef _DEBUG
+				bgfx::setViewName(s_main->stretchPicViewId, "StretchPic");
+#endif
 			}
 
 			for (const MaterialStage &stage : s_main->stretchPicMaterial->stages)
@@ -226,11 +222,14 @@ void DrawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_
 
 	bgfx::setState(BGFX_STATE_RGB_WRITE);
 	const uint8_t viewId = PushView(s_main->defaultFb, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), Rect(x, y, w, h), PushViewFlags::Sequential);
+#ifdef _DEBUG
+	bgfx::setViewName(viewId, "StretchRaw");
+#endif
 	bgfx::submit(viewId, s_main->shaderPrograms[ShaderProgramId::TextureColor].handle);
 }
 
 // From bgfx screenSpaceQuad.
-void RenderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, uint16_t clearFlags, bool originBottomLeft, Rect rect)
+void RenderScreenSpaceQuad(const char *viewName, const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, uint16_t clearFlags, bool originBottomLeft, Rect rect)
 {
 	const uint32_t nVerts = 3;
 	if (bgfx::getAvailTransientVertexBuffer(nVerts, Vertex::decl) < nVerts)
@@ -279,13 +278,18 @@ void RenderScreenSpaceQuad(const FrameBuffer &frameBuffer, ShaderProgramId::Enum
 	bgfx::setVertexBuffer(0, &vb);
 	bgfx::setState(state);
 	const uint8_t viewId = PushView(frameBuffer, clearFlags, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), rect);
+#ifdef _DEBUG
+	bgfx::setViewName(viewId, viewName);
+#else
+	BX_UNUSED(viewName);
+#endif
 	bgfx::submit(viewId, s_main->shaderPrograms[program].handle);
 }
 
 static void RenderDebugDraw(bgfx::TextureHandle texture, int x = 0, int y = 0, ShaderProgramId::Enum program = ShaderProgramId::Texture)
 {
 	bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, texture);
-	RenderScreenSpaceQuad(s_main->defaultFb, program, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft, Rect(g_cvars.debugDrawSize.getInt() * x, g_cvars.debugDrawSize.getInt() * y, g_cvars.debugDrawSize.getInt(), g_cvars.debugDrawSize.getInt()));
+	RenderScreenSpaceQuad("DebugDraw", s_main->defaultFb, program, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft, Rect(g_cvars.debugDrawSize.getInt() * x, g_cvars.debugDrawSize.getInt() * y, g_cvars.debugDrawSize.getInt(), g_cvars.debugDrawSize.getInt()));
 }
 
 static void ClampEntityLight(vec3 *light)
@@ -854,6 +858,9 @@ static void RenderCamera(const RenderCameraArgs &args)
 				world::RenderReflective(args.visId, &s_main->drawCalls);
 				assert(!s_main->drawCalls.empty());
 				const uint8_t viewId = PushView(s_main->sceneFb, BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, viewMatrix, projectionMatrix, args.rect);
+#ifdef _DEBUG
+				bgfx::setViewName(viewId, "ReflectionStencilMask");
+#endif
 				RenderToStencil(viewId);
 
 				// Render to the scene frame buffer with stencil testing.
@@ -873,7 +880,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 
 				// Blit the scene frame buffer to the reflection frame buffer.
 				bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->sceneFb.handle));
-				RenderScreenSpaceQuad(s_main->reflectionFb, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
+				RenderScreenSpaceQuad("Reflection", s_main->reflectionFb, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
 			}
 		}
 
@@ -890,6 +897,9 @@ static void RenderCamera(const RenderCameraArgs &args)
 			world::RenderPortal(args.visId, &s_main->drawCalls);
 			assert(!s_main->drawCalls.empty());
 			const uint8_t viewId = PushView(s_main->sceneFb, BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, viewMatrix, projectionMatrix, args.rect);
+#ifdef _DEBUG
+			bgfx::setViewName(viewId, "PortalStencilMask");
+#endif
 			RenderToStencil(viewId);
 
 			// Render the portal camera with stencil testing.
@@ -978,6 +988,9 @@ static void RenderCamera(const RenderCameraArgs &args)
 		mat4 shadowProjectionMatrix;
 		bx::mtxOrtho((float *)&shadowProjectionMatrix, bounds.min.x, bounds.max.x, bounds.min.y, bounds.max.y, bounds.min.z, bounds.max.z, 0.0f, bgfx::getCaps()->homogeneousDepth);
 		const uint8_t viewId = PushView(s_main->shadowMapFb, BGFX_CLEAR_DEPTH, shadowViewMatrix, shadowProjectionMatrix, Rect(0, 0, s_main->shadowMapSize, s_main->shadowMapSize));
+#ifdef _DEBUG
+		bgfx::setViewName(viewId, "ShadowMap");
+#endif
 
 		for (DrawCall &dc : s_main->drawCalls)
 		{
@@ -1012,6 +1025,10 @@ static void RenderCamera(const RenderCameraArgs &args)
 	if (s_main->isWorldCamera && !isProbe)
 	{
 		const uint8_t viewId = PushView(s_main->sceneFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect);
+
+#ifdef _DEBUG
+		bgfx::setViewName(viewId, "Depth");
+#endif
 
 		for (DrawCall &dc : s_main->drawCalls)
 		{
@@ -1088,7 +1105,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 		{
 			s_main->uniforms->depthRange.set(vec4(0, 0, depthRange.x, depthRange.y));
 			bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->sceneFb.handle, s_main->sceneDepthAttachment));
-			RenderScreenSpaceQuad(s_main->linearDepthFb, ShaderProgramId::LinearDepth, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
+			RenderScreenSpaceQuad("DepthCopy", s_main->linearDepthFb, ShaderProgramId::LinearDepth, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
 		}
 	}
 
@@ -1098,14 +1115,26 @@ static void RenderCamera(const RenderCameraArgs &args)
 	{
 		assert(bgfx::isValid(args.customFrameBuffer->handle));
 		mainViewId = PushView(*args.customFrameBuffer, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
+
+#ifdef _DEBUG
+		bgfx::setViewName(mainViewId, "Probe");
+#endif
 	}
 	else if (s_main->isWorldCamera)
 	{
 		mainViewId = PushView(s_main->sceneFb, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
+
+#ifdef _DEBUG
+		bgfx::setViewName(mainViewId, "Scene");
+#endif
 	}
 	else
 	{
 		mainViewId = PushView(s_main->defaultFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
+
+#ifdef _DEBUG
+		bgfx::setViewName(mainViewId, "HudScene");
+#endif
 	}
 
 	if (!s_main->drawCalls.empty())
@@ -1546,24 +1575,24 @@ void RenderScene(const SceneDefinition &scene)
 		{
 			if (g_cvars.bloom.getBool())
 			{
-				// Blit to quarter size framebuffer.
+				// Render to quarter size framebuffer.
 				const Rect bloomRect(0, 0, window::GetWidth() / 4, window::GetHeight() / 4);
 				bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->sceneFb.handle, s_main->sceneBloomAttachment));
-				RenderScreenSpaceQuad(s_main->bloomFb[0], ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft, bloomRect);
+				RenderScreenSpaceQuad("BloomCopy", s_main->bloomFb[0], ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft, bloomRect);
 
 				// Ping-pong guassian blur in quarter size framebuffers
 				for (int i = 0; i < 2; i++)
 				{
 					s_main->uniforms->guassianBlurDirection.set(i == 0 ? vec4(1, 0, 0, 0) : vec4(0, 1, 0, 0));
 					bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->bloomFb[i].handle));
-					RenderScreenSpaceQuad(s_main->bloomFb[!i], ShaderProgramId::GaussianBlur, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft, bloomRect);
+					RenderScreenSpaceQuad("BloomBlur", s_main->bloomFb[!i], ShaderProgramId::GaussianBlur, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft, bloomRect);
 				}
 
 				// Apply bloom. If using SMAA, we need to read color, so blit into the original bloom texture which is no longer used.
 				s_main->uniforms->bloom_Enabled_Write_Scale.set(vec4(1, 0, g_cvars.bloomScale.getFloat(), 0));
 				bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->sceneFb.handle));
 				bgfx::setTexture(1, s_main->uniforms->bloomSampler.handle, bgfx::getTexture(s_main->bloomFb[0].handle));
-				RenderScreenSpaceQuad(s_main->aa == AntiAliasing::SMAA ? s_main->sceneTempFb : s_main->defaultFb, ShaderProgramId::Bloom, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
+				RenderScreenSpaceQuad("BloomApply", s_main->aa == AntiAliasing::SMAA ? s_main->sceneTempFb : s_main->defaultFb, ShaderProgramId::Bloom, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
 			}
 
 			if (s_main->aa == AntiAliasing::SMAA)
@@ -1580,13 +1609,13 @@ void RenderScene(const SceneDefinition &scene)
 					bgfx::setTexture(0, s_main->uniforms->smaaColorSampler.handle, bgfx::getTexture(s_main->sceneFb.handle));
 				}
 
-				RenderScreenSpaceQuad(s_main->smaaEdgesFb, ShaderProgramId::SMAAEdgeDetection, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_COLOR, s_main->isTextureOriginBottomLeft);
+				RenderScreenSpaceQuad("SMAAEdgeDetection", s_main->smaaEdgesFb, ShaderProgramId::SMAAEdgeDetection, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_COLOR, s_main->isTextureOriginBottomLeft);
 
 				// Blending weight calculation.
 				bgfx::setTexture(0, s_main->uniforms->smaaEdgesSampler.handle, bgfx::getTexture(s_main->smaaEdgesFb.handle));
 				bgfx::setTexture(1, s_main->uniforms->smaaAreaSampler.handle, s_main->smaaAreaTex);
 				bgfx::setTexture(2, s_main->uniforms->smaaSearchSampler.handle, s_main->smaaSearchTex);
-				RenderScreenSpaceQuad(s_main->smaaBlendFb, ShaderProgramId::SMAABlendingWeightCalculation, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE, BGFX_CLEAR_COLOR, s_main->isTextureOriginBottomLeft);
+				RenderScreenSpaceQuad("SMAABlendingWeightCalculation", s_main->smaaBlendFb, ShaderProgramId::SMAABlendingWeightCalculation, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE, BGFX_CLEAR_COLOR, s_main->isTextureOriginBottomLeft);
 
 				// Neighborhood blending.
 				if (g_cvars.bloom.getBool())
@@ -1599,13 +1628,13 @@ void RenderScene(const SceneDefinition &scene)
 				}
 
 				bgfx::setTexture(1, s_main->uniforms->smaaBlendSampler.handle, bgfx::getTexture(s_main->smaaBlendFb.handle));
-				RenderScreenSpaceQuad(s_main->defaultFb, ShaderProgramId::SMAANeighborhoodBlending, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
+				RenderScreenSpaceQuad("SMAANeighborhoodBlending", s_main->defaultFb, ShaderProgramId::SMAANeighborhoodBlending, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
 			}
 			else if (!g_cvars.bloom.getBool())
 			{
-				// Blit scene.
+				// Render scene to backbuffer.
 				bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->sceneFb.handle));
-				RenderScreenSpaceQuad(s_main->defaultFb, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
+				RenderScreenSpaceQuad("RenderToBackbuffer", s_main->defaultFb, ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
 			}
 		}
 	}

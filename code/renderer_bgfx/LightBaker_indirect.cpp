@@ -184,7 +184,7 @@ static uint32_t IntegrateHemicubeBatch(void *integrationData)
 	bgfx::setTexture(0, s_lightBakerPersistent->hemicubeAtlasSampler.handle, bgfx::getTexture(s_lightBakerPersistent->hemicubeFb[fbRead].handle));
 	bgfx::setTexture(1, s_lightBakerPersistent->hemicubeWeightsSampler.handle, s_lightBaker->hemicubeWeightsTexture->getHandle());
 	s_lightBakerPersistent->hemicubeWeightsTextureSizeUniform.set(vec4((float)s_lightBaker->hemicubeSize.x, (float)s_lightBaker->hemicubeSize.y, 0, 0));
-	main::RenderScreenSpaceQuad(s_lightBakerPersistent->hemicubeFb[fbWrite], main::ShaderProgramId::HemicubeWeightedDownsample, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE, BGFX_CLEAR_COLOR, main::s_main->isTextureOriginBottomLeft, Rect(0, 0, s_lightBaker->hemicubeDownsampleSize.x, s_lightBaker->hemicubeDownsampleSize.y));
+	main::RenderScreenSpaceQuad("HemicubeWeightedDownsample", s_lightBakerPersistent->hemicubeFb[fbWrite], main::ShaderProgramId::HemicubeWeightedDownsample, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE, BGFX_CLEAR_COLOR, main::s_main->isTextureOriginBottomLeft, Rect(0, 0, s_lightBaker->hemicubeDownsampleSize.x, s_lightBaker->hemicubeDownsampleSize.y));
 
 #ifdef DEBUG_HEMICUBE_RENDERING
 	// Read weighted downsample for debugging.
@@ -202,7 +202,7 @@ static uint32_t IntegrateHemicubeBatch(void *integrationData)
 
 		outHemiSize /= 2;
 		bgfx::setTexture(0, s_lightBakerPersistent->hemicubeAtlasSampler.handle, bgfx::getTexture(s_lightBakerPersistent->hemicubeFb[fbRead].handle));
-		main::RenderScreenSpaceQuad(s_lightBakerPersistent->hemicubeFb[fbWrite], main::ShaderProgramId::HemicubeDownsample, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE, BGFX_CLEAR_COLOR, main::s_main->isTextureOriginBottomLeft, Rect(0, 0, outHemiSize * s_lightBaker->nHemicubesInBatch.x, outHemiSize * s_lightBaker->nHemicubesInBatch.y));
+		main::RenderScreenSpaceQuad("HemicubeDownsample", s_lightBakerPersistent->hemicubeFb[fbWrite], main::ShaderProgramId::HemicubeDownsample, BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE, BGFX_CLEAR_COLOR, main::s_main->isTextureOriginBottomLeft, Rect(0, 0, outHemiSize * s_lightBaker->nHemicubesInBatch.x, outHemiSize * s_lightBaker->nHemicubesInBatch.y));
 	}
 
 	// Start async texture read of integrated data.
