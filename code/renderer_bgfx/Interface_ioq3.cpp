@@ -953,7 +953,9 @@ static void RE_TakeVideoFrame(int h, int w, byte* captureBuffer, byte *encodeBuf
 {
 }
 
-#if (defined _MSC_VER)
+} // namespace renderer
+
+#if defined (_MSC_VER) || defined(__MINGW32__) || defined(__MINGW64__)
 #define Q_EXPORT __declspec(dllexport)
 #elif (defined __SUNPRO_C)
 #define Q_EXPORT __global
@@ -962,6 +964,8 @@ static void RE_TakeVideoFrame(int h, int w, byte* captureBuffer, byte *encodeBuf
 #else
 #define Q_EXPORT
 #endif
+
+using namespace renderer;
 
 // this is the only function actually exported at the linker level
 // If the module can't init to a valid rendering state, NULL will be
@@ -1012,7 +1016,5 @@ extern "C" Q_EXPORT refexport_t * QDECL GetRefAPI(int apiVersion, refimport_t *r
 
 	return &re;
 }
-
-} // namespace renderer
 
 #endif // ENGINE_IOQ3
