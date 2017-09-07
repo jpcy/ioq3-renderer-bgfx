@@ -26,9 +26,9 @@ Status: Work in Progress. Not widely tested. Q3A and TA more or less look how th
 
 ## Binaries
 
-[Windows (x86)](https://dl.bintray.com/jpcy/ioq3-renderer-bgfx/renderer_bgfx_x86.zip)
+[Windows (x86)](https://bintray.com/jpcy/ioq3-renderer-bgfx/ioq3-renderer-bgfx-windows/test#files)
 
-[Linux (x86_64)](https://dl.bintray.com/jpcy/ioq3-renderer-bgfx/renderer_bgfx_x86_64.tar.gz)
+[Linux (x86_64)](https://bintray.com/jpcy/ioq3-renderer-bgfx/ioq3-renderer-bgfx-linux#files)
 
 These are updated after every commit.
 
