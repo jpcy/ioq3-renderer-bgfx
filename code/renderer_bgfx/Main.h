@@ -268,7 +268,6 @@ struct Main
 	bool maxAnisotropyEnabled;
 	bool softSpritesEnabled;
 	bool sunLightEnabled;
-	bool textureVariationEnabled;
 	bool waterReflectionsEnabled;
 	/// @}
 	

@@ -133,6 +133,7 @@ struct ConsoleVariables
 	ConsoleVariable shadowNormalBias;
 	ConsoleVariable shadowSlopeScaleDepthBias;
 	ConsoleVariable sunLightIntensity;
+	ConsoleVariable textureVariation;
 	ConsoleVariable wireframe;
 
 	/// @name Gamma

@@ -103,6 +103,7 @@ void ConsoleVariables::initialize()
 	shadowNormalBias = interface::Cvar_Get("r_shadowNormalBias", "1", ConsoleVariableFlags::Archive);
 	shadowSlopeScaleDepthBias = interface::Cvar_Get("r_shadowSlopeScaleDepthBias", "0", ConsoleVariableFlags::Archive);
 	sunLightIntensity = interface::Cvar_Get("r_sunLightIntensity", "1", ConsoleVariableFlags::Archive);
+	textureVariation = interface::Cvar_Get("r_textureVariation", "0", ConsoleVariableFlags::Archive);
 	wireframe = interface::Cvar_Get("r_wireframe", "0", ConsoleVariableFlags::Cheat);
 
 	// Gamma
@@ -276,8 +277,6 @@ void Initialize()
 	s_main->softSpritesEnabled = softSprites.getBool();
 	ConsoleVariable sunLight = interface::Cvar_Get("r_sunLight", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	s_main->sunLightEnabled = sunLight.getBool();
-	ConsoleVariable textureVariation = interface::Cvar_Get("r_textureVariation", "0", ConsoleVariableFlags::Archive);
-	s_main->textureVariationEnabled = textureVariation.getBool();
 	ConsoleVariable waterReflections = interface::Cvar_Get("r_waterReflections", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	s_main->waterReflectionsEnabled = waterReflections.getBool();
 
@@ -291,7 +290,6 @@ void Initialize()
 		s_main->maxAnisotropyEnabled = false;
 		s_main->softSpritesEnabled = false;
 		s_main->sunLightEnabled = false;
-		s_main->textureVariationEnabled = false;
 		s_main->waterReflectionsEnabled = false;
 	}
 

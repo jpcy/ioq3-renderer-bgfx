@@ -1350,7 +1350,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 				bgfx::setStencil(stencilTest);
 			}
 
-			if (s_main->textureVariationEnabled && stage.textureVariation)
+			if (!s_main->fastPathEnabled && g_cvars.textureVariation.getBool() && stage.textureVariation)
 			{
 				if (shaderVariant & GenericShaderProgramVariant::SunLight)
 				{
