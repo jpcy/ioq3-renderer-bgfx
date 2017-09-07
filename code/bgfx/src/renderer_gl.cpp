@@ -6469,22 +6469,117 @@ namespace bgfx { namespace gl
 				uint32_t height    = bx::uint32_min(srcHeight, dstHeight);
 				uint32_t depth     = bx::uint32_min(srcDepth,  dstDepth);
 
-				GL_CHECK(glCopyImageSubData(src.m_id
-					, src.m_target
-					, bi.m_srcMip
-					, bi.m_srcX
-					, bi.m_srcY
-					, bi.m_srcZ
-					, dst.m_id
-					, dst.m_target
-					, bi.m_dstMip
-					, bi.m_dstX
-					, bi.m_dstY
-					, bi.m_dstZ
-					, width
-					, height
-					, bx::uint32_imax(depth, 1)
-					) );
+				const uint32_t msaaMask = BGFX_TEXTURE_RT_MSAA_MASK & ~BGFX_TEXTURE_RT;
+				if ( (src.m_flags & msaaMask) && !(dst.m_flags & msaaMask) )
+				{
+					const FrameBufferGL *srcFb = NULL, *dstFb = NULL;
+					GLenum srcAttachment = 0, dstAttachment = 0;
+
+					for (uint32_t ii = 0; ii < BX_COUNTOF(m_frameBuffers); ++ii)
+					{
+						const FrameBufferGL &fb = m_frameBuffers[ii];
+						if (0 == fb.m_fbo[0])
+							continue;
+
+						uint32_t colorIdx = 0;
+						for (uint32_t jj = 0; jj < fb.m_numTh; ++jj)
+						{
+							TextureHandle handle = fb.m_attachment[jj].handle;
+							if (isValid(handle) )
+							{
+								const TextureGL& texture = m_textures[handle.idx];
+								GLenum attachment = GL_COLOR_ATTACHMENT0 + colorIdx;
+								bimg::TextureFormat::Enum format = bimg::TextureFormat::Enum(texture.m_textureFormat);
+								if (bimg::isDepth(format) )
+								{
+									const bimg::ImageBlockInfo& info = bimg::getBlockInfo(format);
+									if (0 < info.stencilBits)
+									{
+										attachment = GL_DEPTH_STENCIL_ATTACHMENT;
+									}
+									else if (0 == info.depthBits)
+									{
+										attachment = GL_STENCIL_ATTACHMENT;
+									}
+									else
+									{
+										attachment = GL_DEPTH_ATTACHMENT;
+									}
+								}
+								else
+								{
+									++colorIdx;
+								}
+
+								if (handle.idx == bi.m_src.idx)
+								{
+									srcFb = &fb;
+									srcAttachment = attachment;
+								}
+								else if (handle.idx == bi.m_dst.idx)
+								{
+									dstFb = &fb;
+									dstAttachment = attachment;
+								}
+							}
+						}
+					}
+
+					BX_CHECK(srcFb && dstFb && 0 != srcAttachment && 0 != dstAttachment, "Failed to find blit framebuffer attachments");
+					GL_CHECK(glBindFramebuffer(GL_READ_FRAMEBUFFER, srcFb->m_fbo[0]) );
+					GL_CHECK(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dstFb->m_fbo[0]) );
+
+					GLbitfield mask = GL_COLOR_BUFFER_BIT;
+					if (srcAttachment == GL_DEPTH_ATTACHMENT)
+					{
+						mask = GL_DEPTH_BUFFER_BIT;
+					}
+					else if (srcAttachment == GL_DEPTH_STENCIL_ATTACHMENT)
+					{
+						mask = GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
+					}
+					else if (srcAttachment == GL_STENCIL_ATTACHMENT)
+					{
+						mask = GL_STENCIL_BUFFER_BIT;
+					}
+					else
+					{
+						GL_CHECK(glReadBuffer(srcAttachment) );
+						GL_CHECK(glDrawBuffer(dstAttachment) );
+					}
+
+					GL_CHECK(glBlitFramebuffer(bi.m_srcX
+						, bi.m_srcY
+						, bi.m_srcX + width
+						, bi.m_srcY + height
+						, bi.m_dstX
+						, bi.m_dstY
+						, bi.m_dstX + width
+						, bi.m_dstY + height
+						, mask
+						, GL_NEAREST
+						) );
+					GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, m_currentFbo) );
+				}
+				else
+				{
+					GL_CHECK(glCopyImageSubData(src.m_id
+						, src.m_target
+						, bi.m_srcMip
+						, bi.m_srcX
+						, bi.m_srcY
+						, bi.m_srcZ
+						, dst.m_id
+						, dst.m_target
+						, bi.m_dstMip
+						, bi.m_dstX
+						, bi.m_dstY
+						, bi.m_dstZ
+						, width
+						, height
+						, bx::uint32_imax(depth, 1)
+						) );
+				}
 			}
 		}
 	}

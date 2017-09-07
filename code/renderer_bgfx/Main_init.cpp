@@ -286,7 +286,7 @@ void Initialize()
 	ConsoleVariable maxAnisotropy = interface::Cvar_Get("r_maxAnisotropy", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	s_main->maxAnisotropyEnabled = maxAnisotropy.getBool();
 	ConsoleVariable softSprites = interface::Cvar_Get("r_softSprites", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	s_main->softSpritesEnabled = softSprites.getBool() && !(s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x);
+	s_main->softSpritesEnabled = softSprites.getBool();
 	ConsoleVariable sunLight = interface::Cvar_Get("r_sunLight", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	s_main->sunLightEnabled = sunLight.getBool();
 	ConsoleVariable textureVariation = interface::Cvar_Get("r_textureVariation", "0", ConsoleVariableFlags::Archive);
@@ -489,7 +489,6 @@ void Initialize()
 			pm.vert = VertexShaderId::Generic;
 	}
 
-	programMap[ShaderProgramId::LinearDepth] = { FragmentShaderId::LinearDepth, VertexShaderId::Texture };
 	programMap[ShaderProgramId::HemicubeDownsample] = { FragmentShaderId::HemicubeDownsample, VertexShaderId::Texture };
 	programMap[ShaderProgramId::HemicubeWeightedDownsample] = { FragmentShaderId::HemicubeWeightedDownsample, VertexShaderId::Texture };
 	programMap[ShaderProgramId::SMAABlendingWeightCalculation] = { FragmentShaderId::SMAABlendingWeightCalculation, VertexShaderId::SMAABlendingWeightCalculation };
@@ -527,9 +526,6 @@ void Initialize()
 			if (!s_main->softSpritesEnabled && (variant & GenericShaderProgramVariant::SoftSprite))
 				continue;
 		}
-
-		if (!s_main->softSpritesEnabled && i == ShaderProgramId::LinearDepth)
-			continue;
 
 		Shader &fragment = s_main->fragmentShaders[pm.frag];
 
@@ -585,17 +581,11 @@ void LoadWorld(const char *name)
 
 	if (s_main->softSpritesEnabled)
 	{
-		s_main->linearDepthFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::R16F);
+		s_main->depthFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::D24S8);
 	}
 
 	if (s_main->bloomEnabled)
 	{
-		if (s_main->aa == AntiAliasing::SMAA)
-		{
-			// Bloom needs a temp BGRA8 destination for SMAA.
-			s_main->sceneTempFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::BGRA8, rtClampFlags);
-		}		
-		
 		bgfx::TextureHandle sceneTextures[3];
 		sceneTextures[0] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
 		sceneTextures[1] = bgfx::createTexture2D(bgfx::BackbufferRatio::Equal, false, 1, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
@@ -604,9 +594,15 @@ void LoadWorld(const char *name)
 		s_main->sceneBloomAttachment = 1;
 		s_main->sceneDepthAttachment = 2;
 
+		// Bloom needs a temp BGRA8 destination for SMAA. GL needs it for MSAA resolve.
+		if (s_main->aa == AntiAliasing::SMAA || (bgfx::getRendererType() == bgfx::RendererType::OpenGL && s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x))
+		{
+			s_main->sceneTempFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::BGRA8, rtClampFlags);
+		}
+
 		for (size_t i = 0; i < s_main->nBloomFrameBuffers; i++)
 		{
-			s_main->bloomFb[i].handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Quarter, bgfx::TextureFormat::BGRA8, rtClampFlags | aaFlags);
+			s_main->bloomFb[i].handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Quarter, bgfx::TextureFormat::BGRA8, rtClampFlags);
 		}
 	}
 	else if (!s_main->fastPathEnabled)

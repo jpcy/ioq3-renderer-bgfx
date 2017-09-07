@@ -191,7 +191,6 @@ newaction
 			{ "Generic", genericFragmentVariants },
 			{ "HemicubeDownsample" },
 			{ "HemicubeWeightedDownsample" },
-			{ "LinearDepth" },
 			{ "SMAABlendingWeightCalculation" },
 			{ "SMAAEdgeDetection" },
 			{ "SMAANeighborhoodBlending" },

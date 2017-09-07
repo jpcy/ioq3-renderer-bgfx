@@ -118,7 +118,6 @@ struct ShaderProgramId
 		Generic,
 		HemicubeDownsample = Generic + GenericShaderProgramVariant::Num,
 		HemicubeWeightedDownsample,
-		LinearDepth,
 		SMAABlendingWeightCalculation,
 		SMAAEdgeDetection,
 		SMAANeighborhoodBlending,
@@ -170,7 +169,7 @@ struct Main
 	/// @name Framebuffers
 	/// @{
 	static const FrameBuffer defaultFb;
-	FrameBuffer linearDepthFb;
+	FrameBuffer depthFb;
 	FrameBuffer reflectionFb;
 	FrameBuffer sceneFb;
 	FrameBuffer sceneTempFb;

@@ -286,6 +286,17 @@ void RenderScreenSpaceQuad(const char *viewName, const FrameBuffer &frameBuffer,
 	bgfx::submit(viewId, s_main->shaderPrograms[program].handle);
 }
 
+static void Blit(const char *viewName, bgfx::TextureHandle source, bgfx::TextureHandle dest)
+{
+	const uint8_t viewId = PushView(s_main->defaultFb, BGFX_CLEAR_NONE, mat4::identity, mat4::identity, Rect());
+	bgfx::blit(viewId, dest, 0, 0, source);
+#ifdef _DEBUG
+	bgfx::setViewName(viewId, viewName);
+#else
+	BX_UNUSED(viewName);
+#endif
+}
+
 static void RenderDebugDraw(bgfx::TextureHandle texture, int x = 0, int y = 0, ShaderProgramId::Enum program = ShaderProgramId::Texture)
 {
 	bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, texture);
@@ -1100,12 +1111,10 @@ static void RenderCamera(const RenderCameraArgs &args)
 			s_main->currentEntity = nullptr;
 		}
 
-		// Read depth, write linear depth.
+		// Blit depth to another texture so it can be read back later.
 		if (s_main->softSpritesEnabled)
 		{
-			s_main->uniforms->depthRange.set(vec4(0, 0, depthRange.x, depthRange.y));
-			bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->sceneFb.handle, s_main->sceneDepthAttachment));
-			RenderScreenSpaceQuad("DepthCopy", s_main->linearDepthFb, ShaderProgramId::LinearDepth, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft);
+			Blit("DepthCopy", bgfx::getTexture(s_main->sceneFb.handle, s_main->sceneDepthAttachment), bgfx::getTexture(s_main->depthFb.handle));
 		}
 	}
 
@@ -1115,7 +1124,6 @@ static void RenderCamera(const RenderCameraArgs &args)
 	{
 		assert(bgfx::isValid(args.customFrameBuffer->handle));
 		mainViewId = PushView(*args.customFrameBuffer, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
-
 #ifdef _DEBUG
 		bgfx::setViewName(mainViewId, "Probe");
 #endif
@@ -1306,7 +1314,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 			else if (s_main->isWorldCamera && s_main->softSpritesEnabled && dc.softSpriteDepth > 0)
 			{
 				shaderVariant |= GenericShaderProgramVariant::SoftSprite;
-				bgfx::setTexture(TextureUnit::Depth, s_main->matStageUniforms->depthSampler.handle, bgfx::getTexture(s_main->linearDepthFb.handle));
+				bgfx::setTexture(TextureUnit::Depth, s_main->matStageUniforms->depthSampler.handle, bgfx::getTexture(s_main->depthFb.handle));
 				
 				// Change additive blend from (1, 1) to (src alpha, 1) so the soft sprite shader can control alpha.
 				float useAlpha = 1;
@@ -1582,9 +1590,17 @@ void RenderScene(const SceneDefinition &scene)
 		{
 			if (s_main->bloomEnabled)
 			{
+				// OpenGL resolves multisampled bloom into a temp texture.
+				const bool msaaResolve = bgfx::getRendererType() == bgfx::RendererType::OpenGL && s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x;
+
+				if (msaaResolve)
+				{
+					Blit("BloomMsaaResolve", bgfx::getTexture(s_main->sceneFb.handle, s_main->sceneBloomAttachment), bgfx::getTexture(s_main->sceneTempFb.handle));
+				}
+
 				// Render to quarter size framebuffer.
 				const Rect bloomRect(0, 0, window::GetWidth() / 4, window::GetHeight() / 4);
-				bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, bgfx::getTexture(s_main->sceneFb.handle, s_main->sceneBloomAttachment));
+				bgfx::setTexture(0, s_main->uniforms->textureSampler.handle, msaaResolve ? bgfx::getTexture(s_main->sceneTempFb.handle) : bgfx::getTexture(s_main->sceneFb.handle, s_main->sceneBloomAttachment));
 				RenderScreenSpaceQuad("BloomCopy", s_main->bloomFb[0], ShaderProgramId::Texture, BGFX_STATE_RGB_WRITE, BGFX_CLEAR_NONE, s_main->isTextureOriginBottomLeft, bloomRect);
 
 				// Ping-pong guassian blur in quarter size framebuffers
@@ -1741,14 +1757,22 @@ void EndFrame()
 
 	if (s_main->debugDraw == DebugDraw::Bloom && s_main->bloomEnabled)
 	{
-		RenderDebugDraw(bgfx::getTexture(s_main->sceneFb.handle, s_main->sceneBloomAttachment));
+		if (bgfx::getRendererType() == bgfx::RendererType::OpenGL && s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x)
+		{
+			RenderDebugDraw(bgfx::getTexture(s_main->sceneTempFb.handle));
+		}
+		else
+		{
+			RenderDebugDraw(bgfx::getTexture(s_main->sceneFb.handle, s_main->sceneBloomAttachment));
+		}
+
 		RenderDebugDraw(bgfx::getTexture(s_main->bloomFb[0].handle), 0, 1);
 		RenderDebugDraw(bgfx::getTexture(s_main->bloomFb[1].handle), 0, 2);
 	}
 	else if (s_main->debugDraw == DebugDraw::Depth && !s_main->fastPathEnabled)
 	{
 		s_main->uniforms->textureDebug.set(vec4(TEXTURE_DEBUG_R, 0, 0, 0));
-		RenderDebugDraw(bgfx::getTexture(s_main->linearDepthFb.handle), 0, 0, ShaderProgramId::TextureDebug);
+		RenderDebugDraw(bgfx::getTexture(s_main->depthFb.handle), 0, 0, ShaderProgramId::TextureDebug);
 	}
 	else if (s_main->debugDraw == DebugDraw::DynamicLight)
 	{
