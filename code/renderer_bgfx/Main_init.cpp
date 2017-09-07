@@ -489,7 +489,7 @@ void Initialize()
 	};
 
 	// Create shader programs.
-	for (size_t i = 0; i < ShaderProgramId::Num; i++)
+	for (int i = 0; i < ShaderProgramId::Num; i++)
 	{
 		const ShaderProgramIdMap &pm = programMap[i];
 

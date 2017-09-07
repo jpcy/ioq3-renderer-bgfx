@@ -575,7 +575,7 @@ Luxel RasterizeLuxel()
 		{
 			// Setup rasterizer for this triangle.
 			const vec2i lightmapSize = world::GetLightmapSize();
-			const std::vector<Vertex> &vertices = world::GetVertexBuffer(surface.bufferIndex);
+			const std::vector<Vertex> &vertices = world::GetVertexBuffer((int)surface.bufferIndex);
 			lm_vec2 uvMin = lm_v2(FLT_MAX, FLT_MAX), uvMax = lm_v2(-FLT_MAX, -FLT_MAX);
 
 			for (int i = 0; i < 3; i++)

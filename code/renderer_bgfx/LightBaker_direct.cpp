@@ -214,7 +214,7 @@ static bool CreateEmbreeGeometry(int nVertices, int nTriangles)
 		// Adjust for combining multiple vertex buffers.
 		uint32_t indexOffset = 0;
 
-		for (size_t i = 0; i < surface.bufferIndex; i++)
+		for (int i = 0; i < (int)surface.bufferIndex; i++)
 			indexOffset += (uint32_t)world::GetVertexBuffer(i).size();
 
 		for (size_t i = 0; i < surface.indices.size(); i += 3)
@@ -625,7 +625,7 @@ static void CreateAreaLights()
 			light.modelIndex = mi;
 			light.surfaceIndex = si;
 			light.texture = texture;
-			const std::vector<Vertex> &vertices = world::GetVertexBuffer(surface.bufferIndex);
+			const std::vector<Vertex> &vertices = world::GetVertexBuffer((int)surface.bufferIndex);
 
 			// Create one sample per triangle at the midpoint.
 			for (size_t i = 0; i < surface.indices.size(); i += 3)
