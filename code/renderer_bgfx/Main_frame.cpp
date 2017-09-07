@@ -1819,8 +1819,6 @@ void EndFrame()
 
 	bgfx::setDebug(debug);
 	s_main->frameNo = bgfx::frame(s_main->captureFrame);
-	if (s_main->captureFrame)
-		interface::Printf("Capturing frame %d\n", s_main->frameNo);
 	s_main->captureFrame = false;
 
 	if (g_cvars.debugDraw.isModified())
