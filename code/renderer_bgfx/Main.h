@@ -260,7 +260,7 @@ struct Main
 
 	/// @name Derived from console variables
 	/// @{
-	AntiAliasing aa, aaHud;
+	AntiAliasing aa;
 	bool bloomEnabled;
 	bool extraDynamicLightsEnabled;
 	bool fastPathEnabled;

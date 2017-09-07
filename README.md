@@ -73,7 +73,6 @@ Run the following console variables without any arguments to see a list of possi
 Variable                | Description
 ------------------------|------------
 r_aa                    | Anti-aliasing.
-r_aa_hud                | Anti-aliasing for 3D HUD elements.
 r_backend               | Rendering backend - OpenGL, Direct3D 9 etc.
 r_bgfx_stats            | Show bgfx statistics.
 r_bloom                 | Enable bloom.

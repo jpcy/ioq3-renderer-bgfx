@@ -261,20 +261,7 @@ void Initialize()
 		"msaa8x    MSAA 8x\n"
 		"msaa16x   MSAA 16x\n"
 		"smaa      SMAA 1x\n");
-	ConsoleVariable aa_hud = interface::Cvar_Get("r_aa_hud", "", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	aa_hud.setDescription(
-		"<empty>   None\n"
-		"msaa2x    MSAA 2x\n"
-		"msaa4x    MSAA 4x\n"
-		"msaa8x    MSAA 8x\n"
-		"msaa16x   MSAA 16x\n");
 	s_main->aa = AntiAliasingFromString(aa.getString());
-	s_main->aaHud = AntiAliasingFromString(aa_hud.getString());
-
-	// Non-world/HUD scenes can only use MSAA.
-	if (!(s_main->aaHud >= AntiAliasing::MSAA2x && s_main->aaHud <= AntiAliasing::MSAA16x))
-		s_main->aaHud = AntiAliasing::None;
-
 	ConsoleVariable bloom = interface::Cvar_Get("r_bloom", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	s_main->bloomEnabled = bloom.getBool();
 	ConsoleVariable extraDynamicLights = interface::Cvar_Get("r_extraDynamicLights", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
@@ -298,7 +285,6 @@ void Initialize()
 	{
 		// Fast path disables all the fancy features without messing with their cvars.
 		s_main->aa = AntiAliasing::None;
-		s_main->aaHud = AntiAliasing::None;
 		s_main->bloomEnabled = false;
 		s_main->extraDynamicLightsEnabled = false;
 		s_main->lerpTextureAnimationEnabled = false;
@@ -396,9 +382,9 @@ void Initialize()
 
 	uint32_t resetFlags = 0;
 
-	if (s_main->aaHud >= AntiAliasing::MSAA2x && s_main->aaHud <= AntiAliasing::MSAA16x)
+	if (s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x)
 	{
-		resetFlags |= (1 + (int)s_main->aaHud - (int)AntiAliasing::MSAA2x) << BGFX_RESET_MSAA_SHIFT;
+		resetFlags |= (1 + (int)s_main->aa - (int)AntiAliasing::MSAA2x) << BGFX_RESET_MSAA_SHIFT;
 	}
 
 	if (s_main->maxAnisotropyEnabled)
