@@ -21,6 +21,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #pragma once
 
+#if defined(USE_LIGHT_BAKER)
 #include "Precompiled.h"
 #pragma hdrstop
 
@@ -266,3 +267,4 @@ void SetStatus(LightBaker::Status status, int progress = 0);
 
 } // namespace light_baker
 } // namespace renderer
+#endif // USE_LIGHT_BAKER

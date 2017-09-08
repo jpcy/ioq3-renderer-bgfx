@@ -1745,7 +1745,10 @@ void RenderHemicube(const FrameBuffer &frameBuffer, vec3 position, const vec3 fo
 void EndFrame()
 {
 	FlushStretchPics();
+
+#if defined(USE_LIGHT_BAKER)
 	light_baker::Update(s_main->frameNo);
+#endif
 
 	if (s_main->firstFreeViewId == 0)
 	{

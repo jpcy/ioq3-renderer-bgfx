@@ -417,6 +417,7 @@ struct IndexBuffer
 	bgfx::IndexBufferHandle handle;
 };
 
+#if defined(USE_LIGHT_BAKER)
 namespace light_baker
 {
 	void Start(int nSamples);
@@ -424,6 +425,7 @@ namespace light_baker
 	void Update(uint32_t frameNo);
 	void Shutdown();
 }
+#endif
 
 namespace main
 {

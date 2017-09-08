@@ -367,6 +367,12 @@ newoption
 	}
 }
 
+newoption
+{
+	trigger = "enable-light-baker",
+	description = "Enable the light baker"
+}
+
 if _ACTION == nil then
 	return
 end
@@ -381,7 +387,6 @@ end
 
 local IOQ3_PATH = path.join(path.getabsolute(".."), "ioq3")
 local IORTCW_PATH = path.join(path.getabsolute(".."), "iortcw")
-local RENDERER_PATH = path.getabsolute(".")
 
 if os.is("windows") then
 	if _OPTIONS["engine"] == "ioq3" and not os.isdir(IOQ3_PATH) then
@@ -442,7 +447,7 @@ solution "renderer_bgfx"
 		defines { "_WIN64", "__WIN64__" }
 		
 dofile("renderer_bgfx.lua")
-rendererProject(_OPTIONS["engine"], BGFX_PATH, RENDERER_PATH)
+rendererProject(_OPTIONS["engine"], _OPTIONS["enable-light-baker"], path.getabsolute("."))
 
 if os.is("windows") then
 	if _OPTIONS["engine"] == "ioq3" then

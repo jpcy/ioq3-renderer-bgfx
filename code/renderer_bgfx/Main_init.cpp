@@ -198,6 +198,7 @@ static void TakeScreenshot(const char *extension)
 	bgfx::requestScreenShot(BGFX_INVALID_HANDLE, filename);
 }
 
+#if defined(USE_LIGHT_BAKER)
 static void Cmd_BakeLights()
 {
 	int nSamples = 1;
@@ -209,6 +210,7 @@ static void Cmd_BakeLights()
 
 	light_baker::Start(nSamples);
 }
+#endif
 
 static void Cmd_CaptureFrame()
 {
@@ -293,7 +295,9 @@ void Initialize()
 		s_main->waterReflectionsEnabled = false;
 	}
 
+#if defined(USE_LIGHT_BAKER)
 	interface::Cmd_Add("r_bakeLights", Cmd_BakeLights);
+#endif
 	interface::Cmd_Add("r_captureFrame", Cmd_CaptureFrame);
 	interface::Cmd_Add("r_pickMaterial", Cmd_PickMaterial);
 	interface::Cmd_Add("r_printMaterials", Cmd_PrintMaterials);
@@ -627,10 +631,12 @@ void LoadWorld(const char *name)
 
 void Shutdown(bool destroyWindow)
 {
+#if defined(USE_LIGHT_BAKER)
 	light_baker::Stop();
 	light_baker::Shutdown();
-	world::Unload();
 	interface::Cmd_Remove("r_bakeLights");
+#endif
+	world::Unload();
 	interface::Cmd_Remove("r_captureFrame");
 	interface::Cmd_Remove("r_pickMaterial");
 	interface::Cmd_Remove("r_printMaterials");

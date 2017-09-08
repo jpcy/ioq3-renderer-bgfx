@@ -33,6 +33,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ***********************************************************/
 #include "Precompiled.h"
 #pragma hdrstop
+
+#if defined(USE_LIGHT_BAKER)
 #include "LightBaker.h"
 #include "Main.h" // need to access main internals for hemicube integration
 
@@ -376,3 +378,4 @@ bool BakeIndirectLight(uint32_t frameNo)
 
 } // namespace light_baker
 } // namespace renderer
+#endif // USE_LIGHT_BAKER
