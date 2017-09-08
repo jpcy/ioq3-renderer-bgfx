@@ -276,7 +276,8 @@ void Initialize()
 	ConsoleVariable maxAnisotropy = interface::Cvar_Get("r_maxAnisotropy", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	s_main->maxAnisotropyEnabled = maxAnisotropy.getBool();
 	ConsoleVariable softSprites = interface::Cvar_Get("r_softSprites", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	s_main->softSpritesEnabled = softSprites.getBool();
+	// Resolving multisampled depth in D3D doesn't work.
+	s_main->softSpritesEnabled = softSprites.getBool() && !(bgfx::getRendererType() == bgfx::RendererType::Direct3D11 && s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x);
 	ConsoleVariable sunLight = interface::Cvar_Get("r_sunLight", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	s_main->sunLightEnabled = sunLight.getBool();
 	ConsoleVariable waterReflections = interface::Cvar_Get("r_waterReflections", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
