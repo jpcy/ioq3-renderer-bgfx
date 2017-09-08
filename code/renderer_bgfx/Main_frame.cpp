@@ -843,6 +843,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 	}
 
 	const vec2 depthRange = CalculateDepthRange(args.visId, args.pvsPosition);
+	s_main->lastCameraDepthRange = depthRange;
 
 	// Setup camera transform.
 	const mat4 viewMatrix = s_main->toOpenGlMatrix * mat4::view(args.position, args.rotation);
@@ -1774,7 +1775,8 @@ void EndFrame()
 	}
 	else if (s_main->debugDraw == DebugDraw::Depth && !s_main->fastPathEnabled)
 	{
-		s_main->uniforms->textureDebug.set(vec4(TEXTURE_DEBUG_R, 0, 0, 0));
+		s_main->uniforms->depthRange.set(vec4(0, 0, s_main->lastCameraDepthRange.x, s_main->lastCameraDepthRange.y));
+		s_main->uniforms->textureDebug.set(vec4(TEXTURE_DEBUG_LINEAR_DEPTH, 0, 0, 0));
 		RenderDebugDraw(bgfx::getTexture(s_main->depthFb.handle), 0, 0, ShaderProgramId::TextureDebug);
 	}
 	else if (s_main->debugDraw == DebugDraw::DynamicLight)

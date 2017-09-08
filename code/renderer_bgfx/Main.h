@@ -277,6 +277,7 @@ struct Main
 	std::unique_ptr<DynamicLightManager> dlightManager;
 	float halfTexelOffset = 0;
 	bool isTextureOriginBottomLeft = false;
+	vec2 lastCameraDepthRange; // for debug drawing
 	SunLight sunLight;
 
 	/// Convert from our coordinate system (looking down X) to OpenGL's coordinate system (looking down -Z)
