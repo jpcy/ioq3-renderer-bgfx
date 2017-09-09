@@ -276,8 +276,7 @@ void Initialize()
 	ConsoleVariable maxAnisotropy = interface::Cvar_Get("r_maxAnisotropy", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	s_main->maxAnisotropyEnabled = maxAnisotropy.getBool();
 	ConsoleVariable softSprites = interface::Cvar_Get("r_softSprites", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
-	// Resolving multisampled depth in D3D doesn't work.
-	s_main->softSpritesEnabled = softSprites.getBool() && !(bgfx::getRendererType() == bgfx::RendererType::Direct3D11 && s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x);
+	s_main->softSpritesEnabled = softSprites.getBool();
 	ConsoleVariable sunLight = interface::Cvar_Get("r_sunLight", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
 	s_main->sunLightEnabled = sunLight.getBool();
 	ConsoleVariable waterReflections = interface::Cvar_Get("r_waterReflections", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
@@ -385,7 +384,7 @@ void Initialize()
 
 	uint32_t resetFlags = 0;
 
-	if (s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x)
+	if (IsMsaa(s_main->aa))
 	{
 		resetFlags |= (1 + (int)s_main->aa - (int)AntiAliasing::MSAA2x) << BGFX_RESET_MSAA_SHIFT;
 	}
@@ -561,7 +560,7 @@ void LoadWorld(const char *name)
 	// Create frame buffers first.
 	uint32_t aaFlags = 0;
 
-	if (s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x)
+	if (IsMsaa(s_main->aa))
 	{
 		aaFlags |= (1 + (int)s_main->aa - (int)AntiAliasing::MSAA2x) << BGFX_TEXTURE_RT_MSAA_SHIFT;
 	}
@@ -584,7 +583,7 @@ void LoadWorld(const char *name)
 		s_main->sceneDepthAttachment = 2;
 
 		// Bloom needs a temp BGRA8 destination for SMAA. GL needs it for MSAA resolve.
-		if (s_main->aa == AntiAliasing::SMAA || (bgfx::getRendererType() == bgfx::RendererType::OpenGL && s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x))
+		if (s_main->aa == AntiAliasing::SMAA || (bgfx::getRendererType() == bgfx::RendererType::OpenGL && IsMsaa(s_main->aa)))
 		{
 			s_main->sceneTempFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::BGRA8, rtClampFlags);
 		}

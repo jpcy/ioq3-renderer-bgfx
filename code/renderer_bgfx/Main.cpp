@@ -414,6 +414,11 @@ bool IsMaxAnisotropyEnabled()
 	return s_main->maxAnisotropyEnabled;
 }
 
+bool IsMsaa(AntiAliasing aa)
+{
+	return aa >= AntiAliasing::MSAA2x && aa <= AntiAliasing::MSAA16x;
+}
+
 static int Font_ReadInt(const uint8_t *data, int *offset)
 {
 	assert(data && offset);

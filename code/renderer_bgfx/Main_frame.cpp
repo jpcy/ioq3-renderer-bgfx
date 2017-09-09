@@ -802,7 +802,10 @@ static void RenderToStencil(const uint8_t viewId)
 		s_main->matStageUniforms->alphaTest.set(vec4::empty);
 		SetDrawCallGeometry(dc);
 		bgfx::setTransform(dc.modelMatrix.get());
-		uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_DEPTH_WRITE | BGFX_STATE_MSAA;
+		uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_DEPTH_WRITE;
+
+		if (IsMsaa(s_main->aa))
+			state |= BGFX_STATE_MSAA;
 
 		// Grab the cull state. Doesn't matter which stage, since it's global to the material.
 		state |= mat->stages[0].getState() & BGFX_STATE_CULL_MASK;
@@ -1033,11 +1036,10 @@ static void RenderCamera(const RenderCameraArgs &args)
 		s_main->uniforms->sunLightDir.set(vec4(-s_main->sunLight.direction, 0));
 	}
 
-	// Render depth.
-	if (s_main->isWorldCamera && !s_main->fastPathEnabled && !isProbe)
+	// Render depth for soft sprites. MSAA is always off.
+	if (s_main->softSpritesEnabled && s_main->isWorldCamera && !isProbe)
 	{
-		const uint8_t viewId = PushView(s_main->sceneFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect);
-
+		const uint8_t viewId = PushView(s_main->depthFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect);
 #ifdef _DEBUG
 		bgfx::setViewName(viewId, "Depth");
 #endif
@@ -1083,7 +1085,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
-			uint64_t state = BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_DEPTH_WRITE | BGFX_STATE_MSAA;
+			uint64_t state = BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_DEPTH_WRITE;
 
 			// Grab the cull state. Doesn't matter which stage, since it's global to the material.
 			state |= mat->stages[0].getState() & BGFX_STATE_CULL_MASK;
@@ -1111,12 +1113,6 @@ static void RenderCamera(const RenderCameraArgs &args)
 			bgfx::submit(viewId, s_main->shaderPrograms[ShaderProgramId::Depth + shaderVariant].handle);
 			s_main->currentEntity = nullptr;
 		}
-
-		// Blit depth to another texture so it can be read back later.
-		if (s_main->softSpritesEnabled)
-		{
-			Blit("DepthCopy", bgfx::getTexture(s_main->sceneFb.handle, s_main->sceneDepthAttachment), bgfx::getTexture(s_main->depthFb.handle));
-		}
 	}
 
 	uint8_t mainViewId;
@@ -1131,15 +1127,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 	}
 	else if (s_main->isWorldCamera)
 	{
-		if (s_main->fastPathEnabled)
-		{
-			mainViewId = PushView(s_main->defaultFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
-		}
-		else
-		{
-			mainViewId = PushView(s_main->sceneFb, BGFX_CLEAR_NONE, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
-		}
-
+		mainViewId = PushView(s_main->fastPathEnabled ? s_main->defaultFb : s_main->sceneFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
 #ifdef _DEBUG
 		bgfx::setViewName(mainViewId, "Scene");
 #endif
@@ -1147,7 +1135,6 @@ static void RenderCamera(const RenderCameraArgs &args)
 	else
 	{
 		mainViewId = PushView(s_main->defaultFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
-
 #ifdef _DEBUG
 		bgfx::setViewName(mainViewId, "HudScene");
 #endif
@@ -1205,7 +1192,12 @@ static void RenderCamera(const RenderCameraArgs &args)
 #endif
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
-			bgfx::setState(dc.state);
+			uint64_t state = dc.state;
+
+			if (IsMsaa(s_main->aa))
+				state |= BGFX_STATE_MSAA;
+
+			bgfx::setState(state);
 
 			if (args.flags & RenderCameraFlags::UseStencilTest)
 			{
@@ -1306,6 +1298,10 @@ static void RenderCamera(const RenderCameraArgs &args)
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
 			uint64_t state = dc.state | stage.getState();
+
+			if (IsMsaa(s_main->aa))
+				state |= BGFX_STATE_MSAA;
+
 			int shaderVariant = GenericShaderProgramVariant::None;
 
 			if (stage.alphaTest != MaterialAlphaTest::None)
@@ -1407,6 +1403,9 @@ static void RenderCamera(const RenderCameraArgs &args)
 			SetDrawCallGeometry(dc);
 			bgfx::setTransform(dc.modelMatrix.get());
 			uint64_t state = dc.state | BGFX_STATE_BLEND_ALPHA;
+
+			if (IsMsaa(s_main->aa))
+				state |= BGFX_STATE_MSAA;
 
 			if (mat->fogPass == MaterialFogPass::Equal)
 			{
@@ -1592,7 +1591,7 @@ void RenderScene(const SceneDefinition &scene)
 			if (s_main->bloomEnabled)
 			{
 				// OpenGL resolves multisampled bloom into a temp texture.
-				const bool msaaResolve = bgfx::getRendererType() == bgfx::RendererType::OpenGL && s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x;
+				const bool msaaResolve = bgfx::getRendererType() == bgfx::RendererType::OpenGL && IsMsaa(s_main->aa);
 
 				if (msaaResolve)
 				{
@@ -1761,7 +1760,7 @@ void EndFrame()
 
 	if (s_main->debugDraw == DebugDraw::Bloom && s_main->bloomEnabled)
 	{
-		if (bgfx::getRendererType() == bgfx::RendererType::OpenGL && s_main->aa >= AntiAliasing::MSAA2x && s_main->aa <= AntiAliasing::MSAA16x)
+		if (bgfx::getRendererType() == bgfx::RendererType::OpenGL && IsMsaa(s_main->aa))
 		{
 			RenderDebugDraw(bgfx::getTexture(s_main->sceneTempFb.handle));
 		}
@@ -1773,7 +1772,7 @@ void EndFrame()
 		RenderDebugDraw(bgfx::getTexture(s_main->bloomFb[0].handle), 0, 1);
 		RenderDebugDraw(bgfx::getTexture(s_main->bloomFb[1].handle), 0, 2);
 	}
-	else if (s_main->debugDraw == DebugDraw::Depth && !s_main->fastPathEnabled)
+	else if (s_main->debugDraw == DebugDraw::Depth && s_main->softSpritesEnabled)
 	{
 		s_main->uniforms->depthRange.set(vec4(0, 0, s_main->lastCameraDepthRange.x, s_main->lastCameraDepthRange.y));
 		s_main->uniforms->textureDebug.set(vec4(TEXTURE_DEBUG_LINEAR_DEPTH, 0, 0, 0));

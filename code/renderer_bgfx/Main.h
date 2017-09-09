@@ -287,6 +287,7 @@ struct Main
 extern std::unique_ptr<Main> s_main;
 
 DebugDraw DebugDrawFromString(const char *s);
+bool IsMsaa(AntiAliasing aa);
 uint8_t PushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags = 0);
 void RenderScreenSpaceQuad(const char *viewName, const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, uint16_t clearFlags = BGFX_CLEAR_NONE, bool originBottomLeft = false, Rect rect = Rect());
 void SetWindowGamma();
