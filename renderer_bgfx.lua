@@ -106,7 +106,7 @@ function rendererProject(engine, lightBakerEnabled, rendererPath)
 	local linuxSdlCflags = nil
 	local linuxArchDefine = nil
 	
-	if os.is("linux") then
+	if os.ishost("linux") then
 		linuxSdlCflags = os.outputof("pkg-config --silence-errors --cflags sdl2")
 		linuxArchDefine = "ARCH_STRING=" .. os.outputof("uname -m")
 	end

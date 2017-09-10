@@ -79,9 +79,9 @@ newaction
 			for _,renderer in pairs(renderers) do
 				local command = nil
 				
-				if os.is("windows") then
+				if os.ishost("windows") then
 					command = "shaderc.exe"
-				elseif os.is("linux") then
+				elseif os.ishost("linux") then
 					command = "`./shaderc64"
 				end
 				
@@ -119,11 +119,11 @@ newaction
 					command = command .. " -O 3"
 				end
 				
-				if os.is("linux") then
+				if os.ishost("linux") then
 					command = command .. "`"
 				end
 				
-				if os.execute(command) ~= 0 then
+				if not os.execute(command) then
 					local message = "\n" .. input .. " " .. type
 					
 					if variant ~= nil then
@@ -147,7 +147,7 @@ newaction
 		
 		local renderers = nil
 		
-		if os.is("windows") then
+		if os.ishost("windows") then
 			renderers = { "gl", "d3d11" }
 		else
 			renderers = { "gl" }
@@ -388,7 +388,7 @@ end
 local IOQ3_PATH = path.join(path.getabsolute(".."), "ioq3")
 local IORTCW_PATH = path.join(path.getabsolute(".."), "iortcw")
 
-if os.is("windows") then
+if os.ishost("windows") then
 	if _OPTIONS["engine"] == "ioq3" and not os.isdir(IOQ3_PATH) then
 		print("ioquake3 not found at " .. IOQ3_PATH)
 		os.exit()
@@ -402,7 +402,7 @@ solution "renderer_bgfx"
 	configurations { "Release", "Debug", "Profile" }
 	location "build"
 	
-	if os.is64bit() and not os.is("windows") then
+	if os.is64bit() and not os.ishost("windows") then
 		platforms { "x86_64", "x86" }
 	else
 		platforms { "x86", "x86_64" }
@@ -449,7 +449,7 @@ solution "renderer_bgfx"
 dofile("renderer_bgfx.lua")
 rendererProject(_OPTIONS["engine"], _OPTIONS["enable-light-baker"], path.getabsolute("."))
 
-if os.is("windows") then
+if os.ishost("windows") then
 	if _OPTIONS["engine"] == "ioq3" then
 		includedirs(path.join(IOQ3_PATH, "code/SDL2/include"))
 		configuration "x86"
