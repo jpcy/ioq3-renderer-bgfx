@@ -125,20 +125,6 @@ void BgfxCallback::traceVargs(const char* _filePath, uint16_t _line, const char*
 	bx::debugOutput(out);
 }
 
-uint32_t BgfxCallback::cacheReadSize(uint64_t _id)
-{
-	return 0;
-}
-
-bool BgfxCallback::cacheRead(uint64_t _id, void* _data, uint32_t _size)
-{
-	return false;
-}
-
-void BgfxCallback::cacheWrite(uint64_t _id, const void* _data, uint32_t _size)
-{
-}
-
 struct ImageWriteBuffer
 {
 	std::vector<uint8_t> *data;
@@ -239,18 +225,6 @@ void BgfxCallback::screenShot(const char* _filePath, uint32_t _width, uint32_t _
 
 	if (!silent)
 		interface::Printf("Wrote %s\n", _filePath);
-}
-
-void BgfxCallback::captureBegin(uint32_t _width, uint32_t _height, uint32_t _pitch, bgfx::TextureFormat::Enum _format, bool _yflip)
-{
-}
-
-void BgfxCallback::captureEnd()
-{
-}
-
-void BgfxCallback::captureFrame(const void* _data, uint32_t _size)
-{
 }
 
 void AddDynamicLightToScene(const DynamicLight &light)

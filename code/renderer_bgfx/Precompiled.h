@@ -77,6 +77,8 @@ extern "C"
 #undef main
 }
 
+#undef min
+#undef max
 #include "bgfx/bgfx.h"
 #include "bgfx/platform.h"
 #include "bx/debug.h"

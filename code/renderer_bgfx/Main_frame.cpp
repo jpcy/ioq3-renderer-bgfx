@@ -66,9 +66,9 @@ struct RenderCameraArgs
 	const FrameBuffer *customFrameBuffer = nullptr;
 };
 
-uint8_t PushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags)
+bgfx::ViewId PushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags)
 {
-	const uint8_t viewId = s_main->firstFreeViewId++;
+	const bgfx::ViewId viewId = s_main->firstFreeViewId++;
 	bgfx::setViewClear(viewId, clearFlags);
 	bgfx::setViewFrameBuffer(viewId, frameBuffer.handle);
 	bgfx::setViewRect(viewId, uint16_t(rect.x), uint16_t(rect.y), uint16_t(rect.w), uint16_t(rect.h));
@@ -221,7 +221,7 @@ void DrawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_
 	}
 
 	bgfx::setState(BGFX_STATE_RGB_WRITE);
-	const uint8_t viewId = PushView(s_main->defaultFb, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), Rect(x, y, w, h), PushViewFlags::Sequential);
+	const bgfx::ViewId viewId = PushView(s_main->defaultFb, BGFX_CLEAR_NONE, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), Rect(x, y, w, h), PushViewFlags::Sequential);
 #ifdef _DEBUG
 	bgfx::setViewName(viewId, "StretchRaw");
 #endif
@@ -277,7 +277,7 @@ void RenderScreenSpaceQuad(const char *viewName, const FrameBuffer &frameBuffer,
 	vertices[2].setTexCoord(maxu, maxv);
 	bgfx::setVertexBuffer(0, &vb);
 	bgfx::setState(state);
-	const uint8_t viewId = PushView(frameBuffer, clearFlags, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), rect);
+	const bgfx::ViewId viewId = PushView(frameBuffer, clearFlags, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), rect);
 #ifdef _DEBUG
 	bgfx::setViewName(viewId, viewName);
 #else
@@ -288,7 +288,7 @@ void RenderScreenSpaceQuad(const char *viewName, const FrameBuffer &frameBuffer,
 
 static void Blit(const char *viewName, bgfx::TextureHandle source, bgfx::TextureHandle dest)
 {
-	const uint8_t viewId = PushView(s_main->defaultFb, BGFX_CLEAR_NONE, mat4::identity, mat4::identity, Rect());
+	const bgfx::ViewId viewId = PushView(s_main->defaultFb, BGFX_CLEAR_NONE, mat4::identity, mat4::identity, Rect());
 	bgfx::blit(viewId, dest, 0, 0, source);
 #ifdef _DEBUG
 	bgfx::setViewName(viewId, viewName);
@@ -787,7 +787,7 @@ static void SetDrawCallGeometry(const DrawCall &dc)
 	}
 }
 
-static void RenderToStencil(const uint8_t viewId)
+static void RenderToStencil(const bgfx::ViewId viewId)
 {
 	const uint32_t stencilWrite = BGFX_STENCIL_TEST_ALWAYS | BGFX_STENCIL_FUNC_REF(1) | BGFX_STENCIL_FUNC_RMASK(0xff) | BGFX_STENCIL_OP_FAIL_S_REPLACE | BGFX_STENCIL_OP_FAIL_Z_REPLACE | BGFX_STENCIL_OP_PASS_Z_REPLACE;
 	s_main->currentEntity = nullptr;
@@ -872,7 +872,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 				s_main->drawCalls.clear();
 				world::RenderReflective(args.visId, &s_main->drawCalls);
 				assert(!s_main->drawCalls.empty());
-				const uint8_t viewId = PushView(s_main->sceneFb, BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, viewMatrix, projectionMatrix, args.rect);
+				const bgfx::ViewId viewId = PushView(s_main->sceneFb, BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, viewMatrix, projectionMatrix, args.rect);
 #ifdef _DEBUG
 				bgfx::setViewName(viewId, "ReflectionStencilMask");
 #endif
@@ -911,7 +911,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 			s_main->drawCalls.clear();
 			world::RenderPortal(args.visId, &s_main->drawCalls);
 			assert(!s_main->drawCalls.empty());
-			const uint8_t viewId = PushView(s_main->fastPathEnabled ? s_main->defaultFb : s_main->sceneFb, BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, viewMatrix, projectionMatrix, args.rect);
+			const bgfx::ViewId viewId = PushView(s_main->fastPathEnabled ? s_main->defaultFb : s_main->sceneFb, BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL, viewMatrix, projectionMatrix, args.rect);
 #ifdef _DEBUG
 			bgfx::setViewName(viewId, "PortalStencilMask");
 #endif
@@ -1002,7 +1002,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 
 		mat4 shadowProjectionMatrix;
 		bx::mtxOrtho((float *)&shadowProjectionMatrix, bounds.min.x, bounds.max.x, bounds.min.y, bounds.max.y, bounds.min.z, bounds.max.z, 0.0f, bgfx::getCaps()->homogeneousDepth);
-		const uint8_t viewId = PushView(s_main->shadowMapFb, BGFX_CLEAR_DEPTH, shadowViewMatrix, shadowProjectionMatrix, Rect(0, 0, s_main->shadowMapSize, s_main->shadowMapSize));
+		const bgfx::ViewId viewId = PushView(s_main->shadowMapFb, BGFX_CLEAR_DEPTH, shadowViewMatrix, shadowProjectionMatrix, Rect(0, 0, s_main->shadowMapSize, s_main->shadowMapSize));
 #ifdef _DEBUG
 		bgfx::setViewName(viewId, "ShadowMap");
 #endif
@@ -1039,7 +1039,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 	// Render depth for soft sprites. MSAA is always off.
 	if (s_main->softSpritesEnabled && s_main->isWorldCamera && !isProbe)
 	{
-		const uint8_t viewId = PushView(s_main->depthFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect);
+		const bgfx::ViewId viewId = PushView(s_main->depthFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect);
 #ifdef _DEBUG
 		bgfx::setViewName(viewId, "Depth");
 #endif
@@ -1115,7 +1115,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 		}
 	}
 
-	uint8_t mainViewId;
+	bgfx::ViewId mainViewId;
 	
 	if (isProbe)
 	{
@@ -1527,7 +1527,7 @@ void RenderScene(const SceneDefinition &scene)
 	if (scene.flags & SceneDefinitionFlags::Hyperspace)
 	{
 		const uint8_t c = s_main->time & 255;
-		const uint8_t viewId = PushView(s_main->defaultFb, 0, mat4::identity, mat4::identity, rect);
+		const bgfx::ViewId viewId = PushView(s_main->defaultFb, 0, mat4::identity, mat4::identity, rect);
 		bgfx::setViewClear(viewId, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, (c<<24)|(c<<16)|(c<<8)|0xff);
 		bgfx::touch(viewId);
 	}
@@ -1753,7 +1753,7 @@ void EndFrame()
 	if (s_main->firstFreeViewId == 0)
 	{
 		// No active views. Make sure the screen is cleared.
-		const uint8_t viewId = PushView(s_main->defaultFb, 0, mat4::identity, mat4::identity, Rect(0, 0, window::GetWidth(), window::GetHeight()));
+		const bgfx::ViewId viewId = PushView(s_main->defaultFb, 0, mat4::identity, mat4::identity, Rect(0, 0, window::GetWidth(), window::GetHeight()));
 		bgfx::setViewClear(viewId, BGFX_CLEAR_COLOR, 0x000000ff);
 		bgfx::touch(viewId);
 	}
