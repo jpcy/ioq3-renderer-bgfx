@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2018 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx#license-bsd-2-clause
  */
 
@@ -54,7 +54,18 @@ namespace bx
 
 	bool isAlphaNum(char _ch)
 	{
-		return isAlpha(_ch) || isNumeric(_ch);
+		return false
+			|| isAlpha(_ch)
+			|| isNumeric(_ch)
+			;
+	}
+
+	bool isHexNum(char _ch)
+	{
+		return false
+			|| isInRange(toLower(_ch), 'a', 'f')
+			|| isNumeric(_ch)
+			;
 	}
 
 	bool isPrint(char _ch)
@@ -110,6 +121,11 @@ namespace bx
 		return isCharTest<isAlphaNum>(_str);
 	}
 
+	bool isHexNum(const StringView& _str)
+	{
+		return isCharTest<isHexNum>(_str);
+	}
+
 	bool isPrint(const StringView& _str)
 	{
 		return isCharTest<isPrint>(_str);
@@ -151,12 +167,6 @@ namespace bx
 	{
 		const int32_t len = strLen(_inOutStr, _max);
 		toUpperUnsafe(_inOutStr, len);
-	}
-
-	bool toBool(const char* _str)
-	{
-		char ch = toLower(_str[0]);
-		return ch == 't' ||  ch == '1';
 	}
 
 	typedef char (*CharFn)(char _ch);
@@ -446,6 +456,7 @@ namespace bx
 		const char* ptr   = _str.getPtr();
 		const char* chars = _chars.getPtr();
 		const uint32_t charsLen = _chars.getLength();
+
 		for (uint32_t ii = 0, len = _str.getLength(); ii < len; ++ii)
 		{
 			if (NULL == strFindUnsafe(chars, charsLen, ptr[ii]) )
@@ -459,6 +470,11 @@ namespace bx
 
 	StringView strRTrim(const StringView& _str, const StringView& _chars)
 	{
+		if (_str.isEmpty() )
+		{
+			return StringView();
+		}
+
 		const char* ptr   = _str.getPtr();
 		const char* chars = _chars.getPtr();
 		const uint32_t charsLen = _chars.getLength();
@@ -531,10 +547,17 @@ namespace bx
 		return _str;
 	}
 
-	const char* strword(const char* _str)
+	const char* strSkipWord(const char* _str, int32_t _max)
 	{
-		for (char ch = *_str++; isAlphaNum(ch) || '_' == ch; ch = *_str++) {};
+		for (char ch = *_str++; 0 < _max && (isAlphaNum(ch) || '_' == ch); ch = *_str++, --_max) {};
 		return _str-1;
+	}
+
+	StringView strWord(const StringView& _str)
+	{
+		const char* ptr  = _str.getPtr();
+		const char* term = strSkipWord(ptr, _str.getLength() );
+		return StringView(ptr, term);
 	}
 
 	const char* strmb(const char* _str, char _open, char _close)

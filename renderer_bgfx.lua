@@ -47,6 +47,7 @@ function rendererProject(engine, lightBakerEnabled, rendererPath)
 		path.join(bxPath, "src/timer.cpp"),
 		path.join(bimgPath, "include/bimg/*.h"),
 		path.join(bimgPath, "src/image.cpp"),
+		path.join(bimgPath, "src/image_gnf.cpp"),
 		path.join(bimgPath, "src/*.h"),
 		path.join(bgfxPath, "include/bgfx/*.h"),
 		path.join(bgfxPath, "src/bgfx.cpp"),

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2018 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx#license-bsd-2-clause
  */
 
@@ -61,8 +61,7 @@ namespace bx
 	  || BX_PLATFORM_ANDROID \
 	  || BX_PLATFORM_BSD     \
 	  || BX_PLATFORM_IOS     \
-	  || BX_PLATFORM_OSX     \
-	  || BX_PLATFORM_QNX
+	  || BX_PLATFORM_OSX
 #		define fseeko64 fseeko
 #		define ftello64 ftello
 #	elif BX_PLATFORM_PS4

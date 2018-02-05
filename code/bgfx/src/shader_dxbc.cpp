@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2018 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause
  */
 
@@ -977,7 +977,7 @@ namespace bgfx
 
 		if (_operand.extended)
 		{
-			size += bx::write(_writer, _operand.extBits);
+			size += bx::write(_writer, _operand.extBits, _err);
 		}
 
 		switch (_operand.type)
@@ -1072,12 +1072,12 @@ namespace bgfx
 		{
 			case DxbcOpcode::CUSTOMDATA:
 				{
-//					uint32_t dataClass;
+					_instruction.numOperands = 0;
 					size += bx::read(_reader, _instruction.length);
-					for (uint32_t ii = 0, num = (_instruction.length-2)/4; ii < num; ++ii)
+					for (uint32_t ii = 0, num = (_instruction.length-2); ii < num; ++ii)
 					{
-						char temp[16];
-						size += bx::read(_reader, temp, 16, _err);
+						char temp[4];
+						size += bx::read(_reader, temp, 4, _err);
 					}
 
 				}
@@ -1317,8 +1317,8 @@ namespace bgfx
 
 		switch (_instruction.opcode)
 		{
-//			case DxbcOpcode::CUSTOMDATA:
-//				return size;
+			case DxbcOpcode::CUSTOMDATA:
+				return 0;
 
 			case DxbcOpcode::DCL_CONSTANT_BUFFER:
 				token |= _instruction.allowRefactoring ? UINT32_C(0x00000800) : 0;
@@ -1452,7 +1452,7 @@ namespace bgfx
 							, "%s%s%s"
 							, getName(_instruction.opcode)
 							, _instruction.saturate ? "_sat" : ""
-							, _instruction.testNZ ? "_nz" : ""
+							, _instruction.testNZ   ? "_nz"  : ""
 							);
 
 		if (DxbcResourceDim::Unknown != _instruction.srv)
@@ -1480,10 +1480,24 @@ namespace bgfx
 				|| DxbcOperandAddrMode::Imm32 != operand.addrMode[0]
 				;
 
+			const char* preOperand  = "";
+			const char* postOperand = "";
+
+			if (operand.extended)
+			{
+				switch(DxbcOperandModifier::Enum(operand.extBits & UINT32_C(0x00000003) ) )
+				{
+				case DxbcOperandModifier::Neg:    preOperand =     "-"; postOperand =  ""; break;
+				case DxbcOperandModifier::Abs:    preOperand =  "abs("; postOperand = ")"; break;
+				case DxbcOperandModifier::AbsNeg: preOperand = "-abs("; postOperand = ")"; break;
+				default: break;
+				}
+			}
+
 			size += bx::snprintf(&_out[size], bx::uint32_imax(0, _size-size)
 								, "%s%s%s"
 								, 0 == ii ? " " : ", "
-								, operand.extended ? "*" : ""
+								, preOperand
 								, s_dxbcOperandType[operand.type]
 								);
 
@@ -1550,7 +1564,7 @@ namespace bgfx
 										, "%d + %s%d"
 										, operand.regIndex[jj]
 										, s_dxbcOperandType[operand.subOperand[jj].type]
-										, operand.regIndex[jj]
+										, operand.subOperand[jj].regIndex
 										);
 					break;
 
@@ -1604,6 +1618,10 @@ namespace bgfx
 				break;
 			}
 
+			size += bx::snprintf(&_out[size], bx::uint32_imax(0, _size-size)
+								, "%s"
+								, postOperand
+								);
 		}
 
 		return size;
@@ -1767,7 +1785,7 @@ namespace bgfx
 			{
 			case DXBC_CHUNK_SHADER_EX:
 				_dxbc.shader.shex = true;
-				// fallthrough
+				BX_FALLTHROUGH;
 
 			case DXBC_CHUNK_SHADER:
 				size += read(_reader, _dxbc.shader, _err);
@@ -1912,6 +1930,8 @@ namespace bgfx
 		bx::MemoryBlock mb(g_allocator);
 		bx::MemoryWriter writer(&mb);
 
+		int32_t total = 0;
+
 		for (uint32_t token = 0, numTokens = uint32_t(_src.byteCode.size() / sizeof(uint32_t) ); token < numTokens;)
 		{
 			DxbcInstruction instruction;
@@ -1920,15 +1940,14 @@ namespace bgfx
 
 			_fn(instruction, _userData);
 
-			write(&writer, instruction, _err);
+			total += write(&writer, instruction, _err);
 
 			token += instruction.length;
 		}
 
 		uint8_t* data = (uint8_t*)mb.more();
-		uint32_t size = uint32_t(bx::getSize(&writer) );
-		_dst.byteCode.reserve(size);
-		bx::memCopy(_dst.byteCode.data(), data, size);
+		_dst.byteCode.resize(total);
+		bx::memCopy(_dst.byteCode.data(), data, total);
 	}
 
 } // namespace bgfx

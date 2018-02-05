@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2018 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause
  */
 
@@ -10,8 +10,8 @@
 #define USE_D3D11_STAGING_BUFFER 0
 
 #if !USE_D3D11_DYNAMIC_LIB
-#	undef  BGFX_CONFIG_DEBUG_PIX
-#	define BGFX_CONFIG_DEBUG_PIX 0
+#   undef  BGFX_CONFIG_DEBUG_PIX
+#   define BGFX_CONFIG_DEBUG_PIX 0
 #endif // !USE_D3D11_DYNAMIC_LIB
 
 BX_PRAGMA_DIAGNOSTIC_PUSH();
@@ -21,12 +21,16 @@ BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(4005) // warning C4005: '' : macro redefinitio
 #include <sal.h>
 #define D3D11_NO_HELPERS
 #if BX_PLATFORM_WINDOWS
-#	include <d3d11_3.h>
-#	include <dxgi1_3.h>
+#   include <d3d11_3.h>
+#   include <dxgi1_6.h>
 #elif BX_PLATFORM_WINRT
-#	include <d3d11_3.h>
+#   define __D3D10_1SHADER_H__ // BK - not used keep quiet!
+#   include <d3d11_3.h>
 #else
-#	include <d3d11_x.h>
+#   if !BGFX_CONFIG_DEBUG
+#      define D3DCOMPILE_NO_DEBUG_AND_ALL_FAST_SEMANTICS 1
+#   endif // !BGFX_CONFIG_DEBUG
+#   include <d3d11_x.h>
 #endif // BX_PLATFORM_*
 BX_PRAGMA_DIAGNOSTIC_POP()
 
@@ -37,14 +41,6 @@ BX_PRAGMA_DIAGNOSTIC_POP()
 #include "hmd_openvr.h"
 #include "debug_renderdoc.h"
 #include "nvapi.h"
-
-#ifndef D3DCOLOR_ARGB
-#	define D3DCOLOR_ARGB(_a, _r, _g, _b) ( (DWORD)( ( ( (_a)&0xff)<<24)|( ( (_r)&0xff)<<16)|( ( (_g)&0xff)<<8)|( (_b)&0xff) ) )
-#endif // D3DCOLOR_ARGB
-
-#ifndef D3DCOLOR_RGBA
-#	define D3DCOLOR_RGBA(_r, _g, _b, _a) D3DCOLOR_ARGB(_a, _r, _g, _b)
-#endif // D3DCOLOR_RGBA
 
 #define BGFX_D3D11_BLEND_STATE_MASK (0 \
 			| BGFX_STATE_BLEND_MASK \
@@ -220,6 +216,38 @@ namespace bgfx { namespace d3d11
 		uint8_t m_numPredefined;
 	};
 
+	struct IntelDirectAccessResourceDescriptor
+	{
+		void*    ptr;
+		uint32_t xoffset;
+		uint32_t yoffset;
+		uint32_t tileFormat;
+		uint32_t pitch;
+		uint32_t size;
+	};
+
+	struct DirectAccessResourceD3D11
+	{
+		DirectAccessResourceD3D11()
+			: m_ptr(NULL)
+			, m_descriptor(NULL)
+		{
+		}
+
+		void* createTexture2D(const D3D11_TEXTURE2D_DESC* _gpuDesc, const D3D11_SUBRESOURCE_DATA* _srd, ID3D11Texture2D** _gpuTexture2d);
+		void* createTexture3D(const D3D11_TEXTURE3D_DESC* _gpuDesc, const D3D11_SUBRESOURCE_DATA* _srd, ID3D11Texture3D** _gpuTexture3d);
+		void destroy();
+
+		union
+		{
+			ID3D11Resource*  m_ptr;
+			ID3D11Texture2D* m_texture2d;
+			ID3D11Texture3D* m_texture3d;
+		};
+
+		IntelDirectAccessResourceDescriptor* m_descriptor;
+	};
+
 	struct TextureD3D11
 	{
 		enum Enum
@@ -238,7 +266,7 @@ namespace bgfx { namespace d3d11
 		{
 		}
 
-		void create(const Memory* _mem, uint32_t _flags, uint8_t _skip);
+		void* create(const Memory* _mem, uint32_t _flags, uint8_t _skip);
 		void destroy();
 		void overrideInternal(uintptr_t _ptr);
 		void update(uint8_t _side, uint8_t _mip, const Rect& _rect, uint16_t _z, uint16_t _depth, uint16_t _pitch, const Memory* _mem);
@@ -253,6 +281,8 @@ namespace bgfx { namespace d3d11
 			ID3D11Texture2D* m_texture2d;
 			ID3D11Texture3D* m_texture3d;
 		};
+
+		DirectAccessResourceD3D11 m_dar;
 
 		union
 		{

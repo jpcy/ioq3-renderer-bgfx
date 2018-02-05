@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2018 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx#license-bsd-2-clause
  */
 
@@ -8,11 +8,17 @@
 #include <bx/os.h>
 #include <bx/readerwriter.h>
 
-#if BX_CRT_MSVC
-#	include <direct.h> // _getcwd
-#else
-#	include <unistd.h> // getcwd
-#endif // BX_CRT_MSVC
+#if !BX_CRT_NONE
+#	include <stdio.h>  // remove
+#	include <dirent.h> // opendir
+
+#	if BX_CRT_MSVC
+#		include <direct.h>   // _getcwd
+#	else
+#		include <sys/stat.h> // mkdir
+#		include <unistd.h>   // getcwd
+#	endif // BX_CRT_MSVC
+#endif // 0
 
 #if BX_PLATFORM_WINDOWS
 extern "C" __declspec(dllimport) unsigned long __stdcall GetTempPathA(unsigned long _max, char* _ptr);
@@ -114,7 +120,6 @@ namespace bx
 
 					break;
 				}
-
 				BX_FALLTHROUGH;
 
 			default:
@@ -171,11 +176,12 @@ namespace bx
 	{
 #if BX_PLATFORM_PS4     \
  || BX_PLATFORM_XBOXONE \
- || BX_PLATFORM_WINRT
+ || BX_PLATFORM_WINRT   \
+ || BX_CRT_NONE
 		BX_UNUSED(_buffer, _size);
 		return NULL;
 #elif BX_CRT_MSVC
-		return ::_getcwd(_buffer, (int)_size);
+		return ::_getcwd(_buffer, (int32_t)_size);
 #else
 		return ::getcwd(_buffer, _size);
 #endif // BX_COMPILER_
@@ -269,6 +275,14 @@ namespace bx
 	{
 		set(_rhs);
 		return *this;
+	}
+
+	void FilePath::clear()
+	{
+		if (!isEmpty() )
+		{
+			set("");
+		}
 	}
 
 	void FilePath::set(Dir::Enum _dir)
@@ -378,6 +392,178 @@ namespace bx
 		return  '/' == m_filePath[0] // no drive letter
 			|| (':' == m_filePath[1] && '/' == m_filePath[2]) // with drive letter
 			;
+	}
+
+	bool FilePath::isEmpty() const
+	{
+		return 0 == strCmp(m_filePath, ".");
+	}
+
+	bool make(const FilePath& _filePath, Error* _err)
+	{
+		BX_ERROR_SCOPE(_err);
+
+		if (!_err->isOk() )
+		{
+			return false;
+		}
+
+#if BX_CRT_MSVC
+		int32_t result = ::_mkdir(_filePath.get() );
+#elif BX_CRT_MINGW
+		int32_t result = ::mkdir(_filePath.get());
+#elif BX_CRT_NONE
+		BX_UNUSED(_filePath);
+		int32_t result = -1;
+#else
+		int32_t result = ::mkdir(_filePath.get(), 0700);
+#endif // BX_CRT_MSVC
+
+		if (0 != result)
+		{
+			BX_ERROR_SET(_err, BX_ERROR_ACCESS, "The parent directory does not allow write permission to the process.");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool makeAll(const FilePath& _filePath, Error* _err)
+	{
+		BX_ERROR_SCOPE(_err);
+
+		if (!_err->isOk() )
+		{
+			return false;
+		}
+
+		FileInfo fi;
+
+		if (stat(_filePath, fi) )
+		{
+			if (FileInfo::Directory == fi.m_type)
+			{
+				return true;
+			}
+
+			BX_ERROR_SET(_err, BX_ERROR_NOT_DIRECTORY, "File already exist, and is not directory.");
+			return false;
+		}
+
+		const StringView dir = strRTrim(_filePath.get(), "/");
+		const char* slash = strRFind(dir, '/');
+
+		if (NULL != slash
+		&&  slash - dir.getPtr() > 1)
+		{
+			if (!makeAll(StringView(dir.getPtr(), slash), _err) )
+			{
+				return false;
+			}
+		}
+
+		FilePath path(dir);
+		return make(path, _err);
+	}
+
+	bool remove(const FilePath& _filePath, Error* _err)
+	{
+		BX_ERROR_SCOPE(_err);
+
+		if (!_err->isOk() )
+		{
+			return false;
+		}
+
+#if BX_CRT_MSVC
+		int32_t result = -1;
+		FileInfo fi;
+		if (stat(_filePath, fi) )
+		{
+			if (FileInfo::Directory == fi.m_type)
+			{
+				result = ::_rmdir(_filePath.get() );
+			}
+			else
+			{
+				result = ::remove(_filePath.get() );
+			}
+		}
+#elif BX_CRT_NONE
+		BX_UNUSED(_filePath);
+		int32_t result = -1;
+#else
+		int32_t result = ::remove(_filePath.get() );
+#endif // BX_CRT_MSVC
+
+		if (0 != result)
+		{
+			BX_ERROR_SET(_err, BX_ERROR_ACCESS, "The parent directory does not allow write permission to the process.");
+			return false;
+		}
+
+		return true;
+	}
+
+	bool removeAll(const FilePath& _filePath, Error* _err)
+	{
+		BX_ERROR_SCOPE(_err);
+
+		if (remove(_filePath, _err) )
+		{
+			return true;
+		}
+
+		_err->reset();
+
+		FileInfo fi;
+
+		if (!stat(_filePath, fi) )
+		{
+			BX_ERROR_SET(_err, BX_ERROR_ACCESS, "The parent directory does not allow write permission to the process.");
+			return false;
+		}
+
+		if (FileInfo::Directory != fi.m_type)
+		{
+			BX_ERROR_SET(_err, BX_ERROR_NOT_DIRECTORY, "File already exist, and is not directory.");
+			return false;
+		}
+
+#if BX_CRT_NONE
+		BX_UNUSED(_filePath);
+		return false;
+#elif  BX_PLATFORM_WINDOWS \
+	|| BX_PLATFORM_LINUX   \
+	|| BX_PLATFORM_OSX
+		DIR* dir = opendir(_filePath.get() );
+		if (NULL == dir)
+		{
+			BX_ERROR_SET(_err, BX_ERROR_NOT_DIRECTORY, "File already exist, and is not directory.");
+			return false;
+		}
+
+		for (dirent* item = readdir(dir); NULL != item; item = readdir(dir) )
+		{
+			if (0 == strCmp(item->d_name, ".")
+			||  0 == strCmp(item->d_name, "..") )
+			{
+				continue;
+			}
+
+			FilePath path(_filePath);
+			path.join(item->d_name);
+			if (!removeAll(path, _err) )
+			{
+				_err->reset();
+				break;
+			}
+		}
+
+		closedir(dir);
+#endif // !BX_CRT_NONE
+
+		return remove(_filePath, _err);
 	}
 
 } // namespace bx

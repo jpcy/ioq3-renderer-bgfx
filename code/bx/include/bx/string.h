@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2018 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx#license-bsd-2-clause
  */
 
@@ -85,64 +85,67 @@ namespace bx
 		StringT<AllocatorT>& operator=(const StringT<AllocatorT>& _rhs);
 
 		///
-		StringT(const char* _ptr, int32_t _len = INT32_MAX);
-
-		///
 		StringT(const StringView& _rhs);
 
 		///
 		~StringT();
 
 		///
-		void set(const char* _ptr, int32_t _len = INT32_MAX);
+		void set(const StringView& _str);
 
 		///
-		void append(const char* _ptr, int32_t _len = INT32_MAX);
+		void append(const StringView& _str);
 
 		///
 		void clear();
 	};
 
-	///
+	/// Retruns true if character is part of space set.
 	bool isSpace(char _ch);
 
-	///
+	/// Returns true if string view contains only space characters.
 	bool isSpace(const StringView& _str);
 
-	///
+	/// Retruns true if character is uppercase.
 	bool isUpper(char _ch);
 
-	///
+	/// Returns true if string view contains only uppercase characters.
 	bool isUpper(const StringView& _str);
 
-	///
+	/// Retruns true if character is lowercase.
 	bool isLower(char _ch);
 
-	///
+	/// Returns true if string view contains only lowercase characters.
 	bool isLower(const StringView& _str);
 
-	///
+	/// Returns true if character is part of alphabet set.
 	bool isAlpha(char _ch);
 
-	///
+	/// Retruns true if string view contains only alphabet characters.
 	bool isAlpha(const StringView& _str);
 
-	///
+	/// Returns true if character is part of numeric set.
 	bool isNumeric(char _ch);
 
-	///
+	/// Retruns true if string view contains only numeric characters.
 	bool isNumeric(const StringView& _str);
 
-	///
+	/// Returns true if character is part of alpha numeric set.
 	bool isAlphaNum(char _ch);
 
-	///
+	/// Returns true if string view contains only alpha-numeric characters.
 	bool isAlphaNum(const StringView& _str);
 
-	///
+	/// Returns true if character is part of hexadecimal set.
+	bool isHexNum(char _ch);
+
+	/// Returns true if string view contains only hexadecimal characters.
+	bool isHexNum(const StringView& _str);
+
+	/// Returns true if character is printable.
 	bool isPrint(char _ch);
 
-	///
+	/// Returns true if string vieww contains only printable characters.
 	bool isPrint(const StringView& _str);
 
 	///
@@ -162,9 +165,6 @@ namespace bx
 
 	///
 	void toUpper(char* _inOutStr, int32_t _max = INT32_MAX);
-
-	///
-	bool toBool(const char* _str);
 
 	/// String compare.
 	int32_t strCmp(const StringView& _lhs, const StringView& _rhs, int32_t _max = INT32_MAX);
@@ -221,8 +221,11 @@ namespace bx
 	/// Skip non-whitespace.
 	const char* strnws(const char* _str);
 
-	/// Skip word.
-	const char* strword(const char* _str);
+	/// Returns pointer to first character after word.
+	const char* strSkipWord(const char* _str, int32_t _max = INT32_MAX);
+
+	/// Returns StringView of word or empty.
+	StringView strWord(const StringView& _str);
 
 	/// Find matching block.
 	const char* strmb(const char* _str, char _open, char _close);
@@ -268,6 +271,9 @@ namespace bx
 	int32_t prettify(char* _out, int32_t _count, uint64_t _value, Units::Enum _units = Units::Kibi);
 
 	///
+	int32_t toString(char* _out, int32_t _max, bool _value);
+
+	///
 	int32_t toString(char* _out, int32_t _max, double _value);
 
 	///
@@ -281,6 +287,9 @@ namespace bx
 
 	///
 	int32_t toString(char* _out, int32_t _max, uint64_t _value, uint32_t _base = 10);
+
+	///
+	bool fromString(bool* _out, const StringView& _str);
 
 	///
 	bool fromString(float* _out, const StringView& _str);

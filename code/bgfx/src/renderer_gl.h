@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2018 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause
  */
 
@@ -12,7 +12,6 @@
 			|| BX_PLATFORM_EMSCRIPTEN                     \
 			|| BX_PLATFORM_LINUX                          \
 			|| BX_PLATFORM_NX                             \
-			|| BX_PLATFORM_QNX                            \
 			|| BX_PLATFORM_RPI                            \
 			|| BX_PLATFORM_STEAMLINK                      \
 			|| BX_PLATFORM_WINDOWS                        \

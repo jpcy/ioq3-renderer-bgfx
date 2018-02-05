@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2018 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -88,7 +88,7 @@ namespace bgfx
 	///
 	struct Attrib
 	{
-		/// Corresponds to vertex shader attribute. Attributes:
+		/// Corresponds to vertex shader attribute.
 		enum Enum
 		{
 			Position,  //!< a_position
@@ -362,18 +362,18 @@ namespace bgfx
 
 	static const uint16_t kInvalidHandle = UINT16_MAX;
 
-	BGFX_HANDLE(DynamicIndexBufferHandle);
-	BGFX_HANDLE(DynamicVertexBufferHandle);
-	BGFX_HANDLE(FrameBufferHandle);
-	BGFX_HANDLE(IndexBufferHandle);
-	BGFX_HANDLE(IndirectBufferHandle);
-	BGFX_HANDLE(OcclusionQueryHandle);
-	BGFX_HANDLE(ProgramHandle);
-	BGFX_HANDLE(ShaderHandle);
-	BGFX_HANDLE(TextureHandle);
-	BGFX_HANDLE(UniformHandle);
-	BGFX_HANDLE(VertexBufferHandle);
-	BGFX_HANDLE(VertexDeclHandle);
+	BGFX_HANDLE(DynamicIndexBufferHandle)
+	BGFX_HANDLE(DynamicVertexBufferHandle)
+	BGFX_HANDLE(FrameBufferHandle)
+	BGFX_HANDLE(IndexBufferHandle)
+	BGFX_HANDLE(IndirectBufferHandle)
+	BGFX_HANDLE(OcclusionQueryHandle)
+	BGFX_HANDLE(ProgramHandle)
+	BGFX_HANDLE(ShaderHandle)
+	BGFX_HANDLE(TextureHandle)
+	BGFX_HANDLE(UniformHandle)
+	BGFX_HANDLE(VertexBufferHandle)
+	BGFX_HANDLE(VertexDeclHandle)
 
 	/// Callback interface to implement application specific behavior.
 	/// Cached items are currently used for OpenGL and Direct3D 12 binary
@@ -389,9 +389,9 @@ namespace bgfx
 	{
 		virtual ~CallbackI() = 0;
 
-		/// If fatal code code is not Fatal::DebugCheck this callback is
-		/// called on unrecoverable error. It's not safe to continue, inform
-		/// user and terminate application from this call.
+		/// This callback is called on unrecoverable errors.
+		/// It's not safe to continue (Exluding _code `Fatal::DebugCheck`),
+		/// inform the user and terminate the application.
 		///
 		/// @param[in] _code Fatal error code.
 		/// @param[in] _str More information about error.
@@ -427,8 +427,8 @@ namespace bgfx
 		///
 		/// @param[in] _name Region name, contains dynamic string.
 		/// @param[in] _abgr Color of profiler region.
-		/// @param[in] _filePath File path where profilerBegin was called.
-		/// @param[in] _line Line where profilerBegin was called.
+		/// @param[in] _filePath File path where `profilerBegin` was called.
+		/// @param[in] _line Line where `profilerBegin` was called.
 		///
 		/// @remarks
 		///   Not thread safe and it can be called from any thread.
@@ -446,8 +446,8 @@ namespace bgfx
 		///
 		/// @param[in] _name Region name, contains string literal.
 		/// @param[in] _abgr Color of profiler region.
-		/// @param[in] _filePath File path where profilerBeginLiteral was called.
-		/// @param[in] _line Line where profilerBeginLiteral was called.
+		/// @param[in] _filePath File path where `profilerBeginLiteral` was called.
+		/// @param[in] _line Line where `profilerBeginLiteral` was called.
 		///
 		/// @remarks
 		///   Not thread safe and it can be called from any thread.
@@ -470,7 +470,7 @@ namespace bgfx
 		///
 		virtual void profilerEnd() = 0;
 
-		/// Return size of for cached item. Return 0 if no cached item was
+		/// Returns the size of a cached item. Returns 0 if no cached item was
 		/// found.
 		///
 		/// @param[in] _id Cache id.
@@ -507,10 +507,11 @@ namespace bgfx
 		/// @param[in] _filePath File path.
 		/// @param[in] _width Image width.
 		/// @param[in] _height Image height.
-		/// @param[in] _pitch Number of bytes to skip to next line.
+		/// @param[in] _pitch Number of bytes to skip between the start of
+		///   each horizontal line of the image.
 		/// @param[in] _data Image data.
 		/// @param[in] _size Image size.
-		/// @param[in] _yflip If true image origin is bottom left.
+		/// @param[in] _yflip If true, image origin is bottom left.
 		///
 		/// @attention C99 equivalent is `bgfx_callback_vtbl.screen_shot`.
 		///
@@ -524,7 +525,7 @@ namespace bgfx
 			, bool _yflip
 			) = 0;
 
-		/// Called when capture begins.
+		/// Called when a video capture begins.
 		///
 		/// @attention C99 equivalent is `bgfx_callback_vtbl.capture_begin`.
 		///
@@ -536,7 +537,7 @@ namespace bgfx
 			, bool _yflip
 			) = 0;
 
-		/// Called when capture ends.
+		/// Called when a video capture ends.
 		///
 		/// @attention C99 equivalent is `bgfx_callback_vtbl.capture_end`.
 		///
@@ -592,7 +593,7 @@ namespace bgfx
 
 		uint16_t vendorId;         //!< Selected GPU vendor PCI id.
 		uint16_t deviceId;         //!< Selected GPU device id.
-		bool     homogeneousDepth; //!< True when NDC depth is in [-1, 1] range.
+		bool     homogeneousDepth; //!< True when NDC depth is in [-1, 1] range, otherwise its [0, 1].
 		bool     originBottomLeft; //!< True when NDC origin is at bottom left.
 		uint8_t  numGPUs;          //!< Number of enumerated GPUs.
 
@@ -610,12 +611,12 @@ namespace bgfx
 
 		struct Limits
 		{
-			uint32_t maxDrawCalls;            //!< Maximum draw calls.
+			uint32_t maxDrawCalls;            //!< Maximum number of draw calls.
 			uint32_t maxBlits;                //!< Maximum number of blit calls.
 			uint32_t maxTextureSize;          //!< Maximum texture size.
-			uint32_t maxViews;                //!< Maximum views.
+			uint32_t maxViews;                //!< Maximum number of views.
 			uint32_t maxFrameBuffers;         //!< Maximum number of frame buffer handles.
-			uint32_t maxFBAttachments;        //!< Maximum frame buffer attachments.
+			uint32_t maxFBAttachments;        //!< Maximum number of frame buffer attachments.
 			uint32_t maxPrograms;             //!< Maximum number of program handles.
 			uint32_t maxShaders;              //!< Maximum number of shader handles.
 			uint32_t maxTextures;             //!< Maximum number of texture handles.
@@ -725,7 +726,7 @@ namespace bgfx
 		uint16_t num;           //!< Number of elements in array.
 	};
 
-	/// Frame buffer texture attachemnt info.
+	/// Frame buffer texture attachment info.
 	///
 	/// @attention C99 equivalent is `bgfx_attachment_t`.
 	///
@@ -774,6 +775,9 @@ namespace bgfx
 		uint8_t  flags;        //!< Status flags.
 	};
 
+	///
+	typedef uint16_t ViewId;
+
 	/// View stats.
 	///
 	/// @attention C99 equivalent is `bgfx_view_stats_t`.
@@ -781,7 +785,7 @@ namespace bgfx
 	struct ViewStats
 	{
 		char    name[256];      //!< View name.
-		uint8_t view;           //!< View id.
+		ViewId  view;           //!< View id.
 		int64_t cpuTimeElapsed; //!< CPU (submit) time elapsed.
 		int64_t gpuTimeElapsed; //!< GPU time elapsed.
 	};
@@ -800,51 +804,64 @@ namespace bgfx
 	///
 	/// @attention C99 equivalent is `bgfx_stats_t`.
 	///
+	/// @remarks All time values are high-resolution timestamps, while
+	///   time frequencies define timestamps-per-second for that hardware.
 	struct Stats
 	{
-		int64_t cpuTimeFrame;       //!< CPU time between two `bgfx::frame` calls.
-		int64_t cpuTimeBegin;       //!< Render thread CPU submit begin time.
-		int64_t cpuTimeEnd;         //!< Render thread CPU submit end time.
-		int64_t cpuTimerFreq;       //!< CPU timer frequency.
+		int64_t cpuTimeFrame;             //!< CPU time between two `bgfx::frame` calls.
+		int64_t cpuTimeBegin;             //!< Render thread CPU submit begin time.
+		int64_t cpuTimeEnd;               //!< Render thread CPU submit end time.
+		int64_t cpuTimerFreq;             //!< CPU timer frequency. Timestamps-per-second
 
-		int64_t gpuTimeBegin;       //!< GPU frame begin time.
-		int64_t gpuTimeEnd;         //!< GPU frame end time.
-		int64_t gpuTimerFreq;       //!< GPU timer frequency.
+		int64_t gpuTimeBegin;             //!< GPU frame begin time.
+		int64_t gpuTimeEnd;               //!< GPU frame end time.
+		int64_t gpuTimerFreq;             //!< GPU timer frequency.
 
-		int64_t waitRender;         //!< Time spent waiting for render backend thread to finish issuing
-		                            //!  draw commands to underlying graphics API.
-		int64_t waitSubmit;         //!< Time spent waiting for submit thread to advance to next frame.
+		int64_t waitRender;               //!< Time spent waiting for render backend thread to finish issuing
+		                                  //!  draw commands to underlying graphics API.
+		int64_t waitSubmit;               //!< Time spent waiting for submit thread to advance to next frame.
 
-		uint32_t numDraw;           //!< Number of draw calls submitted.
-		uint32_t numCompute;        //!< Number of compute calls submitted.
-		uint32_t maxGpuLatency;     //!< GPU driver latency.
+		uint32_t numDraw;                 //!< Number of draw calls submitted.
+		uint32_t numCompute;              //!< Number of compute calls submitted.
+		uint32_t maxGpuLatency;           //!< GPU driver latency.
 
-		int64_t gpuMemoryMax;       //!< Maximum available GPU memory for application.
-		int64_t gpuMemoryUsed;      //!< Amount of GPU memory used.
+		uint16_t numDynamicIndexBuffers;  //!< Number of used dynamic index buffers.
+		uint16_t numDynamicVertexBuffers; //!< Number of used dynamic vertex buffers.
+		uint16_t numFrameBuffers;         //!< Number of used frame buffers.
+		uint16_t numIndexBuffers;         //!< Number of used index buffers.
+		uint16_t numOcclusionQueries;     //!< Number of used occlusion queries.
+		uint16_t numPrograms;             //!< Number of used programs.
+		uint16_t numShaders;              //!< Number of used shaders.
+		uint16_t numTextures;             //!< Number of used textures.
+		uint16_t numUniforms;             //!< Number of used uniforms.
+		uint16_t numVertexBuffers;        //!< Number of used vertex buffers.
+		uint16_t numVertexDecls;          //!< Number of used vertex declarations.
 
-		uint16_t width;             //!< Backbuffer width in pixels.
-		uint16_t height;            //!< Backbuffer height in pixels.
-		uint16_t textWidth;         //!< Debug text width in characters.
-		uint16_t textHeight;        //!< Debug text height in characters.
+		int64_t gpuMemoryMax;             //!< Maximum available GPU memory for application.
+		int64_t gpuMemoryUsed;            //!< Amount of GPU memory used by the application.
 
-		uint16_t   numViews;        //!< Number of view stats.
-		ViewStats* viewStats;       //!< View stats.
+		uint16_t width;                   //!< Backbuffer width in pixels.
+		uint16_t height;                  //!< Backbuffer height in pixels.
+		uint16_t textWidth;               //!< Debug text width in characters.
+		uint16_t textHeight;              //!< Debug text height in characters.
 
-		uint8_t       numEncoders;  //!< Number of encoders used during frame.
-		EncoderStats* encoderStats; //!< Encoder stats.
+		uint16_t   numViews;              //!< Number of view stats.
+		ViewStats* viewStats;             //!< Array of View stats.
+
+		uint8_t       numEncoders;        //!< Number of encoders used during frame.
+		EncoderStats* encoderStats;       //!< Array of encoder stats.
 	};
 
-	///
-	typedef uint16_t ViewId;
-
-	/// Encoder for submitting draw calls from multiple threads. Use `bgfx::begin()`
-	/// to obtain encoder for thread.
+	/// Encoders are used for submitting draw calls from multiple threads, so one encoder per thread.
+	/// Use `bgfx::begin()` to obtain an encoder for a thread.
 	///
 	/// @attention C99 equivalent is `bgfx_encoder`.
 	///
 	struct Encoder
 	{
-		/// Sets debug marker.
+		/// Sets a debug marker. This allows you to group
+		/// graphics calls together for easy browsing in
+		/// graphics debugging tools.
 		///
 		/// @attention C99 equivalent is `bgfx_set_marker`.
 		///
@@ -861,7 +878,7 @@ namespace bgfx
 		///   - `BGFX_STATE_BLEND_EQUATION_*` - See remark 2.
 		///   - `BGFX_STATE_CULL_*` - Backface culling mode.
 		///   - `BGFX_STATE_RGB_WRITE` - Enable RGB write.
-		///   - `BGFX_STATE_MSAA` - Enable MSAA.
+		///   - `BGFX_STATE_MSAA` - Enable hardware multisample antialiasing.
 		///   - `BGFX_STATE_PT_[TRISTRIP/LINES/POINTS]` - Primitive type.
 		///
 		/// @param[in] _rgba Sets blend factor used by `BGFX_STATE_BLEND_FACTOR` and
@@ -872,8 +889,8 @@ namespace bgfx
 		///      `BGFX_STATE_ALPHA_REF(_ref)`,
 		///      `BGFX_STATE_POINT_SIZE(_size)`,
 		///      `BGFX_STATE_BLEND_FUNC(_src, _dst)`,
-		///      `BGFX_STATE_BLEND_FUNC_SEPARATE(_srcRGB, _dstRGB, _srcA, _dstA)`
-		///      `BGFX_STATE_BLEND_EQUATION(_equation)`
+		///      `BGFX_STATE_BLEND_FUNC_SEPARATE(_srcRGB, _dstRGB, _srcA, _dstA)`,
+		///      `BGFX_STATE_BLEND_EQUATION(_equation)`,
 		///      `BGFX_STATE_BLEND_EQUATION_SEPARATE(_equationRGB, _equationA)`
 		///   2. `BGFX_STATE_BLEND_EQUATION_ADD` is set when no other blend
 		///      equation is specified.
@@ -910,11 +927,11 @@ namespace bgfx
 			, uint32_t _bstencil = BGFX_STENCIL_NONE
 			);
 
-		/// Set scissor for draw primitive. For scissor for all primitives in
+		/// Set scissor for draw primitive. To scissor for all primitives in
 		/// view see `bgfx::setViewScissor`.
 		///
-		/// @param[in] _x Position x from the left corner of the window.
-		/// @param[in] _y Position y from the top corner of the window.
+		/// @param[in] _x Position x from the left side of the window.
+		/// @param[in] _y Position y from the top of the window.
 		/// @param[in] _width Width of scissor region.
 		/// @param[in] _height Height of scissor region.
 		/// @returns Scissor cache index.
@@ -930,19 +947,19 @@ namespace bgfx
 
 		/// Set scissor from cache for draw primitive.
 		///
-		/// @param[in] _cache Index in scissor cache. Passing UINT16_MAX unset primitive
-		///   scissor and primitive will use view scissor instead.
+		/// @param[in] _cache Index in scissor cache.
+		///   Pass UINT16_MAX to have primitive use view scissor instead.
 		///
 		/// @attention C99 equivalent is `bgfx_set_scissor_cached`.
 		///
 		void setScissor(uint16_t _cache = UINT16_MAX);
 
-		/// Set model matrix for draw primitive. If it is not called model will
+		/// Set model matrix for draw primitive. If it is not called, model will
 		/// be rendered with identity model matrix.
 		///
 		/// @param[in] _mtx Pointer to first matrix in array.
 		/// @param[in] _num Number of matrices in array.
-		/// @returns index into matrix cache in case the same model matrix has
+		/// @returns Index into matrix cache in case the same model matrix has
 		///   to be used for other draw primitive call.
 		///
 		/// @attention C99 equivalent is `bgfx_set_transform`.
@@ -956,7 +973,7 @@ namespace bgfx
 		///
 		/// @param[in] _transform Pointer to `Transform` structure.
 		/// @param[in] _num Number of matrices.
-		/// @returns index into matrix cache.
+		/// @returns Index into matrix cache.
 		///
 		/// @attention Pointer returned can be modifed until `bgfx::frame` is called.
 		/// @attention C99 equivalent is `bgfx_alloc_transform`.
@@ -1361,7 +1378,6 @@ namespace bgfx
 		/// Set compute image from texture.
 		///
 		/// @param[in] _stage Texture unit.
-		/// @param[in] _sampler Program sampler.
 		/// @param[in] _handle Texture handle.
 		/// @param[in] _mip Mip level.
 		/// @param[in] _access Texture access. See `Access::Enum`.
@@ -1371,7 +1387,6 @@ namespace bgfx
 		///
 		void setImage(
 			  uint8_t _stage
-			, UniformHandle _sampler
 			, TextureHandle _handle
 			, uint8_t _mip
 			, Access::Enum _access
@@ -1442,7 +1457,7 @@ namespace bgfx
 		/// @param[in] _width Width of region.
 		/// @param[in] _height Height of region.
 		///
-		/// @attention Destination texture must be create with `BGFX_TEXTURE_BLIT_DST` flag.
+		/// @attention Destination texture must be created with `BGFX_TEXTURE_BLIT_DST` flag.
 		/// @attention Availability depends on: `BGFX_CAPS_TEXTURE_BLIT`.
 		/// @attention C99 equivalent is `bgfx_blit`.
 		///
@@ -1466,21 +1481,21 @@ namespace bgfx
 		/// @param[in] _dstX Destination texture X position.
 		/// @param[in] _dstY Destination texture Y position.
 		/// @param[in] _dstZ If texture is 2D this argument should be 0. If destination texture is cube
-		///   this argument represent destination texture cube face. For 3D texture this argument
-		///   represent destination texture Z position.
+		///   this argument represents destination texture cube face. For 3D texture this argument
+		///   represents destination texture Z position.
 		/// @param[in] _src Source texture handle.
 		/// @param[in] _srcMip Source texture mip level.
 		/// @param[in] _srcX Source texture X position.
 		/// @param[in] _srcY Source texture Y position.
 		/// @param[in] _srcZ If texture is 2D this argument should be 0. If source texture is cube
-		///   this argument represent source texture cube face. For 3D texture this argument
-		///   represent source texture Z position.
+		///   this argument represents source texture cube face. For 3D texture this argument
+		///   represents source texture Z position.
 		/// @param[in] _width Width of region.
 		/// @param[in] _height Height of region.
-		/// @param[in] _depth If texture is 3D this argument represent depth of region, otherwise is
+		/// @param[in] _depth If texture is 3D this argument represents depth of region, otherwise it's
 		///   unused.
 		///
-		/// @attention Destination texture must be create with `BGFX_TEXTURE_BLIT_DST` flag.
+		/// @attention Destination texture must be created with `BGFX_TEXTURE_BLIT_DST` flag.
 		/// @attention Availability depends on: `BGFX_CAPS_TEXTURE_BLIT`.
 		/// @attention C99 equivalent is `bgfx_blit`.
 		///
@@ -1555,9 +1570,6 @@ namespace bgfx
 		VertexDecl& skip(uint8_t _num);
 
 		/// Decode attribute.
-		///
-		/// @attention C99 equivalent is ``.
-		///
 		void decode(
 			  Attrib::Enum _attrib
 			, uint8_t& _num
@@ -1740,7 +1752,7 @@ namespace bgfx
 	/// Initialize bgfx library.
 	///
 	/// @param[in] _type Select rendering backend. When set to RendererType::Count
-	///   default rendering backend will be selected.
+	///   a default rendering backend will be selected appropriate to the platform.
 	///   See: `bgfx::RendererType`
 	///
 	/// @param[in] _vendorId Vendor PCI id. If set to `BGFX_PCI_ID_NONE` it will select the first
@@ -1757,8 +1769,8 @@ namespace bgfx
 	/// @param[in] _callback Provide application specific callback interface.
 	///   See: `bgfx::CallbackI`
 	///
-	/// @param[in] _allocator Custom allocator. When custom allocator is not
-	///   specified, library uses default CRT allocator. The library assumes
+	/// @param[in] _allocator Custom allocator. When a custom allocator is not
+	///   specified, bgfx uses the CRT allocator. Bgfx assumes
 	///   custom allocator is thread safe.
 	///
 	/// @returns `true` if initialization was successful.
@@ -1883,10 +1895,10 @@ namespace bgfx
 		, uint32_t _size
 		);
 
-	/// Make reference to data to pass to bgfx. Unlike `bgfx::alloc` this call
-	/// doesn't allocate memory for data. It just copies pointer to data. You
+	/// Make reference to data to pass to bgfx. Unlike `bgfx::alloc`, this call
+	/// doesn't allocate memory for data. It just copies the _data pointer. You
 	/// can pass `ReleaseFn` function pointer to release this memory after it's
-	/// consumed, or you must make sure data is available for at least 2
+	/// consumed, otherwise you must make sure _data is available for at least 2
 	/// `bgfx::frame` calls. `ReleaseFn` function must be able to be called
 	/// from any thread.
 	///
@@ -1904,9 +1916,9 @@ namespace bgfx
 	///
 	/// @param[in] _debug Available flags:
 	///   - `BGFX_DEBUG_IFH` - Infinitely fast hardware. When this flag is set
-	///     all rendering calls will be skipped. It's useful when profiling
-	///     to quickly assess bottleneck between CPU and GPU.
-	///   - `BGFX_DEBUG_PROFILER` - Enabled profiler.
+	///     all rendering calls will be skipped. This is useful when profiling
+	///     to quickly assess potential bottlenecks between CPU and GPU.
+	///   - `BGFX_DEBUG_PROFILER` - Enable profiler.
 	///   - `BGFX_DEBUG_STATS` - Display internal statistics.
 	///   - `BGFX_DEBUG_TEXT` - Display debug text.
 	///   - `BGFX_DEBUG_WIREFRAME` - Wireframe rendering. All rendering
@@ -1929,7 +1941,7 @@ namespace bgfx
 	///
 	/// @param[in] _x, _y 2D position from top-left.
 	/// @param[in] _attr Color palette. Where top 4-bits represent index of background, and bottom
-	///   4-bits represent foreground color from standard VGA text palette.
+	///   4-bits represent foreground color from standard VGA text palette (ANSI escape codes).
 	/// @param[in] _format `printf` style format.
 	///
 	/// @attention C99 equivalent is `bgfx_dbg_text_printf`.
@@ -1946,7 +1958,7 @@ namespace bgfx
 	///
 	/// @param[in] _x, _y 2D position from top-left.
 	/// @param[in] _attr Color palette. Where top 4-bits represent index of background, and bottom
-	///   4-bits represent foreground color from standard VGA text palette.
+	///   4-bits represent foreground color from standard VGA text palette (ANSI escape codes).
 	/// @param[in] _format `printf` style format.
 	/// @param[in] _argList additional arguments for format string
 	///
@@ -1987,9 +1999,9 @@ namespace bgfx
 	///   - `BGFX_BUFFER_COMPUTE_WRITE` - Buffer will be written into by compute shader. When buffer
 	///       is created with `BGFX_BUFFER_COMPUTE_WRITE` flag it cannot be updated from CPU.
 	///   - `BGFX_BUFFER_COMPUTE_READ_WRITE` - Buffer will be used for read/write by compute shader.
-	///   - `BGFX_BUFFER_ALLOW_RESIZE` - Buffer will resize on buffer update if different amount of
-	///       data is passed. If this flag is not specified if more data is passed on update buffer
-	///       will be trimmed to fit existing buffer size. This flag has effect only on dynamic
+	///   - `BGFX_BUFFER_ALLOW_RESIZE` - Buffer will resize on buffer update if a different amount of
+	///       data is passed. If this flag is not specified, and more data is passed on update, the buffer
+	///       will be trimmed to fit the existing buffer size. This flag has effect only on dynamic
 	///       buffers.
 	///   - `BGFX_BUFFER_INDEX32` - Buffer is using 32-bit indices. This flag has effect only on
 	///       index buffers.
@@ -2019,9 +2031,9 @@ namespace bgfx
 	///   - `BGFX_BUFFER_COMPUTE_WRITE` - Buffer will be written into by compute shader. When buffer
 	///       is created with `BGFX_BUFFER_COMPUTE_WRITE` flag it cannot be updated from CPU.
 	///   - `BGFX_BUFFER_COMPUTE_READ_WRITE` - Buffer will be used for read/write by compute shader.
-	///   - `BGFX_BUFFER_ALLOW_RESIZE` - Buffer will resize on buffer update if different amount of
-	///       data is passed. If this flag is not specified if more data is passed on update buffer
-	///       will be trimmed to fit existing buffer size. This flag has effect only on dynamic
+	///   - `BGFX_BUFFER_ALLOW_RESIZE` - Buffer will resize on buffer update if a different amount of
+	///       data is passed. If this flag is not specified, and more data is passed on update, the buffer
+	///       will be trimmed to fit the existing buffer size. This flag has effect only on dynamic
 	///       buffers.
 	///   - `BGFX_BUFFER_INDEX32` - Buffer is using 32-bit indices. This flag has effect only on
 	///       index buffers.
@@ -2052,9 +2064,9 @@ namespace bgfx
 	///   - `BGFX_BUFFER_COMPUTE_WRITE` - Buffer will be written into by compute shader. When buffer
 	///       is created with `BGFX_BUFFER_COMPUTE_WRITE` flag it cannot be updated from CPU.
 	///   - `BGFX_BUFFER_COMPUTE_READ_WRITE` - Buffer will be used for read/write by compute shader.
-	///   - `BGFX_BUFFER_ALLOW_RESIZE` - Buffer will resize on buffer update if different amount of
-	///       data is passed. If this flag is not specified if more data is passed on update buffer
-	///       will be trimmed to fit existing buffer size. This flag has effect only on dynamic
+	///   - `BGFX_BUFFER_ALLOW_RESIZE` - Buffer will resize on buffer update if a different amount of
+	///       data is passed. If this flag is not specified, and more data is passed on update, the buffer
+	///       will be trimmed to fit the existing buffer size. This flag has effect only on dynamic
 	///       buffers.
 	///   - `BGFX_BUFFER_INDEX32` - Buffer is using 32-bit indices. This flag has effect only on
 	///       index buffers.
@@ -2076,9 +2088,9 @@ namespace bgfx
 	///   - `BGFX_BUFFER_COMPUTE_WRITE` - Buffer will be written into by compute shader. When buffer
 	///       is created with `BGFX_BUFFER_COMPUTE_WRITE` flag it cannot be updated from CPU.
 	///   - `BGFX_BUFFER_COMPUTE_READ_WRITE` - Buffer will be used for read/write by compute shader.
-	///   - `BGFX_BUFFER_ALLOW_RESIZE` - Buffer will resize on buffer update if different amount of
-	///       data is passed. If this flag is not specified if more data is passed on update buffer
-	///       will be trimmed to fit existing buffer size. This flag has effect only on dynamic
+	///   - `BGFX_BUFFER_ALLOW_RESIZE` - Buffer will resize on buffer update if a different amount of
+	///       data is passed. If this flag is not specified, and more data is passed on update, the buffer
+	///       will be trimmed to fit the existing buffer size. This flag has effect only on dynamic
 	///       buffers.
 	///   - `BGFX_BUFFER_INDEX32` - Buffer is using 32-bit indices. This flag has effect only on
 	///       index buffers.
@@ -2123,9 +2135,9 @@ namespace bgfx
 	///   - `BGFX_BUFFER_COMPUTE_WRITE` - Buffer will be written into by compute shader. When buffer
 	///       is created with `BGFX_BUFFER_COMPUTE_WRITE` flag it cannot be updated from CPU.
 	///   - `BGFX_BUFFER_COMPUTE_READ_WRITE` - Buffer will be used for read/write by compute shader.
-	///   - `BGFX_BUFFER_ALLOW_RESIZE` - Buffer will resize on buffer update if different amount of
-	///       data is passed. If this flag is not specified if more data is passed on update buffer
-	///       will be trimmed to fit existing buffer size. This flag has effect only on dynamic
+	///   - `BGFX_BUFFER_ALLOW_RESIZE` - Buffer will resize on buffer update if a different amount of
+	///       data is passed. If this flag is not specified, and more data is passed on update, the buffer
+	///       will be trimmed to fit the existing buffer size. This flag has effect only on dynamic
 	///       buffers.
 	///   - `BGFX_BUFFER_INDEX32` - Buffer is using 32-bit indices. This flag has effect only on
 	///       index buffers.
@@ -2149,9 +2161,9 @@ namespace bgfx
 	///   - `BGFX_BUFFER_COMPUTE_WRITE` - Buffer will be written into by compute shader. When buffer
 	///       is created with `BGFX_BUFFER_COMPUTE_WRITE` flag it cannot be updated from CPU.
 	///   - `BGFX_BUFFER_COMPUTE_READ_WRITE` - Buffer will be used for read/write by compute shader.
-	///   - `BGFX_BUFFER_ALLOW_RESIZE` - Buffer will resize on buffer update if different amount of
-	///       data is passed. If this flag is not specified if more data is passed on update buffer
-	///       will be trimmed to fit existing buffer size. This flag has effect only on dynamic
+	///   - `BGFX_BUFFER_ALLOW_RESIZE` - Buffer will resize on buffer update if a different amount of
+	///       data is passed. If this flag is not specified, and more data is passed on update, the buffer
+	///       will be trimmed to fit the existing buffer size. This flag has effect only on dynamic
 	///       buffers.
 	///   - `BGFX_BUFFER_INDEX32` - Buffer is using 32-bit indices. This flag has effect only on
 	///       index buffers.
@@ -2187,7 +2199,7 @@ namespace bgfx
 	///
 	void destroy(DynamicVertexBufferHandle _handle);
 
-	/// Returns number of available indices.
+	/// Returns number of requested or maximum available indices.
 	///
 	/// @param[in] _num Number of required indices.
 	///
@@ -2195,7 +2207,7 @@ namespace bgfx
 	///
 	uint32_t getAvailTransientIndexBuffer(uint32_t _num);
 
-	/// Returns number of available vertices.
+	/// Returns number of requested or maximum available vertices.
 	///
 	/// @param[in] _num Number of required vertices.
 	/// @param[in] _decl Vertex declaration.
@@ -2207,7 +2219,7 @@ namespace bgfx
 		, const VertexDecl& _decl
 		);
 
-	/// Returns number of available instance buffer slots.
+	/// Returns number of requested or maximum available instance buffer slots.
 	///
 	/// @param[in] _num Number of required instances.
 	/// @param[in] _stride Stride per instance.
@@ -2308,7 +2320,7 @@ namespace bgfx
 	///
 	ShaderHandle createShader(const Memory* _mem);
 
-	/// Returns num of uniforms, and uniform handles used inside shader.
+	/// Returns the number of uniforms and uniform handles used inside a shader.
 	///
 	/// @param[in] _handle Shader handle.
 	/// @param[in] _uniforms UniformHandle array where data will be stored.
@@ -2338,8 +2350,8 @@ namespace bgfx
 		, const char* _name
 		);
 
-	/// Destroy shader. Once program is created with shader it is safe to
-	/// destroy shader.
+	/// Destroy shader. Once a shader program is created with _handle,
+	/// it is safe to destroy that shader.
 	///
 	/// @param[in] _handle Shader handle.
 	///
@@ -2698,6 +2710,22 @@ namespace bgfx
 		, const char* _name
 		);
 
+	/// Returns texture direct access pointer.
+	///
+	/// @param[in] _handle Texture handle.
+	///
+	/// @returns Pointer to texture memory. If returned pointer is `NULL` direct access
+	///   is not available for this texture. If pointer is `UINTPTR_MAX` sentinel value
+	///   it means texture is pending creation. Pointer returned can be cached and it
+	///   will be valid until texture is destroyed.
+	///
+	/// @attention Availability depends on: `BGFX_CAPS_TEXTURE_DIRECT_ACCESS`. This feature
+	///   is available on GPUs that have unified memory architecture (UMA) support.
+	///
+	/// @attention C99 equivalent is `bgfx_get_direct_access_ptr`.
+	///
+	void* getDirectAccessPtr(TextureHandle _handle);
+
 	/// Destroy texture.
 	///
 	/// @param[in] _handle Texture handle.
@@ -2846,7 +2874,7 @@ namespace bgfx
 	///
 	///   2. Predefined uniforms (declared in `bgfx_shader.sh`):
 	///      - `u_viewRect vec4(x, y, width, height)` - view rectangle for current
-	///        view.
+	///        view, in pixels.
 	///      - `u_viewTexel vec4(1.0/width, 1.0/height, undef, undef)` - inverse
 	///        width and height
 	///      - `u_view mat4` - view matrix
@@ -3155,8 +3183,8 @@ namespace bgfx
 	///
 	void setViewOrder(
 		  ViewId _id = 0
-		, uint8_t _num = UINT8_MAX
-		, const uint8_t* _remap = NULL
+		, uint16_t _num = UINT16_MAX
+		, const ViewId* _remap = NULL
 		);
 
 	/// Reset all view settings to default.
@@ -3260,8 +3288,8 @@ namespace bgfx
 	///
 	void setScissor(uint16_t _cache = UINT16_MAX);
 
-	/// Set model matrix for draw primitive. If it is not called model will
-	/// be rendered with identity model matrix.
+	/// Set model matrix for draw primitive. If it is not called,
+	/// the model will be rendered with an identity model matrix.
 	///
 	/// @param[in] _mtx Pointer to first matrix in array.
 	/// @param[in] _num Number of matrices in array.
@@ -3684,7 +3712,6 @@ namespace bgfx
 	/// Set compute image from texture.
 	///
 	/// @param[in] _stage Texture unit.
-	/// @param[in] _sampler Program sampler.
 	/// @param[in] _handle Texture handle.
 	/// @param[in] _mip Mip level.
 	/// @param[in] _access Texture access. See `Access::Enum`.
@@ -3694,7 +3721,6 @@ namespace bgfx
 	///
 	void setImage(
 		  uint8_t _stage
-		, UniformHandle _sampler
 		, TextureHandle _handle
 		, uint8_t _mip
 		, Access::Enum _access
@@ -3753,7 +3779,7 @@ namespace bgfx
 	///
 	void discard();
 
-	/// Blit texture 2D region between two 2D textures.
+	/// Blit 2D texture region between two 2D textures.
 	///
 	/// @param[in] _id View id.
 	/// @param[in] _dst Destination texture handle.
@@ -3765,7 +3791,7 @@ namespace bgfx
 	/// @param[in] _width Width of region.
 	/// @param[in] _height Height of region.
 	///
-	/// @attention Destination texture must be create with `BGFX_TEXTURE_BLIT_DST` flag.
+	/// @attention Destination texture must be created with `BGFX_TEXTURE_BLIT_DST` flag.
 	/// @attention Availability depends on: `BGFX_CAPS_TEXTURE_BLIT`.
 	/// @attention C99 equivalent is `bgfx_blit`.
 	///
@@ -3789,21 +3815,21 @@ namespace bgfx
 	/// @param[in] _dstX Destination texture X position.
 	/// @param[in] _dstY Destination texture Y position.
 	/// @param[in] _dstZ If texture is 2D this argument should be 0. If destination texture is cube
-	///   this argument represent destination texture cube face. For 3D texture this argument
-	///   represent destination texture Z position.
+	///   this argument represents destination texture cube face. For 3D texture this argument
+	///   represents destination texture Z position.
 	/// @param[in] _src Source texture handle.
 	/// @param[in] _srcMip Source texture mip level.
 	/// @param[in] _srcX Source texture X position.
 	/// @param[in] _srcY Source texture Y position.
 	/// @param[in] _srcZ If texture is 2D this argument should be 0. If source texture is cube
-	///   this argument represent source texture cube face. For 3D texture this argument
-	///   represent source texture Z position.
+	///   this argument represents source texture cube face. For 3D texture this argument
+	///   represents source texture Z position.
 	/// @param[in] _width Width of region.
 	/// @param[in] _height Height of region.
-	/// @param[in] _depth If texture is 3D this argument represent depth of region, otherwise is
+	/// @param[in] _depth If texture is 3D this argument represents depth of region, otherwise it's
 	///   unused.
 	///
-	/// @attention Destination texture must be create with `BGFX_TEXTURE_BLIT_DST` flag.
+	/// @attention Destination texture must be created with `BGFX_TEXTURE_BLIT_DST` flag.
 	/// @attention Availability depends on: `BGFX_CAPS_TEXTURE_BLIT`.
 	/// @attention C99 equivalent is `bgfx_blit`.
 	///

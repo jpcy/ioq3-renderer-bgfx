@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2018 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx#license-bsd-2-clause
  */
 
@@ -1041,6 +1041,20 @@ namespace bx
 		}
 
 		return hd.d;
+	}
+
+	int32_t toString(char* _out, int32_t _max, bool _value)
+	{
+		StringView str(_value ? "true" : "false");
+		strCopy(_out, _max, str);
+		return str.getLength();
+	}
+
+	bool fromString(bool* _out, const StringView& _str)
+	{
+		char ch = toLower(_str.getPtr()[0]);
+		*_out = ch == 't' ||  ch == '1';
+		return 0 != _str.getLength();
 	}
 
 	bool fromString(float* _out, const StringView& _str)

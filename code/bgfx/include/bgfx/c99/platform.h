@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2017 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2018 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  *
  * vim: set tabstop=4 expandtab:
@@ -47,7 +47,7 @@ typedef struct bgfx_platform_data
 /**/
 BGFX_C_API void bgfx_set_platform_data(const bgfx_platform_data_t* _data);
 
-typedef struct bgfx_internal_data
+typedef struct bgfx_internal_datauint8_t
 {
     const struct bgfx_caps* caps;
     void* context;
@@ -140,6 +140,7 @@ typedef struct bgfx_interface_vtbl
     void (*update_texture_cube)(bgfx_texture_handle_t _handle, uint16_t _layer, uint8_t _side, uint8_t _mip, uint16_t _x, uint16_t _y, uint16_t _width, uint16_t _height, const bgfx_memory_t* _mem, uint16_t _pitch);
     uint32_t (*read_texture)(bgfx_texture_handle_t _handle, void* _data, uint8_t _mip);
     void (*set_texture_name)(bgfx_texture_handle_t _handle, const char* _name);
+    void* (*get_direct_access_ptr)(bgfx_texture_handle_t _handle);
     void (*destroy_texture)(bgfx_texture_handle_t _handle);
     bgfx_frame_buffer_handle_t (*create_frame_buffer)(uint16_t _width, uint16_t _height, bgfx_texture_format_t _format, uint32_t _textureFlags);
     bgfx_frame_buffer_handle_t (*create_frame_buffer_scaled)(bgfx_backbuffer_ratio_t _ratio, bgfx_texture_format_t _format, uint32_t _textureFlags);
@@ -163,7 +164,7 @@ typedef struct bgfx_interface_vtbl
     void (*set_view_frame_buffer)(bgfx_view_id_t _id, bgfx_frame_buffer_handle_t _handle);
     void (*set_view_transform)(bgfx_view_id_t _id, const void* _view, const void* _proj);
     void (*set_view_transform_stereo)(bgfx_view_id_t _id, const void* _view, const void* _projL, uint8_t _flags, const void* _projR);
-    void (*set_view_order)(bgfx_view_id_t _id, uint8_t _num, const uint8_t* _order);
+    void (*set_view_order)(bgfx_view_id_t _id, uint16_t _num, const bgfx_view_id_t* _order);
     void (*encoder_set_marker)(struct bgfx_encoder* _encoder, const char* _marker);
     void (*encoder_set_state)(struct bgfx_encoder* _encoder, uint64_t _state, uint32_t _rgba);
     void (*encoder_set_condition)(struct bgfx_encoder* _encoder, bgfx_occlusion_query_handle_t _handle, bool _visible);
@@ -188,7 +189,7 @@ typedef struct bgfx_interface_vtbl
     void (*encoder_submit)(struct bgfx_encoder* _encoder, bgfx_view_id_t _id, bgfx_program_handle_t _handle, int32_t _depth, bool _preserveState);
     void (*encoder_submit_occlusion_query)(struct bgfx_encoder* _encoder, bgfx_view_id_t _id, bgfx_program_handle_t _program, bgfx_occlusion_query_handle_t _occlusionQuery, int32_t _depth, bool _preserveState);
     void (*encoder_submit_indirect)(struct bgfx_encoder* _encoder, bgfx_view_id_t _id, bgfx_program_handle_t _handle, bgfx_indirect_buffer_handle_t _indirectHandle, uint16_t _start, uint16_t _num, int32_t _depth, bool _preserveState);
-    void (*encoder_set_image)(struct bgfx_encoder* _encoder, uint8_t _stage, bgfx_uniform_handle_t _sampler, bgfx_texture_handle_t _handle, uint8_t _mip, bgfx_access_t _access, bgfx_texture_format_t _format);
+    void (*encoder_set_image)(struct bgfx_encoder* _encoder, uint8_t _stage, bgfx_texture_handle_t _handle, uint8_t _mip, bgfx_access_t _access, bgfx_texture_format_t _format);
     void (*encoder_set_compute_index_buffer)(struct bgfx_encoder* _encoder, uint8_t _stage, bgfx_index_buffer_handle_t _handle, bgfx_access_t _access);
     void (*encoder_set_compute_vertex_buffer)(struct bgfx_encoder* _encoder, uint8_t _stage, bgfx_vertex_buffer_handle_t _handle, bgfx_access_t _access);
     void (*encoder_set_compute_dynamic_index_buffer)(struct bgfx_encoder* _encoder, uint8_t _stage, bgfx_dynamic_index_buffer_handle_t _handle, bgfx_access_t _access);
