@@ -261,6 +261,8 @@ int Material::collapseStagesToGLSL()
 
 	if (!skip)
 	{
+		bool usedLightmap = false;
+
 		for (i = 0; i < maxStages; i++)
 		{
 			MaterialStage *pStage = &stages[i];
@@ -319,7 +321,15 @@ int Material::collapseStagesToGLSL()
 					case MaterialStageType::ColorMap:
 						if (pStage2->bundles[0].tcGen == MaterialTexCoordGen::Lightmap)
 						{
-							lightmap = pStage2;
+							// Only add lightmap to blendfunc filter stage if it's the first time lightmap is used
+							// otherwise it will cause the shader to be darkened by the lightmap multiple times.
+							const bool isFilterBlend = (pStage->blendSrc == BGFX_STATE_BLEND_ZERO && pStage->blendDst == BGFX_STATE_BLEND_SRC_COLOR) || (pStage->blendSrc == BGFX_STATE_BLEND_DST_COLOR && pStage->blendDst == BGFX_STATE_BLEND_ZERO);
+
+							if (!usedLightmap || !isFilterBlend)
+							{
+								lightmap = pStage2;
+								usedLightmap = true;
+							}
 						}
 						break;
 
