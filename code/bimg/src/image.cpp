@@ -340,7 +340,7 @@ namespace bimg
 		}
 	}
 
-	void imageRgba8Downsample2x2Ref(void* _dst, uint32_t _width, uint32_t _height, uint32_t _depth, uint32_t _srcPitch, const void* _src)
+	void imageRgba8Downsample2x2Ref(void* _dst, uint32_t _width, uint32_t _height, uint32_t _depth, uint32_t _srcPitch, uint32_t _dstPitch, const void* _src)
 	{
 		const uint32_t dstWidth  = _width/2;
 		const uint32_t dstHeight = _height/2;
@@ -351,13 +351,13 @@ namespace bimg
 			return;
 		}
 
-		uint8_t* dst = (uint8_t*)_dst;
 		const uint8_t* src = (const uint8_t*)_src;
 
 		for (uint32_t zz = 0; zz < _depth; ++zz)
 		{
 			for (uint32_t yy = 0, ystep = _srcPitch*2; yy < dstHeight; ++yy, src += ystep)
 			{
+				uint8_t* dst = (uint8_t*)_dst + _dstPitch*yy;
 				const uint8_t* rgba = src;
 				for (uint32_t xx = 0; xx < dstWidth; ++xx, rgba += 8, dst += 4)
 				{
@@ -394,7 +394,7 @@ namespace bimg
 		}
 	}
 
-	void imageRgba8Downsample2x2(void* _dst, uint32_t _width, uint32_t _height, uint32_t _depth, uint32_t _srcPitch, const void* _src)
+	void imageRgba8Downsample2x2(void* _dst, uint32_t _width, uint32_t _height, uint32_t _depth, uint32_t _srcPitch, uint32_t _dstPitch, const void* _src)
 	{
 		const uint32_t dstWidth  = _width/2;
 		const uint32_t dstHeight = _height/2;
@@ -405,7 +405,6 @@ namespace bimg
 			return;
 		}
 
-		uint8_t* dst = (uint8_t*)_dst;
 		const uint8_t* src = (const uint8_t*)_src;
 
 		using namespace bx;
@@ -423,6 +422,7 @@ namespace bimg
 		{
 			for (uint32_t yy = 0, ystep = _srcPitch*2; yy < dstHeight; ++yy, src += ystep)
 			{
+				uint8_t* dst = (uint8_t*)_dst + _dstPitch*yy;
 				const uint8_t* rgba = src;
 				for (uint32_t xx = 0; xx < dstWidth; ++xx, rgba += 8, dst += 4)
 				{
@@ -586,7 +586,7 @@ namespace bimg
 		imageRgba32fLinearDownsample2x2Ref(_dst, _width, _height, _depth, _srcPitch, _src);
 	}
 
-	void imageRgba32fDownsample2x2NormalMapRef(void* _dst, uint32_t _width, uint32_t _height, uint32_t _srcPitch, const void* _src)
+	void imageRgba32fDownsample2x2NormalMapRef(void* _dst, uint32_t _width, uint32_t _height, uint32_t _srcPitch, uint32_t _dstPitch, const void* _src)
 	{
 		const uint32_t dstWidth  = _width/2;
 		const uint32_t dstHeight = _height/2;
@@ -598,12 +598,14 @@ namespace bimg
 		}
 
 		const uint8_t* src = (const uint8_t*)_src;
-		uint8_t* dst = (uint8_t*)_dst;
 
 		for (uint32_t yy = 0, ystep = _srcPitch*2; yy < dstHeight; ++yy, src += ystep)
 		{
 			const float* rgba0 = (const float*)&src[0];
 			const float* rgba1 = (const float*)&src[_srcPitch];
+
+			uint8_t* dst = (uint8_t*)_dst + _dstPitch*yy;
+
 			for (uint32_t xx = 0; xx < dstWidth; ++xx, rgba0 += 8, rgba1 += 8, dst += 16)
 			{
 				float xyz[3];
@@ -629,9 +631,9 @@ namespace bimg
 		}
 	}
 
-	void imageRgba32fDownsample2x2NormalMap(void* _dst, uint32_t _width, uint32_t _height, uint32_t _srcPitch, const void* _src)
+	void imageRgba32fDownsample2x2NormalMap(void* _dst, uint32_t _width, uint32_t _height, uint32_t _srcPitch, uint32_t _dstPitch, const void* _src)
 	{
-		imageRgba32fDownsample2x2NormalMapRef(_dst, _width, _height, _srcPitch, _src);
+		imageRgba32fDownsample2x2NormalMapRef(_dst, _width, _height, _srcPitch, _dstPitch, _src);
 	}
 
 	void imageSwizzleBgra8Ref(void* _dst, uint32_t _dstPitch, uint32_t _width, uint32_t _height, const void* _src, uint32_t _srcPitch)
@@ -1833,6 +1835,7 @@ namespace bimg
 #define DDS_BC5U BX_MAKEFOURCC('B', 'C', '5', 'U')
 #define DDS_DX10 BX_MAKEFOURCC('D', 'X', '1', '0')
 
+#define DDS_R8G8B8         20
 #define DDS_A8R8G8B8       21
 #define DDS_R5G6B5         23
 #define DDS_A1R5G5B5       25
@@ -1960,6 +1963,7 @@ namespace bimg
 		{ DDS_G16R16,                TextureFormat::RG16,    false },
 		{ DDS_G16R16F,               TextureFormat::RG16F,   false },
 		{ DDS_G32R32F,               TextureFormat::RG32F,   false },
+		{ DDS_R8G8B8,                TextureFormat::RGB8,    false },
 		{ DDS_A8R8G8B8,              TextureFormat::BGRA8,   false },
 		{ DDS_A16B16G16R16,          TextureFormat::RGBA16,  false },
 		{ DDS_A16B16G16R16F,         TextureFormat::RGBA16F, false },
@@ -2027,6 +2031,7 @@ namespace bimg
 		{ 16, DDPF_RGB,                  { 0x0000f800, 0x000007e0, 0x0000001f, 0x00000000 }, TextureFormat::R5G6B5  },
 		{ 16, DDPF_RGB,                  { 0x00007c00, 0x000003e0, 0x0000001f, 0x00008000 }, TextureFormat::RGB5A1  },
 		{ 24, DDPF_RGB,                  { 0x00ff0000, 0x0000ff00, 0x000000ff, 0x00000000 }, TextureFormat::RGB8    },
+		{ 24, DDPF_RGB,                  { 0x000000ff, 0x0000ff00, 0x00ff0000, 0x00000000 }, TextureFormat::RGB8    },
 		{ 32, DDPF_RGB,                  { 0x00ff0000, 0x0000ff00, 0x000000ff, 0x00000000 }, TextureFormat::BGRA8   },
 		{ 32, DDPF_RGB|DDPF_ALPHAPIXELS, { 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000 }, TextureFormat::RGBA8   },
 		{ 32, DDPF_BUMPDUDV,             { 0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000 }, TextureFormat::RGBA8S  },
@@ -2112,8 +2117,8 @@ namespace bimg
 		}
 
 		uint32_t dxgiFormat = 0;
-		uint32_t arraySize = 1;
-		if (DDPF_FOURCC == pixelFlags
+		uint32_t arraySize  = 1;
+		if (DDPF_FOURCC == (pixelFlags & DDPF_FOURCC)
 		&&  DDS_DX10    == fourcc)
 		{
 			total += bx::read(_reader, dxgiFormat, _err);
@@ -3397,9 +3402,24 @@ namespace bimg
 		bx::WriterI* m_writer;
 	};
 
-	int32_t imageWritePng(bx::WriterI* _writer, uint32_t _width, uint32_t _height, uint32_t _srcPitch, const void* _src, bool _grayscale, bool _yflip, bx::Error* _err)
+	int32_t imageWritePng(bx::WriterI* _writer, uint32_t _width, uint32_t _height, uint32_t _srcPitch, const void* _src, TextureFormat::Enum _format, bool _yflip, bx::Error* _err)
 	{
 		BX_ERROR_SCOPE(_err);
+
+		switch (_format)
+		{
+		case TextureFormat::R8:
+		case TextureFormat::RGBA8:
+		case TextureFormat::BGRA8:
+			break;
+
+		default:
+			BX_ERROR_SET(_err, BIMG_ERROR, "PNG: Unsupported texture format.");
+			return 0;
+		}
+
+		const bool grayscale = TextureFormat::R8    == _format;
+		const bool bgra      = TextureFormat::BGRA8 == _format;
 
 		int32_t total = 0;
 		total += bx::write(_writer, "\x89PNG\r\n\x1a\n", _err);
@@ -3413,7 +3433,7 @@ namespace bimg
 		total += bx::writeRep(&writerC, 0, 3, _err);
 		total += bx::write(_writer, bx::toBigEndian(writerC.end() ), _err);
 
-		const uint32_t bpp    = _grayscale ? 8 : 32;
+		const uint32_t bpp    = grayscale ? 8 : 32;
 		const uint32_t stride = _width*bpp/8;
 		const uint16_t zlen   = bx::toLittleEndian<uint16_t>(uint16_t(stride + 1) );
 		const uint16_t zlenC  = bx::toLittleEndian<uint16_t>(~zlen);
@@ -3442,24 +3462,24 @@ namespace bimg
 
 			total += bx::write(&writerA, uint8_t(0), _err);
 
-			if (_grayscale)
-			{
-				total += bx::write(&writerA, data, stride, _err);
-			}
-			else
+			if (bgra)
 			{
 				for (uint32_t xx = 0; xx < _width; ++xx)
 				{
-					const uint8_t* bgra = &data[xx*4];
-					const uint8_t bb = bgra[0];
-					const uint8_t gg = bgra[1];
-					const uint8_t rr = bgra[2];
-					const uint8_t aa = bgra[3];
+					const uint8_t* texel = &data[xx*4];
+					const uint8_t bb = texel[0];
+					const uint8_t gg = texel[1];
+					const uint8_t rr = texel[2];
+					const uint8_t aa = texel[3];
 					total += bx::write(&writerA, rr, _err);
 					total += bx::write(&writerA, gg, _err);
 					total += bx::write(&writerA, bb, _err);
 					total += bx::write(&writerA, aa, _err);
 				}
+			}
+			else
+			{
+				total += bx::write(&writerA, data, stride, _err);
 			}
 
 			data += step;
@@ -3471,6 +3491,130 @@ namespace bimg
 		writerC.begin();
 		total += bx::write(&writerC, "IEND", _err);
 		total += bx::write(_writer,  bx::toBigEndian(writerC.end() ), _err);
+
+		return total;
+	}
+
+	int32_t imageWriteExr(bx::WriterI* _writer, uint32_t _width, uint32_t _height, uint32_t _srcPitch, const void* _src, TextureFormat::Enum _format, bool _yflip, bx::Error* _err)
+	{
+		BX_ERROR_SCOPE(_err);
+
+		switch (_format)
+		{
+		case TextureFormat::RGBA16F:
+			break;
+
+		default:
+			BX_ERROR_SET(_err, BIMG_ERROR, "EXR: Unsupported texture format.");
+			return 0;
+		}
+
+		int32_t total = 0;
+		total += bx::write(_writer, "v/1\x01", _err);
+		total += bx::writeLE(_writer, uint32_t(2), _err);
+
+		total += bx::write(_writer, "channels", _err);
+		total += bx::write(_writer, '\0', _err);
+		total += bx::write(_writer, "chlist", _err);
+		total += bx::write(_writer, '\0', _err);
+		total += bx::writeLE(_writer, uint32_t(55), _err);
+
+		const uint8_t cdata[] = { 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 };
+		total += bx::write(_writer, 'B', _err);
+		total += bx::write(_writer, cdata, BX_COUNTOF(cdata), _err);
+		total += bx::write(_writer, 'G', _err);
+		total += bx::write(_writer, cdata, BX_COUNTOF(cdata), _err);
+		total += bx::write(_writer, 'R', _err);
+		total += bx::write(_writer, cdata, BX_COUNTOF(cdata), _err);
+		total += bx::write(_writer, '\0', _err);
+
+		total += bx::write(_writer, "compression", _err);
+		total += bx::write(_writer, '\0', _err);
+		total += bx::write(_writer, "compression", _err);
+		total += bx::write(_writer, '\0', _err);
+		total += bx::writeLE(_writer, uint32_t(1), _err);
+		total += bx::write(_writer, '\0', _err); // no compression
+
+		total += bx::write(_writer, "dataWindow", _err);
+		total += bx::write(_writer, '\0', _err);
+		total += bx::write(_writer, "box2i", _err);
+		total += bx::write(_writer, '\0', _err);
+		total += bx::writeLE(_writer, uint32_t(16), _err);
+		total += bx::writeRep(_writer, '\0', 8, _err);
+		total += bx::writeLE(_writer, _width-1,  _err);
+		total += bx::writeLE(_writer, _height-1, _err);
+
+		total += bx::write(_writer, "displayWindow", _err);
+		total += bx::write(_writer, '\0', _err);
+		total += bx::write(_writer, "box2i", _err);
+		total += bx::write(_writer, '\0', _err);
+		total += bx::writeLE(_writer, uint32_t(16), _err);
+		total += bx::writeRep(_writer, '\0', 8, _err);
+		total += bx::writeLE(_writer, _width-1,  _err);
+		total += bx::writeLE(_writer, _height-1, _err);
+
+		total += bx::write(_writer, "lineOrder", _err);
+		total += bx::write(_writer, '\0', _err);
+		total += bx::write(_writer, "lineOrder", _err);
+		total += bx::write(_writer, '\0', _err);
+		total += bx::writeLE(_writer, uint32_t(1), _err);
+		total += bx::write(_writer, _yflip, _err);
+
+		total += bx::write(_writer, "pixelAspectRatio", _err);
+		total += bx::write(_writer, '\0', _err);
+		total += bx::write(_writer, "float", _err);
+		total += bx::write(_writer, '\0', _err);
+		total += bx::writeLE(_writer, uint32_t(4), _err);
+		total += bx::writeLE(_writer, 1.0f, _err);
+
+		total += bx::write(_writer, "screenWindowCenter", _err);
+		total += bx::write(_writer, '\0', _err);
+		total += bx::write(_writer, "v2f", _err);
+		total += bx::write(_writer, '\0', _err);
+		total += bx::writeLE(_writer, uint32_t(8), _err);
+		total += bx::writeRep(_writer, '\0', 8, _err);
+
+		total += bx::write(_writer, "screenWindowWidth", _err);
+		total += bx::write(_writer, '\0', _err);
+		total += bx::write(_writer, "float", _err);
+		total += bx::write(_writer, '\0', _err);
+		total += bx::writeLE(_writer, uint32_t(4), _err);
+		total += bx::writeLE(_writer, 1.0f, _err);
+
+		total += bx::write(_writer, '\0', _err);
+
+		const uint32_t exrStride = _width*6 /* sizeof(RGB16F) */;
+
+		uint64_t offset = 0;
+		for (uint32_t yy = 0; yy < _height && _err->isOk(); ++yy)
+		{
+			total += bx::writeLE(_writer, (offset), _err);
+			offset += exrStride + 8 /* offset */;
+		}
+
+		const uint8_t* data = (const uint8_t*)_src;
+		for (uint32_t yy = 0; yy < _height && _err->isOk(); ++yy)
+		{
+			total += bx::writeLE(_writer, yy, _err);
+			total += bx::writeLE(_writer, exrStride, _err);
+
+			for (uint32_t xx = 0; xx < _width && _err->isOk(); ++xx)
+			{
+				total += bx::write(_writer, &data[xx*8+4], 2, _err);
+			}
+
+			for (uint32_t xx = 0; xx < _width && _err->isOk(); ++xx)
+			{
+				total += bx::write(_writer, &data[xx*8+2], 2, _err);
+			}
+
+			for (uint32_t xx = 0; xx < _width && _err->isOk(); ++xx)
+			{
+				total += bx::write(_writer, &data[xx*8+0], 2, _err);
+			}
+
+			data += _srcPitch;
+		}
 
 		return total;
 	}

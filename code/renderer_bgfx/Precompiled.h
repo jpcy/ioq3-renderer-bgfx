@@ -211,7 +211,7 @@ struct DrawCall
 	int skyboxSide;
 	float softSpriteDepth = 0;
 	uint8_t sort = 0;
-	uint64_t state = BGFX_STATE_RGB_WRITE | BGFX_STATE_ALPHA_WRITE;
+	uint64_t state = BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A;
 	VertexBuffer vb;
 	float zOffset = 0.0f;
 	float zScale = 0.0f;

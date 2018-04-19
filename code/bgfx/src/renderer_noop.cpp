@@ -38,6 +38,35 @@ namespace bgfx { namespace noop
 				| BGFX_CAPS_VERTEX_ATTRIB_HALF
 				| BGFX_CAPS_VERTEX_ATTRIB_UINT10
 				;
+
+			// Pretend all features are available for all texture formats.
+			for (uint32_t formatIdx = 0; formatIdx < TextureFormat::Count; ++formatIdx)
+			{
+				g_caps.formats[formatIdx] = 0
+					| BGFX_CAPS_FORMAT_TEXTURE_NONE
+					| BGFX_CAPS_FORMAT_TEXTURE_2D
+					| BGFX_CAPS_FORMAT_TEXTURE_2D_SRGB
+					| BGFX_CAPS_FORMAT_TEXTURE_2D_EMULATED
+					| BGFX_CAPS_FORMAT_TEXTURE_3D
+					| BGFX_CAPS_FORMAT_TEXTURE_3D_SRGB
+					| BGFX_CAPS_FORMAT_TEXTURE_3D_EMULATED
+					| BGFX_CAPS_FORMAT_TEXTURE_CUBE
+					| BGFX_CAPS_FORMAT_TEXTURE_CUBE_SRGB
+					| BGFX_CAPS_FORMAT_TEXTURE_CUBE_EMULATED
+					| BGFX_CAPS_FORMAT_TEXTURE_VERTEX
+					| BGFX_CAPS_FORMAT_TEXTURE_IMAGE
+					| BGFX_CAPS_FORMAT_TEXTURE_FRAMEBUFFER
+					| BGFX_CAPS_FORMAT_TEXTURE_FRAMEBUFFER_MSAA
+					| BGFX_CAPS_FORMAT_TEXTURE_MSAA
+					| BGFX_CAPS_FORMAT_TEXTURE_MIP_AUTOGEN
+					;
+			}
+
+			// Pretend we have no limits
+			g_caps.limits.maxTextureSize   = 16384;
+			g_caps.limits.maxTextureLayers = 2048;
+			g_caps.limits.maxFBAttachments = BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS;
+			g_caps.limits.maxVertexStreams = BGFX_CONFIG_MAX_VERTEX_STREAMS;
 		}
 
 		~RendererContextNOOP()
@@ -63,7 +92,7 @@ namespace bgfx { namespace noop
 		{
 		}
 
-		void createIndexBuffer(IndexBufferHandle /*_handle*/, Memory* /*_mem*/, uint16_t /*_flags*/) override
+		void createIndexBuffer(IndexBufferHandle /*_handle*/, const Memory* /*_mem*/, uint16_t /*_flags*/) override
 		{
 		}
 
@@ -79,7 +108,7 @@ namespace bgfx { namespace noop
 		{
 		}
 
-		void createVertexBuffer(VertexBufferHandle /*_handle*/, Memory* /*_mem*/, VertexDeclHandle /*_declHandle*/, uint16_t /*_flags*/) override
+		void createVertexBuffer(VertexBufferHandle /*_handle*/, const Memory* /*_mem*/, VertexDeclHandle /*_declHandle*/, uint16_t /*_flags*/) override
 		{
 		}
 
@@ -91,7 +120,7 @@ namespace bgfx { namespace noop
 		{
 		}
 
-		void updateDynamicIndexBuffer(IndexBufferHandle /*_handle*/, uint32_t /*_offset*/, uint32_t /*_size*/, Memory* /*_mem*/) override
+		void updateDynamicIndexBuffer(IndexBufferHandle /*_handle*/, uint32_t /*_offset*/, uint32_t /*_size*/, const Memory* /*_mem*/) override
 		{
 		}
 
@@ -103,7 +132,7 @@ namespace bgfx { namespace noop
 		{
 		}
 
-		void updateDynamicVertexBuffer(VertexBufferHandle /*_handle*/, uint32_t /*_offset*/, uint32_t /*_size*/, Memory* /*_mem*/) override
+		void updateDynamicVertexBuffer(VertexBufferHandle /*_handle*/, uint32_t /*_offset*/, uint32_t /*_size*/, const Memory* /*_mem*/) override
 		{
 		}
 
@@ -111,7 +140,7 @@ namespace bgfx { namespace noop
 		{
 		}
 
-		void createShader(ShaderHandle /*_handle*/, Memory* /*_mem*/) override
+		void createShader(ShaderHandle /*_handle*/, const Memory* /*_mem*/) override
 		{
 		}
 
@@ -127,7 +156,7 @@ namespace bgfx { namespace noop
 		{
 		}
 
-		void* createTexture(TextureHandle /*_handle*/, Memory* /*_mem*/, uint32_t /*_flags*/, uint8_t /*_skip*/) override
+		void* createTexture(TextureHandle /*_handle*/, const Memory* /*_mem*/, uint32_t /*_flags*/, uint8_t /*_skip*/) override
 		{
 			return NULL;
 		}

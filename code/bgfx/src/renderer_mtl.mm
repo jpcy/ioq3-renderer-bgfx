@@ -254,82 +254,82 @@ namespace bgfx { namespace mtl
 
 	static TextureFormatInfo s_textureFormat[] =
 	{
-		{ MTLPixelFormat(130) /*BC1_RGBA*/,				MTLPixelFormat(131) /*BC1_RGBA_sRGB*/        }, // BC1
-		{ MTLPixelFormat(132) /*BC2_RGBA*/,				MTLPixelFormat(133) /*BC2_RGBA_sRGB*/        }, // BC2
-		{ MTLPixelFormat(134) /*BC3_RGBA*/,				MTLPixelFormat(135) /*BC3_RGBA_sRGB*/        }, // BC3
-		{ MTLPixelFormat(140) /*BC4_RUnorm*/,			MTLPixelFormatInvalid                        }, // BC4
-		{ MTLPixelFormat(142) /*BC5_RGUnorm*/,			MTLPixelFormatInvalid                        }, // BC5
-		{ MTLPixelFormat(150) /*BC6H_RGBFloat*/,		MTLPixelFormatInvalid                        }, // BC6H
-		{ MTLPixelFormat(152) /*BC7_RGBAUnorm*/,		MTLPixelFormat(153) /*BC7_RGBAUnorm_sRGB*/   }, // BC7
-		{ MTLPixelFormatInvalid,						MTLPixelFormatInvalid                        }, // ETC1
-		{ MTLPixelFormat(180) /*ETC2_RGB8*/,			MTLPixelFormat(181) /*ETC2_RGB8_sRGB*/       }, // ETC2
-		{ MTLPixelFormat(178) /*EAC_RGBA8*/,			MTLPixelFormat(179) /*EAC_RGBA8_sRGB*/       }, // ETC2A
-		{ MTLPixelFormat(182) /*ETC2_RGB8A1*/,			MTLPixelFormat(183) /*ETC2_RGB8A1_sRGB*/     }, // ETC2A1
-		{ MTLPixelFormat(160) /*PVRTC_RGB_2BPP*/,		MTLPixelFormat(161) /*PVRTC_RGB_2BPP_sRGB*/  }, // PTC12
-		{ MTLPixelFormat(162) /*PVRTC_RGB_4BPP*/,		MTLPixelFormat(163) /*PVRTC_RGB_4BPP_sRGB*/  }, // PTC14
-		{ MTLPixelFormat(164) /*PVRTC_RGBA_2BPP*/,		MTLPixelFormat(165) /*PVRTC_RGBA_2BPP_sRGB*/ }, // PTC12A
-		{ MTLPixelFormat(166) /*PVRTC_RGBA_4BPP*/,		MTLPixelFormat(167) /*PVRTC_RGBA_4BPP_sRGB*/ }, // PTC14A
-		{ MTLPixelFormatInvalid,						MTLPixelFormatInvalid                        }, // PTC22
-		{ MTLPixelFormatInvalid,						MTLPixelFormatInvalid                        }, // PTC24
-		{ MTLPixelFormatInvalid,						MTLPixelFormatInvalid                        }, // Unknown
-		{ MTLPixelFormatInvalid,						MTLPixelFormatInvalid                        }, // R1
-		{ MTLPixelFormatA8Unorm,						MTLPixelFormatInvalid                        }, // A8
-		{ MTLPixelFormatR8Unorm,						MTLPixelFormat(11) /*R8Unorm_sRGB*/          }, // R8
-		{ MTLPixelFormatR8Sint,							MTLPixelFormatInvalid                        }, // R8I
-		{ MTLPixelFormatR8Uint,							MTLPixelFormatInvalid                        }, // R8U
-		{ MTLPixelFormatR8Snorm,						MTLPixelFormatInvalid                        }, // R8S
-		{ MTLPixelFormatR16Unorm,						MTLPixelFormatInvalid                        }, // R16
-		{ MTLPixelFormatR16Sint,						MTLPixelFormatInvalid                        }, // R16I
-		{ MTLPixelFormatR16Uint,						MTLPixelFormatInvalid                        }, // R16U
-		{ MTLPixelFormatR16Float,						MTLPixelFormatInvalid                        }, // R16F
-		{ MTLPixelFormatR16Snorm,						MTLPixelFormatInvalid                        }, // R16S
-		{ MTLPixelFormatR32Sint,						MTLPixelFormatInvalid                        }, // R32I
-		{ MTLPixelFormatR32Uint,						MTLPixelFormatInvalid                        }, // R32U
-		{ MTLPixelFormatR32Float,						MTLPixelFormatInvalid                        }, // R32F
-		{ MTLPixelFormatRG8Unorm,						MTLPixelFormat(31) /*RG8Unorm_sRGB*/         }, // RG8
-		{ MTLPixelFormatRG8Sint,						MTLPixelFormatInvalid                        }, // RG8I
-		{ MTLPixelFormatRG8Uint,						MTLPixelFormatInvalid                        }, // RG8U
-		{ MTLPixelFormatRG8Snorm,						MTLPixelFormatInvalid                        }, // RG8S
-		{ MTLPixelFormatRG16Unorm,						MTLPixelFormatInvalid                        }, // RG16
-		{ MTLPixelFormatRG16Sint,						MTLPixelFormatInvalid                        }, // RG16I
-		{ MTLPixelFormatRG16Uint,						MTLPixelFormatInvalid                        }, // RG16U
-		{ MTLPixelFormatRG16Float,						MTLPixelFormatInvalid                        }, // RG16F
-		{ MTLPixelFormatRG16Snorm,						MTLPixelFormatInvalid                        }, // RG16S
-		{ MTLPixelFormatRG32Sint,						MTLPixelFormatInvalid                        }, // RG32I
-		{ MTLPixelFormatRG32Uint,						MTLPixelFormatInvalid                        }, // RG32U
-		{ MTLPixelFormatRG32Float,						MTLPixelFormatInvalid                        }, // RG32F
-		{ MTLPixelFormatInvalid,						MTLPixelFormatInvalid                        }, // RGB8
-		{ MTLPixelFormatInvalid,						MTLPixelFormatInvalid                        }, // RGB8I
-		{ MTLPixelFormatInvalid,						MTLPixelFormatInvalid                        }, // RGB8U
-		{ MTLPixelFormatInvalid,						MTLPixelFormatInvalid                        }, // RGB8S
-		{ MTLPixelFormatRGB9E5Float,					MTLPixelFormatInvalid                        }, // RGB9E5F
-		{ MTLPixelFormatBGRA8Unorm,						MTLPixelFormatBGRA8Unorm_sRGB                }, // BGRA8
-		{ MTLPixelFormatRGBA8Unorm,						MTLPixelFormatRGBA8Unorm_sRGB                }, // RGBA8
-		{ MTLPixelFormatRGBA8Sint,						MTLPixelFormatInvalid                        }, // RGBA8I
-		{ MTLPixelFormatRGBA8Uint,						MTLPixelFormatInvalid                        }, // RGBA8U
-		{ MTLPixelFormatRGBA8Snorm,						MTLPixelFormatInvalid                        }, // RGBA8S
-		{ MTLPixelFormatRGBA16Unorm,					MTLPixelFormatInvalid                        }, // RGBA16
-		{ MTLPixelFormatRGBA16Sint,						MTLPixelFormatInvalid                        }, // RGBA16I
-		{ MTLPixelFormatRGBA16Uint,						MTLPixelFormatInvalid                        }, // RGBA16U
-		{ MTLPixelFormatRGBA16Float,					MTLPixelFormatInvalid                        }, // RGBA16F
-		{ MTLPixelFormatRGBA16Snorm,					MTLPixelFormatInvalid                        }, // RGBA16S
-		{ MTLPixelFormatRGBA32Sint,						MTLPixelFormatInvalid                        }, // RGBA32I
-		{ MTLPixelFormatRGBA32Uint,						MTLPixelFormatInvalid                        }, // RGBA32U
-		{ MTLPixelFormatRGBA32Float,					MTLPixelFormatInvalid                        }, // RGBA32F
-		{ MTLPixelFormat(40) /*B5G6R5Unorm*/,			MTLPixelFormatInvalid                        }, // R5G6B5
-		{ MTLPixelFormat(42) /*ABGR4Unorm*/,			MTLPixelFormatInvalid                        }, // RGBA4
-		{ MTLPixelFormat(41) /*A1BGR5Unorm*/,			MTLPixelFormatInvalid                        }, // RGB5A1
-		{ MTLPixelFormatRGB10A2Unorm,					MTLPixelFormatInvalid                        }, // RGB10A2
-		{ MTLPixelFormatRG11B10Float,					MTLPixelFormatInvalid                        }, // RG11B10F
-		{ MTLPixelFormatInvalid,						MTLPixelFormatInvalid                        }, // UnknownDepth
-		{ MTLPixelFormatDepth32Float,					MTLPixelFormatInvalid                        }, // D16
-		{ MTLPixelFormatDepth32Float,					MTLPixelFormatInvalid                        }, // D24
-		{ MTLPixelFormat(255) /*Depth24Unorm_Stencil8*/,MTLPixelFormatInvalid						 }, // D24S8
-		{ MTLPixelFormatDepth32Float,					MTLPixelFormatInvalid                        }, // D32
-		{ MTLPixelFormatDepth32Float,					MTLPixelFormatInvalid                        }, // D16F
-		{ MTLPixelFormatDepth32Float,					MTLPixelFormatInvalid                        }, // D24F
-		{ MTLPixelFormatDepth32Float,					MTLPixelFormatInvalid                        }, // D32F
-		{ MTLPixelFormatStencil8,						MTLPixelFormatInvalid                        }, // D0S8
+		{ MTLPixelFormat(130/*BC1_RGBA*/),              MTLPixelFormat(131/*BC1_RGBA_sRGB*/)        }, // BC1
+		{ MTLPixelFormat(132/*BC2_RGBA*/),              MTLPixelFormat(133/*BC2_RGBA_sRGB*/)        }, // BC2
+		{ MTLPixelFormat(134/*BC3_RGBA*/),              MTLPixelFormat(135/*BC3_RGBA_sRGB*/)        }, // BC3
+		{ MTLPixelFormat(140/*BC4_RUnorm*/),            MTLPixelFormatInvalid                       }, // BC4
+		{ MTLPixelFormat(142/*BC5_RGUnorm*/),           MTLPixelFormatInvalid                       }, // BC5
+		{ MTLPixelFormat(150/*BC6H_RGBFloat*/),         MTLPixelFormatInvalid                       }, // BC6H
+		{ MTLPixelFormat(152/*BC7_RGBAUnorm*/),         MTLPixelFormat(153/*BC7_RGBAUnorm_sRGB*/)   }, // BC7
+		{ MTLPixelFormatInvalid,                        MTLPixelFormatInvalid                       }, // ETC1
+		{ MTLPixelFormat(180/*ETC2_RGB8*/),             MTLPixelFormat(181/*ETC2_RGB8_sRGB*/)       }, // ETC2
+		{ MTLPixelFormat(178/*EAC_RGBA8*/),             MTLPixelFormat(179/*EAC_RGBA8_sRGB*/)       }, // ETC2A
+		{ MTLPixelFormat(182/*ETC2_RGB8A1*/),           MTLPixelFormat(183/*ETC2_RGB8A1_sRGB*/)     }, // ETC2A1
+		{ MTLPixelFormat(160/*PVRTC_RGB_2BPP*/),        MTLPixelFormat(161/*PVRTC_RGB_2BPP_sRGB*/)  }, // PTC12
+		{ MTLPixelFormat(162/*PVRTC_RGB_4BPP*/),        MTLPixelFormat(163/*PVRTC_RGB_4BPP_sRGB*/)  }, // PTC14
+		{ MTLPixelFormat(164/*PVRTC_RGBA_2BPP*/),       MTLPixelFormat(165/*PVRTC_RGBA_2BPP_sRGB*/) }, // PTC12A
+		{ MTLPixelFormat(166/*PVRTC_RGBA_4BPP*/),       MTLPixelFormat(167/*PVRTC_RGBA_4BPP_sRGB*/) }, // PTC14A
+		{ MTLPixelFormatInvalid,                        MTLPixelFormatInvalid                       }, // PTC22
+		{ MTLPixelFormatInvalid,                        MTLPixelFormatInvalid                       }, // PTC24
+		{ MTLPixelFormatInvalid,                        MTLPixelFormatInvalid                       }, // Unknown
+		{ MTLPixelFormatInvalid,                        MTLPixelFormatInvalid                       }, // R1
+		{ MTLPixelFormatA8Unorm,                        MTLPixelFormatInvalid                       }, // A8
+		{ MTLPixelFormatR8Unorm,                        MTLPixelFormat(11/*R8Unorm_sRGB*/)          }, // R8
+		{ MTLPixelFormatR8Sint,                         MTLPixelFormatInvalid                       }, // R8I
+		{ MTLPixelFormatR8Uint,                         MTLPixelFormatInvalid                       }, // R8U
+		{ MTLPixelFormatR8Snorm,                        MTLPixelFormatInvalid                       }, // R8S
+		{ MTLPixelFormatR16Unorm,                       MTLPixelFormatInvalid                       }, // R16
+		{ MTLPixelFormatR16Sint,                        MTLPixelFormatInvalid                       }, // R16I
+		{ MTLPixelFormatR16Uint,                        MTLPixelFormatInvalid                       }, // R16U
+		{ MTLPixelFormatR16Float,                       MTLPixelFormatInvalid                       }, // R16F
+		{ MTLPixelFormatR16Snorm,                       MTLPixelFormatInvalid                       }, // R16S
+		{ MTLPixelFormatR32Sint,                        MTLPixelFormatInvalid                       }, // R32I
+		{ MTLPixelFormatR32Uint,                        MTLPixelFormatInvalid                       }, // R32U
+		{ MTLPixelFormatR32Float,                       MTLPixelFormatInvalid                       }, // R32F
+		{ MTLPixelFormatRG8Unorm,                       MTLPixelFormat(31/*RG8Unorm_sRGB*/)         }, // RG8
+		{ MTLPixelFormatRG8Sint,                        MTLPixelFormatInvalid                       }, // RG8I
+		{ MTLPixelFormatRG8Uint,                        MTLPixelFormatInvalid                       }, // RG8U
+		{ MTLPixelFormatRG8Snorm,                       MTLPixelFormatInvalid                       }, // RG8S
+		{ MTLPixelFormatRG16Unorm,                      MTLPixelFormatInvalid                       }, // RG16
+		{ MTLPixelFormatRG16Sint,                       MTLPixelFormatInvalid                       }, // RG16I
+		{ MTLPixelFormatRG16Uint,                       MTLPixelFormatInvalid                       }, // RG16U
+		{ MTLPixelFormatRG16Float,                      MTLPixelFormatInvalid                       }, // RG16F
+		{ MTLPixelFormatRG16Snorm,                      MTLPixelFormatInvalid                       }, // RG16S
+		{ MTLPixelFormatRG32Sint,                       MTLPixelFormatInvalid                       }, // RG32I
+		{ MTLPixelFormatRG32Uint,                       MTLPixelFormatInvalid                       }, // RG32U
+		{ MTLPixelFormatRG32Float,                      MTLPixelFormatInvalid                       }, // RG32F
+		{ MTLPixelFormatInvalid,                        MTLPixelFormatInvalid                       }, // RGB8
+		{ MTLPixelFormatInvalid,                        MTLPixelFormatInvalid                       }, // RGB8I
+		{ MTLPixelFormatInvalid,                        MTLPixelFormatInvalid                       }, // RGB8U
+		{ MTLPixelFormatInvalid,                        MTLPixelFormatInvalid                       }, // RGB8S
+		{ MTLPixelFormatRGB9E5Float,                    MTLPixelFormatInvalid                       }, // RGB9E5F
+		{ MTLPixelFormatBGRA8Unorm,                     MTLPixelFormatBGRA8Unorm_sRGB               }, // BGRA8
+		{ MTLPixelFormatRGBA8Unorm,                     MTLPixelFormatRGBA8Unorm_sRGB               }, // RGBA8
+		{ MTLPixelFormatRGBA8Sint,                      MTLPixelFormatInvalid                       }, // RGBA8I
+		{ MTLPixelFormatRGBA8Uint,                      MTLPixelFormatInvalid                       }, // RGBA8U
+		{ MTLPixelFormatRGBA8Snorm,                     MTLPixelFormatInvalid                       }, // RGBA8S
+		{ MTLPixelFormatRGBA16Unorm,                    MTLPixelFormatInvalid                       }, // RGBA16
+		{ MTLPixelFormatRGBA16Sint,                     MTLPixelFormatInvalid                       }, // RGBA16I
+		{ MTLPixelFormatRGBA16Uint,                     MTLPixelFormatInvalid                       }, // RGBA16U
+		{ MTLPixelFormatRGBA16Float,                    MTLPixelFormatInvalid                       }, // RGBA16F
+		{ MTLPixelFormatRGBA16Snorm,                    MTLPixelFormatInvalid                       }, // RGBA16S
+		{ MTLPixelFormatRGBA32Sint,                     MTLPixelFormatInvalid                       }, // RGBA32I
+		{ MTLPixelFormatRGBA32Uint,                     MTLPixelFormatInvalid                       }, // RGBA32U
+		{ MTLPixelFormatRGBA32Float,                    MTLPixelFormatInvalid                       }, // RGBA32F
+		{ MTLPixelFormat(40/*B5G6R5Unorm*/),            MTLPixelFormatInvalid                       }, // R5G6B5
+		{ MTLPixelFormat(42/*ABGR4Unorm*/),             MTLPixelFormatInvalid                       }, // RGBA4
+		{ MTLPixelFormat(41/*A1BGR5Unorm*/),            MTLPixelFormatInvalid                       }, // RGB5A1
+		{ MTLPixelFormatRGB10A2Unorm,                   MTLPixelFormatInvalid                       }, // RGB10A2
+		{ MTLPixelFormatRG11B10Float,                   MTLPixelFormatInvalid                       }, // RG11B10F
+		{ MTLPixelFormatInvalid,                        MTLPixelFormatInvalid                       }, // UnknownDepth
+		{ MTLPixelFormatDepth32Float,                   MTLPixelFormatInvalid                       }, // D16
+		{ MTLPixelFormatDepth32Float,                   MTLPixelFormatInvalid                       }, // D24
+		{ MTLPixelFormat(255/*Depth24Unorm_Stencil8*/), MTLPixelFormatInvalid                       }, // D24S8
+		{ MTLPixelFormatDepth32Float,                   MTLPixelFormatInvalid                       }, // D32
+		{ MTLPixelFormatDepth32Float,                   MTLPixelFormatInvalid                       }, // D16F
+		{ MTLPixelFormatDepth32Float,                   MTLPixelFormatInvalid                       }, // D24F
+		{ MTLPixelFormatDepth32Float,                   MTLPixelFormatInvalid                       }, // D32F
+		{ MTLPixelFormatStencil8,                       MTLPixelFormatInvalid                       }, // D0S8
 	};
 	BX_STATIC_ASSERT(TextureFormat::Count == BX_COUNTOF(s_textureFormat) );
 
@@ -485,7 +485,7 @@ namespace bgfx { namespace mtl
 
 			reset(m_renderPipelineDescriptor);
 			m_renderPipelineDescriptor.colorAttachments[0].pixelFormat = m_metalLayer.pixelFormat;
-			m_renderPipelineDescriptor.vertexFunction = m_screenshotBlitProgram.m_vsh->m_function;
+			m_renderPipelineDescriptor.vertexFunction   = m_screenshotBlitProgram.m_vsh->m_function;
 			m_renderPipelineDescriptor.fragmentFunction = m_screenshotBlitProgram.m_fsh->m_function;
 			m_screenshotBlitRenderPipelineState = m_device.newRenderPipelineStateWithDescriptor(m_renderPipelineDescriptor);
 
@@ -525,6 +525,7 @@ namespace bgfx { namespace mtl
 				g_caps.limits.maxFBAttachments = 8;
 				g_caps.supported |= BGFX_CAPS_TEXTURE_CUBE_ARRAY;
 			}
+			g_caps.limits.maxTextureLayers = 2048;
 
 			//todo: vendor id, device id, gpu enum
 
@@ -702,7 +703,7 @@ namespace bgfx { namespace mtl
 			return BGFX_RENDERER_METAL_NAME;
 		}
 
-		void createIndexBuffer(IndexBufferHandle _handle, Memory* _mem, uint16_t _flags) override
+		void createIndexBuffer(IndexBufferHandle _handle, const Memory* _mem, uint16_t _flags) override
 		{
 			m_indexBuffers[_handle.idx].create(_mem->size, _mem->data, _flags);
 		}
@@ -723,7 +724,7 @@ namespace bgfx { namespace mtl
 		{
 		}
 
-		void createVertexBuffer(VertexBufferHandle _handle, Memory* _mem, VertexDeclHandle _declHandle, uint16_t _flags) override
+		void createVertexBuffer(VertexBufferHandle _handle, const Memory* _mem, VertexDeclHandle _declHandle, uint16_t _flags) override
 		{
 			m_vertexBuffers[_handle.idx].create(_mem->size, _mem->data, _declHandle, _flags);
 		}
@@ -738,7 +739,7 @@ namespace bgfx { namespace mtl
 			m_indexBuffers[_handle.idx].create(_size, NULL, _flags);
 		}
 
-		void updateDynamicIndexBuffer(IndexBufferHandle _handle, uint32_t _offset, uint32_t _size, Memory* _mem) override
+		void updateDynamicIndexBuffer(IndexBufferHandle _handle, uint32_t _offset, uint32_t _size, const Memory* _mem) override
 		{
 			m_indexBuffers[_handle.idx].update(_offset, bx::uint32_min(_size, _mem->size), _mem->data);
 		}
@@ -754,7 +755,7 @@ namespace bgfx { namespace mtl
 			m_vertexBuffers[_handle.idx].create(_size, NULL, decl, _flags);
 		}
 
-		void updateDynamicVertexBuffer(VertexBufferHandle _handle, uint32_t _offset, uint32_t _size, Memory* _mem) override
+		void updateDynamicVertexBuffer(VertexBufferHandle _handle, uint32_t _offset, uint32_t _size, const Memory* _mem) override
 		{
 			m_vertexBuffers[_handle.idx].update(_offset, bx::uint32_min(_size, _mem->size), _mem->data);
 		}
@@ -764,7 +765,7 @@ namespace bgfx { namespace mtl
 			m_vertexBuffers[_handle.idx].destroy();
 		}
 
-		void createShader(ShaderHandle _handle, Memory* _mem) override
+		void createShader(ShaderHandle _handle, const Memory* _mem) override
 		{
 			m_shaders[_handle.idx].create(_mem);
 		}
@@ -784,7 +785,7 @@ namespace bgfx { namespace mtl
 			m_program[_handle.idx].destroy();
 		}
 
-		void* createTexture(TextureHandle _handle, Memory* _mem, uint32_t _flags, uint8_t _skip) override
+		void* createTexture(TextureHandle _handle, const Memory* _mem, uint32_t _flags, uint8_t _skip) override
 		{
 			m_textures[_handle.idx].create(_mem, _flags, _skip);
 			return NULL;
@@ -1013,8 +1014,8 @@ namespace bgfx { namespace mtl
 		{
 			RenderCommandEncoder rce = m_renderCommandEncoder;
 
-			uint32_t width  = m_resolution.m_width;
-			uint32_t height  = m_resolution.m_height;
+			uint32_t width  = m_resolution.width;
+			uint32_t height = m_resolution.height;
 
 			//if (m_ovr.isEnabled() )
 			//{
@@ -1050,8 +1051,8 @@ namespace bgfx { namespace mtl
 			rce.setCullMode(MTLCullModeNone);
 
 			uint64_t state = 0
-				| BGFX_STATE_RGB_WRITE
-				| BGFX_STATE_ALPHA_WRITE
+				| BGFX_STATE_WRITE_RGB
+				| BGFX_STATE_WRITE_A
 				| BGFX_STATE_DEPTH_TEST_ALWAYS
 				;
 
@@ -1061,7 +1062,7 @@ namespace bgfx { namespace mtl
 			RenderPipelineState pipelineState = program.getRenderPipelineState(state, 0, fbh, _blitter.m_vb->decl, 0);
 			rce.setRenderPipelineState(pipelineState);
 
-			uint32_t vertexUniformBufferSize = program.m_vshConstantBufferSize;
+			uint32_t vertexUniformBufferSize   = program.m_vshConstantBufferSize;
 			uint32_t fragmentUniformBufferSize = program.m_fshConstantBufferSize;
 
 			if (vertexUniformBufferSize )
@@ -1127,7 +1128,7 @@ namespace bgfx { namespace mtl
 
 		void updateResolution(const Resolution& _resolution)
 		{
-			m_maxAnisotropy = !!(_resolution.m_flags & BGFX_RESET_MAXANISOTROPY)
+			m_maxAnisotropy = !!(_resolution.reset & BGFX_RESET_MAXANISOTROPY)
 				? 16
 				: 1
 				;
@@ -1139,32 +1140,40 @@ namespace bgfx { namespace mtl
 				| BGFX_RESET_SUSPEND
 				);
 
-			if (m_resolution.m_width            !=  _resolution.m_width
-			||  m_resolution.m_height           !=  _resolution.m_height
-			|| (m_resolution.m_flags&maskFlags) != (_resolution.m_flags&maskFlags) )
+			if (m_resolution.width            !=  _resolution.width
+			||  m_resolution.height           !=  _resolution.height
+			|| (m_resolution.reset&maskFlags) != (_resolution.reset&maskFlags) )
 			{
-				int sampleCount = s_msaa[(_resolution.m_flags&BGFX_RESET_MSAA_MASK)>>BGFX_RESET_MSAA_SHIFT];
+				int sampleCount = s_msaa[(_resolution.reset&BGFX_RESET_MSAA_MASK)>>BGFX_RESET_MSAA_SHIFT];
 
 				MTLPixelFormat prevMetalLayerPixelFormat = m_metalLayer.pixelFormat;
 
-				m_metalLayer.drawableSize = CGSizeMake(_resolution.m_width, _resolution.m_height);
-				m_metalLayer.pixelFormat = (m_resolution.m_flags & BGFX_RESET_SRGB_BACKBUFFER)
+#if BX_PLATFORM_OSX > 101300
+				m_metalLayer.displaySyncEnabled = 0 != (_resolution.reset&BGFX_RESET_VSYNC);
+#endif // BX_PLATFORM_OSX > 101300
+
+				m_metalLayer.drawableSize = CGSizeMake(_resolution.width, _resolution.height);
+				m_metalLayer.pixelFormat = (m_resolution.reset & BGFX_RESET_SRGB_BACKBUFFER)
 					? MTLPixelFormatBGRA8Unorm_sRGB
 					: MTLPixelFormatBGRA8Unorm
 					;
 
 				m_resolution = _resolution;
-				m_resolution.m_flags &= ~BGFX_RESET_INTERNAL_FORCE;
+				m_resolution.reset &= ~BGFX_RESET_INTERNAL_FORCE;
 
 				m_textureDescriptor.textureType = sampleCount > 1 ? MTLTextureType2DMultisample : MTLTextureType2D;
 
 				if (m_hasPixelFormatDepth32Float_Stencil8)
+				{
 					m_textureDescriptor.pixelFormat = MTLPixelFormatDepth32Float_Stencil8;
+				}
 				else
+				{
 					m_textureDescriptor.pixelFormat = MTLPixelFormatDepth32Float;
+				}
 
-				m_textureDescriptor.width  = _resolution.m_width;
-				m_textureDescriptor.height = _resolution.m_height;
+				m_textureDescriptor.width  = _resolution.width;
+				m_textureDescriptor.height = _resolution.height;
 				m_textureDescriptor.depth  = 1;
 				m_textureDescriptor.mipmapLevelCount = 1;
 				m_textureDescriptor.sampleCount = sampleCount;
@@ -1174,7 +1183,7 @@ namespace bgfx { namespace mtl
 				{
 					m_textureDescriptor.cpuCacheMode = MTLCPUCacheModeDefaultCache;
 					m_textureDescriptor.storageMode  = MTLStorageModePrivate;
-					m_textureDescriptor.usage		 = MTLTextureUsageRenderTarget;
+					m_textureDescriptor.usage        = MTLTextureUsageRenderTarget;
 				}
 
 				if (NULL != m_backBufferDepth)
@@ -1206,6 +1215,7 @@ namespace bgfx { namespace mtl
 					{
 						release(m_backBufferColorMSAA);
 					}
+
 					m_textureDescriptor.pixelFormat = m_metalLayer.pixelFormat;
 					m_backBufferColorMSAA   = m_device.newTextureWithDescriptor(m_textureDescriptor);
 				}
@@ -1226,7 +1236,7 @@ namespace bgfx { namespace mtl
 
 				updateCapture();
 
-				m_textVideoMem.resize(false, _resolution.m_width, _resolution.m_height);
+				m_textVideoMem.resize(false, _resolution.width, _resolution.height);
 				m_textVideoMem.clear();
 
 				if (prevMetalLayerPixelFormat != m_metalLayer.pixelFormat)
@@ -1234,7 +1244,7 @@ namespace bgfx { namespace mtl
 					MTL_RELEASE(m_screenshotBlitRenderPipelineState)
 					reset(m_renderPipelineDescriptor);
 					m_renderPipelineDescriptor.colorAttachments[0].pixelFormat = m_metalLayer.pixelFormat;
-					m_renderPipelineDescriptor.vertexFunction = m_screenshotBlitProgram.m_vsh->m_function;
+					m_renderPipelineDescriptor.vertexFunction   = m_screenshotBlitProgram.m_vsh->m_function;
 					m_renderPipelineDescriptor.fragmentFunction = m_screenshotBlitProgram.m_fsh->m_function;
 					m_screenshotBlitRenderPipelineState = m_device.newRenderPipelineStateWithDescriptor(m_renderPipelineDescriptor);
 				}
@@ -1244,11 +1254,11 @@ namespace bgfx { namespace mtl
 
 		void updateCapture()
 		{
-			if (m_resolution.m_flags&BGFX_RESET_CAPTURE)
+			if (m_resolution.reset&BGFX_RESET_CAPTURE)
 			{
-				m_captureSize = m_resolution.m_width*m_resolution.m_height*4;
+				m_captureSize = m_resolution.width*m_resolution.height*4;
 				m_capture = BX_REALLOC(g_allocator, m_capture, m_captureSize);
-				g_callback->captureBegin(m_resolution.m_width, m_resolution.m_height, m_resolution.m_width*4, TextureFormat::BGRA8, false);
+				g_callback->captureBegin(m_resolution.width, m_resolution.height, m_resolution.width*4, TextureFormat::BGRA8, false);
 			}
 			else
 			{
@@ -1270,9 +1280,9 @@ namespace bgfx { namespace mtl
 				m_cmd.kick(false, true);
 				m_commandBuffer = 0;
 
-				MTLRegion region = { { 0, 0, 0 }, { m_resolution.m_width, m_resolution.m_height, 1 } };
+				MTLRegion region = { { 0, 0, 0 }, { m_resolution.width, m_resolution.height, 1 } };
 
-				m_screenshotTarget.getBytes(m_capture, 4*m_resolution.m_width, 0, region, 0, 0);
+				m_screenshotTarget.getBytes(m_capture, 4*m_resolution.width, 0, region, 0, 0);
 
 				m_commandBuffer = m_cmd.alloc();
 
@@ -1280,11 +1290,11 @@ namespace bgfx { namespace mtl
 				{
 					bimg::imageSwizzleBgra8(
 						  m_capture
-						, m_resolution.m_width*4
-						, m_resolution.m_width
-						, m_resolution.m_height
+						, m_resolution.width*4
+						, m_resolution.width
+						, m_resolution.height
 						, m_capture
-						, m_resolution.m_width*4
+						, m_resolution.width*4
 						);
 				}
 
@@ -1448,14 +1458,14 @@ namespace bgfx { namespace mtl
 			}
 			else
 			{
-				width  = m_resolution.m_width;
-				height = m_resolution.m_height;
+				width  = m_resolution.width;
+				height = m_resolution.height;
 			}
 
 
 			uint64_t state = 0;
-			state |= _clear.m_flags & BGFX_CLEAR_COLOR ? BGFX_STATE_RGB_WRITE|BGFX_STATE_ALPHA_WRITE : 0;
-			state |= _clear.m_flags & BGFX_CLEAR_DEPTH ? BGFX_STATE_DEPTH_TEST_ALWAYS|BGFX_STATE_DEPTH_WRITE : 0;
+			state |= _clear.m_flags & BGFX_CLEAR_COLOR ? BGFX_STATE_WRITE_RGB|BGFX_STATE_WRITE_A         : 0;
+			state |= _clear.m_flags & BGFX_CLEAR_DEPTH ? BGFX_STATE_DEPTH_TEST_ALWAYS|BGFX_STATE_WRITE_Z : 0;
 
 			uint64_t stencil = 0;
 			stencil |= _clear.m_flags & BGFX_CLEAR_STENCIL ? 0
@@ -1642,7 +1652,7 @@ namespace bgfx { namespace mtl
 
 		void setDepthStencilState(uint64_t _state, uint64_t _stencil = 0)
 		{
-			_state &= BGFX_STATE_DEPTH_WRITE|BGFX_STATE_DEPTH_TEST_MASK;
+			_state &= BGFX_STATE_WRITE_Z|BGFX_STATE_DEPTH_TEST_MASK;
 
 			uint32_t fstencil = unpackStencil(0, _stencil);
 			uint32_t ref      = (fstencil&BGFX_STENCIL_FUNC_REF_MASK)>>BGFX_STENCIL_FUNC_REF_SHIFT;
@@ -1660,7 +1670,7 @@ namespace bgfx { namespace mtl
 			{
 				DepthStencilDescriptor desc = m_depthStencilDescriptor;
 				uint32_t func = (_state&BGFX_STATE_DEPTH_TEST_MASK)>>BGFX_STATE_DEPTH_TEST_SHIFT;
-				desc.depthWriteEnabled = !!(BGFX_STATE_DEPTH_WRITE & _state);
+				desc.depthWriteEnabled = !!(BGFX_STATE_WRITE_Z & _state);
 				desc.depthCompareFunction = s_cmpFunc[func];
 
 				uint32_t bstencil = unpackStencil(1, _stencil);
@@ -1773,10 +1783,10 @@ namespace bgfx { namespace mtl
 		}
 
 
-		Device				m_device;
-		OcclusionQueryMTL	m_occlusionQuery;
-		TimerQueryMtl		m_gpuTimer;
-		CommandQueueMtl		m_cmd;
+		Device            m_device;
+		OcclusionQueryMTL m_occlusionQuery;
+		TimerQueryMtl     m_gpuTimer;
+		CommandQueueMtl   m_cmd;
 
 		CAMetalLayer* m_metalLayer;
 		Texture       m_backBufferColorMSAA;
@@ -1831,19 +1841,19 @@ namespace bgfx { namespace mtl
 		SamplerDescriptor        m_samplerDescriptor;
 
 		// currently active objects data
-		id <CAMetalDrawable>	m_drawable;
-		bool					m_saveScreenshot;
-		Texture					m_screenshotTarget;
-		ShaderMtl				m_screenshotBlitProgramVsh;
-		ShaderMtl				m_screenshotBlitProgramFsh;
-		ProgramMtl				m_screenshotBlitProgram;
-		RenderPipelineState		m_screenshotBlitRenderPipelineState;
+		id <CAMetalDrawable> m_drawable;
+		bool                 m_saveScreenshot;
+		Texture              m_screenshotTarget;
+		ShaderMtl            m_screenshotBlitProgramVsh;
+		ShaderMtl            m_screenshotBlitProgramFsh;
+		ProgramMtl           m_screenshotBlitProgram;
+		RenderPipelineState  m_screenshotBlitRenderPipelineState;
 
-		CommandBuffer			m_commandBuffer;
-		CommandBuffer			m_prevCommandBuffer;
-		BlitCommandEncoder		m_blitCommandEncoder;
-		RenderCommandEncoder	m_renderCommandEncoder;
-		FrameBufferHandle		m_renderCommandEncoderFrameBufferHandle;
+		CommandBuffer        m_commandBuffer;
+		CommandBuffer        m_prevCommandBuffer;
+		BlitCommandEncoder   m_blitCommandEncoder;
+		RenderCommandEncoder m_renderCommandEncoder;
+		FrameBufferHandle    m_renderCommandEncoderFrameBufferHandle;
 	};
 
 	static RendererContextMtl* s_renderMtl;
@@ -1948,12 +1958,7 @@ namespace bgfx { namespace mtl
 	{
 		BX_CHECK(NULL != _vsh->m_function.m_obj, "Vertex shader doesn't exist.");
 		m_vsh = _vsh;
-
-		if (NULL != _fsh)
-		{
-			BX_CHECK(NULL != _fsh->m_function.m_obj, "Fragment shader doesn't exist.");
-			m_fsh = _fsh;
-		}
+		m_fsh = _fsh;
 
 		// get attributes
 		bx::memSet(m_attributes, 0xff, sizeof(m_attributes) );
@@ -2011,15 +2016,14 @@ namespace bgfx { namespace mtl
 			m_fshConstantBuffer = NULL;
 		}
 
-		m_vshConstantBufferSize = 0;
+		m_vshConstantBufferSize          = 0;
 		m_vshConstantBufferAlignmentMask = 0;
-		m_fshConstantBufferSize = 0;
+		m_fshConstantBufferSize          = 0;
 		m_fshConstantBufferAlignmentMask = 0;
 
-		m_samplerCount = 0;
-
+		m_samplerCount      = 0;
 		m_processedUniforms = false;
-		m_numPredefined = 0;
+		m_numPredefined     = 0;
 
 		m_renderPipelineStateCache.invalidate();
 	}
@@ -2054,7 +2058,15 @@ namespace bgfx { namespace mtl
 
 	RenderPipelineState ProgramMtl::getRenderPipelineState(uint64_t _state, uint32_t _rgba, FrameBufferHandle _fbHandle, VertexDeclHandle _declHandle,  uint16_t _numInstanceData)
 	{
-		_state &= (BGFX_STATE_BLEND_MASK|BGFX_STATE_BLEND_EQUATION_MASK|BGFX_STATE_ALPHA_WRITE|BGFX_STATE_RGB_WRITE|BGFX_STATE_BLEND_INDEPENDENT|BGFX_STATE_MSAA|BGFX_STATE_BLEND_ALPHA_TO_COVERAGE);
+		_state &= (0
+			| BGFX_STATE_BLEND_MASK
+			| BGFX_STATE_BLEND_EQUATION_MASK
+			| BGFX_STATE_WRITE_RGB
+			| BGFX_STATE_WRITE_A
+			| BGFX_STATE_BLEND_INDEPENDENT
+			| BGFX_STATE_MSAA
+			| BGFX_STATE_BLEND_ALPHA_TO_COVERAGE
+			);
 
 		bool independentBlendEnable = !!(BGFX_STATE_BLEND_INDEPENDENT & _state);
 
@@ -2087,7 +2099,10 @@ namespace bgfx { namespace mtl
 
 			if (!isValid(_fbHandle) )
 			{
-				pd.sampleCount = NULL != s_renderMtl->m_backBufferColorMSAA ? s_renderMtl->m_backBufferColorMSAA.sampleCount() : 1;
+				pd.sampleCount = NULL != s_renderMtl->m_backBufferColorMSAA
+					? s_renderMtl->m_backBufferColorMSAA.sampleCount()
+					: 1
+					;
 				pd.colorAttachments[0].pixelFormat = s_renderMtl->currentDrawable().texture.pixelFormat;
 				pd.depthAttachmentPixelFormat      = s_renderMtl->m_backBufferDepth.m_obj.pixelFormat;
 				pd.stencilAttachmentPixelFormat    = s_renderMtl->m_backBufferStencil.m_obj.pixelFormat;
@@ -2125,7 +2140,7 @@ namespace bgfx { namespace mtl
 				}
 			}
 
-			const uint32_t blend    = uint32_t( (_state&BGFX_STATE_BLEND_MASK)>>BGFX_STATE_BLEND_SHIFT);
+			const uint32_t blend    = uint32_t( (_state&BGFX_STATE_BLEND_MASK         )>>BGFX_STATE_BLEND_SHIFT);
 			const uint32_t equation = uint32_t( (_state&BGFX_STATE_BLEND_EQUATION_MASK)>>BGFX_STATE_BLEND_EQUATION_SHIFT);
 
 			const uint32_t srcRGB = (blend    )&0xf;
@@ -2136,8 +2151,11 @@ namespace bgfx { namespace mtl
 			const uint32_t equRGB = (equation   )&0x7;
 			const uint32_t equA   = (equation>>3)&0x7;
 
-			uint8_t writeMask = (_state&BGFX_STATE_ALPHA_WRITE) ? MTLColorWriteMaskAlpha : 0;
-			writeMask |= (_state&BGFX_STATE_RGB_WRITE) ? MTLColorWriteMaskRed|MTLColorWriteMaskGreen|MTLColorWriteMaskBlue : 0;
+			uint8_t writeMask = 0;
+			writeMask |= (_state&BGFX_STATE_WRITE_R) ? MTLColorWriteMaskRed   : 0;
+			writeMask |= (_state&BGFX_STATE_WRITE_G) ? MTLColorWriteMaskGreen : 0;
+			writeMask |= (_state&BGFX_STATE_WRITE_B) ? MTLColorWriteMaskBlue  : 0;
+			writeMask |= (_state&BGFX_STATE_WRITE_A) ? MTLColorWriteMaskAlpha : 0;
 
 			for (uint32_t ii = 0; ii < (independentBlendEnable ? 1 : frameBufferAttachment); ++ii)
 			{
@@ -2181,7 +2199,7 @@ namespace bgfx { namespace mtl
 			}
 
 			pd.vertexFunction   = m_vsh->m_function;
-			pd.fragmentFunction = m_fsh->m_function;
+			pd.fragmentFunction = m_fsh != NULL ? m_fsh->m_function : NULL;
 
 			if (isValid(_declHandle) )
 			{
@@ -2203,17 +2221,17 @@ namespace bgfx { namespace mtl
 
 					if (UINT16_MAX != vertexDecl.m_attributes[attr])
 					{
-						vertexDesc.attributes[loc].format = s_attribType[type][num-1][normalized?1:0];
+						vertexDesc.attributes[loc].format      = s_attribType[type][num-1][normalized?1:0];
 						vertexDesc.attributes[loc].bufferIndex = 1;
-						vertexDesc.attributes[loc].offset = vertexDecl.m_offset[attr];
+						vertexDesc.attributes[loc].offset      = vertexDecl.m_offset[attr];
 
 						BX_TRACE("attrib:%s format: %d offset:%d", s_attribName[attr], (int)vertexDesc.attributes[loc].format, (int)vertexDesc.attributes[loc].offset);
 					}
 					else
 					{	// NOTE: missing attribute: using dummy attribute with smallest possible size
-						vertexDesc.attributes[loc].format = MTLVertexFormatUChar2;
+						vertexDesc.attributes[loc].format      = MTLVertexFormatUChar2;
 						vertexDesc.attributes[loc].bufferIndex = 1;
-						vertexDesc.attributes[loc].offset = 0;
+						vertexDesc.attributes[loc].offset      = 0;
 					}
 				}
 
@@ -2391,7 +2409,9 @@ namespace bgfx { namespace mtl
 		if (NULL == _data)
 		{
 			for (uint32_t ii = 0; ii < MTL_MAX_FRAMES_IN_FLIGHT; ++ii)
+			{
 				m_buffers[ii] = s_renderMtl->m_device.newBufferWithLength(_size, 0);
+			}
 		}
 		else
 		{
@@ -2439,9 +2459,9 @@ namespace bgfx { namespace mtl
 	{
 		m_decl = _declHandle;
 		uint16_t stride = isValid(_declHandle)
-		? s_renderMtl->m_vertexDecls[_declHandle.idx].m_stride
-		: 0
-		;
+			? s_renderMtl->m_vertexDecls[_declHandle.idx].m_stride
+			: 0
+			;
 
 		BufferMtl::create(_size, _data, _flags, stride, true);
 	}
@@ -2462,14 +2482,14 @@ namespace bgfx { namespace mtl
 			const uint32_t textureHeight = bx::uint32_max(blockInfo.blockHeight, imageContainer.m_height>>startLod);
 			const uint16_t numLayers     = imageContainer.m_numLayers;
 
-			m_flags   = _flags;
-			m_width   = textureWidth;
-			m_height  = textureHeight;
-			m_depth   = imageContainer.m_depth;
+			m_flags  = _flags;
+			m_width  = textureWidth;
+			m_height = textureHeight;
+			m_depth  = imageContainer.m_depth;
 			m_requestedFormat  = uint8_t(imageContainer.m_format);
 			m_textureFormat    = uint8_t(getViableTextureFormat(imageContainer) );
 			const bool convert = m_textureFormat != m_requestedFormat;
-			const uint8_t bpp = bimg::getBitsPerPixel(bimg::TextureFormat::Enum(m_textureFormat) );
+			const uint8_t bpp  = bimg::getBitsPerPixel(bimg::TextureFormat::Enum(m_textureFormat) );
 
 			TextureDescriptor desc = s_renderMtl->m_textureDescriptor;
 
@@ -2504,7 +2524,6 @@ namespace bgfx { namespace mtl
 
 			m_numMips = numMips;
 			const uint16_t numSides = numLayers * (imageContainer.m_cubeMap ? 6 : 1);
-
 			const bool compressed   = bimg::isCompressed(bimg::TextureFormat::Enum(m_textureFormat) );
 			const bool writeOnly    = 0 != (_flags&BGFX_TEXTURE_RT_WRITE_ONLY);
 			const bool computeWrite = 0 != (_flags&BGFX_TEXTURE_COMPUTE_WRITE);
@@ -2512,18 +2531,18 @@ namespace bgfx { namespace mtl
 			const bool srgb         = 0 != (_flags&BGFX_TEXTURE_SRGB);
 
 			BX_TRACE("Texture %3d: %s (requested: %s), layers %d, %dx%d%s RT[%c], WO[%c], CW[%c], sRGB[%c]"
-					, this - s_renderMtl->m_textures
-					, getName( (TextureFormat::Enum)m_textureFormat)
-					, getName( (TextureFormat::Enum)m_requestedFormat)
-					, numLayers
-					, textureWidth
-					, textureHeight
-					, imageContainer.m_cubeMap ? "x6" : ""
-					, renderTarget ? 'x' : '.'
-					, writeOnly ? 'x' : '.'
-					, computeWrite ? 'x' : '.'
-					, srgb ? 'x' : '.'
-					);
+				, this - s_renderMtl->m_textures
+				, getName( (TextureFormat::Enum)m_textureFormat)
+				, getName( (TextureFormat::Enum)m_requestedFormat)
+				, numLayers
+				, textureWidth
+				, textureHeight
+				, imageContainer.m_cubeMap ? "x6" : ""
+				, renderTarget ? 'x' : '.'
+				, writeOnly ? 'x' : '.'
+				, computeWrite ? 'x' : '.'
+				, srgb ? 'x' : '.'
+				);
 
 			const uint32_t msaaQuality = bx::uint32_satsub( (_flags&BGFX_TEXTURE_RT_MSAA_MASK)>>BGFX_TEXTURE_RT_MSAA_SHIFT, 1);
 			int sampleCount = s_msaa[msaaQuality];
@@ -2559,7 +2578,7 @@ namespace bgfx { namespace mtl
 				desc.storageMode = (MTLStorageMode)(false
 					|| writeOnly
 					|| bimg::isDepth(bimg::TextureFormat::Enum(m_textureFormat) )
-					? 2 /*MTLStorageModePrivate*/
+					?     2 /* MTLStorageModePrivate */
 					: (BX_ENABLED(BX_PLATFORM_IOS)
 						? 0 /* MTLStorageModeShared  */
 						: 1 /* MTLStorageModeManaged */
@@ -2586,7 +2605,7 @@ namespace bgfx { namespace mtl
 				if (s_renderMtl->m_iOS9Runtime
 				||  s_renderMtl->m_macOS11Runtime)
 				{
-					desc.storageMode = (MTLStorageMode)( 2 /*MTLStorageModePrivate*/);
+					desc.storageMode = (MTLStorageMode)(2 /* MTLStorageModePrivate */);
 				}
 				m_ptrMSAA = s_renderMtl->m_device.newTextureWithDescriptor(desc);
 			}
@@ -2760,18 +2779,22 @@ namespace bgfx { namespace mtl
 		{
 			s_renderMtl->m_renderCommandEncoder.setVertexTexture(m_ptr, _stage);
 			s_renderMtl->m_renderCommandEncoder.setVertexSamplerState(
-					  0 == (BGFX_TEXTURE_INTERNAL_DEFAULT_SAMPLER & _flags)
+				  0 == (BGFX_TEXTURE_INTERNAL_DEFAULT_SAMPLER & _flags)
 					? s_renderMtl->getSamplerState(_flags)
-					: m_sampler, _stage);
+					: m_sampler
+				, _stage
+				);
 		}
 
 		if (_fragment)
 		{
 			s_renderMtl->m_renderCommandEncoder.setFragmentTexture(m_ptr, _stage);
 			s_renderMtl->m_renderCommandEncoder.setFragmentSamplerState(
-					  0 == (BGFX_TEXTURE_INTERNAL_DEFAULT_SAMPLER & _flags)
+				  0 == (BGFX_TEXTURE_INTERNAL_DEFAULT_SAMPLER & _flags)
 					? s_renderMtl->getSamplerState(_flags)
-					: m_sampler, _stage);
+					: m_sampler
+				, _stage
+				);
 		}
 	}
 
@@ -3005,7 +3028,7 @@ namespace bgfx { namespace mtl
 		}
 
 		Query& query = m_query[m_control.m_current];
-		query.m_handle = _handle;
+		query.m_handle  = _handle;
 		uint32_t offset = _handle.idx * 8;
 		_rce.setVisibilityResultMode(MTLVisibilityResultModeBoolean, offset);
 	}
@@ -3160,8 +3183,8 @@ namespace bgfx { namespace mtl
 		{
 			if (m_screenshotTarget)
 			{
-				if (m_screenshotTarget.width()  != m_resolution.m_width
-				||  m_screenshotTarget.height() != m_resolution.m_height)
+				if (m_screenshotTarget.width()  != m_resolution.width
+				||  m_screenshotTarget.height() != m_resolution.height)
 				{
 					MTL_RELEASE(m_screenshotTarget);
 				}
@@ -3171,8 +3194,8 @@ namespace bgfx { namespace mtl
 			{
 				m_textureDescriptor.textureType = MTLTextureType2D;
 				m_textureDescriptor.pixelFormat = m_metalLayer.pixelFormat;
-				m_textureDescriptor.width  = m_resolution.m_width;
-				m_textureDescriptor.height = m_resolution.m_height;
+				m_textureDescriptor.width  = m_resolution.width;
+				m_textureDescriptor.height = m_resolution.height;
 				m_textureDescriptor.depth  = 1;
 				m_textureDescriptor.mipmapLevelCount = 1;
 				m_textureDescriptor.sampleCount = 1;
@@ -3355,8 +3378,8 @@ namespace bgfx { namespace mtl
 
 						fbh = _render->m_view[view].m_fbh;
 
-						uint32_t width  = m_resolution.m_width;
-						uint32_t height = m_resolution.m_height;
+						uint32_t width  = m_resolution.width;
+						uint32_t height = m_resolution.height;
 
 						if (isValid(fbh) )
 						{
@@ -3366,10 +3389,11 @@ namespace bgfx { namespace mtl
 						}
 
 						clearWithRenderPass = true
-						&& 0 == viewRect.m_x
-						&& 0      == viewRect.m_y
-						&& width  == viewRect.m_width
-						&& height == viewRect.m_height;
+							&& 0 == viewRect.m_x
+							&& 0      == viewRect.m_y
+							&& width  == viewRect.m_width
+							&& height == viewRect.m_height
+							;
 
 						setFrameBuffer(renderPassDescriptor, fbh);
 
@@ -3454,15 +3478,15 @@ namespace bgfx { namespace mtl
 							RenderPassDepthAttachmentDescriptor depthAttachment = renderPassDescriptor.depthAttachment;
 							if (NULL != depthAttachment.texture)
 							{
-								depthAttachment.loadAction = MTLLoadActionLoad;
+								depthAttachment.loadAction  = MTLLoadActionLoad;
 								depthAttachment.storeAction = MTLStoreActionStore;
 							}
 
 							RenderPassStencilAttachmentDescriptor stencilAttachment = renderPassDescriptor.stencilAttachment;
 							if (NULL != stencilAttachment.texture)
 							{
-								stencilAttachment.loadAction   = MTLLoadActionLoad;
-								stencilAttachment.storeAction  = MTLStoreActionStore;
+								stencilAttachment.loadAction  = MTLLoadActionLoad;
+								stencilAttachment.storeAction = MTLStoreActionStore;
 							}
 						}
 
@@ -3515,11 +3539,25 @@ namespace bgfx { namespace mtl
 				const RenderDraw& draw = renderItem.draw;
 
 				const bool hasOcclusionQuery = 0 != (draw.m_stateFlags & BGFX_STATE_INTERNAL_OCCLUSION_QUERY);
-				if (isValid(draw.m_occlusionQuery)
-				&&  !hasOcclusionQuery
-				&&  !isVisible(_render, draw.m_occlusionQuery, 0 != (draw.m_submitFlags&BGFX_SUBMIT_INTERNAL_OCCLUSION_VISIBLE) ) )
 				{
-					continue;
+					const bool occluded = true
+						&& isValid(draw.m_occlusionQuery)
+						&& !hasOcclusionQuery
+						&& !isVisible(_render, draw.m_occlusionQuery, 0 != (draw.m_submitFlags&BGFX_SUBMIT_INTERNAL_OCCLUSION_VISIBLE) )
+						;
+
+					if (occluded
+					||  _render->m_frameCache.isZeroArea(viewScissorRect, draw.m_scissor) )
+					{
+						if (resetState)
+						{
+							currentState.clear();
+							currentState.m_scissor = !draw.m_scissor;
+							currentBind.clear();
+						}
+
+						continue;
+					}
 				}
 
 				const uint64_t newFlags = draw.m_stateFlags;
@@ -3581,11 +3619,6 @@ namespace bgfx { namespace mtl
 						Rect scissorRect;
 						scissorRect.setIntersect(viewScissorRect, _render->m_frameCache.m_rectCache.m_cache[scissor]);
 
-						if (scissorRect.isZeroArea() )
-						{
-							continue;
-						}
-
 						rc.x      = scissorRect.m_x;
 						rc.y      = scissorRect.m_y;
 						rc.width  = scissorRect.m_width;
@@ -3595,7 +3628,10 @@ namespace bgfx { namespace mtl
 					rce.setScissorRect(rc);
 				}
 
-				if ( (BGFX_STATE_DEPTH_WRITE|BGFX_STATE_DEPTH_TEST_MASK) & changedFlags
+				if ( (0
+					 | BGFX_STATE_WRITE_Z
+					 | BGFX_STATE_DEPTH_TEST_MASK
+					 ) & changedFlags
 				|| 0 != changedStencil)
 				{
 					setDepthStencilState(newFlags,newStencil);
@@ -3646,7 +3682,15 @@ namespace bgfx { namespace mtl
 				rendererUpdateUniforms(this, _render->m_uniformBuffer[draw.m_uniformIdx], draw.m_uniformBegin, draw.m_uniformEnd);
 
 				if (key.m_program != programIdx
-				|| (BGFX_STATE_BLEND_MASK|BGFX_STATE_BLEND_EQUATION_MASK|BGFX_STATE_ALPHA_WRITE|BGFX_STATE_RGB_WRITE|BGFX_STATE_BLEND_INDEPENDENT|BGFX_STATE_MSAA|BGFX_STATE_BLEND_ALPHA_TO_COVERAGE) & changedFlags
+				|| (0
+				   | BGFX_STATE_BLEND_MASK
+				   | BGFX_STATE_BLEND_EQUATION_MASK
+				   | BGFX_STATE_WRITE_RGB
+				   | BGFX_STATE_WRITE_A
+				   | BGFX_STATE_BLEND_INDEPENDENT
+				   | BGFX_STATE_MSAA
+				   | BGFX_STATE_BLEND_ALPHA_TO_COVERAGE
+				   ) & changedFlags
 				||  currentState.m_streamMask             != draw.m_streamMask
 				||  currentState.m_stream[0].m_handle.idx != draw.m_stream[0].m_handle.idx
 				||  currentState.m_stream[0].m_decl.idx   != draw.m_stream[0].m_decl.idx
@@ -3701,14 +3745,14 @@ namespace bgfx { namespace mtl
 					uint32_t vertexUniformBufferSize   = program.m_vshConstantBufferSize;
 					uint32_t fragmentUniformBufferSize = program.m_fshConstantBufferSize;
 
-					if (vertexUniformBufferSize)
+					if (0 != vertexUniformBufferSize)
 					{
 						m_uniformBufferVertexOffset = BX_ALIGN_MASK(m_uniformBufferVertexOffset, program.m_vshConstantBufferAlignmentMask);
 						rce.setVertexBuffer(m_uniformBuffer, m_uniformBufferVertexOffset, 0);
 					}
 
 					m_uniformBufferFragmentOffset = m_uniformBufferVertexOffset + vertexUniformBufferSize;
-					if (fragmentUniformBufferSize)
+					if (0 != fragmentUniformBufferSize)
 					{
 						m_uniformBufferFragmentOffset = BX_ALIGN_MASK(m_uniformBufferFragmentOffset, program.m_fshConstantBufferAlignmentMask);
 						rce.setFragmentBuffer(m_uniformBuffer, m_uniformBufferFragmentOffset, 0);
@@ -3757,10 +3801,10 @@ namespace bgfx { namespace mtl
 							{
 								TextureMtl& texture = m_textures[bind.m_idx];
 								texture.commit(samplerInfo.m_index
-											   , !samplerInfo.m_fragment
-											   , samplerInfo.m_fragment
-											   , bind.m_un.m_draw.m_textureFlags
-											   );
+									, !samplerInfo.m_fragment
+									, samplerInfo.m_fragment
+									, bind.m_un.m_draw.m_textureFlags
+									);
 							}
 						}
 
@@ -3955,47 +3999,47 @@ namespace bgfx { namespace mtl
 				tvm.clear();
 				uint16_t pos = 0;
 				tvm.printf(0, pos++, BGFX_CONFIG_DEBUG ? 0x8c : 0x8f
-						, " %s / " BX_COMPILER_NAME " / " BX_CPU_NAME " / " BX_ARCH_NAME " / " BX_PLATFORM_NAME " "
-						, getRendererName()
-						);
+					, " %s / " BX_COMPILER_NAME " / " BX_CPU_NAME " / " BX_ARCH_NAME " / " BX_PLATFORM_NAME " "
+					, getRendererName()
+					);
 
 				pos = 10;
 				tvm.printf(10, pos++, 0x8b, "        Frame: %7.3f, % 7.3f \x1f, % 7.3f \x1e [ms] / % 6.2f FPS "
-						, double(frameTime)*toMs
-						, double(min)*toMs
-						, double(max)*toMs
-						, freq/frameTime
-						);
+					, double(frameTime)*toMs
+					, double(min)*toMs
+					, double(max)*toMs
+					, freq/frameTime
+					);
 
-				const uint32_t msaa = (m_resolution.m_flags&BGFX_RESET_MSAA_MASK)>>BGFX_RESET_MSAA_SHIFT;
+				const uint32_t msaa = (m_resolution.reset&BGFX_RESET_MSAA_MASK)>>BGFX_RESET_MSAA_SHIFT;
 				tvm.printf(10, pos++, 0x8b, "  Reset flags: [%c] vsync, [%c] MSAAx%d, [%c] MaxAnisotropy "
-						, !!(m_resolution.m_flags&BGFX_RESET_VSYNC) ? '\xfe' : ' '
-						, 0 != msaa ? '\xfe' : ' '
-						, 1<<msaa
-						, !!(m_resolution.m_flags&BGFX_RESET_MAXANISOTROPY) ? '\xfe' : ' '
-						);
+					, !!(m_resolution.reset&BGFX_RESET_VSYNC) ? '\xfe' : ' '
+					, 0 != msaa ? '\xfe' : ' '
+					, 1<<msaa
+					, !!(m_resolution.reset&BGFX_RESET_MAXANISOTROPY) ? '\xfe' : ' '
+					);
 
 				double elapsedCpuMs = double(frameTime)*toMs;
 				tvm.printf(10, pos++, 0x8b, "    Submitted: %4d (draw %4d, compute %4d) / CPU %3.4f [ms] %c GPU %3.4f [ms] (latency %d)"
-						, _render->m_numRenderItems
-						, statsKeyType[0]
-						, statsKeyType[1]
-						, elapsedCpuMs
-						, elapsedCpuMs > maxGpuElapsed ? '>' : '<'
-						, maxGpuElapsed
-						, maxGpuLatency
-						);
+					, _render->m_numRenderItems
+					, statsKeyType[0]
+					, statsKeyType[1]
+					, elapsedCpuMs
+					, elapsedCpuMs > maxGpuElapsed ? '>' : '<'
+					, maxGpuElapsed
+					, maxGpuLatency
+					);
 				maxGpuLatency = 0;
 				maxGpuElapsed = 0.0;
 
 				for (uint32_t ii = 0; ii < BX_COUNTOF(s_primName); ++ii)
 				{
 					tvm.printf(10, pos++, 0x8b, "   %10s: %7d (#inst: %5d), submitted: %7d"
-							, s_primName[ii]
-							, statsNumPrimsRendered[ii]
-							, statsNumInstances[ii]
-							, statsNumPrimsSubmitted[ii]
-							);
+						, s_primName[ii]
+						, statsNumPrimsRendered[ii]
+						, statsNumInstances[ii]
+						, statsNumPrimsSubmitted[ii]
+						);
 				}
 
 				tvm.printf(10, pos++, 0x8b, "      Indices: %7d ", statsNumIndices);
@@ -4010,7 +4054,7 @@ namespace bgfx { namespace mtl
 				uint8_t attr[2] = { 0x8c, 0x8a };
 				uint8_t attrIndex = _render->m_waitSubmit < _render->m_waitRender;
 
-				tvm.printf(10, pos++, attr[attrIndex&1], " Submit wait: %3.4f [ms]", _render->m_waitSubmit*toMs);
+				tvm.printf(10, pos++, attr[attrIndex    &1], " Submit wait: %3.4f [ms]", _render->m_waitSubmit*toMs);
 				tvm.printf(10, pos++, attr[(attrIndex+1)&1], " Render wait: %3.4f [ms]", _render->m_waitRender*toMs);
 
 				min = frameTime;

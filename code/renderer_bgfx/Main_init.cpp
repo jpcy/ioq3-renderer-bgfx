@@ -370,7 +370,10 @@ void Initialize()
 			}
 		}
 		
-		if (!bgfx::init(selectedBackend, 0, 0, &bgfxCallback))
+		bgfx::Init init = {};
+		init.callback = &bgfxCallback;
+		init.type = selectedBackend;
+		if (!bgfx::init(init))
 		{
 			interface::Error("bgfx init failed");
 		}

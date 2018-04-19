@@ -461,6 +461,21 @@ namespace bgfx
 		};
 	};
 
+	struct DxbcCustomDataClass
+	{
+		enum Enum
+		{
+			Comment,
+			DebugInfo,
+			Opaque,
+			ImmConstantBuffer,
+			ShaderMessage,
+			ClipPlaneConstantMappingsForDx9,
+
+			Count
+		};
+	};
+
 	struct DxbcSubOperand
 	{
 		DxbcSubOperand()
@@ -490,8 +505,7 @@ namespace bgfx
 			, mode(DxbcOperandMode::Mask)
 			, modeBits(0)
 			, num(0)
-			, extended(false)
-			, extBits(0)
+			, modifier(DxbcOperandModifier::None)
 			, numAddrModes(0)
 		{
 			bx::memSet(addrMode, 0, sizeof(addrMode) );
@@ -503,8 +517,7 @@ namespace bgfx
 		DxbcOperandMode::Enum mode;
 		uint8_t modeBits;
 		uint8_t num;
-		bool extended;
-		uint32_t extBits;
+		DxbcOperandModifier::Enum modifier;
 
 		uint8_t numAddrModes;
 		uint8_t addrMode[3];
@@ -580,6 +593,9 @@ namespace bgfx
 		DxbcResourceReturnType::Enum resourceReturnTypes[4];
 
 		DxbcOperand operand[6];
+
+		DxbcCustomDataClass::Enum customDataClass;
+		stl::vector<uint32_t>     customData;
 	};
 
 	int32_t read(bx::ReaderI* _reader, DxbcInstruction& _instruction, bx::Error* _err);

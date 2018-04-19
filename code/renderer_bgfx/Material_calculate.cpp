@@ -75,7 +75,7 @@ uint64_t MaterialStage::getState() const
 
 	if (depthWrite)
 	{
-		state |= BGFX_STATE_DEPTH_WRITE;
+		state |= BGFX_STATE_WRITE_Z;
 	}
 
 	if (material->cullType != MaterialCullType::TwoSided)

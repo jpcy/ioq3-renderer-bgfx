@@ -22,7 +22,6 @@ BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(4005) // warning C4005: '' : macro redefinitio
 #define D3D11_NO_HELPERS
 #if BX_PLATFORM_WINDOWS
 #   include <d3d11_3.h>
-#   include <dxgi1_6.h>
 #elif BX_PLATFORM_WINRT
 #   define __D3D10_1SHADER_H__ // BK - not used keep quiet!
 #   include <d3d11_3.h>
@@ -41,18 +40,19 @@ BX_PRAGMA_DIAGNOSTIC_POP()
 #include "hmd_openvr.h"
 #include "debug_renderdoc.h"
 #include "nvapi.h"
+#include "dxgi.h"
 
 #define BGFX_D3D11_BLEND_STATE_MASK (0 \
 			| BGFX_STATE_BLEND_MASK \
 			| BGFX_STATE_BLEND_EQUATION_MASK \
 			| BGFX_STATE_BLEND_INDEPENDENT \
 			| BGFX_STATE_BLEND_ALPHA_TO_COVERAGE \
-			| BGFX_STATE_ALPHA_WRITE \
-			| BGFX_STATE_RGB_WRITE \
+			| BGFX_STATE_WRITE_A \
+			| BGFX_STATE_WRITE_RGB \
 			)
 
 #define BGFX_D3D11_DEPTH_STENCIL_MASK (0 \
-			| BGFX_STATE_DEPTH_WRITE \
+			| BGFX_STATE_WRITE_Z \
 			| BGFX_STATE_DEPTH_TEST_MASK \
 			)
 
@@ -329,7 +329,7 @@ namespace bgfx { namespace d3d11
 		ID3D11RenderTargetView* m_rtv[BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS-1];
 		ID3D11ShaderResourceView* m_srv[BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS-1];
 		ID3D11DepthStencilView* m_dsv;
-		IDXGISwapChain* m_swapChain;
+		Dxgi::SwapChainI* m_swapChain;
 		uint32_t m_width;
 		uint32_t m_height;
 

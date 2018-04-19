@@ -58,6 +58,7 @@ function rendererProject(engine, lightBakerEnabled, rendererPath)
 		--path.join(bgfxPath, "src/hmd_ovr.cpp"),
 		--path.join(bgfxPath, "src/hmd_openvr.cpp"),
 		path.join(bgfxPath, "src/debug_renderdoc.cpp"),
+		path.join(bgfxPath, "src/dxgi.cpp"),
 		path.join(bgfxPath, "src/nvapi.cpp"),
 		path.join(bgfxPath, "src/renderer_d3d9.cpp"),
 		path.join(bgfxPath, "src/renderer_d3d11.cpp"),
