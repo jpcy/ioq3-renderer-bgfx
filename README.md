@@ -3,32 +3,30 @@
 [![Appveyor CI Build Status](https://ci.appveyor.com/api/projects/status/github/jpcy/ioq3-renderer-bgfx?branch=master&svg=true)](https://ci.appveyor.com/project/jpcy/ioq3-renderer-bgfx)
 [![Travis CI Build Status](https://travis-ci.org/jpcy/ioq3-renderer-bgfx.svg?branch=master)](https://travis-ci.org/jpcy/ioq3-renderer-bgfx)
 
-This is a renderer for [ioquake3](https://github.com/ioquake/ioq3) written in C++ and using [bgfx](https://github.com/bkaradzic/bgfx).
+This is a renderer for [ioquake3](https://github.com/ioquake/ioq3) that uses [bgfx](https://github.com/bkaradzic/bgfx) to support multiple graphics APIs.
 
-Goal: Make Quake 3 Arena and derivitives look slightly better on a modern PC without content replacement. It doesn't need to run at 600fps, trade some of that performance for visuals.
-
-Status: Work in Progress. Not widely tested. Q3A and TA more or less look how they should.
+Minimum requirements: OpenGL 3.2 or Direct3D 11.
 
 ## Features
 * Anti-aliasing - MSAA, SMAA
 * Soft sprites
-* Real dynamic lights
-* Extra dynamic lights for Q3A weapons - BFG, Lightning, Plasma, Railgun
+* Real dynamic lights, with extra dynamic lights for Q3A weapons - BFG, Lightning, Plasma, Railgun
 * Bloom
 
 ## Screenshots
 
-[![](http://i.imgur.com/86x8FN2.png)](http://i.imgur.com/WHYjbF0.jpg)
-[![](http://i.imgur.com/eA2ydm8.png)](http://i.imgur.com/vPhQbMc.jpg)
+| Bloom | Extra Dynamic Lights |
+|---|---|
+| [![](http://i.imgur.com/86x8FN2.png)](http://i.imgur.com/WHYjbF0.jpg) | [![](http://i.imgur.com/eA2ydm8.png)](http://i.imgur.com/vPhQbMc.jpg) |
 
-[![](http://i.imgur.com/1QPNbzr.png)](http://i.imgur.com/LvMyLgB.jpg)
-[![](http://i.imgur.com/KkGO5Hc.png)](http://i.imgur.com/ShxFR3o.jpg)
+| Planar Reflections | Soft Sprites |
+|---|---|
+| [![](http://i.imgur.com/KkGO5Hc.png)](http://i.imgur.com/ShxFR3o.jpg) | [![](http://i.imgur.com/1QPNbzr.png)](http://i.imgur.com/LvMyLgB.jpg) |
 
 ## Binaries
 
-[Windows (x86)](https://bintray.com/jpcy/ioq3-renderer-bgfx/ioq3-renderer-bgfx-windows/test#files)
-
-[Linux (x86_64)](https://bintray.com/jpcy/ioq3-renderer-bgfx/ioq3-renderer-bgfx-linux#files)
+| [Windows (x86)](https://bintray.com/jpcy/ioq3-renderer-bgfx/ioq3-renderer-bgfx-windows/test#files) | [Linux (x86_64)](https://bintray.com/jpcy/ioq3-renderer-bgfx/ioq3-renderer-bgfx-linux#files) |
+|----------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
 
 These are updated after every commit.
 
@@ -57,6 +55,7 @@ make
 ```
 
 ### Visual Studio
+
 1. Run `CompileShaders.bat`
 2. Use [ioq3-premake-msvc](https://github.com/jpcy/ioq3-premake-msvc).
 
@@ -87,6 +86,17 @@ r_waterReflections      | Show planar water reflections. Only enabled on q3dm2 f
 
 ### Console Commands
 
-Command         | Description
-----------------|------------
-screenshotPNG   |
+Command        | Description
+---------------|------------
+r_captureFrame | Capture a RenderDoc frame.
+screenshotPNG  |
+
+## RenderDoc
+
+The renderer must be built in debug mode - `make config=debug_x86` or `make config=debug_x86_64`.
+
+Place the RenderDoc shared library - `renderdoc.dll` or `librenderdoc.so` - in the same directory as the renderer binary.
+
+Use the `r_captureFrame` console command to capture a frame. Bind it to a key so the console doesn't show up in the capture.
+
+Capture files will be saved to the same directory as the ioquake3 executable as `ioq3-renderer-bgfx_frameX.rdc` where X is the frame number.
