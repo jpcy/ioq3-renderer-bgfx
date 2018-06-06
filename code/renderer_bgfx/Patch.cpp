@@ -359,6 +359,7 @@ Patch *R_CreateSurfaceGridMesh(int width, int height,
 
 	grid->numVerts = (width * height);
 	grid->verts = (Vertex *)malloc(grid->numVerts * sizeof(Vertex));
+	grid->cachedVertNormals = (vec3 *)malloc(grid->numVerts * sizeof(vec3));
 #else
 	grid = ri.Hunk_Alloc( size );
 	memset(grid, 0, size);
@@ -386,6 +387,7 @@ Patch *R_CreateSurfaceGridMesh(int width, int height,
 		for ( j = 0 ; j < height ; j++ ) {
 			vert = &grid->verts[j*width+i];
 			*vert = ctrl[j][i];
+			grid->cachedVertNormals[j * width + i] = vert->getNormal();
 			grid->cullBounds.addPoint(vert->pos);
 		}
 	}
@@ -408,6 +410,7 @@ void Patch_Free( Patch *grid ) {
 	free(grid->heightLodError);
 	free(grid->indexes);
 	free(grid->verts);
+	free(grid->cachedVertNormals);
 	free(grid);
 }
 

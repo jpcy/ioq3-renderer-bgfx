@@ -1100,6 +1100,7 @@ struct Patch
 	// vertexes
 	int             numVerts;
 	Vertex      *verts;
+	vec3 *cachedVertNormals;
 
 	// BSP VBO offsets
 	int             firstVert;
