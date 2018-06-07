@@ -8,6 +8,7 @@
 #include <bx/file.h>
 #include <bx/math.h>
 #include <bx/sort.h>
+#include <bx/timer.h>
 
 #if BX_CRT_NONE
 
@@ -85,6 +86,11 @@ extern "C" int32_t strcmp(const char* _lhs, const char* _rhs)
 extern "C" int32_t strncmp(const char* _lhs, const char* _rhs, size_t _max)
 {
 	return bx::strCmp(_lhs, _rhs, _max);
+}
+
+extern "C" int32_t strcasecmp(const char* _lhs, const char* _rhs)
+{
+	return bx::strCmpI(_lhs, _rhs);
 }
 
 extern "C" const char* strstr(const char* _str, const char* _find)
@@ -250,7 +256,7 @@ extern "C" double atof(const char* _str)
 extern "C" struct DIR* opendir(const char* _dirname)
 {
 	BX_UNUSED(_dirname);
-	NOT_IMPLEMENTED();
+//	NOT_IMPLEMENTED();
 	return NULL;
 }
 
@@ -335,15 +341,16 @@ extern "C" FILE* fopen(const char* _filename, const char* _mode)
 {
 	BX_UNUSED(_filename, _mode);
 	bx::debugPrintf("fopen(\"%s\", \"%s\");\n", _filename, _mode);
-	NOT_IMPLEMENTED();
+//	NOT_IMPLEMENTED();
 	return NULL;
 }
 
 extern "C" int fclose(FILE* _stream)
 {
 	BX_UNUSED(_stream);
-	NOT_IMPLEMENTED();
-	return -1;
+	bx::debugPrintf("fclose(%p);\n", _stream);
+//	NOT_IMPLEMENTED();
+	return 0;
 }
 
 extern "C" size_t fread(void* _ptr, size_t _size, size_t _count, FILE* _stream)
@@ -423,12 +430,51 @@ extern "C" int execvp(const char* _file, char* const _argv[])
 	return -1;
 }
 
+typedef int32_t clockid_t;
+
+inline void toTimespecNs(timespec& _ts, int64_t _nsecs)
+{
+	_ts.tv_sec  = _nsecs/INT64_C(1000000000);
+	_ts.tv_nsec = _nsecs%INT64_C(1000000000);
+}
+
+extern "C" int clock_gettime(clockid_t _clock, struct timespec* _ts)
+{
+	BX_UNUSED(_clock);
+	int64_t now = crt0::getHPCounter();
+	toTimespecNs(*_ts, now);
+	return 0;
+}
+
 extern "C" long syscall(long _num, ...)
 {
-	BX_UNUSED(_num);
-	bx::debugPrintf("syscall %d\n", _num);
-	NOT_IMPLEMENTED();
-	return -1;
+	va_list argList;
+	va_start(argList, _num);
+
+	long result = -1;
+
+	switch (_num)
+	{
+	case 39:
+		result = crt0::processGetId();
+		break;
+
+	case 228:
+		{
+			clockid_t arg0 = va_arg(argList, clockid_t);
+			timespec* arg1 = va_arg(argList, timespec*);
+			result = clock_gettime(arg0, arg1);
+		}
+		break;
+
+	default:
+		bx::debugPrintf("? syscall %d\n", _num);
+		break;
+	}
+
+	va_end(argList);
+
+	return result;
 }
 
 extern "C" long sysconf(int name)
@@ -475,7 +521,7 @@ extern "C" char* getenv(const char* _name)
 {
 	BX_UNUSED(_name);
 	bx::debugPrintf("getenv(%s) not implemented!\n", _name);
-	return (char*)"";
+	return NULL;
 }
 
 extern "C" int setenv(const char* _name, const char* _value, int _overwrite)
@@ -492,20 +538,51 @@ extern "C" int unsetenv(const char* _name)
 	return -1;
 }
 
+#if 0
+struct timeval
+{
+	time_t tv_sec;
+	suseconds_t tv_usec;
+};
+
+struct timespec
+{
+	time_t tv_sec;
+	long tv_nsec;
+};
+#endif //
+
+extern "C" int gettimeofday(struct timeval* _tv, struct timezone* _tz)
+{
+	BX_UNUSED(_tz);
+
+	timespec ts;
+
+	if (NULL == _tv)
+	{
+		return 0;
+	}
+
+	clock_gettime(0 /*CLOCK_REALTIME*/, &ts);
+	_tv->tv_sec = ts.tv_sec;
+	_tv->tv_usec = (int)ts.tv_nsec / 1000;
+	return 0;
+}
+
 typedef int64_t time_t;
 
 extern "C" time_t time(time_t* _arg)
 {
-	BX_UNUSED(_arg);
-	NOT_IMPLEMENTED();
-	return -1;
-}
+	timespec ts;
+	clock_gettime(0 /*CLOCK_REALTIME*/, &ts);
+	time_t result = ts.tv_sec;
 
-extern "C" int gettimeofday(struct timeval* _tv, struct timezone* _tz)
-{
-	BX_UNUSED(_tv, _tz);
-	NOT_IMPLEMENTED();
-	return -1;
+	if (NULL != _arg)
+	{
+		*_arg = result;
+	}
+
+	return result;
 }
 
 extern "C" void* realloc(void* _ptr, size_t _size)
