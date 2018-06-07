@@ -88,7 +88,6 @@ extern "C"
 
 #define BGFX_NUM_BUFFER_FRAMES 3
 
-#include "../math/half.h"
 #include "../math/Math.h"
 using namespace math;
 #include "Interface.h"
@@ -1100,7 +1099,6 @@ struct Patch
 	// vertexes
 	int             numVerts;
 	Vertex      *verts;
-	vec3 *cachedVertNormals;
 
 	// BSP VBO offsets
 	int             firstVert;
@@ -1690,9 +1688,10 @@ namespace util
 struct Vertex
 {
 	vec3 pos;
-	uint16_t normal[4];
-	uint16_t texCoord[4];
+	uint32_t padding;
+	vec3 normal;
 	vec4b color; // Linear space.
+	vec4 texCoord;
 
 	void setColor(vec4 c)
 	{
@@ -1707,64 +1706,13 @@ struct Vertex
 		color.a = uint8_t(std::min(a, 1.0f) * 255.0f);
 	}
 
-	vec3 getNormal() const
-	{
-		return vec3
-		(
-			bx::bitsToFloat(half_to_float(normal[0])),
-			bx::bitsToFloat(half_to_float(normal[1])),
-			bx::bitsToFloat(half_to_float(normal[2]))
-		);
-	}
-
-	void setNormal(vec3 n)
-	{
-		setNormal(n.x, n.y, n.z);
-	}
-
-	void setNormal(float x, float y, float z)
-	{
-		normal[0] = half_from_float(bx::floatToBits(x));
-		normal[1] = half_from_float(bx::floatToBits(y));
-		normal[2] = half_from_float(bx::floatToBits(z));
-	}
-
-	vec4 getTexCoord() const
-	{
-		return vec4
-		(
-			bx::bitsToFloat(half_to_float(texCoord[0])),
-			bx::bitsToFloat(half_to_float(texCoord[1])),
-			bx::bitsToFloat(half_to_float(texCoord[2])),
-			bx::bitsToFloat(half_to_float(texCoord[3]))
-		);
-	}
-
-	void setTexCoord(vec2 st)
-	{
-		setTexCoord(st.x, st.y);
-	}
-
-	void setTexCoord(vec4 stuv)
-	{
-		setTexCoord(stuv.x, stuv.y, stuv.z, stuv.w);
-	}
-
-	void setTexCoord(float s, float t, float u = 0.0f, float v = 0.0f)
-	{
-		texCoord[0] = half_from_float(bx::floatToBits(s));
-		texCoord[1] = half_from_float(bx::floatToBits(t));
-		texCoord[2] = half_from_float(bx::floatToBits(u));
-		texCoord[3] = half_from_float(bx::floatToBits(v));
-	}
-
 	static void init()
 	{
 		decl.begin();
 		decl.add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float);
-		decl.add(bgfx::Attrib::Normal, 3, bgfx::AttribType::Half);
-		decl.add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Half);
+		decl.add(bgfx::Attrib::Normal, 3, bgfx::AttribType::Float);
 		decl.add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true);
+		decl.add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float);
 		decl.m_stride = sizeof(Vertex);
 		decl.m_offset[bgfx::Attrib::Position] = offsetof(Vertex, pos);
 		decl.m_offset[bgfx::Attrib::Normal] = offsetof(Vertex, normal);

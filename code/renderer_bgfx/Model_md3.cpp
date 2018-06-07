@@ -683,8 +683,8 @@ bool Model_md3::load(const ReadOnlyFile &file)
 				v.pos.x = fileXyzNormals[j].xyz[0] * MD3_XYZ_SCALE;
 				v.pos.y = fileXyzNormals[j].xyz[1] * MD3_XYZ_SCALE;
 				v.pos.z = fileXyzNormals[j].xyz[2] * MD3_XYZ_SCALE;
-				v.setNormal(decodeNormal(fileXyzNormals[j].normal));
-				v.setTexCoord(fileTexCoords[j].st[0], fileTexCoords[j].st[1]);
+				v.normal = decodeNormal(fileXyzNormals[j].normal);
+				v.texCoord = vec4(fileTexCoords[j].st[0], fileTexCoords[j].st[1], 0, 0);
 				v.setColor(vec4::white);
 			}
 
@@ -733,8 +733,8 @@ bool Model_md3::load(const ReadOnlyFile &file)
 					v.pos.x = fileXyzNormals[k].xyz[0] * MD3_XYZ_SCALE;
 					v.pos.y = fileXyzNormals[k].xyz[1] * MD3_XYZ_SCALE;
 					v.pos.z = fileXyzNormals[k].xyz[2] * MD3_XYZ_SCALE;
-					v.setNormal(decodeNormal(fileXyzNormals[k].normal));
-					v.setTexCoord(fileTexCoords[k].st[0], fileTexCoords[k].st[1]);
+					v.normal = decodeNormal(fileXyzNormals[k].normal);
+					v.texCoord = vec4(fileTexCoords[k].st[0], fileTexCoords[k].st[1], 0, 0);
 					v.setColor(vec4::white);
 
 					if (compressed_)
@@ -750,7 +750,7 @@ bool Model_md3::load(const ReadOnlyFile &file)
 							delta[1] = (float((fileXyzCompressed[k].ofsVec >> 8) & 255) - MDC_MAX_OFS) * MDC_DIST_SCALE;
 							delta[2] = (float((fileXyzCompressed[k].ofsVec >> 16) & 255) - MDC_MAX_OFS) * MDC_DIST_SCALE;
 							v.pos += delta;
-							v.setNormal(vec3(s_anormals[fileXyzCompressed[k].ofsVec >> 24]));
+							v.normal = vec3(s_anormals[fileXyzCompressed[k].ofsVec >> 24]);
 						}
 					}
 				}
@@ -866,8 +866,8 @@ void Model_md3::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 			Vertex &toVertex = frames_[frameIndex].vertices[i];
 			const float fraction = entity->lerp;
 			vertices[i].pos = vec3::lerp(fromVertex.pos, toVertex.pos, fraction);
-			vertices[i].setNormal(vec3::lerp(fromVertex.getNormal(), toVertex.getNormal(), fraction).normal());
-			vertices[i].setTexCoord(toVertex.getTexCoord());
+			vertices[i].normal = vec3::lerp(fromVertex.normal, toVertex.normal, fraction).normal();
+			vertices[i].texCoord = toVertex.texCoord;
 			vertices[i].color = toVertex.color;
 		}
 	}

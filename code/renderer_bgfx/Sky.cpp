@@ -367,7 +367,7 @@ static bool TessellateSkyBoxSide(int i, Vertex *vertices, uint16_t *indices, uin
 			if (vertices)
 			{
 				vertices[currentVertex].pos = s_skyPoints[t][s] + cameraPosition;
-				vertices[currentVertex].setTexCoord(s_skyTexCoords[t][s][0], s_skyTexCoords[t][s][1]);
+				vertices[currentVertex].texCoord = vec4(s_skyTexCoords[t][s][0], s_skyTexCoords[t][s][1], 0, 0);
 			}
 
 			currentVertex++;
@@ -503,7 +503,7 @@ static void TessellateCloudBox(Vertex *vertices, uint16_t *indices, uint32_t *nV
 				if (vertices)
 				{
 					vertices[currentVertex].pos = s_skyPoints[t][s] + cameraPosition;
-					vertices[currentVertex].setTexCoord(s_skyTexCoords[t][s][0], s_skyTexCoords[t][s][1]);
+					vertices[currentVertex].texCoord = vec4(s_skyTexCoords[t][s][0], s_skyTexCoords[t][s][1], 0, 0);
 				}
 
 				currentVertex++;

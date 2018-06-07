@@ -170,10 +170,10 @@ void DrawStretchPicGradient(float x, float y, float w, float h, float s1, float 
 	v[1].pos = vec3(x + w, y, 0);
 	v[2].pos = vec3(x + w, y + h, 0);
 	v[3].pos = vec3(x, y + h, 0);
-	v[0].setTexCoord(s1, t1);
-	v[1].setTexCoord(s2, t1);
-	v[2].setTexCoord(s2, t2);
-	v[3].setTexCoord(s1, t2);
+	v[0].texCoord = vec4(s1, t1, 0, 0);
+	v[1].texCoord = vec4(s2, t1, 0, 0);
+	v[2].texCoord = vec4(s2, t2, 0, 0);
+	v[3].texCoord = vec4(s1, t2, 0, 0);
 	v[0].setColor(util::ToLinear(s_main->stretchPicColor)); v[1].color = v[0].color;
 	v[2].setColor(util::ToLinear(gradientColor)); v[3].color = v[2].color;
 	i[0] = firstVertex + 3; i[1] = firstVertex + 0; i[2] = firstVertex + 2;
@@ -200,10 +200,10 @@ void DrawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_
 	s_main->stretchPicViewId = UINT8_MAX;
 	UploadCinematic(w, h, cols, rows, data, client, dirty);
 	auto vertices = (Vertex *)tvb.data;
-	vertices[0].pos = { 0, 0, 0 }; vertices[0].setTexCoord(0, 0);
-	vertices[1].pos = { 1, 0, 0 }; vertices[1].setTexCoord(1, 0);
-	vertices[2].pos = { 1, 1, 0 }; vertices[2].setTexCoord(1, 1);
-	vertices[3].pos = { 0, 1, 0 }; vertices[3].setTexCoord(0, 1);
+	vertices[0].pos = { 0, 0, 0 }; vertices[0].texCoord = vec4(0, 0, 0, 0);
+	vertices[1].pos = { 1, 0, 0 }; vertices[1].texCoord = vec4(1, 0, 0, 0);
+	vertices[2].pos = { 1, 1, 0 }; vertices[2].texCoord = vec4(1, 1, 0, 0);
+	vertices[3].pos = { 0, 1, 0 }; vertices[3].texCoord = vec4(0, 1, 0, 0);
 	auto indices = (uint16_t *)tib.data;
 	indices[0] = 0; indices[1] = 1; indices[2] = 2;
 	indices[3] = 2; indices[4] = 3; indices[5] = 0;
@@ -268,13 +268,13 @@ void RenderScreenSpaceQuad(const char *viewName, const FrameBuffer &frameBuffer,
 	auto vertices = (Vertex *)vb.data;
 	vertices[0].pos = vec3(minx, miny, zz);
 	vertices[0].setColor(vec4::white);
-	vertices[0].setTexCoord(minu, minv);
+	vertices[0].texCoord = vec4(minu, minv, 0, 0);
 	vertices[1].pos = vec3(maxx, miny, zz);
 	vertices[1].setColor(vec4::white);
-	vertices[1].setTexCoord(maxu, minv);
+	vertices[1].texCoord = vec4(maxu, minv, 0, 0);
 	vertices[2].pos = vec3(maxx, maxy, zz);
 	vertices[2].setColor(vec4::white);
-	vertices[2].setTexCoord(maxu, maxv);
+	vertices[2].texCoord = vec4(maxu, maxv, 0, 0);
 	bgfx::setVertexBuffer(0, &vb);
 	bgfx::setState(state);
 	const bgfx::ViewId viewId = PushView(frameBuffer, clearFlags, mat4::identity, mat4::orthographicProjection(0, 1, 0, 1, -1, 1), rect);
@@ -383,10 +383,10 @@ static void RenderRailCore(vec3 start, vec3 end, vec3 up, float length, float sp
 	vertices[3].pos = end + up * -spanWidth;
 
 	const float t = length / 256.0f;
-	vertices[0].setTexCoord(0, 0);
-	vertices[1].setTexCoord(0, 1);
-	vertices[2].setTexCoord(t, 0);
-	vertices[3].setTexCoord(t, 1);
+	vertices[0].texCoord = vec4(0, 0, 0, 0);
+	vertices[1].texCoord = vec4(0, 1, 0, 0);
+	vertices[2].texCoord = vec4(t, 0, 0, 0);
+	vertices[3].texCoord = vec4(t, 1, 0, 0);
 
 	vertices[0].setColor(util::ToLinear(vec4(color.xyz() * 0.25f, 1)));
 	vertices[1].setColor(util::ToLinear(color));
@@ -491,7 +491,7 @@ static void RenderRailRingsEntity(Entity *entity)
 		{
 			auto vertex = &((Vertex *)tvb.data)[i * 4 + j];
 			vertex->pos = positions[j];
-			vertex->setTexCoord(j < 2, j && j != 3);
+			vertex->texCoord = vec4(j < 2, j && j != 3, 0, 0);
 			vertex->setColor(entity->materialColor);
 			positions[j] += dir;
 		}
@@ -554,16 +554,16 @@ static void RenderSpriteEntity(mat3 viewRotation, Entity *entity)
 	vertices[3].pos = entity->position + left - up;
 
 	// Constant normal all the way around.
-	vertices[0].setNormal(-viewRotation[0]);
-	vertices[1].setNormal(-viewRotation[0]);
-	vertices[2].setNormal(-viewRotation[0]);
-	vertices[3].setNormal(-viewRotation[0]);
+	vertices[0].normal = -viewRotation[0];
+	vertices[1].normal = -viewRotation[0];
+	vertices[2].normal = -viewRotation[0];
+	vertices[3].normal = -viewRotation[0];
 
 	// Standard square texture coordinates.
-	vertices[0].setTexCoord(0, 0, 0, 0);
-	vertices[1].setTexCoord(1, 0, 1, 0);
-	vertices[2].setTexCoord(1, 1, 1, 1);
-	vertices[3].setTexCoord(0, 1, 0, 1);
+	vertices[0].texCoord = vec4(0, 0, 0, 0);
+	vertices[1].texCoord = vec4(1, 0, 1, 0);
+	vertices[2].texCoord = vec4(1, 1, 1, 1);
+	vertices[3].texCoord = vec4(0, 1, 0, 1);
 
 	// Constant color all the way around.
 	for (int i = 0; i < 4; i++)
@@ -724,7 +724,7 @@ static void RenderPolygons()
 				Vertex &v = vertices[currentVertex++];
 				const polyVert_t &pv = s_main->scenePolygonVertices[p->firstVertex + j];
 				v.pos = pv.xyz;
-				v.setTexCoord(pv.st[0], pv.st[1]);
+				v.texCoord = vec4(pv.st[0], pv.st[1], 0, 0);
 				v.setColor(vec4::fromBytes(pv.modulate));
 			}
 

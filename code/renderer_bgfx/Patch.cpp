@@ -53,7 +53,7 @@ LerpDrawVert
 static void LerpDrawVert( Vertex *a, Vertex *b, Vertex *out )
 {
 	out->pos = vec3::lerp(a->pos, b->pos, 0.5f);
-	out->setTexCoord(vec4::lerp(a->getTexCoord(), b->getTexCoord(), 0.5f));
+	out->texCoord = vec4::lerp(a->texCoord, b->texCoord, 0.5f);
 	out->color = vec4b::lerp(a->color, b->color, 0.5f);
 }
 
@@ -205,9 +205,8 @@ static	int	neighbors[8][2] = {
 			//	printf("bad normal\n");
 			//}
 			//VectorNormalize2( sum, dv->normal );
-			vec3 normal = vec3(sum);
-			normal.normalizeFast();
-			dv->setNormal(normal);
+			dv->normal = sum;
+			dv->normal.normalizeFast();
 		}
 	}
 }
@@ -359,7 +358,6 @@ Patch *R_CreateSurfaceGridMesh(int width, int height,
 
 	grid->numVerts = (width * height);
 	grid->verts = (Vertex *)malloc(grid->numVerts * sizeof(Vertex));
-	grid->cachedVertNormals = (vec3 *)malloc(grid->numVerts * sizeof(vec3));
 #else
 	grid = ri.Hunk_Alloc( size );
 	memset(grid, 0, size);
@@ -387,7 +385,6 @@ Patch *R_CreateSurfaceGridMesh(int width, int height,
 		for ( j = 0 ; j < height ; j++ ) {
 			vert = &grid->verts[j*width+i];
 			*vert = ctrl[j][i];
-			grid->cachedVertNormals[j * width + i] = vert->getNormal();
 			grid->cullBounds.addPoint(vert->pos);
 		}
 	}
@@ -410,7 +407,6 @@ void Patch_Free( Patch *grid ) {
 	free(grid->heightLodError);
 	free(grid->indexes);
 	free(grid->verts);
-	free(grid->cachedVertNormals);
 	free(grid);
 }
 
