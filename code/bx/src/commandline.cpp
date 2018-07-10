@@ -10,11 +10,13 @@
 namespace bx
 {
 	// Reference:
-	// http://msdn.microsoft.com/en-us/library/a1y7w461.aspx
-	const char* tokenizeCommandLine(const char* _commandLine, char* _buffer, uint32_t& _bufferSize, int32_t& _argc, char* _argv[], int32_t _maxArgvs, char _term)
+	// - https://web.archive.org/web/20180629044234/https://msdn.microsoft.com/en-us/library/a1y7w461.aspx
+	//
+	const char* tokenizeCommandLine(const StringView& _commandLine, char* _buffer, uint32_t& _bufferSize, int32_t& _argc, char* _argv[], int32_t _maxArgvs, char _term)
 	{
 		int32_t argc = 0;
-		const char* curr = _commandLine;
+		const char* curr = _commandLine.getPtr();
+		const char* end  = _commandLine.getTerm();
 		char* currOut = _buffer;
 		char term = ' ';
 		bool sub = false;
@@ -30,7 +32,7 @@ namespace bx
 
 		ParserState state = SkipWhitespace;
 
-		while ('\0' != *curr
+		while (end != curr
 		&&     _term != *curr
 		&&     argc < _maxArgvs)
 		{

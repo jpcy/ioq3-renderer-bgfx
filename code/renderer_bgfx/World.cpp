@@ -2089,7 +2089,7 @@ static void UpdatePvsVisibility(VisibilityId visId, vec3 cameraPosition, const u
 		}
 		else				
 		{
-			bgfx::updateDynamicIndexBuffer(ib.handle, 0, mem);
+			bgfx::update(ib.handle, 0, mem);
 		}
 	}
 

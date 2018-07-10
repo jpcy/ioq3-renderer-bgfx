@@ -10,93 +10,102 @@ namespace bimg
 {
 	static const ImageBlockInfo s_imageBlockInfo[] =
 	{
-		//  +-------------------------------------------- bits per pixel
-		//  |  +----------------------------------------- block width
-		//  |  |  +-------------------------------------- block height
-		//  |  |  |   +---------------------------------- block size
-		//  |  |  |   |  +------------------------------- min blocks x
-		//  |  |  |   |  |  +---------------------------- min blocks y
-		//  |  |  |   |  |  |   +------------------------ depth bits
-		//  |  |  |   |  |  |   |  +--------------------- stencil bits
-		//  |  |  |   |  |  |   |  |   +---+---+---+----- r, g, b, a bits
-		//  |  |  |   |  |  |   |  |   r   g   b   a  +-- encoding type
-		//  |  |  |   |  |  |   |  |   |   |   |   |  |
-		{   4, 4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC1
-		{   8, 4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC2
-		{   8, 4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC3
-		{   4, 4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC4
-		{   8, 4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC5
-		{   8, 4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Float) }, // BC6H
-		{   8, 4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC7
-		{   4, 4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ETC1
-		{   4, 4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ETC2
-		{   8, 4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ETC2A
-		{   4, 4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ETC2A1
-		{   2, 8, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC12
-		{   4, 4, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC14
-		{   2, 8, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC12A
-		{   4, 4, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC14A
-		{   2, 8, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC22
-		{   4, 4, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC24
-		{   0, 0, 0,  0, 0, 0,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Count) }, // Unknown
-		{   1, 8, 1,  1, 1, 1,  0, 0,  1,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // R1
-		{   8, 1, 1,  1, 1, 1,  0, 0,  0,  0,  0,  8, uint8_t(bx::EncodingType::Unorm) }, // A8
-		{   8, 1, 1,  1, 1, 1,  0, 0,  8,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // R8
-		{   8, 1, 1,  1, 1, 1,  0, 0,  8,  0,  0,  0, uint8_t(bx::EncodingType::Int  ) }, // R8I
-		{   8, 1, 1,  1, 1, 1,  0, 0,  8,  0,  0,  0, uint8_t(bx::EncodingType::Uint ) }, // R8U
-		{   8, 1, 1,  1, 1, 1,  0, 0,  8,  0,  0,  0, uint8_t(bx::EncodingType::Snorm) }, // R8S
-		{  16, 1, 1,  2, 1, 1,  0, 0, 16,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // R16
-		{  16, 1, 1,  2, 1, 1,  0, 0, 16,  0,  0,  0, uint8_t(bx::EncodingType::Int  ) }, // R16I
-		{  16, 1, 1,  2, 1, 1,  0, 0, 16,  0,  0,  0, uint8_t(bx::EncodingType::Uint ) }, // R16U
-		{  16, 1, 1,  2, 1, 1,  0, 0, 16,  0,  0,  0, uint8_t(bx::EncodingType::Float) }, // R16F
-		{  16, 1, 1,  2, 1, 1,  0, 0, 16,  0,  0,  0, uint8_t(bx::EncodingType::Snorm) }, // R16S
-		{  32, 1, 1,  4, 1, 1,  0, 0, 32,  0,  0,  0, uint8_t(bx::EncodingType::Int  ) }, // R32I
-		{  32, 1, 1,  4, 1, 1,  0, 0, 32,  0,  0,  0, uint8_t(bx::EncodingType::Uint ) }, // R32U
-		{  32, 1, 1,  4, 1, 1,  0, 0, 32,  0,  0,  0, uint8_t(bx::EncodingType::Float) }, // R32F
-		{  16, 1, 1,  2, 1, 1,  0, 0,  8,  8,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // RG8
-		{  16, 1, 1,  2, 1, 1,  0, 0,  8,  8,  0,  0, uint8_t(bx::EncodingType::Int  ) }, // RG8I
-		{  16, 1, 1,  2, 1, 1,  0, 0,  8,  8,  0,  0, uint8_t(bx::EncodingType::Uint ) }, // RG8U
-		{  16, 1, 1,  2, 1, 1,  0, 0,  8,  8,  0,  0, uint8_t(bx::EncodingType::Snorm) }, // RG8S
-		{  32, 1, 1,  4, 1, 1,  0, 0, 16, 16,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // RG16
-		{  32, 1, 1,  4, 1, 1,  0, 0, 16, 16,  0,  0, uint8_t(bx::EncodingType::Int  ) }, // RG16I
-		{  32, 1, 1,  4, 1, 1,  0, 0, 16, 16,  0,  0, uint8_t(bx::EncodingType::Uint ) }, // RG16U
-		{  32, 1, 1,  4, 1, 1,  0, 0, 16, 16,  0,  0, uint8_t(bx::EncodingType::Float) }, // RG16F
-		{  32, 1, 1,  4, 1, 1,  0, 0, 16, 16,  0,  0, uint8_t(bx::EncodingType::Snorm) }, // RG16S
-		{  64, 1, 1,  8, 1, 1,  0, 0, 32, 32,  0,  0, uint8_t(bx::EncodingType::Int  ) }, // RG32I
-		{  64, 1, 1,  8, 1, 1,  0, 0, 32, 32,  0,  0, uint8_t(bx::EncodingType::Uint ) }, // RG32U
-		{  64, 1, 1,  8, 1, 1,  0, 0, 32, 32,  0,  0, uint8_t(bx::EncodingType::Float) }, // RG32F
-		{  24, 1, 1,  3, 1, 1,  0, 0,  8,  8,  8,  0, uint8_t(bx::EncodingType::Unorm) }, // RGB8
-		{  24, 1, 1,  3, 1, 1,  0, 0,  8,  8,  8,  0, uint8_t(bx::EncodingType::Int  ) }, // RGB8I
-		{  24, 1, 1,  3, 1, 1,  0, 0,  8,  8,  8,  0, uint8_t(bx::EncodingType::Uint ) }, // RGB8U
-		{  24, 1, 1,  3, 1, 1,  0, 0,  8,  8,  8,  0, uint8_t(bx::EncodingType::Snorm) }, // RGB8S
-		{  32, 1, 1,  4, 1, 1,  0, 0,  9,  9,  9,  5, uint8_t(bx::EncodingType::Float) }, // RGB9E5F
-		{  32, 1, 1,  4, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // BGRA8
-		{  32, 1, 1,  4, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // RGBA8
-		{  32, 1, 1,  4, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Int  ) }, // RGBA8I
-		{  32, 1, 1,  4, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Uint ) }, // RGBA8U
-		{  32, 1, 1,  4, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Snorm) }, // RGBA8S
-		{  64, 1, 1,  8, 1, 1,  0, 0, 16, 16, 16, 16, uint8_t(bx::EncodingType::Unorm) }, // RGBA16
-		{  64, 1, 1,  8, 1, 1,  0, 0, 16, 16, 16, 16, uint8_t(bx::EncodingType::Int  ) }, // RGBA16I
-		{  64, 1, 1,  8, 1, 1,  0, 0, 16, 16, 16, 16, uint8_t(bx::EncodingType::Uint ) }, // RGBA16U
-		{  64, 1, 1,  8, 1, 1,  0, 0, 16, 16, 16, 16, uint8_t(bx::EncodingType::Float) }, // RGBA16F
-		{  64, 1, 1,  8, 1, 1,  0, 0, 16, 16, 16, 16, uint8_t(bx::EncodingType::Snorm) }, // RGBA16S
-		{ 128, 1, 1, 16, 1, 1,  0, 0, 32, 32, 32, 32, uint8_t(bx::EncodingType::Int  ) }, // RGBA32I
-		{ 128, 1, 1, 16, 1, 1,  0, 0, 32, 32, 32, 32, uint8_t(bx::EncodingType::Uint ) }, // RGBA32U
-		{ 128, 1, 1, 16, 1, 1,  0, 0, 32, 32, 32, 32, uint8_t(bx::EncodingType::Float) }, // RGBA32F
-		{  16, 1, 1,  2, 1, 1,  0, 0,  5,  6,  5,  0, uint8_t(bx::EncodingType::Unorm) }, // R5G6B5
-		{  16, 1, 1,  2, 1, 1,  0, 0,  4,  4,  4,  4, uint8_t(bx::EncodingType::Unorm) }, // RGBA4
-		{  16, 1, 1,  2, 1, 1,  0, 0,  5,  5,  5,  1, uint8_t(bx::EncodingType::Unorm) }, // RGB5A1
-		{  32, 1, 1,  4, 1, 1,  0, 0, 10, 10, 10,  2, uint8_t(bx::EncodingType::Unorm) }, // RGB10A2
-		{  32, 1, 1,  4, 1, 1,  0, 0, 11, 11, 10,  0, uint8_t(bx::EncodingType::Unorm) }, // RG11B10F
-		{   0, 0, 0,  0, 0, 0,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Count) }, // UnknownDepth
-		{  16, 1, 1,  2, 1, 1, 16, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // D16
-		{  24, 1, 1,  3, 1, 1, 24, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // D24
-		{  32, 1, 1,  4, 1, 1, 24, 8,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // D24S8
-		{  32, 1, 1,  4, 1, 1, 32, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // D32
-		{  16, 1, 1,  2, 1, 1, 16, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Float) }, // D16F
-		{  24, 1, 1,  3, 1, 1, 24, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Float) }, // D24F
-		{  32, 1, 1,  4, 1, 1, 32, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Float) }, // D32F
-		{   8, 1, 1,  1, 1, 1,  0, 8,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // D0S8
+		//  +--------------------------------------------- bits per pixel
+		//  |   +----------------------------------------- block width
+		//  |   |  +-------------------------------------- block height
+		//  |   |  |   +---------------------------------- block size
+		//  |   |  |   |  +------------------------------- min blocks x
+		//  |   |  |   |  |  +---------------------------- min blocks y
+		//  |   |  |   |  |  |   +------------------------ depth bits
+		//  |   |  |   |  |  |   |  +--------------------- stencil bits
+		//  |   |  |   |  |  |   |  |   +---+---+---+----- r, g, b, a bits
+		//  |   |  |   |  |  |   |  |   r   g   b   a  +-- encoding type
+		//  |   |  |   |  |  |   |  |   |   |   |   |  |
+		{   4,  4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC1
+		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC2
+		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC3
+		{   4,  4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC4
+		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC5
+		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Float) }, // BC6H
+		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC7
+		{   4,  4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ETC1
+		{   4,  4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ETC2
+		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ETC2A
+		{   4,  4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ETC2A1
+		{   2,  8, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC12
+		{   4,  4, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC14
+		{   2,  8, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC12A
+		{   4,  4, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC14A
+		{   2,  8, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC22
+		{   4,  4, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC24
+		{   4,  4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ATC
+		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ATCE
+		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ATCI
+		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC4x4
+		{   6,  5, 5, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC5x5
+		{   4,  6, 6, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC6x6
+		{   4,  8, 5, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC8x5
+		{   3,  8, 6, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC8x6
+		{   3, 10, 5, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC10x5
+		{   0,  0, 0,  0, 0, 0,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Count) }, // Unknown
+		{   1,  8, 1,  1, 1, 1,  0, 0,  1,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // R1
+		{   8,  1, 1,  1, 1, 1,  0, 0,  0,  0,  0,  8, uint8_t(bx::EncodingType::Unorm) }, // A8
+		{   8,  1, 1,  1, 1, 1,  0, 0,  8,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // R8
+		{   8,  1, 1,  1, 1, 1,  0, 0,  8,  0,  0,  0, uint8_t(bx::EncodingType::Int  ) }, // R8I
+		{   8,  1, 1,  1, 1, 1,  0, 0,  8,  0,  0,  0, uint8_t(bx::EncodingType::Uint ) }, // R8U
+		{   8,  1, 1,  1, 1, 1,  0, 0,  8,  0,  0,  0, uint8_t(bx::EncodingType::Snorm) }, // R8S
+		{  16,  1, 1,  2, 1, 1,  0, 0, 16,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // R16
+		{  16,  1, 1,  2, 1, 1,  0, 0, 16,  0,  0,  0, uint8_t(bx::EncodingType::Int  ) }, // R16I
+		{  16,  1, 1,  2, 1, 1,  0, 0, 16,  0,  0,  0, uint8_t(bx::EncodingType::Uint ) }, // R16U
+		{  16,  1, 1,  2, 1, 1,  0, 0, 16,  0,  0,  0, uint8_t(bx::EncodingType::Float) }, // R16F
+		{  16,  1, 1,  2, 1, 1,  0, 0, 16,  0,  0,  0, uint8_t(bx::EncodingType::Snorm) }, // R16S
+		{  32,  1, 1,  4, 1, 1,  0, 0, 32,  0,  0,  0, uint8_t(bx::EncodingType::Int  ) }, // R32I
+		{  32,  1, 1,  4, 1, 1,  0, 0, 32,  0,  0,  0, uint8_t(bx::EncodingType::Uint ) }, // R32U
+		{  32,  1, 1,  4, 1, 1,  0, 0, 32,  0,  0,  0, uint8_t(bx::EncodingType::Float) }, // R32F
+		{  16,  1, 1,  2, 1, 1,  0, 0,  8,  8,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // RG8
+		{  16,  1, 1,  2, 1, 1,  0, 0,  8,  8,  0,  0, uint8_t(bx::EncodingType::Int  ) }, // RG8I
+		{  16,  1, 1,  2, 1, 1,  0, 0,  8,  8,  0,  0, uint8_t(bx::EncodingType::Uint ) }, // RG8U
+		{  16,  1, 1,  2, 1, 1,  0, 0,  8,  8,  0,  0, uint8_t(bx::EncodingType::Snorm) }, // RG8S
+		{  32,  1, 1,  4, 1, 1,  0, 0, 16, 16,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // RG16
+		{  32,  1, 1,  4, 1, 1,  0, 0, 16, 16,  0,  0, uint8_t(bx::EncodingType::Int  ) }, // RG16I
+		{  32,  1, 1,  4, 1, 1,  0, 0, 16, 16,  0,  0, uint8_t(bx::EncodingType::Uint ) }, // RG16U
+		{  32,  1, 1,  4, 1, 1,  0, 0, 16, 16,  0,  0, uint8_t(bx::EncodingType::Float) }, // RG16F
+		{  32,  1, 1,  4, 1, 1,  0, 0, 16, 16,  0,  0, uint8_t(bx::EncodingType::Snorm) }, // RG16S
+		{  64,  1, 1,  8, 1, 1,  0, 0, 32, 32,  0,  0, uint8_t(bx::EncodingType::Int  ) }, // RG32I
+		{  64,  1, 1,  8, 1, 1,  0, 0, 32, 32,  0,  0, uint8_t(bx::EncodingType::Uint ) }, // RG32U
+		{  64,  1, 1,  8, 1, 1,  0, 0, 32, 32,  0,  0, uint8_t(bx::EncodingType::Float) }, // RG32F
+		{  24,  1, 1,  3, 1, 1,  0, 0,  8,  8,  8,  0, uint8_t(bx::EncodingType::Unorm) }, // RGB8
+		{  24,  1, 1,  3, 1, 1,  0, 0,  8,  8,  8,  0, uint8_t(bx::EncodingType::Int  ) }, // RGB8I
+		{  24,  1, 1,  3, 1, 1,  0, 0,  8,  8,  8,  0, uint8_t(bx::EncodingType::Uint ) }, // RGB8U
+		{  24,  1, 1,  3, 1, 1,  0, 0,  8,  8,  8,  0, uint8_t(bx::EncodingType::Snorm) }, // RGB8S
+		{  32,  1, 1,  4, 1, 1,  0, 0,  9,  9,  9,  5, uint8_t(bx::EncodingType::Float) }, // RGB9E5F
+		{  32,  1, 1,  4, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // BGRA8
+		{  32,  1, 1,  4, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // RGBA8
+		{  32,  1, 1,  4, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Int  ) }, // RGBA8I
+		{  32,  1, 1,  4, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Uint ) }, // RGBA8U
+		{  32,  1, 1,  4, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Snorm) }, // RGBA8S
+		{  64,  1, 1,  8, 1, 1,  0, 0, 16, 16, 16, 16, uint8_t(bx::EncodingType::Unorm) }, // RGBA16
+		{  64,  1, 1,  8, 1, 1,  0, 0, 16, 16, 16, 16, uint8_t(bx::EncodingType::Int  ) }, // RGBA16I
+		{  64,  1, 1,  8, 1, 1,  0, 0, 16, 16, 16, 16, uint8_t(bx::EncodingType::Uint ) }, // RGBA16U
+		{  64,  1, 1,  8, 1, 1,  0, 0, 16, 16, 16, 16, uint8_t(bx::EncodingType::Float) }, // RGBA16F
+		{  64,  1, 1,  8, 1, 1,  0, 0, 16, 16, 16, 16, uint8_t(bx::EncodingType::Snorm) }, // RGBA16S
+		{ 128,  1, 1, 16, 1, 1,  0, 0, 32, 32, 32, 32, uint8_t(bx::EncodingType::Int  ) }, // RGBA32I
+		{ 128,  1, 1, 16, 1, 1,  0, 0, 32, 32, 32, 32, uint8_t(bx::EncodingType::Uint ) }, // RGBA32U
+		{ 128,  1, 1, 16, 1, 1,  0, 0, 32, 32, 32, 32, uint8_t(bx::EncodingType::Float) }, // RGBA32F
+		{  16,  1, 1,  2, 1, 1,  0, 0,  5,  6,  5,  0, uint8_t(bx::EncodingType::Unorm) }, // R5G6B5
+		{  16,  1, 1,  2, 1, 1,  0, 0,  4,  4,  4,  4, uint8_t(bx::EncodingType::Unorm) }, // RGBA4
+		{  16,  1, 1,  2, 1, 1,  0, 0,  5,  5,  5,  1, uint8_t(bx::EncodingType::Unorm) }, // RGB5A1
+		{  32,  1, 1,  4, 1, 1,  0, 0, 10, 10, 10,  2, uint8_t(bx::EncodingType::Unorm) }, // RGB10A2
+		{  32,  1, 1,  4, 1, 1,  0, 0, 11, 11, 10,  0, uint8_t(bx::EncodingType::Unorm) }, // RG11B10F
+		{   0,  0, 0,  0, 0, 0,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Count) }, // UnknownDepth
+		{  16,  1, 1,  2, 1, 1, 16, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // D16
+		{  24,  1, 1,  3, 1, 1, 24, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // D24
+		{  32,  1, 1,  4, 1, 1, 24, 8,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // D24S8
+		{  32,  1, 1,  4, 1, 1, 32, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // D32
+		{  16,  1, 1,  2, 1, 1, 16, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Float) }, // D16F
+		{  24,  1, 1,  3, 1, 1, 24, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Float) }, // D24F
+		{  32,  1, 1,  4, 1, 1, 32, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Float) }, // D32F
+		{   8,  1, 1,  1, 1, 1,  0, 8,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // D0S8
 	};
 	BX_STATIC_ASSERT(TextureFormat::Count == BX_COUNTOF(s_imageBlockInfo) );
 
@@ -119,6 +128,15 @@ namespace bimg
 		"PTC14A",     // PTC14A
 		"PTC22",      // PTC22
 		"PTC24",      // PTC24
+		"ATC",        // ATC
+		"ATCE",       // ATCE
+		"ATCI",       // ATCI
+		"ASTC4x4",    // ASTC4x4
+		"ASTC5x5",    // ASTC5x5
+		"ASTC6x6",    // ASTC6x6
+		"ASTC8x5",    // ASTC8x5
+		"ASTC8x6",    // ASTC8x6
+		"ASTC10x5",   // ASTC10x5
 		"<unknown>",  // Unknown
 		"R1",         // R1
 		"A8",         // A8
@@ -258,9 +276,9 @@ namespace bimg
 		const uint16_t minBlockX   = blockInfo.minBlockX;
 		const uint16_t minBlockY   = blockInfo.minBlockY;
 
-		_width  = bx::uint16_max(blockWidth  * minBlockX, ( (_width  + blockWidth  - 1) / blockWidth )*blockWidth);
-		_height = bx::uint16_max(blockHeight * minBlockY, ( (_height + blockHeight - 1) / blockHeight)*blockHeight);
-		_depth  = bx::uint16_max(1, _depth);
+		_width  = bx::max<uint16_t>(blockWidth  * minBlockX, ( (_width  + blockWidth  - 1) / blockWidth )*blockWidth);
+		_height = bx::max<uint16_t>(blockHeight * minBlockY, ( (_height + blockHeight - 1) / blockHeight)*blockHeight);
+		_depth  = bx::max<uint16_t>(1, _depth);
 
 		uint8_t numMips = calcNumMips(true, _width, _height, _depth);
 
@@ -276,9 +294,9 @@ namespace bimg
 		const uint16_t minBlockX   = blockInfo.minBlockX;
 		const uint16_t minBlockY   = blockInfo.minBlockY;
 
-		_width  = bx::uint16_max(blockWidth  * minBlockX, ( (_width  + blockWidth  - 1) / blockWidth)*blockWidth);
-		_height = bx::uint16_max(blockHeight * minBlockY, ( (_height + blockHeight - 1) / blockHeight)*blockHeight);
-		_depth  = bx::uint16_max(1, _depth);
+		_width  = bx::max<uint16_t>(blockWidth  * minBlockX, ( (_width  + blockWidth  - 1) / blockWidth)*blockWidth);
+		_height = bx::max<uint16_t>(blockHeight * minBlockY, ( (_height + blockHeight - 1) / blockHeight)*blockHeight);
+		_depth  = bx::max<uint16_t>(1, _depth);
 		const uint8_t  numMips = calcNumMips(_hasMips, _width, _height, _depth);
 		const uint32_t sides   = _cubeMap ? 6 : 1;
 
@@ -691,6 +709,136 @@ namespace bimg
 		imageRgba32fLinearDownsample2x2Ref(_dst, _width, _height, _depth, _srcPitch, _src);
 	}
 
+	void imageRgba32fDownsample2x2Ref(void* _dst, uint32_t _width, uint32_t _height, uint32_t _depth, uint32_t _srcPitch, const void* _src)
+	{
+		const uint32_t dstWidth  = _width/2;
+		const uint32_t dstHeight = _height/2;
+		const uint32_t dstDepth  = _depth/2;
+
+		if (0 == dstWidth
+		||  0 == dstHeight)
+		{
+			return;
+		}
+
+		const uint8_t* src = (const uint8_t*)_src;
+		uint8_t* dst = (uint8_t*)_dst;
+
+		if (0 == dstDepth)
+		{
+			for (uint32_t yy = 0, ystep = _srcPitch*2; yy < dstHeight; ++yy, src += ystep)
+			{
+				const float* rgba0 = (const float*)&src[0];
+				const float* rgba1 = (const float*)&src[_srcPitch];
+				for (uint32_t xx = 0; xx < dstWidth; ++xx, rgba0 += 8, rgba1 += 8, dst += 16)
+				{
+					float xyz[4];
+
+					xyz[0]  = bx::toLinear(rgba0[0]);
+					xyz[1]  = bx::toLinear(rgba0[1]);
+					xyz[2]  = bx::toLinear(rgba0[2]);
+					xyz[3]  =              rgba0[3];
+
+					xyz[0] += bx::toLinear(rgba0[4]);
+					xyz[1] += bx::toLinear(rgba0[5]);
+					xyz[2] += bx::toLinear(rgba0[6]);
+					xyz[3] +=              rgba0[7];
+
+					xyz[0] += bx::toLinear(rgba1[0]);
+					xyz[1] += bx::toLinear(rgba1[1]);
+					xyz[2] += bx::toLinear(rgba1[2]);
+					xyz[3] +=              rgba1[3];
+
+					xyz[0] += bx::toLinear(rgba1[4]);
+					xyz[1] += bx::toLinear(rgba1[5]);
+					xyz[2] += bx::toLinear(rgba1[6]);
+					xyz[3] +=              rgba1[7];
+
+					xyz[0] = bx::toGamma(xyz[0]/4.0f);
+					xyz[1] = bx::toGamma(xyz[1]/4.0f);
+					xyz[2] = bx::toGamma(xyz[2]/4.0f);
+					xyz[3] =             xyz[3]/4.0f;
+
+					bx::packRgba32F(dst, xyz);
+				}
+			}
+		}
+		else
+		{
+			const uint32_t slicePitch = _srcPitch*_height;
+
+			for (uint32_t zz = 0; zz < dstDepth; ++zz, src += slicePitch)
+			{
+				for (uint32_t yy = 0, ystep = _srcPitch*2; yy < dstHeight; ++yy, src += ystep)
+				{
+					const float* rgba0 = (const float*)&src[0];
+					const float* rgba1 = (const float*)&src[_srcPitch];
+					const float* rgba2 = (const float*)&src[slicePitch];
+					const float* rgba3 = (const float*)&src[slicePitch+_srcPitch];
+					for (uint32_t xx = 0
+						; xx < dstWidth
+						; ++xx, rgba0 += 8, rgba1 += 8, rgba2 += 8, rgba3 += 8, dst += 16
+						)
+					{
+						float xyz[4];
+
+						xyz[0]  = bx::toLinear(rgba0[0]);
+						xyz[1]  = bx::toLinear(rgba0[1]);
+						xyz[2]  = bx::toLinear(rgba0[2]);
+						xyz[3]  =              rgba0[3];
+
+						xyz[0] += bx::toLinear(rgba0[4]);
+						xyz[1] += bx::toLinear(rgba0[5]);
+						xyz[2] += bx::toLinear(rgba0[6]);
+						xyz[3] +=              rgba0[7];
+
+						xyz[0] += bx::toLinear(rgba1[0]);
+						xyz[1] += bx::toLinear(rgba1[1]);
+						xyz[2] += bx::toLinear(rgba1[2]);
+						xyz[3] +=              rgba1[3];
+
+						xyz[0] += bx::toLinear(rgba1[4]);
+						xyz[1] += bx::toLinear(rgba1[5]);
+						xyz[2] += bx::toLinear(rgba1[6]);
+						xyz[3] +=              rgba1[7];
+
+						xyz[0] += bx::toLinear(rgba2[0]);
+						xyz[1] += bx::toLinear(rgba2[1]);
+						xyz[2] += bx::toLinear(rgba2[2]);
+						xyz[3] +=              rgba2[3];
+
+						xyz[0] += bx::toLinear(rgba2[4]);
+						xyz[1] += bx::toLinear(rgba2[5]);
+						xyz[2] += bx::toLinear(rgba2[6]);
+						xyz[3] +=              rgba2[7];
+
+						xyz[0] += bx::toLinear(rgba3[0]);
+						xyz[1] += bx::toLinear(rgba3[1]);
+						xyz[2] += bx::toLinear(rgba3[2]);
+						xyz[3] +=              rgba3[3];
+
+						xyz[0] += bx::toLinear(rgba3[4]);
+						xyz[1] += bx::toLinear(rgba3[5]);
+						xyz[2] += bx::toLinear(rgba3[6]);
+						xyz[3] +=              rgba3[7];
+
+						xyz[0] = bx::toGamma(xyz[0]/8.0f);
+						xyz[1] = bx::toGamma(xyz[1]/8.0f);
+						xyz[2] = bx::toGamma(xyz[2]/8.0f);
+						xyz[3] =             xyz[3]/8.0f;
+
+						bx::packRgba32F(dst, xyz);
+					}
+				}
+			}
+		}
+	}
+
+	void imageRgba32fDownsample2x2(void* _dst, uint32_t _width, uint32_t _height, uint32_t _depth, uint32_t _srcPitch, const void* _src)
+	{
+		imageRgba32fDownsample2x2Ref(_dst, _width, _height, _depth, _srcPitch, _src);
+	}
+
 	void imageRgba32fDownsample2x2NormalMapRef(void* _dst, uint32_t _width, uint32_t _height, uint32_t _srcPitch, uint32_t _dstPitch, const void* _src)
 	{
 		const uint32_t dstWidth  = _width/2;
@@ -852,6 +1000,15 @@ namespace bimg
 		{ NULL,               NULL                 }, // PTC14A
 		{ NULL,               NULL                 }, // PTC22
 		{ NULL,               NULL                 }, // PTC24
+		{ NULL,               NULL                 }, // ATC
+		{ NULL,               NULL                 }, // ATCE
+		{ NULL,               NULL                 }, // ATCI
+		{ NULL,               NULL                 }, // ASTC4x4
+		{ NULL,               NULL                 }, // ASTC5x5
+		{ NULL,               NULL                 }, // ASTC6x6
+		{ NULL,               NULL                 }, // ASTC8x5
+		{ NULL,               NULL                 }, // ASTC8x6
+		{ NULL,               NULL                 }, // ASTC10x5
 		{ NULL,               NULL                 }, // Unknown
 		{ NULL,               NULL                 }, // R1
 		{ bx::packR8,         bx::unpackR8         }, // A8
@@ -1010,7 +1167,7 @@ namespace bimg
 
 		if (_dstFormat == _srcFormat)
 		{
-			bx::memCopy(_dst, _src, _width*_height*_depth*srcBpp/8);
+			bx::memCopy(_dst, _src, _width*_height*_depth*(srcBpp/8) );
 			return true;
 		}
 
@@ -2238,6 +2395,62 @@ namespace bimg
 		}
 	}
 
+	// ATC
+	//
+	void decodeBlockATC(uint8_t _dst[16*4], const uint8_t _src[8])
+	{
+		uint8_t colors[4*4];
+
+		uint32_t c0 = _src[0] | (_src[1] << 8);
+		uint32_t c1 = _src[2] | (_src[3] << 8);
+
+		if (0 == (c0 & 0x8000) )
+		{
+			colors[ 0] = bitRangeConvert( (c0>> 0)&0x1f, 5, 8);
+			colors[ 1] = bitRangeConvert( (c0>> 5)&0x1f, 5, 8);
+			colors[ 2] = bitRangeConvert( (c0>>10)&0x1f, 5, 8);
+
+			colors[12] = bitRangeConvert( (c1>> 0)&0x1f, 5, 8);
+			colors[13] = bitRangeConvert( (c1>> 5)&0x3f, 6, 8);
+			colors[14] = bitRangeConvert( (c1>>11)&0x1f, 5, 8);
+
+			colors[ 4] = (2 * colors[0] + colors[12]) / 3;
+			colors[ 5] = (2 * colors[1] + colors[13]) / 3;
+			colors[ 6] = (2 * colors[2] + colors[14]) / 3;
+
+			colors[ 8] = (colors[0] + 2 * colors[12]) / 3;
+			colors[ 9] = (colors[1] + 2 * colors[13]) / 3;
+			colors[10] = (colors[2] + 2 * colors[14]) / 3;
+		}
+		else
+		{
+			colors[ 0] = 0;
+			colors[ 1] = 0;
+			colors[ 2] = 0;
+
+			colors[ 8] = bitRangeConvert( (c0>> 0)&0x1f, 5, 8);
+			colors[ 9] = bitRangeConvert( (c0>> 5)&0x1f, 5, 8);
+			colors[10] = bitRangeConvert( (c0>>10)&0x1f, 5, 8);
+
+			colors[12] = bitRangeConvert( (c1>> 0)&0x1f, 5, 8);
+			colors[13] = bitRangeConvert( (c1>> 5)&0x3f, 6, 8);
+			colors[14] = bitRangeConvert( (c1>>11)&0x1f, 5, 8);
+
+			colors[ 4] = colors[ 8] - colors[12] / 4;
+			colors[ 5] = colors[ 9] - colors[13] / 4;
+			colors[ 6] = colors[10] - colors[14] / 4;
+		}
+
+		for (uint32_t ii = 0, next = 8*4; ii < 16*4; ii += 4, next += 2)
+		{
+			int32_t idx = ( (_src[next>>3] >> (next & 7) ) & 3) * 4;
+			_dst[ii+0] = colors[idx+0];
+			_dst[ii+1] = colors[idx+1];
+			_dst[ii+2] = colors[idx+2];
+			_dst[ii+3] = colors[idx+3];
+		}
+	}
+
 	static const int32_t s_etc1Mod[8][4] =
 	{
 		{  2,   8,  -2,   -8 },
@@ -2883,10 +3096,10 @@ namespace bimg
 		const uint16_t minBlockX   = blockInfo.minBlockX;
 		const uint16_t minBlockY   = blockInfo.minBlockY;
 
-		_width     = bx::uint16_max(blockWidth  * minBlockX, ( (_width  + blockWidth  - 1) / blockWidth)*blockWidth);
-		_height    = bx::uint16_max(blockHeight * minBlockY, ( (_height + blockHeight - 1) / blockHeight)*blockHeight);
-		_depth     = bx::uint16_max(1, _depth);
-		_numLayers = bx::uint16_max(1, _numLayers);
+		_width     = bx::max<uint16_t>(blockWidth  * minBlockX, ( (_width  + blockWidth  - 1) / blockWidth)*blockWidth);
+		_height    = bx::max<uint16_t>(blockHeight * minBlockY, ( (_height + blockHeight - 1) / blockHeight)*blockHeight);
+		_depth     = bx::max<uint16_t>(1, _depth);
+		_numLayers = bx::max<uint16_t>(1, _numLayers);
 
 		const uint8_t numMips = _hasMips ? imageGetNumMips(_format, _width, _height, _depth) : 1;
 		uint32_t size = imageGetSize(NULL, _width, _height, _depth, _cubeMap, _hasMips, _numLayers, _format);
@@ -2937,6 +3150,21 @@ namespace bimg
 #define DDS_ATI2 BX_MAKEFOURCC('A', 'T', 'I', '2')
 #define DDS_BC5U BX_MAKEFOURCC('B', 'C', '5', 'U')
 #define DDS_DX10 BX_MAKEFOURCC('D', 'X', '1', '0')
+
+#define DDS_ETC1     BX_MAKEFOURCC('E', 'T', 'C', '1')
+#define DDS_ETC2     BX_MAKEFOURCC('E', 'T', 'C', '2')
+#define DDS_ET2A     BX_MAKEFOURCC('E', 'T', '2', 'A')
+#define DDS_PTC2     BX_MAKEFOURCC('P', 'T', 'C', '2')
+#define DDS_PTC4     BX_MAKEFOURCC('P', 'T', 'C', '4')
+#define DDS_ATC      BX_MAKEFOURCC('A', 'T', 'C', ' ')
+#define DDS_ATCE     BX_MAKEFOURCC('A', 'T', 'C', 'E')
+#define DDS_ATCI     BX_MAKEFOURCC('A', 'T', 'C', 'I')
+#define DDS_ASTC4x4  BX_MAKEFOURCC('A', 'S', '4', '4')
+#define DDS_ASTC5x5  BX_MAKEFOURCC('A', 'S', '5', '5')
+#define DDS_ASTC6x6  BX_MAKEFOURCC('A', 'S', '6', '6')
+#define DDS_ASTC8x5  BX_MAKEFOURCC('A', 'S', '8', '5')
+#define DDS_ASTC8x6  BX_MAKEFOURCC('A', 'S', '8', '6')
+#define DDS_ASTC10x5 BX_MAKEFOURCC('A', 'S', ':', '5')
 
 #define DDS_R8G8B8         20
 #define DDS_A8R8G8B8       21
@@ -3045,36 +3273,52 @@ namespace bimg
 
 	static const TranslateDdsFormat s_translateDdsFourccFormat[] =
 	{
-		{ DDS_DXT1,                  TextureFormat::BC1,     false },
-		{ DDS_DXT2,                  TextureFormat::BC2,     false },
-		{ DDS_DXT3,                  TextureFormat::BC2,     false },
-		{ DDS_DXT4,                  TextureFormat::BC3,     false },
-		{ DDS_DXT5,                  TextureFormat::BC3,     false },
-		{ DDS_ATI1,                  TextureFormat::BC4,     false },
-		{ DDS_BC4U,                  TextureFormat::BC4,     false },
-		{ DDS_ATI2,                  TextureFormat::BC5,     false },
-		{ DDS_BC5U,                  TextureFormat::BC5,     false },
-		{ DDS_A16B16G16R16,          TextureFormat::RGBA16,  false },
-		{ DDS_A16B16G16R16F,         TextureFormat::RGBA16F, false },
-		{ DDPF_RGB|DDPF_ALPHAPIXELS, TextureFormat::BGRA8,   false },
-		{ DDPF_INDEXED,              TextureFormat::R8,      false },
-		{ DDPF_LUMINANCE,            TextureFormat::R8,      false },
-		{ DDPF_ALPHA,                TextureFormat::R8,      false },
-		{ DDS_R16F,                  TextureFormat::R16F,    false },
-		{ DDS_R32F,                  TextureFormat::R32F,    false },
-		{ DDS_A8L8,                  TextureFormat::RG8,     false },
-		{ DDS_G16R16,                TextureFormat::RG16,    false },
-		{ DDS_G16R16F,               TextureFormat::RG16F,   false },
-		{ DDS_G32R32F,               TextureFormat::RG32F,   false },
-		{ DDS_R8G8B8,                TextureFormat::RGB8,    false },
-		{ DDS_A8R8G8B8,              TextureFormat::BGRA8,   false },
-		{ DDS_A16B16G16R16,          TextureFormat::RGBA16,  false },
-		{ DDS_A16B16G16R16F,         TextureFormat::RGBA16F, false },
-		{ DDS_A32B32G32R32F,         TextureFormat::RGBA32F, false },
-		{ DDS_R5G6B5,                TextureFormat::R5G6B5,  false },
-		{ DDS_A4R4G4B4,              TextureFormat::RGBA4,   false },
-		{ DDS_A1R5G5B5,              TextureFormat::RGB5A1,  false },
-		{ DDS_A2B10G10R10,           TextureFormat::RGB10A2, false },
+		{ DDS_DXT1,                  TextureFormat::BC1,      false },
+		{ DDS_DXT2,                  TextureFormat::BC2,      false },
+		{ DDS_DXT3,                  TextureFormat::BC2,      false },
+		{ DDS_DXT4,                  TextureFormat::BC3,      false },
+		{ DDS_DXT5,                  TextureFormat::BC3,      false },
+		{ DDS_ATI1,                  TextureFormat::BC4,      false },
+		{ DDS_BC4U,                  TextureFormat::BC4,      false },
+		{ DDS_ATI2,                  TextureFormat::BC5,      false },
+		{ DDS_BC5U,                  TextureFormat::BC5,      false },
+
+		{ DDS_ETC1,                  TextureFormat::ETC1,     false },
+		{ DDS_ETC2,                  TextureFormat::ETC2,     false },
+		{ DDS_ET2A,                  TextureFormat::ETC2A,    false },
+		{ DDS_PTC2,                  TextureFormat::PTC12A,   false },
+		{ DDS_PTC4,                  TextureFormat::PTC14A,   false },
+		{ DDS_ATC ,                  TextureFormat::ATC,      false },
+		{ DDS_ATCE,                  TextureFormat::ATCE,     false },
+		{ DDS_ATCI,                  TextureFormat::ATCI,     false },
+		{ DDS_ASTC4x4,               TextureFormat::ASTC4x4,  false },
+		{ DDS_ASTC5x5,               TextureFormat::ASTC5x5,  false },
+		{ DDS_ASTC6x6,               TextureFormat::ASTC6x6,  false },
+		{ DDS_ASTC8x5,               TextureFormat::ASTC8x5,  false },
+		{ DDS_ASTC8x6,               TextureFormat::ASTC8x6,  false },
+		{ DDS_ASTC10x5,              TextureFormat::ASTC10x5, false },
+
+		{ DDS_A16B16G16R16,          TextureFormat::RGBA16,   false },
+		{ DDS_A16B16G16R16F,         TextureFormat::RGBA16F,  false },
+		{ DDPF_RGB|DDPF_ALPHAPIXELS, TextureFormat::BGRA8,    false },
+		{ DDPF_INDEXED,              TextureFormat::R8,       false },
+		{ DDPF_LUMINANCE,            TextureFormat::R8,       false },
+		{ DDPF_ALPHA,                TextureFormat::R8,       false },
+		{ DDS_R16F,                  TextureFormat::R16F,     false },
+		{ DDS_R32F,                  TextureFormat::R32F,     false },
+		{ DDS_A8L8,                  TextureFormat::RG8,      false },
+		{ DDS_G16R16,                TextureFormat::RG16,     false },
+		{ DDS_G16R16F,               TextureFormat::RG16F,    false },
+		{ DDS_G32R32F,               TextureFormat::RG32F,    false },
+		{ DDS_R8G8B8,                TextureFormat::RGB8,     false },
+		{ DDS_A8R8G8B8,              TextureFormat::BGRA8,    false },
+		{ DDS_A16B16G16R16,          TextureFormat::RGBA16,   false },
+		{ DDS_A16B16G16R16F,         TextureFormat::RGBA16F,  false },
+		{ DDS_A32B32G32R32F,         TextureFormat::RGBA32F,  false },
+		{ DDS_R5G6B5,                TextureFormat::R5G6B5,   false },
+		{ DDS_A4R4G4B4,              TextureFormat::RGBA4,    false },
+		{ DDS_A1R5G5B5,              TextureFormat::RGB5A1,   false },
+		{ DDS_A2B10G10R10,           TextureFormat::RGB10A2,  false },
 	};
 
 	static const TranslateDdsFormat s_translateDxgiFormat[] =
@@ -3377,6 +3621,21 @@ namespace bimg
 #define KTX_COMPRESSED_SRGB_PVRTC_4BPPV1_EXT          0x8A55
 #define KTX_COMPRESSED_SRGB_ALPHA_PVRTC_2BPPV1_EXT    0x8A56
 #define KTX_COMPRESSED_SRGB_ALPHA_PVRTC_4BPPV1_EXT    0x8A57
+#define KTX_ATC_RGB_AMD                               0x8C92
+#define KTX_ATC_RGBA_EXPLICIT_ALPHA_AMD               0x8C93
+#define KTX_ATC_RGBA_INTERPOLATED_ALPHA_AMD           0x87EE
+#define KTX_COMPRESSED_RGBA_ASTC_4x4_KHR              0x93B0
+#define KTX_COMPRESSED_RGBA_ASTC_5x5_KHR              0x93B2
+#define KTX_COMPRESSED_RGBA_ASTC_6x6_KHR              0x93B4
+#define KTX_COMPRESSED_RGBA_ASTC_8x5_KHR              0x93B5
+#define KTX_COMPRESSED_RGBA_ASTC_8x6_KHR              0x93B6
+#define KTX_COMPRESSED_RGBA_ASTC_10x5_KHR             0x93B8
+#define KTX_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR      0x93D0
+#define KTX_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR      0x93D2
+#define KTX_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR      0x93D4
+#define KTX_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR      0x93D5
+#define KTX_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR      0x93D6
+#define KTX_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR     0x93D8
 
 #define KTX_A8                                        0x803C
 #define KTX_R8                                        0x8229
@@ -3486,6 +3745,15 @@ namespace bimg
 		{ KTX_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG,         KTX_COMPRESSED_SRGB_ALPHA_PVRTC_4BPPV1_EXT,     KTX_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG,         KTX_ZERO,                         }, // PTC14A
 		{ KTX_COMPRESSED_RGBA_PVRTC_2BPPV2_IMG,         KTX_ZERO,                                       KTX_COMPRESSED_RGBA_PVRTC_2BPPV2_IMG,         KTX_ZERO,                         }, // PTC22
 		{ KTX_COMPRESSED_RGBA_PVRTC_4BPPV2_IMG,         KTX_ZERO,                                       KTX_COMPRESSED_RGBA_PVRTC_4BPPV2_IMG,         KTX_ZERO,                         }, // PTC24
+		{ KTX_ATC_RGB_AMD,                              KTX_ZERO,                                       KTX_ATC_RGB_AMD,                              KTX_ZERO,                         }, // ATC
+		{ KTX_ATC_RGBA_EXPLICIT_ALPHA_AMD,              KTX_ZERO,                                       KTX_ATC_RGBA_EXPLICIT_ALPHA_AMD,              KTX_ZERO,                         }, // ATCE
+		{ KTX_ATC_RGBA_INTERPOLATED_ALPHA_AMD,          KTX_ZERO,                                       KTX_ATC_RGBA_INTERPOLATED_ALPHA_AMD,          KTX_ZERO,                         }, // ATCI
+		{ KTX_COMPRESSED_RGBA_ASTC_4x4_KHR,             KTX_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR,       KTX_COMPRESSED_RGBA_ASTC_4x4_KHR,             KTX_ZERO,                         }, // ASTC4x4
+		{ KTX_COMPRESSED_RGBA_ASTC_5x5_KHR,             KTX_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR,       KTX_COMPRESSED_RGBA_ASTC_5x5_KHR,             KTX_ZERO,                         }, // ASTC5x5
+		{ KTX_COMPRESSED_RGBA_ASTC_6x6_KHR,             KTX_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR,       KTX_COMPRESSED_RGBA_ASTC_6x6_KHR,             KTX_ZERO,                         }, // ASTC6x6
+		{ KTX_COMPRESSED_RGBA_ASTC_8x5_KHR,             KTX_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR,       KTX_COMPRESSED_RGBA_ASTC_8x5_KHR,             KTX_ZERO,                         }, // ASTC8x5
+		{ KTX_COMPRESSED_RGBA_ASTC_8x6_KHR,             KTX_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR,       KTX_COMPRESSED_RGBA_ASTC_8x6_KHR,             KTX_ZERO,                         }, // ASTC8x6
+		{ KTX_COMPRESSED_RGBA_ASTC_10x5_KHR,            KTX_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR,      KTX_COMPRESSED_RGBA_ASTC_10x5_KHR,            KTX_ZERO,                         }, // ASTC10x5
 		{ KTX_ZERO,                                     KTX_ZERO,                                       KTX_ZERO,                                     KTX_ZERO,                         }, // Unknown
 		{ KTX_ZERO,                                     KTX_ZERO,                                       KTX_ZERO,                                     KTX_ZERO,                         }, // R1
 		{ KTX_ALPHA,                                    KTX_ZERO,                                       KTX_ALPHA,                                    KTX_UNSIGNED_BYTE,                }, // A8
@@ -4146,6 +4414,71 @@ namespace bimg
 			imageCheckerboard(_dst, _width, _height, 16, UINT32_C(0xff000000), UINT32_C(0xffffffff) );
 			break;
 
+		case TextureFormat::ATC:
+			for (uint32_t yy = 0; yy < height; ++yy)
+			{
+				for (uint32_t xx = 0; xx < width; ++xx)
+				{
+					decodeBlockATC(temp, src);
+					src += 8;
+
+					uint8_t* block = &dst[(yy*_dstPitch+xx*4)*4];
+					bx::memCopy(&block[0*_dstPitch], &temp[ 0], 16);
+					bx::memCopy(&block[1*_dstPitch], &temp[16], 16);
+					bx::memCopy(&block[2*_dstPitch], &temp[32], 16);
+					bx::memCopy(&block[3*_dstPitch], &temp[48], 16);
+				}
+			}
+			break;
+
+		case TextureFormat::ATCE:
+			for (uint32_t yy = 0; yy < height; ++yy)
+			{
+				for (uint32_t xx = 0; xx < width; ++xx)
+				{
+					decodeBlockDxt23A(temp+3, src);
+					src += 8;
+					decodeBlockATC(temp, src);
+					src += 8;
+
+					uint8_t* block = &dst[(yy*_dstPitch+xx*4)*4];
+					bx::memCopy(&block[0*_dstPitch], &temp[ 0], 16);
+					bx::memCopy(&block[1*_dstPitch], &temp[16], 16);
+					bx::memCopy(&block[2*_dstPitch], &temp[32], 16);
+					bx::memCopy(&block[3*_dstPitch], &temp[48], 16);
+				}
+			}
+			break;
+
+		case TextureFormat::ATCI:
+			for (uint32_t yy = 0; yy < height; ++yy)
+			{
+				for (uint32_t xx = 0; xx < width; ++xx)
+				{
+					decodeBlockDxt45A(temp+3, src);
+					src += 8;
+					decodeBlockATC(temp, src);
+					src += 8;
+
+					uint8_t* block = &dst[(yy*_dstPitch+xx*4)*4];
+					bx::memCopy(&block[0*_dstPitch], &temp[ 0], 16);
+					bx::memCopy(&block[1*_dstPitch], &temp[16], 16);
+					bx::memCopy(&block[2*_dstPitch], &temp[32], 16);
+					bx::memCopy(&block[3*_dstPitch], &temp[48], 16);
+				}
+			}
+			break;
+
+		case TextureFormat::ASTC4x4:
+		case TextureFormat::ASTC5x5:
+		case TextureFormat::ASTC6x6:
+		case TextureFormat::ASTC8x5:
+		case TextureFormat::ASTC8x6:
+		case TextureFormat::ASTC10x5:
+			BX_WARN(false, "ASTC decoder is not implemented.");
+			imageCheckerboard(_dst, _width, _height, 16, UINT32_C(0xff000000), UINT32_C(0xffffff00) );
+			break;
+
 		case TextureFormat::RGBA8:
 			{
 				const uint32_t srcPitch = _width * 4;
@@ -4400,9 +4733,9 @@ namespace bimg
 
 			for (uint8_t lod = 0, num = _imageContainer.m_numMips; lod < num; ++lod)
 			{
-				width  = bx::uint32_max(blockWidth  * minBlockX, ( (width  + blockWidth  - 1) / blockWidth )*blockWidth);
-				height = bx::uint32_max(blockHeight * minBlockY, ( (height + blockHeight - 1) / blockHeight)*blockHeight);
-				depth  = bx::uint32_max(1, depth);
+				width  = bx::max<uint32_t>(blockWidth  * minBlockX, ( (width  + blockWidth  - 1) / blockWidth )*blockWidth);
+				height = bx::max<uint32_t>(blockHeight * minBlockY, ( (height + blockHeight - 1) / blockHeight)*blockHeight);
+				depth  = bx::max<uint32_t>(1, depth);
 
 				const uint32_t mipSize = width*height*depth*bpp/8;
 
@@ -4415,6 +4748,8 @@ namespace bimg
 
 				for (uint16_t side = 0; side < numSides; ++side)
 				{
+					BX_CHECK(offset <= _size, "Reading past size of data buffer! (offset %d, size %d)", offset, _size);
+
 					if (side == _side
 					&&  lod  == _lod)
 					{
@@ -4432,7 +4767,6 @@ namespace bimg
 
 					offset += mipSize;
 
-					BX_CHECK(offset <= _size, "Reading past size of data buffer! (offset %d, size %d)", offset, _size);
 					BX_UNUSED(_size);
 				}
 
@@ -4451,11 +4785,13 @@ namespace bimg
 
 				for (uint8_t lod = 0, num = _imageContainer.m_numMips; lod < num; ++lod)
 				{
-					width  = bx::uint32_max(blockWidth  * minBlockX, ( (width  + blockWidth  - 1) / blockWidth )*blockWidth);
-					height = bx::uint32_max(blockHeight * minBlockY, ( (height + blockHeight - 1) / blockHeight)*blockHeight);
-					depth  = bx::uint32_max(1, depth);
+					BX_CHECK(offset <= _size, "Reading past size of data buffer! (offset %d, size %d)", offset, _size);
 
-					uint32_t size = width*height*depth*bpp/8;
+					width  = bx::max<uint32_t>(blockWidth  * minBlockX, ( (width  + blockWidth  - 1) / blockWidth )*blockWidth);
+					height = bx::max<uint32_t>(blockHeight * minBlockY, ( (height + blockHeight - 1) / blockHeight)*blockHeight);
+					depth  = bx::max<uint32_t>(1, depth);
+
+					uint32_t mipSize = width*height*depth*bpp/8;
 
 					if (side == _side
 					&&  lod  == _lod)
@@ -4464,7 +4800,7 @@ namespace bimg
 						_mip.m_height    = height;
 						_mip.m_depth     = depth;
 						_mip.m_blockSize = blockSize;
-						_mip.m_size      = size;
+						_mip.m_size      = mipSize;
 						_mip.m_data      = &data[offset];
 						_mip.m_bpp       = bpp;
 						_mip.m_format    = format;
@@ -4472,9 +4808,8 @@ namespace bimg
 						return true;
 					}
 
-					offset += size;
+					offset += mipSize;
 
-					BX_CHECK(offset <= _size, "Reading past size of data buffer! (offset %d, size %d)", offset, _size);
 					BX_UNUSED(_size);
 
 					width  >>= 1;
@@ -4686,13 +5021,15 @@ namespace bimg
 		total += bx::writeLE(_writer, uint32_t(18*4+1), _err);
 
 		const uint8_t cdata[] = { 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 };
-		total += bx::write(_writer, 'R', _err);
-		total += bx::write(_writer, cdata, BX_COUNTOF(cdata), _err);
-		total += bx::write(_writer, 'G', _err);
+		// Order is always ABGR order because Photoshop and GIMP ignore these fields and
+		// assume it's in ABGR order.
+		total += bx::write(_writer, 'A', _err);
 		total += bx::write(_writer, cdata, BX_COUNTOF(cdata), _err);
 		total += bx::write(_writer, 'B', _err);
 		total += bx::write(_writer, cdata, BX_COUNTOF(cdata), _err);
-		total += bx::write(_writer, 'A', _err);
+		total += bx::write(_writer, 'G', _err);
+		total += bx::write(_writer, cdata, BX_COUNTOF(cdata), _err);
+		total += bx::write(_writer, 'R', _err);
 		total += bx::write(_writer, cdata, BX_COUNTOF(cdata), _err);
 		total += bx::write(_writer, '\0', _err);
 
@@ -4768,12 +5105,7 @@ namespace bimg
 
 			for (uint32_t xx = 0; xx < _width && _err->isOk(); ++xx)
 			{
-				total += bx::write(_writer, &data[xx*bpp/8+0*bytesPerChannel], bytesPerChannel, _err);
-			}
-
-			for (uint32_t xx = 0; xx < _width && _err->isOk(); ++xx)
-			{
-				total += bx::write(_writer, &data[xx*bpp/8+1*bytesPerChannel], bytesPerChannel, _err);
+				total += bx::write(_writer, &data[xx*bpp/8+3*bytesPerChannel], bytesPerChannel, _err);
 			}
 
 			for (uint32_t xx = 0; xx < _width && _err->isOk(); ++xx)
@@ -4783,7 +5115,53 @@ namespace bimg
 
 			for (uint32_t xx = 0; xx < _width && _err->isOk(); ++xx)
 			{
-				total += bx::write(_writer, &data[xx*bpp/8+3*bytesPerChannel], bytesPerChannel, _err);
+				total += bx::write(_writer, &data[xx*bpp/8+1*bytesPerChannel], bytesPerChannel, _err);
+			}
+
+			for (uint32_t xx = 0; xx < _width && _err->isOk(); ++xx)
+			{
+				total += bx::write(_writer, &data[xx*bpp/8+0*bytesPerChannel], bytesPerChannel, _err);
+			}
+
+			data += _srcPitch;
+		}
+
+		return total;
+	}
+
+	int32_t imageWriteHdr(bx::WriterI* _writer, uint32_t _width, uint32_t _height, uint32_t _srcPitch, const void* _src, TextureFormat::Enum _format, bool _yflip, bx::Error* _err)
+	{
+		BX_ERROR_SCOPE(_err);
+
+		int32_t total = 0;
+		total += bx::write(_writer, "#?RADIANCE\n" , _err);
+		total += bx::write(_writer, "FORMAT=32-bit_rle_rgbe\n" , _err);
+		total += bx::write(_writer, '\n' , _err);
+
+		total += bx::writePrintf(_writer, "%cY %d +X %d\n", _yflip ? '+' : '-', _height, _width);
+
+		UnpackFn unpack = getUnpack(_format);
+		const uint32_t bpp  = getBitsPerPixel(_format);
+
+		const uint8_t* data = (const uint8_t*)_src;
+		for (uint32_t yy = 0; yy < _height && _err->isOk(); ++yy)
+		{
+			for (uint32_t xx = 0; xx < _width && _err->isOk(); ++xx)
+			{
+				float rgba[4];
+				unpack(rgba, &data[xx*bpp/8]);
+
+				const float maxVal = bx::max(rgba[0], rgba[1], rgba[2]);
+				const float exp    = bx::ceil(bx::log2(maxVal) );
+				const float toRgb8 = 255.0f * 1.0f/bx::ldexp(1.0f, int(exp) );
+
+				uint8_t rgbe[4];
+				rgbe[0] = uint8_t(rgba[0] * toRgb8);
+				rgbe[1] = uint8_t(rgba[1] * toRgb8);
+				rgbe[2] = uint8_t(rgba[2] * toRgb8);
+				rgbe[3] = uint8_t(exp+128.0f);
+
+				total += bx::write(_writer, rgbe, 4, _err);
 			}
 
 			data += _srcPitch;
@@ -5074,187 +5452,6 @@ namespace bimg
 		}
 
 		return total;
-	}
-
-	//                  +----------+
-	//                  |-z       2|
-	//                  | ^  +y    |
-	//                  | |        |
-	//                  | +---->+x |
-	//       +----------+----------+----------+----------+
-	//       |+y       1|+y       4|+y       0|+y       5|
-	//       | ^  -x    | ^  +z    | ^  +x    | ^  -z    |
-	//       | |        | |        | |        | |        |
-	//       | +---->+z | +---->+x | +---->-z | +---->-x |
-	//       +----------+----------+----------+----------+
-	//                  |+z       3|
-	//                  | ^  -y    |
-	//                  | |        |
-	//                  | +---->+x |
-	//                  +----------+
-	//
-	struct CubeMapFace
-	{
-		float uv[3][3];
-	};
-
-	static const CubeMapFace s_cubeMapFace[] =
-	{
-		{{ // +x face
-			{  0.0f,  0.0f, -1.0f }, // u -> -z
-			{  0.0f, -1.0f,  0.0f }, // v -> -y
-			{  1.0f,  0.0f,  0.0f }, // +x face
-		}},
-		{{ // -x face
-			{  0.0f,  0.0f,  1.0f }, // u -> +z
-			{  0.0f, -1.0f,  0.0f }, // v -> -y
-			{ -1.0f,  0.0f,  0.0f }, // -x face
-		}},
-		{{ // +y face
-			{  1.0f,  0.0f,  0.0f }, // u -> +x
-			{  0.0f,  0.0f,  1.0f }, // v -> +z
-			{  0.0f,  1.0f,  0.0f }, // +y face
-		}},
-		{{ // -y face
-			{  1.0f,  0.0f,  0.0f }, // u -> +x
-			{  0.0f,  0.0f, -1.0f }, // v -> -z
-			{  0.0f, -1.0f,  0.0f }, // -y face
-		}},
-		{{ // +z face
-			{  1.0f,  0.0f,  0.0f }, // u -> +x
-			{  0.0f, -1.0f,  0.0f }, // v -> -y
-			{  0.0f,  0.0f,  1.0f }, // +z face
-		}},
-		{{ // -z face
-			{ -1.0f,  0.0f,  0.0f }, // u -> -x
-			{  0.0f, -1.0f,  0.0f }, // v -> -y
-			{  0.0f,  0.0f, -1.0f }, // -z face
-		}},
-	};
-
-	/// _u and _v should be center addressing and in [-1.0+invSize..1.0-invSize] range.
-	void texelUvToDir(float* _result, uint8_t _side, float _u, float _v)
-	{
-		const CubeMapFace& face = s_cubeMapFace[_side];
-
-		float tmp[3];
-		tmp[0] = face.uv[0][0] * _u + face.uv[1][0] * _v + face.uv[2][0];
-		tmp[1] = face.uv[0][1] * _u + face.uv[1][1] * _v + face.uv[2][1];
-		tmp[2] = face.uv[0][2] * _u + face.uv[1][2] * _v + face.uv[2][2];
-		bx::vec3Norm(_result, tmp);
-	}
-
-	ImageContainer* imageCubemapFromLatLongRgba32F(bx::AllocatorI* _allocator, const ImageContainer& _input, bool _useBilinearInterpolation, bx::Error* _err)
-	{
-		BX_ERROR_SCOPE(_err);
-
-		if (_input.m_depth     != 1
-		&&  _input.m_numLayers != 1
-		&&  _input.m_format    != TextureFormat::RGBA32F
-		&&  _input.m_width/2   != _input.m_height)
-		{
-			BX_ERROR_SET(_err, BIMG_ERROR, "Input image format is not equirectangular projection.");
-			return NULL;
-		}
-
-		const uint32_t srcWidthMinusOne  = _input.m_width-1;
-		const uint32_t srcHeightMinusOne = _input.m_height-1;
-		const uint32_t srcPitch = _input.m_width*16;
-		const uint32_t dstWidth = _input.m_height/2;
-		const uint32_t dstPitch = dstWidth*16;
-		const float invDstWidth = 1.0f / float(dstWidth);
-
-		ImageContainer* output = imageAlloc(_allocator
-			, _input.m_format
-			, uint16_t(dstWidth)
-			, uint16_t(dstWidth)
-			, uint16_t(1)
-			, 1
-			, true
-			, false
-			);
-
-		const uint8_t* srcData = (const uint8_t*)_input.m_data;
-
-		for (uint8_t side = 0; side < 6 && _err->isOk(); ++side)
-		{
-			ImageMip mip;
-			imageGetRawData(*output, side, 0, output->m_data, output->m_size, mip);
-
-			for (uint32_t yy = 0; yy < dstWidth; ++yy)
-			{
-				for (uint32_t xx = 0; xx < dstWidth; ++xx)
-				{
-					float* dstData = (float*)&mip.m_data[yy*dstPitch+xx*16];
-
-					const float uu = 2.0f*xx*invDstWidth - 1.0f;
-					const float vv = 2.0f*yy*invDstWidth - 1.0f;
-
-					float dir[3];
-					texelUvToDir(dir, side, uu, vv);
-
-					float srcU, srcV;
-					bx::vec3ToLatLong(&srcU, &srcV, dir);
-
-					srcU *= srcWidthMinusOne;
-					srcV *= srcHeightMinusOne;
-
-					if (_useBilinearInterpolation)
-					{
-						const uint32_t x0 = uint32_t(srcU);
-						const uint32_t y0 = uint32_t(srcV);
-						const uint32_t x1 = bx::min(x0 + 1, srcWidthMinusOne);
-						const uint32_t y1 = bx::min(y0 + 1, srcHeightMinusOne);
-
-						const float* src0 = (const float*)&srcData[y0*srcPitch + x0*16];
-						const float* src1 = (const float*)&srcData[y0*srcPitch + x1*16];
-						const float* src2 = (const float*)&srcData[y1*srcPitch + x0*16];
-						const float* src3 = (const float*)&srcData[y1*srcPitch + x1*16];
-
-						const float tx   = srcU - float(int32_t(x0) );
-						const float ty   = srcV - float(int32_t(y0) );
-						const float omtx = 1.0f - tx;
-						const float omty = 1.0f - ty;
-
-						float p0[4];
-						bx::vec4Mul(p0, src0, omtx*omty);
-
-						float p1[4];
-						bx::vec4Mul(p1, src1, tx*omty);
-
-						float p2[4];
-						bx::vec4Mul(p2, src2, omtx*ty);
-
-						float p3[4];
-						bx::vec4Mul(p3, src3, tx*ty);
-
-						const float rr = p0[0] + p1[0] + p2[0] + p3[0];
-						const float gg = p0[1] + p1[1] + p2[1] + p3[1];
-						const float bb = p0[2] + p1[2] + p2[2] + p3[2];
-						const float aa = p0[3] + p1[3] + p2[3] + p3[3];
-
-						dstData[0] = rr;
-						dstData[1] = gg;
-						dstData[2] = bb;
-						dstData[3] = aa;
-					}
-					else
-					{
-						const uint32_t x0 = uint32_t(srcU);
-						const uint32_t y0 = uint32_t(srcV);
-						const float* src0 = (const float*)&srcData[y0*srcPitch + x0*16];
-
-						dstData[0] = src0[0];
-						dstData[1] = src0[1];
-						dstData[2] = src0[2];
-						dstData[3] = src0[3];
-					}
-
-				}
-			}
-		}
-
-		return output;
 	}
 
 } // namespace bimg

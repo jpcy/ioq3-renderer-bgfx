@@ -173,6 +173,15 @@ namespace bgfx
 			PTC14A,       //!< PVRTC1 RGBA 4BPP
 			PTC22,        //!< PVRTC2 RGBA 2BPP
 			PTC24,        //!< PVRTC2 RGBA 4BPP
+			ATC,          //!< ATC RGB 4BPP
+			ATCE,         //!< ATCE RGBA 8 BPP explicit alpha
+			ATCI,         //!< ATCI RGBA 8 BPP interpolated alpha
+			ASTC4x4,      //!< ASTC 4x4 8.0 BPP
+			ASTC5x5,      //!< ASTC 5x5 5.12 BPP
+			ASTC6x6,      //!< ASTC 6x6 3.56 BPP
+			ASTC8x5,      //!< ASTC 8x5 3.20 BPP
+			ASTC8x6,      //!< ASTC 8x6 2.67 BPP
+			ASTC10x5,     //!< ASTC 10x5 2.56 BPP
 
 			Unknown,      // Compressed formats above.
 
@@ -327,6 +336,7 @@ namespace bgfx
 		enum Enum
 		{
 			TriListFlipWinding,  //!< Flip winding order of triangle list.
+			TriStripFlipWinding, //!< Flip winding order of trinagle strip.
 			TriListToLineList,   //!< Convert triangle list to line list.
 			TriStripToTriList,   //!< Convert triangle strip to triangle list.
 			LineStripToLineList, //!< Convert line strip to line list.
@@ -615,13 +625,16 @@ namespace bgfx
 		/// matching id.
 		uint16_t deviceId;
 
+		bool debug;   //!< Enable device for debuging.
+		bool profile; //!< Enable device for profiling.
+
 		Resolution resolution; //!< Backbuffer resolution and reset parameters.
 
 		struct Limits
 		{
 			uint16_t maxEncoders;     //!< Maximum number of encoder threads.
-			uint32_t transientVbSize; //!<
-			uint32_t transientIbSize; //!<
+			uint32_t transientVbSize; //!< Maximum transient vertex buffer size.
+			uint32_t transientIbSize; //!< Maximum transient index buffer size.
 		};
 
 		Limits limits;
@@ -710,8 +723,8 @@ namespace bgfx
 			uint32_t maxUniforms;             //!< Maximum number of uniform handles.
 			uint32_t maxOcclusionQueries;     //!< Maximum number of occlusion query handles.
 			uint32_t maxEncoders;             //!< Maximum number of encoder threads.
-			uint32_t transientVbSize;         //!<
-			uint32_t transientIbSize;         //!<
+			uint32_t transientVbSize;         //!< Maximum transient vertex buffer size.
+			uint32_t transientIbSize;         //!< Maximum transient index buffer size.
 		};
 
 		Limits limits;
@@ -941,8 +954,8 @@ namespace bgfx
 		EncoderStats* encoderStats;         //!< Array of encoder stats.
 	};
 
-	/// Encoders are used for submitting draw calls from multiple threads, so one encoder per thread.
-	/// Use `bgfx::begin()` to obtain an encoder for a thread.
+	/// Encoders are used for submitting draw calls from multiple threads. Only one encoder
+	/// per thread should be used. Use `bgfx::begin()` to obtain an encoder for a thread.
 	///
 	/// @attention C99 equivalent is `bgfx_encoder`.
 	///
@@ -1662,6 +1675,9 @@ namespace bgfx
 		VertexDecl& skip(uint8_t _num);
 
 		/// Decode attribute.
+		///
+		/// @attention C99 equivalent is `bgfx_vertex_decl_decode`.
+		///
 		void decode(
 			  Attrib::Enum _attrib
 			, uint8_t& _num
@@ -1671,6 +1687,9 @@ namespace bgfx
 			) const;
 
 		/// Returns true if VertexDecl contains attribute.
+		///
+		/// @attention C99 equivalent is `bgfx_vertex_decl_has`.
+		///
 		bool has(Attrib::Enum _attrib) const { return UINT16_MAX != m_attributes[_attrib]; }
 
 		/// Returns relative attribute offset from the vertex.
@@ -1945,6 +1964,8 @@ namespace bgfx
 
 	/// Allocate buffer to pass to bgfx calls. Data will be freed inside bgfx.
 	///
+	/// @param[in] _size Size to allocate.
+	///
 	/// @attention C99 equivalent is `bgfx_alloc`.
 	///
 	const Memory* alloc(uint32_t _size);
@@ -1967,6 +1988,11 @@ namespace bgfx
 	/// consumed, otherwise you must make sure _data is available for at least 2
 	/// `bgfx::frame` calls. `ReleaseFn` function must be able to be called
 	/// from any thread.
+	///
+	/// @param[in] _data Pointer to data.
+	/// @param[in] _size Size of data.
+	/// @param[in] _releaseFn Callback function to release memory after use.
+	/// @param[in] _userData User data to be passed to callback function.
 	///
 	/// @attention Data passed must be available for at least 2 `bgfx::frame` calls.
 	/// @attention C99 equivalent are `bgfx_make_ref`, `bgfx_make_ref_release`.
@@ -1995,6 +2021,9 @@ namespace bgfx
 	void setDebug(uint32_t _debug);
 
 	/// Clear internal debug text buffer.
+	///
+	/// @param[in] _attr Background color.
+	/// @param[in] _small Default or 8x8 font.
 	///
 	/// @attention C99 equivalent is `bgfx_dbg_text_clear`.
 	///
@@ -2177,7 +2206,7 @@ namespace bgfx
 	///
 	/// @attention C99 equivalent is `bgfx_update_dynamic_index_buffer`.
 	///
-	void updateDynamicIndexBuffer(
+	void update(
 		  DynamicIndexBufferHandle _handle
 		, uint32_t _startIndex
 		, const Memory* _mem
@@ -2251,7 +2280,7 @@ namespace bgfx
 	///
 	/// @attention C99 equivalent is `bgfx_update_dynamic_vertex_buffer`.
 	///
-	void updateDynamicVertexBuffer(
+	void update(
 		  DynamicVertexBufferHandle _handle
 		, uint32_t _startVertex
 		, const Memory* _mem
@@ -2408,12 +2437,15 @@ namespace bgfx
 	///
 	/// @param[in] _handle Shader handle.
 	/// @param[in] _name Shader name.
+	/// @param[in] _len Shader name length (if length is INT32_MAX, it's expected
+	///   that _name is zero terminated string.
 	///
 	/// @attention C99 equivalent is `bgfx_set_shader_name`.
 	///
 	void setName(
 		  ShaderHandle _handle
 		, const char* _name
+		, int32_t _len = INT32_MAX
 		);
 
 	/// Destroy shader. Once a shader program is created with _handle,
@@ -2768,12 +2800,15 @@ namespace bgfx
 	///
 	/// @param[in] _handle Texture handle.
 	/// @param[in] _name Texture name.
+	/// @param[in] _len Texture name length (if length is INT32_MAX, it's expected
+	///   that _name is zero terminated string.
 	///
 	/// @attention C99 equivalent is `bgfx_set_texture_name`.
 	///
 	void setName(
 		  TextureHandle _handle
 		, const char* _name
+		, int32_t _len = INT32_MAX
 		);
 
 	/// Returns texture direct access pointer.
@@ -3560,6 +3595,13 @@ namespace bgfx
 		, uint32_t _numVertices
 		);
 
+	/// Set number of vertices for auto generated vertices use in conjuction
+	/// with gl_VertexID.
+	///
+	/// @param[in] _numVertices Number of vertices.
+	///
+	/// @attention Availability depends on: `BGFX_CAPS_VERTEX_ID`.
+	/// @attention C99 equivalent is `bgfx_set_vertex_count`.
 	///
 	void setVertexCount(uint32_t _numVertices);
 

@@ -15,6 +15,10 @@
 
 #include <bx/platform.h>
 
+#if !defined(BGFX_INVALID_HANDLE)
+#   define BGFX_INVALID_HANDLE { UINT16_MAX }
+#endif // !defined(BGFX_INVALID_HANDLE)
+
 #ifndef BGFX_SHARED_LIB_BUILD
 #    define BGFX_SHARED_LIB_BUILD 0
 #endif // BGFX_SHARED_LIB_BUILD
@@ -129,6 +133,15 @@ typedef enum bgfx_texture_format
     BGFX_TEXTURE_FORMAT_PTC14A,
     BGFX_TEXTURE_FORMAT_PTC22,
     BGFX_TEXTURE_FORMAT_PTC24,
+    BGFX_TEXTURE_FORMAT_ATC,
+    BGFX_TEXTURE_FORMAT_ATCE,
+    BGFX_TEXTURE_FORMAT_ATCI,
+    BGFX_TEXTURE_FORMAT_ASTC4x4,
+    BGFX_TEXTURE_FORMAT_ASTC5x5,
+    BGFX_TEXTURE_FORMAT_ASTC6x6,
+    BGFX_TEXTURE_FORMAT_ASTC8x5,
+    BGFX_TEXTURE_FORMAT_ASTC8x6,
+    BGFX_TEXTURE_FORMAT_ASTC10x5,
 
     BGFX_TEXTURE_FORMAT_UNKNOWN,
 
@@ -248,6 +261,7 @@ typedef enum bgfx_topology
 typedef enum bgfx_topology_convert
 {
     BGFX_TOPOLOGY_CONVERT_TRI_LIST_FLIP_WINDING,
+    BGFX_TOPOLOGY_CONVERT_TRI_STRIP_FLIP_WINDING,
     BGFX_TOPOLOGY_CONVERT_TRI_LIST_TO_LINE_LIST,
     BGFX_TOPOLOGY_CONVERT_TRI_STRIP_TO_TRI_LIST,
     BGFX_TOPOLOGY_CONVERT_LINE_STRIP_TO_LINE_LIST,
@@ -629,6 +643,8 @@ typedef struct bgfx_init_s
     bgfx_renderer_type_t type;
     uint16_t vendorId;
     uint16_t deviceId;
+    bool debug;
+    bool profile;
 
     bgfx_resolution_t  resolution;
     bgfx_init_limits_t limits;
@@ -643,6 +659,12 @@ BGFX_C_API void bgfx_vertex_decl_begin(bgfx_vertex_decl_t* _decl, bgfx_renderer_
 
 /**/
 BGFX_C_API void bgfx_vertex_decl_add(bgfx_vertex_decl_t* _decl, bgfx_attrib_t _attrib, uint8_t _num, bgfx_attrib_type_t _type, bool _normalized, bool _asInt);
+
+/**/
+BGFX_C_API void bgfx_vertex_decl_decode(const bgfx_vertex_decl_t* _decl, bgfx_attrib_t _attrib, uint8_t* _num, bgfx_attrib_type_t* _type, bool* _normalized, bool* _asInt);
+
+/**/
+BGFX_C_API bool bgfx_vertex_decl_has(const bgfx_vertex_decl_t* _decl, bgfx_attrib_t _attrib);
 
 /**/
 BGFX_C_API void bgfx_vertex_decl_skip(bgfx_vertex_decl_t* _decl, uint8_t _num);
@@ -807,7 +829,7 @@ BGFX_C_API uint16_t bgfx_get_shader_uniforms(bgfx_shader_handle_t _handle, bgfx_
 BGFX_C_API void bgfx_get_uniform_info(bgfx_uniform_handle_t _handle, bgfx_uniform_info_t* _info);
 
 /**/
-BGFX_C_API void bgfx_set_shader_name(bgfx_shader_handle_t _handle, const char* _name);
+BGFX_C_API void bgfx_set_shader_name(bgfx_shader_handle_t _handle, const char* _name, int32_t _len);
 
 /**/
 BGFX_C_API void bgfx_destroy_shader(bgfx_shader_handle_t _handle);
@@ -855,7 +877,7 @@ BGFX_C_API void bgfx_update_texture_cube(bgfx_texture_handle_t _handle, uint16_t
 BGFX_C_API uint32_t bgfx_read_texture(bgfx_texture_handle_t _handle, void* _data, uint8_t _mip);
 
 /**/
-BGFX_C_API void bgfx_set_texture_name(bgfx_texture_handle_t _handle, const char* _name);
+BGFX_C_API void bgfx_set_texture_name(bgfx_texture_handle_t _handle, const char* _name, int32_t _len);
 
 /**/
 BGFX_C_API void bgfx_destroy_texture(bgfx_texture_handle_t _handle);
