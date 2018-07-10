@@ -263,7 +263,7 @@ float *MaterialStage::tableForFunc(MaterialWaveformGenFunc func) const
 		break;
 	}
 
-	interface::Error("TableForFunc called with invalid function '%d' in shader '%s'", func, material->name);
+	interface::Error("TableForFunc called with invalid function '%d' in shader '%s'", (int)func, material->name);
 	return NULL;
 }
 
@@ -325,7 +325,7 @@ void MaterialStage::calculateTexMods(vec4 *outMatrix, vec4 *outOffTurb) const
 			break;
 
 		default:
-			interface::Error("ERROR: unknown texmod '%d' in shader '%s'", bundle.texMods[tm].type, material->name);
+			interface::Error("ERROR: unknown texmod '%d' in shader '%s'", (int)bundle.texMods[tm].type, material->name);
 			break;
 		}
 
