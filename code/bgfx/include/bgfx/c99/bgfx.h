@@ -338,30 +338,6 @@ typedef struct bgfx_transform_s
 } bgfx_transform_t;
 
 /**/
-typedef struct bgfx_hmd_eye_s
-{
-    float rotation[4];
-    float translation[3];
-    float fov[4];
-    float viewOffset[3];
-    float projection[16];
-    float pixelsPerTanAngle[2];
-
-} bgfx_hmd_eye_t;
-
-/**/
-typedef struct bgfx_hmd_s
-{
-    bgfx_hmd_eye_t eye[2];
-    uint16_t width;
-    uint16_t height;
-    uint32_t deviceWidth;
-    uint32_t deviceHeight;
-    uint8_t flags;
-
-} bgfx_hmd_t;
-
-/**/
 typedef uint16_t bgfx_view_id_t;
 
 /**/
@@ -622,6 +598,7 @@ typedef struct bgfx_allocator_vtbl_s
 /**/
 typedef struct bgfx_resolution_s
 {
+    bgfx_texture_format_t format;
     uint32_t width;
     uint32_t height;
     uint32_t reset;
@@ -706,7 +683,7 @@ BGFX_C_API bool bgfx_init(const bgfx_init_t* _init);
 BGFX_C_API void bgfx_shutdown(void);
 
 /**/
-BGFX_C_API void bgfx_reset(uint32_t _width, uint32_t _height, uint32_t _flags);
+BGFX_C_API void bgfx_reset(uint32_t _width, uint32_t _height, uint32_t _flags, bgfx_texture_format_t _format);
 
 /**/
 BGFX_C_API struct bgfx_encoder_s* bgfx_begin(void);
@@ -722,9 +699,6 @@ BGFX_C_API bgfx_renderer_type_t bgfx_get_renderer_type(void);
 
 /**/
 BGFX_C_API const bgfx_caps_t* bgfx_get_caps(void);
-
-/**/
-BGFX_C_API const bgfx_hmd_t* bgfx_get_hmd(void);
 
 /**/
 BGFX_C_API const bgfx_stats_t* bgfx_get_stats(void);
@@ -844,25 +818,25 @@ BGFX_C_API bgfx_program_handle_t bgfx_create_compute_program(bgfx_shader_handle_
 BGFX_C_API void bgfx_destroy_program(bgfx_program_handle_t _handle);
 
 /**/
-BGFX_C_API bool bgfx_is_texture_valid(uint16_t _depth, bool _cubeMap, uint16_t _numLayers, bgfx_texture_format_t _format, uint32_t _flags);
+BGFX_C_API bool bgfx_is_texture_valid(uint16_t _depth, bool _cubeMap, uint16_t _numLayers, bgfx_texture_format_t _format, uint64_t _flags);
 
 /**/
 BGFX_C_API void bgfx_calc_texture_size(bgfx_texture_info_t* _info, uint16_t _width, uint16_t _height, uint16_t _depth, bool _cubeMap, bool _hasMips, uint16_t _numLayers, bgfx_texture_format_t _format);
 
 /**/
-BGFX_C_API bgfx_texture_handle_t bgfx_create_texture(const bgfx_memory_t* _mem, uint32_t _flags, uint8_t _skip, bgfx_texture_info_t* _info);
+BGFX_C_API bgfx_texture_handle_t bgfx_create_texture(const bgfx_memory_t* _mem, uint64_t _flags, uint8_t _skip, bgfx_texture_info_t* _info);
 
 /**/
-BGFX_C_API bgfx_texture_handle_t bgfx_create_texture_2d(uint16_t _width, uint16_t _height, bool _hasMips, uint16_t _numLayers, bgfx_texture_format_t _format, uint32_t _flags, const bgfx_memory_t* _mem);
+BGFX_C_API bgfx_texture_handle_t bgfx_create_texture_2d(uint16_t _width, uint16_t _height, bool _hasMips, uint16_t _numLayers, bgfx_texture_format_t _format, uint64_t _flags, const bgfx_memory_t* _mem);
 
 /**/
-BGFX_C_API bgfx_texture_handle_t bgfx_create_texture_2d_scaled(bgfx_backbuffer_ratio_t _ratio, bool _hasMips, uint16_t _numLayers, bgfx_texture_format_t _format, uint32_t _flags);
+BGFX_C_API bgfx_texture_handle_t bgfx_create_texture_2d_scaled(bgfx_backbuffer_ratio_t _ratio, bool _hasMips, uint16_t _numLayers, bgfx_texture_format_t _format, uint64_t _flags);
 
 /**/
-BGFX_C_API bgfx_texture_handle_t bgfx_create_texture_3d(uint16_t _width, uint16_t _height, uint16_t _depth, bool _hasMips, bgfx_texture_format_t _format, uint32_t _flags, const bgfx_memory_t* _mem);
+BGFX_C_API bgfx_texture_handle_t bgfx_create_texture_3d(uint16_t _width, uint16_t _height, uint16_t _depth, bool _hasMips, bgfx_texture_format_t _format, uint64_t _flags, const bgfx_memory_t* _mem);
 
 /**/
-BGFX_C_API bgfx_texture_handle_t bgfx_create_texture_cube(uint16_t _size, bool _hasMips, uint16_t _numLayers, bgfx_texture_format_t _format, uint32_t _flags, const bgfx_memory_t* _mem);
+BGFX_C_API bgfx_texture_handle_t bgfx_create_texture_cube(uint16_t _size, bool _hasMips, uint16_t _numLayers, bgfx_texture_format_t _format, uint64_t _flags, const bgfx_memory_t* _mem);
 
 /**/
 BGFX_C_API void bgfx_update_texture_2d(bgfx_texture_handle_t _handle, uint16_t _layer, uint8_t _mip, uint16_t _x, uint16_t _y, uint16_t _width, uint16_t _height, const bgfx_memory_t* _mem, uint16_t _pitch);
@@ -883,10 +857,10 @@ BGFX_C_API void bgfx_set_texture_name(bgfx_texture_handle_t _handle, const char*
 BGFX_C_API void bgfx_destroy_texture(bgfx_texture_handle_t _handle);
 
 /**/
-BGFX_C_API bgfx_frame_buffer_handle_t bgfx_create_frame_buffer(uint16_t _width, uint16_t _height, bgfx_texture_format_t _format, uint32_t _textureFlags);
+BGFX_C_API bgfx_frame_buffer_handle_t bgfx_create_frame_buffer(uint16_t _width, uint16_t _height, bgfx_texture_format_t _format, uint64_t _textureFlags);
 
 /**/
-BGFX_C_API bgfx_frame_buffer_handle_t bgfx_create_frame_buffer_scaled(bgfx_backbuffer_ratio_t _ratio, bgfx_texture_format_t _format, uint32_t _textureFlags);
+BGFX_C_API bgfx_frame_buffer_handle_t bgfx_create_frame_buffer_scaled(bgfx_backbuffer_ratio_t _ratio, bgfx_texture_format_t _format, uint64_t _textureFlags);
 
 /**/
 BGFX_C_API bgfx_frame_buffer_handle_t bgfx_create_frame_buffer_from_handles(uint8_t _num, const bgfx_texture_handle_t* _handles, bool _destroyTextures);
@@ -895,7 +869,7 @@ BGFX_C_API bgfx_frame_buffer_handle_t bgfx_create_frame_buffer_from_handles(uint
 BGFX_C_API bgfx_frame_buffer_handle_t bgfx_create_frame_buffer_from_attachment(uint8_t _num, const bgfx_attachment_t* _attachment, bool _destroyTextures);
 
 /**/
-BGFX_C_API bgfx_frame_buffer_handle_t bgfx_create_frame_buffer_from_nwh(void* _nwh, uint16_t _width, uint16_t _height, bgfx_texture_format_t _depthFormat);
+BGFX_C_API bgfx_frame_buffer_handle_t bgfx_create_frame_buffer_from_nwh(void* _nwh, uint16_t _width, uint16_t _height, bgfx_texture_format_t _format, bgfx_texture_format_t _depthFormat);
 
 /**/
 BGFX_C_API bgfx_texture_handle_t bgfx_get_texture(bgfx_frame_buffer_handle_t _handle, uint8_t _attachment);

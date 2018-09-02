@@ -27,51 +27,12 @@ function rendererProject(engine, lightBakerEnabled, rendererPath)
 	{
 		path.join(bxPath, "include/bx/*.h"),
 		path.join(bxPath, "include/bx/inline/*.inl"),
-		path.join(bxPath, "src/allocator.cpp"),
-		path.join(bxPath, "src/bx.cpp"),
-		path.join(bxPath, "src/commandline.cpp"),
-		path.join(bxPath, "src/crtnone.cpp"),
-		path.join(bxPath, "src/debug.cpp"),
-		path.join(bxPath, "src/dtoa.cpp"),
-		path.join(bxPath, "src/file.cpp"),
-		path.join(bxPath, "src/filepath.cpp"),
-		path.join(bxPath, "src/hash.cpp"),
-		path.join(bxPath, "src/math.cpp"),
-		path.join(bxPath, "src/mutex.cpp"),
-		path.join(bxPath, "src/os.cpp"),
-		path.join(bxPath, "src/process.cpp"),
-		path.join(bxPath, "src/semaphore.cpp"),
-		path.join(bxPath, "src/sort.cpp"),
-		path.join(bxPath, "src/string.cpp"),
-		path.join(bxPath, "src/thread.cpp"),
-		path.join(bxPath, "src/timer.cpp"),
+		path.join(bxPath, "src/*.cpp"),
 		path.join(bimgPath, "include/bimg/*.h"),
-		path.join(bimgPath, "src/image.cpp"),
-		path.join(bimgPath, "src/image_gnf.cpp"),
+		path.join(bimgPath, "src/*.cpp"),
 		path.join(bimgPath, "src/*.h"),
 		path.join(bgfxPath, "include/bgfx/*.h"),
-		path.join(bgfxPath, "src/bgfx.cpp"),
-		--path.join(bgfxPath, "src/glcontext_egl.cpp"),
-		path.join(bgfxPath, "src/glcontext_glx.cpp"),
-		path.join(bgfxPath, "src/glcontext_wgl.cpp"),
-		path.join(bgfxPath, "src/hmd.cpp"),
-		--path.join(bgfxPath, "src/hmd_ovr.cpp"),
-		--path.join(bgfxPath, "src/hmd_openvr.cpp"),
-		path.join(bgfxPath, "src/debug_renderdoc.cpp"),
-		path.join(bgfxPath, "src/dxgi.cpp"),
-		path.join(bgfxPath, "src/nvapi.cpp"),
-		path.join(bgfxPath, "src/renderer_d3d9.cpp"),
-		path.join(bgfxPath, "src/renderer_d3d11.cpp"),
-		path.join(bgfxPath, "src/renderer_d3d12.cpp"),
-		path.join(bgfxPath, "src/renderer_noop.cpp"),
-		path.join(bgfxPath, "src/renderer_gl.cpp"),
-		path.join(bgfxPath, "src/renderer_vk.cpp"),
-		path.join(bgfxPath, "src/renderer_gnm.cpp"),
-		path.join(bgfxPath, "src/shader_dxbc.cpp"),
-		path.join(bgfxPath, "src/shader_dx9bc.cpp"),
-		path.join(bgfxPath, "src/shader_spirv.cpp"),
-		path.join(bgfxPath, "src/topology.cpp"),
-		path.join(bgfxPath, "src/vertexdecl.cpp"),
+		path.join(bgfxPath, "src/*.cpp"),
 		path.join(bgfxPath, "src/*.h"),
 		path.join(rendererPath, "code/math/*.cpp"),
 		path.join(rendererPath, "code/math/*.h"),
@@ -79,7 +40,14 @@ function rendererProject(engine, lightBakerEnabled, rendererPath)
 		path.join(rendererPath, "code/renderer_bgfx/*.h"),
 		path.join(rendererPath, "shaders/*.hlsl"),
 		path.join(rendererPath, "shaders/*.sc"),
-		path.join(rendererPath, "shaders/*.sh"),
+		path.join(rendererPath, "shaders/*.sh")
+	}
+	
+	excludes
+	{
+		path.join(bxPath, "src/amalgamated.cpp"),
+		path.join(bxPath, "src/crtnone.cpp"),
+		path.join(bgfxPath, "src/amalgamated.cpp")
 	}
 	
 	if not lightBakerEnabled then
@@ -89,6 +57,7 @@ function rendererProject(engine, lightBakerEnabled, rendererPath)
 	includedirs
 	{
 		path.join(bxPath, "include"),
+		path.join(bxPath, "3rdparty"),
 		path.join(bimgPath, "include"),
 		path.join(bimgPath, "3rdparty"),
 		path.join(bimgPath, "3rdparty/nvtt"),

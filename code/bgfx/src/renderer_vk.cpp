@@ -700,8 +700,8 @@ VK_IMPORT_DEVICE
 	{
 		RendererContextVK()
 			: m_allocatorCb(NULL)
-			, m_renderdocdll(NULL)
-			, m_vulkan1dll(NULL)
+			, m_renderDocDll(NULL)
+			, m_vulkan1Dll(NULL)
 			, m_maxAnisotropy(1)
 			, m_depthClamp(false)
 			, m_wireframe(false)
@@ -746,10 +746,10 @@ VK_IMPORT_DEVICE
 			if (_init.debug
 			||  _init.profile)
 			{
-				m_renderdocdll = loadRenderDoc();
+				m_renderDocDll = loadRenderDoc();
 			}
 
-			m_vulkan1dll = bx::dlopen(
+			m_vulkan1Dll = bx::dlopen(
 #if BX_PLATFORM_WINDOWS
 					"vulkan-1.dll"
 #elif BX_PLATFORM_ANDROID
@@ -759,7 +759,7 @@ VK_IMPORT_DEVICE
 #endif // BX_PLATFORM_*
 					);
 
-			if (NULL == m_vulkan1dll)
+			if (NULL == m_vulkan1Dll)
 			{
 				BX_TRACE("Init error: Failed to load vulkan dynamic library.");
 				goto error;
@@ -768,10 +768,10 @@ VK_IMPORT_DEVICE
 			errorState = ErrorState::LoadedVulkan1;
 
 			BX_TRACE("Shared library functions:");
-#define VK_IMPORT_FUNC(_optional, _func) \
-			_func = (PFN_##_func)bx::dlsym(m_vulkan1dll, #_func); \
-			BX_TRACE("\t%p " #_func, _func); \
-			imported &= _optional || NULL != _func
+#define VK_IMPORT_FUNC(_optional, _func)                  \
+	_func = (PFN_##_func)bx::dlsym(m_vulkan1Dll, #_func); \
+	BX_TRACE("\t%p " #_func, _func);                      \
+	imported &= _optional || NULL != _func
 VK_IMPORT
 #undef VK_IMPORT_FUNC
 
@@ -1842,10 +1842,10 @@ VK_IMPORT_DEVICE
 				BX_FALLTHROUGH;
 
 			case ErrorState::LoadedVulkan1:
-				bx::dlclose(m_vulkan1dll);
-				m_vulkan1dll  = NULL;
+				bx::dlclose(m_vulkan1Dll);
+				m_vulkan1Dll  = NULL;
 				m_allocatorCb = NULL;
-				unloadRenderDoc(m_renderdocdll);
+				unloadRenderDoc(m_renderDocDll);
 				BX_FALLTHROUGH;
 
 			case ErrorState::Default:
@@ -1938,10 +1938,10 @@ VK_IMPORT_DEVICE
 
 			vkDestroyInstance(m_instance, m_allocatorCb);
 
-			bx::dlclose(m_vulkan1dll);
-			m_vulkan1dll  = NULL;
+			bx::dlclose(m_vulkan1Dll);
+			m_vulkan1Dll  = NULL;
 			m_allocatorCb = NULL;
-			unloadRenderDoc(m_renderdocdll);
+			unloadRenderDoc(m_renderDocDll);
 		}
 
 		RendererType::Enum getRendererType() const override
@@ -1959,7 +1959,7 @@ VK_IMPORT_DEVICE
 			return false;
 		}
 
-		void flip(HMD& /*_hmd*/) override
+		void flip() override
 		{
 			if (VK_NULL_HANDLE != m_swapchain)
 			{
@@ -2060,7 +2060,7 @@ VK_IMPORT_DEVICE
 			m_program[_handle.idx].destroy();
 		}
 
-		void* createTexture(TextureHandle /*_handle*/, const Memory* /*_mem*/, uint32_t /*_flags*/, uint8_t /*_skip*/) override
+		void* createTexture(TextureHandle /*_handle*/, const Memory* /*_mem*/, uint64_t /*_flags*/, uint8_t /*_skip*/) override
 		{
 			return NULL;
 		}
@@ -2102,7 +2102,7 @@ VK_IMPORT_DEVICE
 		{
 		}
 
-		void createFrameBuffer(FrameBufferHandle /*_handle*/, void* /*_nwh*/, uint32_t /*_width*/, uint32_t /*_height*/, TextureFormat::Enum /*_depthFormat*/) override
+		void createFrameBuffer(FrameBufferHandle /*_handle*/, void* /*_nwh*/, uint32_t /*_width*/, uint32_t /*_height*/, TextureFormat::Enum /*_format*/, TextureFormat::Enum /*_depthFormat*/) override
 		{
 		}
 
@@ -2192,7 +2192,7 @@ VK_IMPORT_DEVICE
 				m_pipelineStateCache.invalidate();
 			}
 
-			uint32_t flags = _resolution.reset & ~(BGFX_RESET_HMD_RECENTER | BGFX_RESET_MAXANISOTROPY | BGFX_RESET_DEPTH_CLAMP);
+			uint32_t flags = _resolution.reset & ~(BGFX_RESET_MAXANISOTROPY | BGFX_RESET_DEPTH_CLAMP);
 
 			if (m_resolution.width  != _resolution.width
 			||  m_resolution.height != _resolution.height
@@ -3051,8 +3051,8 @@ VK_IMPORT_DEVICE
 		VkPipelineCache m_pipelineCache;
 		VkCommandPool m_commandPool;
 
-		void* m_renderdocdll;
-		void* m_vulkan1dll;
+		void* m_renderDocDll;
+		void* m_vulkan1Dll;
 
 		IndexBufferVK m_indexBuffers[BGFX_CONFIG_MAX_INDEX_BUFFERS];
 		VertexBufferVK m_vertexBuffers[BGFX_CONFIG_MAX_VERTEX_BUFFERS];
@@ -3662,8 +3662,6 @@ VK_DESTROY
 		currentState.clear();
 		currentState.m_stateFlags = BGFX_STATE_NONE;
 		currentState.m_stencil    = packStencil(BGFX_STENCIL_NONE, BGFX_STENCIL_NONE);
-
-		_render->m_hmdInitialized = false;
 
 		const bool hmdEnabled = false;
 		ViewState viewState(_render, hmdEnabled);
@@ -4492,15 +4490,11 @@ BX_UNUSED(presentMin, presentMax);
 //					, double(presentMax)*toMs
 //					);
 
-				char hmd[16];
-				bx::snprintf(hmd, BX_COUNTOF(hmd), ", [%c] HMD ", hmdEnabled ? '\xfe' : ' ');
-
 				const uint32_t msaa = (m_resolution.reset&BGFX_RESET_MSAA_MASK)>>BGFX_RESET_MSAA_SHIFT;
-				tvm.printf(10, pos++, 0x8b, " Reset flags: [%c] vsync, [%c] MSAAx%d%s, [%c] MaxAnisotropy "
+				tvm.printf(10, pos++, 0x8b, " Reset flags: [%c] vsync, [%c] MSAAx%d, [%c] MaxAnisotropy "
 					, !!(m_resolution.reset&BGFX_RESET_VSYNC) ? '\xfe' : ' '
 					, 0 != msaa ? '\xfe' : ' '
 					, 1<<msaa
-					, ", no-HMD "
 					, !!(m_resolution.reset&BGFX_RESET_MAXANISOTROPY) ? '\xfe' : ' '
 					);
 
@@ -4534,7 +4528,7 @@ BX_UNUSED(presentMin, presentMax);
 //					, m_batch.m_stats.m_numImmediate[BatchD3D12::DrawIndexed]
 //					);
 
- 				if (NULL != m_renderdocdll)
+ 				if (NULL != m_renderDocDll)
  				{
  					tvm.printf(tvm.m_width-27, 0, 0x4f, " [F11 - RenderDoc capture] ");
  				}

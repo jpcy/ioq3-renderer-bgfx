@@ -556,14 +556,14 @@ void LoadWorld(const char *name)
 	}
 
 	// Create frame buffers first.
-	uint32_t aaFlags = 0;
+	uint64_t aaFlags = 0;
 
 	if (IsMsaa(s_main->aa))
 	{
-		aaFlags |= (1 + (int)s_main->aa - (int)AntiAliasing::MSAA2x) << BGFX_TEXTURE_RT_MSAA_SHIFT;
+		aaFlags |= (1 + (uint64_t)s_main->aa - (uint64_t)AntiAliasing::MSAA2x) << BGFX_TEXTURE_RT_MSAA_SHIFT;
 	}
 
-	const uint32_t rtClampFlags = BGFX_TEXTURE_RT | BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP;
+	const uint64_t rtClampFlags = BGFX_TEXTURE_RT | BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
 
 	if (s_main->softSpritesEnabled)
 	{
@@ -613,13 +613,13 @@ void LoadWorld(const char *name)
 	{
 		s_main->smaaBlendFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::BGRA8, rtClampFlags);
 		s_main->smaaEdgesFb.handle = bgfx::createFrameBuffer(bgfx::BackbufferRatio::Equal, bgfx::TextureFormat::RG8, rtClampFlags);
-		s_main->smaaAreaTex = bgfx::createTexture2D(AREATEX_WIDTH, AREATEX_HEIGHT, false, 1, bgfx::TextureFormat::RG8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(areaTexBytes, AREATEX_SIZE));
-		s_main->smaaSearchTex = bgfx::createTexture2D(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, false, 1, bgfx::TextureFormat::R8, BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP, bgfx::makeRef(searchTexBytes, SEARCHTEX_SIZE));
+		s_main->smaaAreaTex = bgfx::createTexture2D(AREATEX_WIDTH, AREATEX_HEIGHT, false, 1, bgfx::TextureFormat::RG8, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP, bgfx::makeRef(areaTexBytes, AREATEX_SIZE));
+		s_main->smaaSearchTex = bgfx::createTexture2D(SEARCHTEX_WIDTH, SEARCHTEX_HEIGHT, false, 1, bgfx::TextureFormat::R8, BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP, bgfx::makeRef(searchTexBytes, SEARCHTEX_SIZE));
 	}
 
 	if (s_main->sunLightEnabled)
 	{
-		s_main->shadowMapFb.handle = bgfx::createFrameBuffer(s_main->shadowMapSize, s_main->shadowMapSize, bgfx::TextureFormat::D24S8, BGFX_TEXTURE_COMPARE_LEQUAL | rtClampFlags);
+		s_main->shadowMapFb.handle = bgfx::createFrameBuffer(s_main->shadowMapSize, s_main->shadowMapSize, bgfx::TextureFormat::D24S8, BGFX_SAMPLER_COMPARE_LEQUAL | rtClampFlags);
 	}
 
 	// Load the world.

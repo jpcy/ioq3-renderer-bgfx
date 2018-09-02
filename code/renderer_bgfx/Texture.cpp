@@ -90,12 +90,12 @@ uint32_t Texture::calculateBgfxFlags() const
 
 	if (flags_ & TextureFlags::ClampToEdge)
 	{
-		bgfxFlags |= BGFX_TEXTURE_U_CLAMP | BGFX_TEXTURE_V_CLAMP;
+		bgfxFlags |= BGFX_SAMPLER_U_CLAMP | BGFX_SAMPLER_V_CLAMP;
 	}
 
 	if (main::IsMaxAnisotropyEnabled())
 	{
-		bgfxFlags |= BGFX_TEXTURE_MIN_ANISOTROPIC | BGFX_TEXTURE_MAG_ANISOTROPIC;
+		bgfxFlags |= BGFX_SAMPLER_MIN_ANISOTROPIC | BGFX_SAMPLER_MAG_ANISOTROPIC;
 	}
 
 	return bgfxFlags;
