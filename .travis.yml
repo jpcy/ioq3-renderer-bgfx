@@ -26,6 +26,7 @@ before_deploy:
   tar pczf renderer_bgfx_x86_64.tar.gz --directory="bin_x64" renderer_bgfx_x86_64.so
   
 deploy:
+  skip_cleanup: true
   provider: bintray
   file: ../.bintray.json
   user: jpcy
