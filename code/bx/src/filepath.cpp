@@ -36,8 +36,9 @@ namespace bx
 
 	static int32_t normalizeFilePath(char* _dst, int32_t _dstSize, const char* _src, int32_t _num)
 	{
-		// Reference: Lexical File Names in Plan 9 or Getting Dot-Dot Right
-		// - https://web.archive.org/web/20180629044444/https://9p.io/sys/doc/lexnames.html
+		// Reference(s):
+		// - Lexical File Names in Plan 9 or Getting Dot-Dot Right
+		//   https://web.archive.org/web/20180629044444/https://9p.io/sys/doc/lexnames.html
 
 		const int32_t num = strLen(_src, _num);
 
@@ -153,12 +154,12 @@ namespace bx
 		return size;
 	}
 
-	static bool getEnv(const char* _name, FileInfo::Enum _type, char* _out, uint32_t* _inOutSize)
+	static bool getEnv(char* _out, uint32_t* _inOutSize, const StringView& _name, FileInfo::Enum _type)
 	{
 		uint32_t len = *_inOutSize;
 		*_out = '\0';
 
-		if (getenv(_name, _out, &len) )
+		if (getEnv(_out, &len, _name) )
 		{
 			FileInfo fi;
 			if (stat(_out, fi)
@@ -190,18 +191,22 @@ namespace bx
 	static bool getCurrentPath(char* _out, uint32_t* _inOutSize)
 	{
 		uint32_t len = *_inOutSize;
-		pwd(_out, len);
-		*_inOutSize = strLen(_out);
-		return true;
+		if (NULL != pwd(_out, len))
+		{
+			*_inOutSize = strLen(_out);
+			return true;
+		}
+
+		return false;
 	}
 
 	static bool getHomePath(char* _out, uint32_t* _inOutSize)
 	{
 		return false
 #if BX_PLATFORM_WINDOWS
-			|| getEnv("USERPROFILE", FileInfo::Directory, _out, _inOutSize)
+			|| getEnv(_out, _inOutSize, "USERPROFILE", FileInfo::Directory)
 #endif // BX_PLATFORM_WINDOWS
-			|| getEnv("HOME", FileInfo::Directory, _out, _inOutSize)
+			|| getEnv(_out, _inOutSize, "HOME", FileInfo::Directory)
 			;
 	}
 
@@ -213,21 +218,21 @@ namespace bx
 		*_inOutSize = len;
 		return result;
 #else
-		static const char* s_tmp[] =
+		static const StringView s_tmp[] =
 		{
 			"TMPDIR",
 			"TMP",
 			"TEMP",
 			"TEMPDIR",
 
-			NULL
+			""
 		};
 
-		for (const char** tmp = s_tmp; *tmp != NULL; ++tmp)
+		for (const StringView* tmp = s_tmp; !tmp->isEmpty(); ++tmp)
 		{
 			uint32_t len = *_inOutSize;
 			*_out = '\0';
-			bool ok = getEnv(*tmp, FileInfo::Directory, _out, &len);
+			bool ok = getEnv(_out, &len, *tmp, FileInfo::Directory);
 
 			if (ok
 			&&  len != 0
@@ -336,37 +341,37 @@ namespace bx
 		return m_filePath;
 	}
 
-	const StringView FilePath::getPath() const
+	StringView FilePath::getPath() const
 	{
-		const char* end = strRFind(m_filePath, '/');
-		if (NULL != end)
+		StringView end = strRFind(m_filePath, '/');
+		if (!end.isEmpty() )
 		{
-			return StringView(m_filePath, end+1);
+			return StringView(m_filePath, end.getPtr()+1);
 		}
 
 		return StringView();
 	}
 
-	const StringView FilePath::getFileName() const
+	StringView FilePath::getFileName() const
 	{
-		const char* fileName = strRFind(m_filePath, '/');
-		if (NULL != fileName)
+		StringView fileName = strRFind(m_filePath, '/');
+		if (!fileName.isEmpty() )
 		{
-			return StringView(fileName+1);
+			return StringView(fileName.getPtr()+1);
 		}
 
 		return get();
 	}
 
-	const StringView FilePath::getBaseName() const
+	StringView FilePath::getBaseName() const
 	{
 		const StringView fileName = getFileName();
 		if (!fileName.isEmpty() )
 		{
-			const char* ext = strFind(fileName, '.');
-			if (ext != NULL)
+			StringView ext = strFind(fileName, '.');
+			if (!ext.isEmpty() )
 			{
-				return StringView(fileName.getPtr(), ext);
+				return StringView(fileName.getPtr(), ext.getPtr() );
 			}
 
 			return fileName;
@@ -375,13 +380,12 @@ namespace bx
 		return StringView();
 	}
 
-	const StringView FilePath::getExt() const
+	StringView FilePath::getExt() const
 	{
 		const StringView fileName = getFileName();
 		if (!fileName.isEmpty() )
 		{
-			const char* ext = strFind(fileName, '.');
-			return StringView(ext);
+			return strFind(fileName, '.');
 		}
 
 		return StringView();
@@ -450,13 +454,13 @@ namespace bx
 			return false;
 		}
 
-		const StringView dir = strRTrim(_filePath.get(), "/");
-		const char* slash = strRFind(dir, '/');
+		const StringView dir   = strRTrim(_filePath.get(), "/");
+		const StringView slash = strRFind(dir, '/');
 
-		if (NULL != slash
-		&&  slash - dir.getPtr() > 1)
+		if (!slash.isEmpty()
+		&&  slash.getPtr() - dir.getPtr() > 1)
 		{
-			if (!makeAll(StringView(dir.getPtr(), slash), _err) )
+			if (!makeAll(StringView(dir.getPtr(), slash.getPtr() ), _err) )
 			{
 				return false;
 			}

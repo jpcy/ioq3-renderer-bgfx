@@ -33,17 +33,6 @@ typedef enum bgfx_render_frame
  */
 BGFX_C_API bgfx_render_frame_t bgfx_render_frame(int32_t _msecs);
 
-typedef struct bgfx_platform_data
-{
-    void* ndt;
-    void* nwh;
-    void* context;
-    void* backBuffer;
-    void* backBufferDS;
-    void* session;
-
-} bgfx_platform_data_t;
-
 /**/
 BGFX_C_API void bgfx_set_platform_data(const bgfx_platform_data_t* _data);
 
@@ -165,7 +154,6 @@ typedef struct bgfx_interface_vtbl
     void (*set_view_mode)(bgfx_view_id_t _id, bgfx_view_mode_t _mode);
     void (*set_view_frame_buffer)(bgfx_view_id_t _id, bgfx_frame_buffer_handle_t _handle);
     void (*set_view_transform)(bgfx_view_id_t _id, const void* _view, const void* _proj);
-    void (*set_view_transform_stereo)(bgfx_view_id_t _id, const void* _view, const void* _projL, uint8_t _flags, const void* _projR);
     void (*set_view_order)(bgfx_view_id_t _id, uint16_t _num, const bgfx_view_id_t* _order);
     void (*encoder_set_marker)(struct bgfx_encoder_s* _encoder, const char* _marker);
     void (*encoder_set_state)(struct bgfx_encoder_s* _encoder, uint64_t _state, uint32_t _rgba);
@@ -187,19 +175,20 @@ typedef struct bgfx_interface_vtbl
     void (*encoder_set_instance_data_buffer)(struct bgfx_encoder_s* _encoder, const bgfx_instance_data_buffer_t* _idb, uint32_t _start, uint32_t _num);
     void (*encoder_set_instance_data_from_vertex_buffer)(struct bgfx_encoder_s* _encoder, bgfx_vertex_buffer_handle_t _handle, uint32_t _startVertex, uint32_t _num);
     void (*encoder_set_instance_data_from_dynamic_vertex_buffer)(struct bgfx_encoder_s* _encoder, bgfx_dynamic_vertex_buffer_handle_t _handle, uint32_t _startVertex, uint32_t _num);
+    void (*encoder_set_instance_count)(struct bgfx_encoder_s* _encoder, uint32_t _numInstance);
     void (*encoder_set_texture)(struct bgfx_encoder_s* _encoder, uint8_t _stage, bgfx_uniform_handle_t _sampler, bgfx_texture_handle_t _handle, uint32_t _flags);
     void (*encoder_touch)(struct bgfx_encoder_s* _encoder, bgfx_view_id_t _id);
-    void (*encoder_submit)(struct bgfx_encoder_s* _encoder, bgfx_view_id_t _id, bgfx_program_handle_t _handle, int32_t _depth, bool _preserveState);
-    void (*encoder_submit_occlusion_query)(struct bgfx_encoder_s* _encoder, bgfx_view_id_t _id, bgfx_program_handle_t _program, bgfx_occlusion_query_handle_t _occlusionQuery, int32_t _depth, bool _preserveState);
-    void (*encoder_submit_indirect)(struct bgfx_encoder_s* _encoder, bgfx_view_id_t _id, bgfx_program_handle_t _handle, bgfx_indirect_buffer_handle_t _indirectHandle, uint16_t _start, uint16_t _num, int32_t _depth, bool _preserveState);
+    void (*encoder_submit)(struct bgfx_encoder_s* _encoder, bgfx_view_id_t _id, bgfx_program_handle_t _handle, uint32_t _depth, bool _preserveState);
+    void (*encoder_submit_occlusion_query)(struct bgfx_encoder_s* _encoder, bgfx_view_id_t _id, bgfx_program_handle_t _program, bgfx_occlusion_query_handle_t _occlusionQuery, uint32_t _depth, bool _preserveState);
+    void (*encoder_submit_indirect)(struct bgfx_encoder_s* _encoder, bgfx_view_id_t _id, bgfx_program_handle_t _handle, bgfx_indirect_buffer_handle_t _indirectHandle, uint16_t _start, uint16_t _num, uint32_t _depth, bool _preserveState);
     void (*encoder_set_image)(struct bgfx_encoder_s* _encoder, uint8_t _stage, bgfx_texture_handle_t _handle, uint8_t _mip, bgfx_access_t _access, bgfx_texture_format_t _format);
     void (*encoder_set_compute_index_buffer)(struct bgfx_encoder_s* _encoder, uint8_t _stage, bgfx_index_buffer_handle_t _handle, bgfx_access_t _access);
     void (*encoder_set_compute_vertex_buffer)(struct bgfx_encoder_s* _encoder, uint8_t _stage, bgfx_vertex_buffer_handle_t _handle, bgfx_access_t _access);
     void (*encoder_set_compute_dynamic_index_buffer)(struct bgfx_encoder_s* _encoder, uint8_t _stage, bgfx_dynamic_index_buffer_handle_t _handle, bgfx_access_t _access);
     void (*encoder_set_compute_dynamic_vertex_buffer)(struct bgfx_encoder_s* _encoder, uint8_t _stage, bgfx_dynamic_vertex_buffer_handle_t _handle, bgfx_access_t _access);
     void (*encoder_set_compute_indirect_buffer)(struct bgfx_encoder_s* _encoder, uint8_t _stage, bgfx_indirect_buffer_handle_t _handle, bgfx_access_t _access);
-    void (*encoder_dispatch)(struct bgfx_encoder_s* _encoder, bgfx_view_id_t _id, bgfx_program_handle_t _handle, uint32_t _numX, uint32_t _numY, uint32_t _numZ, uint8_t _flags);
-    void (*encoder_dispatch_indirect)(struct bgfx_encoder_s* _encoder, bgfx_view_id_t _id, bgfx_program_handle_t _handle, bgfx_indirect_buffer_handle_t _indirectHandle, uint16_t _start, uint16_t _num, uint8_t _flags);
+    void (*encoder_dispatch)(struct bgfx_encoder_s* _encoder, bgfx_view_id_t _id, bgfx_program_handle_t _handle, uint32_t _numX, uint32_t _numY, uint32_t _numZ);
+    void (*encoder_dispatch_indirect)(struct bgfx_encoder_s* _encoder, bgfx_view_id_t _id, bgfx_program_handle_t _handle, bgfx_indirect_buffer_handle_t _indirectHandle, uint16_t _start, uint16_t _num);
     void (*encoder_discard)(struct bgfx_encoder_s* _encoder);
     void (*encoder_blit)(struct bgfx_encoder_s* _encoder, bgfx_view_id_t _id, bgfx_texture_handle_t _dst, uint8_t _dstMip, uint16_t _dstX, uint16_t _dstY, uint16_t _dstZ, bgfx_texture_handle_t _src, uint8_t _srcMip, uint16_t _srcX, uint16_t _srcY, uint16_t _srcZ, uint16_t _width, uint16_t _height, uint16_t _depth);
     void (*request_screen_shot)(bgfx_frame_buffer_handle_t _handle, const char* _filePath);

@@ -42,7 +42,7 @@ enum class AntiAliasing
 
 struct BgfxCallback : bgfx::CallbackI
 {
-	void fatal(bgfx::Fatal::Enum _code, const char* _str) override;
+	void fatal(const char* _filePath, uint16_t _line, bgfx::Fatal::Enum _code, const char* _str) override;
 	void traceVargs(const char* _filePath, uint16_t _line, const char* _format, va_list _argList) override;
 	void profilerBegin(const char* _name, uint32_t _abgr, const char* _filePath, uint16_t _line) override {};
 	void profilerBeginLiteral(const char* _name, uint32_t _abgr, const char* _filePath, uint16_t _line) override {};

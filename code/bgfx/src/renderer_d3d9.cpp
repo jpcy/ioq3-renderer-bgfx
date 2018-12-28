@@ -425,8 +425,8 @@ namespace bgfx { namespace d3d9
 			m_params.BackBufferWidth  = _init.resolution.width;
 			m_params.BackBufferHeight = _init.resolution.height;
 			m_params.BackBufferFormat = adapterFormat;
-			m_params.BackBufferCount = 1;
-			m_params.MultiSampleType = D3DMULTISAMPLE_NONE;
+			m_params.BackBufferCount  = bx::clamp<uint8_t>(_init.resolution.numBackBuffers, 2, BGFX_CONFIG_MAX_BACK_BUFFERS);
+			m_params.MultiSampleType  = D3DMULTISAMPLE_NONE;
 			m_params.MultiSampleQuality = 0;
 			m_params.EnableAutoDepthStencil = TRUE;
 			m_params.AutoDepthStencilFormat = D3DFMT_D24S8;
@@ -551,7 +551,7 @@ namespace bgfx { namespace d3d9
 							}
 
 							if (BX_ENABLED(BGFX_CONFIG_DEBUG_PERFHUD)
-							&&  0 != bx::strFind(desc.Description, "PerfHUD") )
+							&&  !bx::strFind(desc.Description, "PerfHUD").isEmpty() )
 							{
 								m_adapter = ii;
 								m_deviceType = D3DDEVTYPE_REF;
@@ -1091,7 +1091,7 @@ namespace bgfx { namespace d3d9
 			DX_CHECK(texture.m_texture2d->UnlockRect(_mip) );
 		}
 
-		void resizeTexture(TextureHandle _handle, uint16_t _width, uint16_t _height, uint8_t _numMips) override
+		void resizeTexture(TextureHandle _handle, uint16_t _width, uint16_t _height, uint8_t _numMips, uint16_t _numLayers) override
 		{
 			TextureD3D9& texture = m_textures[_handle.idx];
 
@@ -1106,7 +1106,7 @@ namespace bgfx { namespace d3d9
 			tc.m_width     = _width;
 			tc.m_height    = _height;
 			tc.m_depth     = 0;
-			tc.m_numLayers = 1;
+			tc.m_numLayers = _numLayers;
 			tc.m_numMips   = _numMips;
 			tc.m_format    = TextureFormat::Enum(texture.m_requestedFormat);
 			tc.m_cubeMap   = false;
@@ -2394,21 +2394,21 @@ namespace bgfx { namespace d3d9
 		uint32_t magic;
 		bx::read(&reader, magic);
 
-		switch (magic)
+		const bool fragment = isShaderType(magic, 'F');
+
+		uint32_t hashIn;
+		bx::read(&reader, hashIn);
+
+		uint32_t hashOut;
+
+		if (isShaderVerLess(magic, 6) )
 		{
-		case BGFX_CHUNK_MAGIC_FSH:
-		case BGFX_CHUNK_MAGIC_VSH:
-			break;
-
-		default:
-			BGFX_FATAL(false, Fatal::InvalidShader, "Unknown shader format %x.", magic);
-			break;
+			hashOut = hashIn;
 		}
-
-		bool fragment = BGFX_CHUNK_MAGIC_FSH == magic;
-
-		uint32_t iohash;
-		bx::read(&reader, iohash);
+		else
+		{
+			bx::read(&reader, hashOut);
+		}
 
 		uint16_t count;
 		bx::read(&reader, count);
@@ -3126,7 +3126,7 @@ namespace bgfx { namespace d3d9
 		}
 	}
 
-	void TextureD3D9::resolve() const
+	void TextureD3D9::resolve(uint8_t _resolve) const
 	{
 		if (NULL != m_surface
 		&&  NULL != m_ptr)
@@ -3140,7 +3140,8 @@ namespace bgfx { namespace d3d9
 				) );
 			DX_RELEASE(surface, 1);
 
-			if (1 < m_numMips)
+			if (1 < m_numMips
+			&&  0 != (_resolve & BGFX_RESOLVE_AUTO_GEN_MIPS) )
 			{
 				m_ptr->GenerateMipSubLevels();
 			}
@@ -3196,10 +3197,11 @@ namespace bgfx { namespace d3d9
 
 		for (uint32_t ii = 0; ii < _num; ++ii)
 		{
-			TextureHandle handle = m_attachment[ii].handle;
-			if (isValid(handle) )
+			const Attachment& at = m_attachment[ii];
+
+			if (isValid(at.handle) )
 			{
-				const TextureD3D9& texture = s_renderD3D9->m_textures[handle.idx];
+				const TextureD3D9& texture = s_renderD3D9->m_textures[at.handle.idx];
 
 				if (NULL != texture.m_surface)
 				{
@@ -3208,7 +3210,7 @@ namespace bgfx { namespace d3d9
 				}
 				else
 				{
-					m_surface[ii] = texture.getSurface(uint8_t(m_attachment[ii].layer), uint8_t(m_attachment[ii].mip) );
+					m_surface[ii] = texture.getSurface(uint8_t(at.layer), uint8_t(at.mip) );
 				}
 
 				if (0 == m_num)
@@ -3328,8 +3330,13 @@ namespace bgfx { namespace d3d9
 		{
 			for (uint32_t ii = 0, num = m_numTh; ii < num; ++ii)
 			{
-				const TextureD3D9& texture = s_renderD3D9->m_textures[m_attachment[ii].handle.idx];
-				texture.resolve();
+				const Attachment& at = m_attachment[ii];
+
+				if (isValid(at.handle) )
+				{
+					const TextureD3D9& texture = s_renderD3D9->m_textures[at.handle.idx];
+					texture.resolve(at.resolve);
+				}
 			}
 		}
 	}
@@ -3380,19 +3387,24 @@ namespace bgfx { namespace d3d9
 		{
 			for (uint32_t ii = 0, num = m_numTh; ii < num; ++ii)
 			{
-				TextureHandle th = m_attachment[ii].handle;
+				const Attachment& at = m_attachment[ii];
 
-				if (isValid(th) )
+				if (isValid(at.handle) )
 				{
-					TextureD3D9& texture = s_renderD3D9->m_textures[th.idx];
+					TextureD3D9& texture = s_renderD3D9->m_textures[at.handle.idx];
+
 					if (NULL != texture.m_surface)
 					{
 						m_surface[ii] = texture.m_surface;
 						m_surface[ii]->AddRef();
 					}
+					else if (Access::Write == at.access)
+					{
+						m_surface[ii] = texture.getSurface(uint8_t(at.layer), uint8_t(at.mip) );
+					}
 					else
 					{
-						m_surface[ii] = texture.getSurface(uint8_t(m_attachment[ii].layer), uint8_t(m_attachment[ii].mip) );
+						BX_CHECK(false, "");
 					}
 				}
 			}
@@ -3733,10 +3745,11 @@ namespace bgfx { namespace d3d9
 		RenderBind currentBind;
 		currentBind.clear();
 
-		ViewState viewState(_render, false);
+		static ViewState viewState;
+		viewState.reset(_render);
 
 		DX_CHECK(device->SetRenderState(D3DRS_FILLMODE, _render->m_debug&BGFX_DEBUG_WIREFRAME ? D3DFILL_WIREFRAME : D3DFILL_SOLID) );
-		uint16_t programIdx = kInvalidHandle;
+		ProgramHandle currentProgram = BGFX_INVALID_HANDLE;
 		SortKey key;
 		uint16_t view = UINT16_MAX;
 		FrameBufferHandle fbh = { BGFX_CONFIG_MAX_FRAME_BUFFERS };
@@ -3826,7 +3839,7 @@ namespace bgfx { namespace d3d9
 					currentState.m_stencil    = newStencil;
 
 					view = key.m_view;
-					programIdx = kInvalidHandle;
+					currentProgram = BGFX_INVALID_HANDLE;
 
 					if (_render->m_view[view].m_fbh.idx != fbh.idx)
 					{
@@ -4102,18 +4115,18 @@ namespace bgfx { namespace d3d9
 				bool constantsChanged = draw.m_uniformBegin < draw.m_uniformEnd;
 				rendererUpdateUniforms(this, _render->m_uniformBuffer[draw.m_uniformIdx], draw.m_uniformBegin, draw.m_uniformEnd);
 
-				if (key.m_program != programIdx)
+				if (key.m_program.idx != currentProgram.idx)
 				{
-					programIdx = key.m_program;
+					currentProgram = key.m_program;
 
-					if (kInvalidHandle == programIdx)
+					if (!isValid(currentProgram) )
 					{
 						device->SetVertexShader(NULL);
 						device->SetPixelShader(NULL);
 					}
 					else
 					{
-						ProgramD3D9& program = m_program[programIdx];
+						ProgramD3D9& program = m_program[currentProgram.idx];
 						device->SetVertexShader(program.m_vsh->m_vertexShader);
 						device->SetPixelShader(NULL == program.m_fsh
 							? NULL
@@ -4125,9 +4138,9 @@ namespace bgfx { namespace d3d9
 						constantsChanged = true;
 				}
 
-				if (kInvalidHandle != programIdx)
+				if (isValid(currentProgram) )
 				{
-					ProgramD3D9& program = m_program[programIdx];
+					ProgramD3D9& program = m_program[currentProgram.idx];
 
 					if (constantsChanged)
 					{
@@ -4147,7 +4160,7 @@ namespace bgfx { namespace d3d9
 						}
 					}
 
-					viewState.setPredefined<4>(this, view, 0, program, _render, draw);
+					viewState.setPredefined<4>(this, view, program, _render, draw);
 				}
 
 				{
@@ -4156,13 +4169,13 @@ namespace bgfx { namespace d3d9
 						const Binding& bind = renderBind.m_bind[stage];
 						Binding& current = currentBind.m_bind[stage];
 
-						if (current.m_idx != bind.m_idx
-						||  current.m_un.m_draw.m_textureFlags != bind.m_un.m_draw.m_textureFlags
+						if (current.m_idx          != bind.m_idx
+						||  current.m_samplerFlags != bind.m_samplerFlags
 						||  programChanged)
 						{
 							if (kInvalidHandle != bind.m_idx)
 							{
-								m_textures[bind.m_idx].commit(stage, bind.m_un.m_draw.m_textureFlags, _render->m_colorPalette);
+								m_textures[bind.m_idx].commit(stage, bind.m_samplerFlags, _render->m_colorPalette);
 							}
 							else
 							{
@@ -4395,6 +4408,7 @@ namespace bgfx { namespace d3d9
 		perfStats.gpuTimerFreq  = result.m_frequency;
 		perfStats.numDraw       = statsKeyType[0];
 		perfStats.numCompute    = statsKeyType[1];
+		perfStats.numBlit       = _render->m_numBlitItems;
 		perfStats.maxGpuLatency = maxGpuLatency;
 		bx::memCopy(perfStats.numPrims, statsNumPrimsRendered, sizeof(perfStats.numPrims) );
 		m_nvapi.getMemoryInfo(perfStats.gpuMemoryUsed, perfStats.gpuMemoryMax);

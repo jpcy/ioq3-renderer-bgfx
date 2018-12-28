@@ -95,7 +95,7 @@ const mat4 Main::toOpenGlMatrix
 	0, 0, 0, 1
 );
 
-void BgfxCallback::fatal(bgfx::Fatal::Enum _code, const char* _str)
+void BgfxCallback::fatal(const char* _filePath, uint16_t _line, bgfx::Fatal::Enum _code, const char* _str)
 {
 	if (bgfx::Fatal::DebugCheck == _code)
 	{
@@ -103,8 +103,8 @@ void BgfxCallback::fatal(bgfx::Fatal::Enum _code, const char* _str)
 	}
 	else
 	{
-		BX_TRACE("0x%08x: %s", _code, _str);
-		BX_UNUSED(_code, _str);
+		BX_TRACE("0x%08x: %s %d %s", _code, _filePath, _line, _str);
+		BX_UNUSED(_filePath, _line, _code, _str);
 		abort();
 	}
 }

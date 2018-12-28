@@ -2,6 +2,7 @@ function rendererProject(engine, lightBakerEnabled, rendererPath)
 	project "renderer_bgfx"
 	kind "SharedLib"
 	language "C++"
+	cppdialect "C++14"
 	rtti "Off"
 	targetprefix ""
 	
@@ -38,7 +39,6 @@ function rendererProject(engine, lightBakerEnabled, rendererPath)
 		path.join(rendererPath, "code/math/*.h"),
 		path.join(rendererPath, "code/renderer_bgfx/*.cpp"),
 		path.join(rendererPath, "code/renderer_bgfx/*.h"),
-		path.join(rendererPath, "shaders/*.hlsl"),
 		path.join(rendererPath, "shaders/*.sc"),
 		path.join(rendererPath, "shaders/*.sh")
 	}
@@ -102,9 +102,6 @@ function rendererProject(engine, lightBakerEnabled, rendererPath)
 	
 	configuration "Debug"
 		defines "BGFX_CONFIG_DEBUG=1"
-	
-	configuration "gmake"
-		buildoptions "-std=c++11"
 		
 	configuration "linux"
 		buildoptions

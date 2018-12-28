@@ -683,7 +683,7 @@ namespace bgfx { namespace mtl
 			typename HashMap::iterator it = m_hashMap.find(_id);
 			if (it != m_hashMap.end() )
 			{
-				MTL_RELEASE(it->second);
+				release(it->second);
 				m_hashMap.erase(it);
 			}
 		}
@@ -778,20 +778,18 @@ namespace bgfx { namespace mtl
 		uint32_t m_hash;
 	};
 
+	struct SamplerInfo
+	{
+		uint32_t      m_index;
+		UniformHandle m_uniform;
+		bool          m_fragment;
+	};
+
 	struct ProgramMtl
 	{
 		ProgramMtl()
 			: m_vsh(NULL)
 			, m_fsh(NULL)
-			, m_vshConstantBuffer(NULL)
-			, m_fshConstantBuffer(NULL)
-			, m_vshConstantBufferSize(0)
-			, m_vshConstantBufferAlignmentMask(0)
-			, m_fshConstantBufferSize(0)
-			, m_fshConstantBufferAlignmentMask(0)
-			, m_samplerCount(0)
-			, m_numPredefined(0)
-			, m_processedUniforms(false)
 		{
 		}
 
@@ -804,6 +802,37 @@ namespace bgfx { namespace mtl
 
 		const ShaderMtl* m_vsh;
 		const ShaderMtl* m_fsh;
+	};
+
+	struct PipelineStateMtl
+	{
+		PipelineStateMtl()
+			: m_vshConstantBuffer(NULL)
+			, m_fshConstantBuffer(NULL)
+			, m_vshConstantBufferSize(0)
+			, m_vshConstantBufferAlignmentMask(0)
+			, m_fshConstantBufferSize(0)
+			, m_fshConstantBufferAlignmentMask(0)
+			, m_samplerCount(0)
+			, m_numPredefined(0)
+			{
+			}
+
+		~PipelineStateMtl()
+		{
+			if (NULL != m_vshConstantBuffer)
+			{
+				UniformBuffer::destroy(m_vshConstantBuffer);
+				m_vshConstantBuffer = NULL;
+			}
+
+			if (NULL != m_fshConstantBuffer)
+			{
+				UniformBuffer::destroy(m_fshConstantBuffer);
+				m_fshConstantBuffer = NULL;
+			}
+		}
+
 		UniformBuffer* m_vshConstantBuffer;
 		UniformBuffer* m_fshConstantBuffer;
 
@@ -812,20 +841,19 @@ namespace bgfx { namespace mtl
 		uint32_t m_fshConstantBufferSize;
 		uint32_t m_fshConstantBufferAlignmentMask;
 
-		struct SamplerInfo
-		{
-			uint32_t			m_index;
-			bgfx::UniformHandle m_uniform;
-			bool				m_fragment;
-		};
-
 		SamplerInfo m_samplers[BGFX_CONFIG_MAX_TEXTURE_SAMPLERS];
 		uint32_t	m_samplerCount;
 
 		PredefinedUniform m_predefined[PredefinedUniform::Count*2];
 		uint8_t m_numPredefined;
-		bool m_processedUniforms;
+
+		RenderPipelineState m_rps;
 	};
+
+	void release(PipelineStateMtl* _ptr)
+	{
+		BX_DELETE(g_allocator, _ptr);
+	}
 
 	struct TextureMtl
 	{
@@ -838,7 +866,7 @@ namespace bgfx { namespace mtl
 
 		TextureMtl()
 			: m_ptr(NULL)
-			, m_ptrMSAA(NULL)
+			, m_ptrMsaa(NULL)
 			, m_ptrStencil(NULL)
 			, m_sampler(NULL)
 			, m_flags(0)
@@ -875,7 +903,7 @@ namespace bgfx { namespace mtl
 			);
 
 		Texture m_ptr;
-		Texture m_ptrMSAA;
+		Texture m_ptrMsaa;
 		Texture m_ptrStencil; // for emulating packed depth/stencil formats - only for iOS8...
 		SamplerState m_sampler;
 		uint64_t m_flags;
@@ -886,6 +914,35 @@ namespace bgfx { namespace mtl
 		uint8_t m_requestedFormat;
 		uint8_t m_textureFormat;
 		uint8_t m_numMips;
+	};
+
+	struct FrameBufferMtl;
+
+	struct SwapChainMtl
+	{
+		SwapChainMtl()
+			: m_metalLayer(nil)
+			, m_drawable(nil)
+			, m_backBufferColorMsaa()
+			, m_backBufferDepth()
+			, m_backBufferStencil()
+			, m_maxAnisotropy(0)
+		{
+		}
+
+		~SwapChainMtl();
+
+		void init(void* _nwh);
+		void resize(FrameBufferMtl &_frameBuffer, uint32_t _width, uint32_t _height, uint32_t _flags);
+
+		id<CAMetalDrawable> currentDrawable();
+
+		CAMetalLayer* m_metalLayer;
+		id <CAMetalDrawable> m_drawable;
+		Texture m_backBufferColorMsaa;
+		Texture m_backBufferDepth;
+		Texture m_backBufferStencil;
+		uint32_t m_maxAnisotropy;
 	};
 
 	struct FrameBufferMtl
@@ -910,6 +967,7 @@ namespace bgfx { namespace mtl
 		void postReset();
 		uint16_t destroy();
 
+		SwapChainMtl* m_swapChain;
 		uint32_t m_width;
 		uint32_t m_height;
 		uint16_t m_denseIdx;

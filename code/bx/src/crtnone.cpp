@@ -75,7 +75,7 @@ extern "C" char* strcat(char* _dst, const char* _src)
 
 extern "C" const char* strchr(const char* _str, int _ch)
 {
-	return bx::strFind(_str, _ch);
+	return bx::strFind(_str, _ch).getPtr();
 }
 
 extern "C" int32_t strcmp(const char* _lhs, const char* _rhs)
@@ -95,7 +95,7 @@ extern "C" int32_t strcasecmp(const char* _lhs, const char* _rhs)
 
 extern "C" const char* strstr(const char* _str, const char* _find)
 {
-	return bx::strFind(_str, _find);
+	return bx::strFind(_str, _find).getPtr();
 }
 
 extern "C" void qsort(void* _base, size_t _num, size_t _size, bx::ComparisonFn _fn)
@@ -109,7 +109,7 @@ extern "C" int isprint(int _ch)
 	return bx::isPrint(_ch);
 }
 
-extern "C" int toupper (int _ch)
+extern "C" int toupper(int _ch)
 {
 	return bx::toUpper(_ch);
 }
@@ -122,8 +122,10 @@ extern "C" size_t mbstowcs(wchar_t* _dst, const char* _src, size_t _max)
 
 extern "C" char* strdup(const char* _src)
 {
-	uint32_t size = bx::strLen(_src);
-	return (char*)malloc(size);
+	uint32_t size = bx::strLen(_src)+1;
+	char* dup = (char*)malloc(size);
+	bx::strCopy(dup, size, _src);
+	return dup;
 }
 
 extern "C" long int strtol(const char* _str, char** _end, int _base)
@@ -302,7 +304,8 @@ extern "C" int printf(const char* _format, ...)
 	va_list argList;
 	va_start(argList, _format);
 	bx::WriterI* writer = bx::getStdOut();
-	int32_t len = bx::writePrintfVargs(writer, _format, argList);
+	bx::Error err;
+	int32_t len = bx::write(writer, &err, _format, argList);
 	va_end(argList);
 	return len;
 }

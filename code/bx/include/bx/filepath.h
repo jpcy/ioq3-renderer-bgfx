@@ -14,7 +14,7 @@ BX_ERROR_RESULT(BX_ERROR_NOT_DIRECTORY, BX_MAKEFOURCC('b', 'x', 0, 1) );
 
 namespace bx
 {
-	const int32_t kMaxFilePath = 1024;
+	constexpr int32_t kMaxFilePath = 1024;
 
 	/// Special predefined OS directories.
 	///
@@ -85,19 +85,19 @@ namespace bx
 
 		/// If path is `/abv/gd/555/333/pod.mac` returns `/abv/gd/555/333/`.
 		///
-		const StringView getPath() const;
+		StringView getPath() const;
 
 		/// If path is `/abv/gd/555/333/pod.mac` returns `pod.mac`.
 		///
-		const StringView getFileName() const;
+		StringView getFileName() const;
 
 		/// If path is `/abv/gd/555/333/pod.mac` returns `pod`.
 		///
-		const StringView getBaseName() const;
+		StringView getBaseName() const;
 
 		/// If path is `/abv/gd/555/333/pod.mac` returns `.mac`.
 		///
-		const StringView getExt() const;
+		StringView getExt() const;
 
 		/// Returns true if file path is absolute.
 		///
@@ -112,15 +112,19 @@ namespace bx
 	};
 
 	/// Creates a directory named `_filePath`.
+	///
 	bool make(const FilePath& _filePath, Error* _err = NULL);
 
 	/// Creates a directory named `_filePath` along with all necessary parents.
+	///
 	bool makeAll(const FilePath& _filePath, Error* _err = NULL);
 
 	/// Removes file or directory.
+	///
 	bool remove(const FilePath& _filePath, Error* _err = NULL);
 
 	/// Removes file or directory recursivelly.
+	///
 	bool removeAll(const FilePath& _filePath, Error* _err = NULL);
 
 } // namespace bx

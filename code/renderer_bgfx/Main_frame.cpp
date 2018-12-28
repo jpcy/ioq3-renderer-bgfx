@@ -991,7 +991,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 		vec3 center = -s_main->sunLight.direction;
 		vec3 up(0.0f, 1.0f, 0.0f);
 		mat4 shadowViewMatrix;
-		bx::mtxLookAt((float *)&shadowViewMatrix, (float *)&eye, (float *)&center, (float *)&up);
+		bx::mtxLookAt((float *)&shadowViewMatrix, *(bx::Vec3 *)&eye, *(bx::Vec3 *)&center, *(bx::Vec3 *)&up);
 		std::array<vec3, 8> corners = bounds.toVertices();
 		bounds.setupForAddingPoints();
 

@@ -8,10 +8,6 @@
 #include <bx/os.h>
 #include <bx/uint32_t.h>
 
-#if !BX_PLATFORM_NONE
-
-#include <stdio.h>
-
 #if BX_CRT_MSVC
 #	include <direct.h>
 #else
@@ -51,11 +47,13 @@
 #	elif   BX_PLATFORM_LINUX     \
 		|| BX_PLATFORM_RPI       \
 		|| BX_PLATFORM_STEAMLINK
+#		include <stdio.h>  // fopen
 #		include <unistd.h> // syscall
 #		include <sys/syscall.h>
 #	elif BX_PLATFORM_OSX
 #		include <mach/mach.h> // mach_task_basic_info
 #	elif BX_PLATFORM_HURD
+#		include <stdio.h>           // fopen
 #		include <pthread/pthread.h> // pthread_self
 #	elif BX_PLATFORM_ANDROID
 #		include "debug.h" // getTid is not implemented...
@@ -173,18 +171,19 @@ namespace bx
 #endif // BX_PLATFORM_*
 	}
 
-	void* dlopen(const char* _filePath)
+	void* dlopen(const FilePath& _filePath)
 	{
 #if BX_PLATFORM_WINDOWS
-		return (void*)::LoadLibraryA(_filePath);
+		return (void*)::LoadLibraryA(_filePath.get() );
 #elif  BX_PLATFORM_EMSCRIPTEN \
 	|| BX_PLATFORM_PS4        \
 	|| BX_PLATFORM_XBOXONE    \
-	|| BX_PLATFORM_WINRT
+	|| BX_PLATFORM_WINRT      \
+	|| BX_CRT_NONE
 		BX_UNUSED(_filePath);
 		return NULL;
 #else
-		return ::dlopen(_filePath, RTLD_LOCAL|RTLD_LAZY);
+		return ::dlopen(_filePath.get(), RTLD_LOCAL|RTLD_LAZY);
 #endif // BX_PLATFORM_
 	}
 
@@ -195,32 +194,42 @@ namespace bx
 #elif  BX_PLATFORM_EMSCRIPTEN \
 	|| BX_PLATFORM_PS4        \
 	|| BX_PLATFORM_XBOXONE    \
-	|| BX_PLATFORM_WINRT
+	|| BX_PLATFORM_WINRT      \
+	|| BX_CRT_NONE
 		BX_UNUSED(_handle);
 #else
 		::dlclose(_handle);
 #endif // BX_PLATFORM_
 	}
 
-	void* dlsym(void* _handle, const char* _symbol)
+	void* dlsym(void* _handle, const StringView& _symbol)
 	{
+		const int32_t symbolMax = _symbol.getLength()+1;
+		char* symbol = (char*)alloca(symbolMax);
+		bx::strCopy(symbol, symbolMax, _symbol);
+
 #if BX_PLATFORM_WINDOWS
-		return (void*)::GetProcAddress( (HMODULE)_handle, _symbol);
+		return (void*)::GetProcAddress( (HMODULE)_handle, symbol);
 #elif  BX_PLATFORM_EMSCRIPTEN \
 	|| BX_PLATFORM_PS4        \
 	|| BX_PLATFORM_XBOXONE    \
-	|| BX_PLATFORM_WINRT
-		BX_UNUSED(_handle, _symbol);
+	|| BX_PLATFORM_WINRT      \
+	|| BX_CRT_NONE
+		BX_UNUSED(_handle, symbol);
 		return NULL;
 #else
-		return ::dlsym(_handle, _symbol);
+		return ::dlsym(_handle, symbol);
 #endif // BX_PLATFORM_
 	}
 
-	bool getenv(const char* _name, char* _out, uint32_t* _inOutSize)
+	bool getEnv(char* _out, uint32_t* _inOutSize, const StringView& _name)
 	{
+		const int32_t nameMax = _name.getLength()+1;
+		char* name = (char*)alloca(nameMax);
+		bx::strCopy(name, nameMax, _name);
+
 #if BX_PLATFORM_WINDOWS
-		DWORD len = ::GetEnvironmentVariableA(_name, _out, *_inOutSize);
+		DWORD len = ::GetEnvironmentVariableA(name, _out, *_inOutSize);
 		bool result = len != 0 && len < *_inOutSize;
 		*_inOutSize = len;
 		return result;
@@ -228,10 +237,10 @@ namespace bx
 	|| BX_PLATFORM_XBOXONE \
 	|| BX_PLATFORM_WINRT   \
 	|| BX_CRT_NONE
-		BX_UNUSED(_name, _out, _inOutSize);
+		BX_UNUSED(name, _out, _inOutSize);
 		return false;
 #else
-		const char* ptr = ::getenv(_name);
+		const char* ptr = ::getenv(name);
 		uint32_t len = 0;
 		bool result = false;
 		if (NULL != ptr)
@@ -250,31 +259,36 @@ namespace bx
 #endif // BX_PLATFORM_
 	}
 
-	void setenv(const char* _name, const char* _value)
+	void setEnv(const StringView& _name, const StringView& _value)
 	{
-#if BX_PLATFORM_WINDOWS
-		::SetEnvironmentVariableA(_name, _value);
-#elif  BX_PLATFORM_PS4     \
-	|| BX_PLATFORM_XBOXONE \
-	|| BX_PLATFORM_WINRT   \
-	|| BX_CRT_NONE
-		BX_UNUSED(_name, _value);
-#else
-		::setenv(_name, _value, 1);
-#endif // BX_PLATFORM_
-	}
+		const int32_t nameMax = _name.getLength()+1;
+		char* name = (char*)alloca(nameMax);
+		bx::strCopy(name, nameMax, _name);
 
-	void unsetenv(const char* _name)
-	{
+		char* value = NULL;
+		if (!_value.isEmpty() )
+		{
+			int32_t valueMax = _value.getLength()+1;
+			value = (char*)alloca(valueMax);
+			bx::strCopy(value, valueMax, _value);
+		}
+
 #if BX_PLATFORM_WINDOWS
-		::SetEnvironmentVariableA(_name, NULL);
+		::SetEnvironmentVariableA(name, value);
 #elif  BX_PLATFORM_PS4     \
 	|| BX_PLATFORM_XBOXONE \
 	|| BX_PLATFORM_WINRT   \
 	|| BX_CRT_NONE
-		BX_UNUSED(_name);
+		BX_UNUSED(name, value);
 #else
-		::unsetenv(_name);
+		if (NULL != value)
+		{
+			::setenv(name, value, 1);
+		}
+		else
+		{
+			::unsetenv(name);
+		}
 #endif // BX_PLATFORM_
 	}
 
@@ -355,5 +369,3 @@ namespace bx
 	}
 
 } // namespace bx
-
-#endif // !BX_PLATFORM_NONE
