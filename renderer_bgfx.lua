@@ -26,22 +26,26 @@ function rendererProject(engine, lightBakerEnabled, rendererPath)
 	
 	files
 	{
-		path.join(bxPath, "include/bx/*.h"),
-		path.join(bxPath, "include/bx/inline/*.inl"),
 		path.join(bxPath, "src/*.cpp"),
-		path.join(bimgPath, "include/bimg/*.h"),
 		path.join(bimgPath, "src/*.cpp"),
-		path.join(bimgPath, "src/*.h"),
-		path.join(bgfxPath, "include/bgfx/*.h"),
 		path.join(bgfxPath, "src/*.cpp"),
-		path.join(bgfxPath, "src/*.h"),
 		path.join(rendererPath, "code/math/*.cpp"),
-		path.join(rendererPath, "code/math/*.h"),
-		path.join(rendererPath, "code/renderer_bgfx/*.cpp"),
-		path.join(rendererPath, "code/renderer_bgfx/*.h"),
-		path.join(rendererPath, "shaders/*.sc"),
-		path.join(rendererPath, "shaders/*.sh")
+		path.join(rendererPath, "code/renderer_bgfx/*.cpp")
 	}
+	
+	configuration "vs*"
+		files
+		{
+			path.join(bxPath, "include/bx/*.h"),
+			path.join(bxPath, "include/bx/inline/*.inl"),
+			path.join(bimgPath, "include/bimg/*.h"),
+			path.join(bimgPath, "src/*.h"),
+			path.join(bgfxPath, "include/bgfx/*.h"),
+			path.join(bgfxPath, "src/*.h"),
+			path.join(rendererPath, "code/math/*.h"),
+			path.join(rendererPath, "code/renderer_bgfx/*.h")
+		}
+	configuration {}
 	
 	excludes
 	{
