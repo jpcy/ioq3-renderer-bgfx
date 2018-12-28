@@ -18,6 +18,7 @@ install:
   - ../premake-core/bin/release/premake5 shaders
   - ../premake-core/bin/release/premake5 gmake
   - cd build
+  - cat renderer_bgfx.make
 
 script:
   make config=release_x86_64

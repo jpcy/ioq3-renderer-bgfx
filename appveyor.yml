@@ -29,7 +29,7 @@ deploy:
     secure: pLpGN6oHk8U7G5p4qUiMKoGgSTOB283MZSIFC30mPUQ4jMA1hGMeeD6tGSKsVJ3d
   subject: jpcy
   repo: ioq3-renderer-bgfx
-  package: ioq3-renderer-bgfx-windows
-  version: test2
+  package: windows
+  version: test
   publish: true
   override: true

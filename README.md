@@ -25,8 +25,8 @@ Minimum requirements: OpenGL 3.2 or Direct3D 11.
 
 ## Binaries
 
-| [Windows (x86)](https://bintray.com/jpcy/ioq3-renderer-bgfx/ioq3-renderer-bgfx-windows/test2#files) | [Linux (x86_64)](https://bintray.com/jpcy/ioq3-renderer-bgfx/ioq3-renderer-bgfx-linux/test2#files) |
-|----------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|
+| [Windows (x86)](https://bintray.com/jpcy/ioq3-renderer-bgfx/windows/test#files) | [Linux (x86_64)](https://bintray.com/jpcy/ioq3-renderer-bgfx/linux/test#files) |
+|---------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
 
 These are updated after every commit.
 

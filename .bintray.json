@@ -1,12 +1,12 @@
 {
     "package": {
-        "name": "ioq3-renderer-bgfx-linux",
+        "name": "linux",
         "repo": "ioq3-renderer-bgfx",
         "subject": "jpcy"
     },
 
     "version": {
-        "name": "test2"
+        "name": "test"
     },
 
     "files": [
