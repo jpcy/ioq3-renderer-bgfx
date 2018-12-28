@@ -30,6 +30,6 @@ deploy:
   subject: jpcy
   repo: ioq3-renderer-bgfx
   package: ioq3-renderer-bgfx-windows
-  version: test
+  version: test2
   publish: true
   override: true

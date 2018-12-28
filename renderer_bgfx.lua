@@ -107,6 +107,9 @@ function rendererProject(engine, lightBakerEnabled, rendererPath)
 	configuration "Debug"
 		defines "BGFX_CONFIG_DEBUG=1"
 		
+	configuration "gmake"
+		buildoptions "-std=c++14"
+		
 	configuration "linux"
 		buildoptions
 		{
