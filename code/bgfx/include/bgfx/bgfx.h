@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2018 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2019 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -259,12 +259,12 @@ namespace bgfx
 		/// Uniform types:
 		enum Enum
 		{
-			Int1, //!< Int, used for samplers only.
-			End,  //!< Reserved, do not use.
+			Sampler, //!< Sampler.
+			End,     //!< Reserved, do not use.
 
-			Vec4, //!< 4 floats vector.
-			Mat3, //!< 3x3 matrix.
-			Mat4, //!< 4x4 matrix.
+			Vec4,    //!< 4 floats vector.
+			Mat3,    //!< 3x3 matrix.
+			Mat4,    //!< 4x4 matrix.
 
 			Count
 		};
@@ -866,10 +866,24 @@ namespace bgfx
 	///
 	struct Attachment
 	{
-		void init(TextureHandle _handle, Access::Enum _access = Access::Write, uint16_t _layer = 0, uint16_t _mip = 0, uint8_t _resolve = BGFX_RESOLVE_AUTO_GEN_MIPS);
+		/// Init attachment.
+		///
+		/// @param[in] _handle Render target texture handle.
+		/// @param[in] _access Access. See `Access::Enum`.
+		/// @param[in] _layer Cubemap side or depth layer/slice.
+		/// @param[in] _mip Mip level.
+		/// @param[in] _resolve Resolve flags. See: `BGFX_RESOLVE_*`
+		///
+		void init(
+			  TextureHandle _handle
+			, Access::Enum _access = Access::Write
+			, uint16_t _layer = 0
+			, uint16_t _mip = 0
+			, uint8_t _resolve = BGFX_RESOLVE_AUTO_GEN_MIPS
+			);
 
-		Access::Enum  access; //!<
-		TextureHandle handle; //!< Texture handle.
+		Access::Enum  access; //!< Attachement access. See `Access::Enum`.
+		TextureHandle handle; //!< Render target texture handle.
 		uint16_t mip;         //!< Mip level.
 		uint16_t layer;       //!< Cubemap side or depth layer/slice.
 		uint8_t  resolve;     //!< Resolve flags. See: `BGFX_RESOLVE_*`
@@ -1534,10 +1548,6 @@ namespace bgfx
 		/// @param[in] _numX Number of groups X.
 		/// @param[in] _numY Number of groups Y.
 		/// @param[in] _numZ Number of groups Z.
-		/// @param[in] _flags View flags. Use
-		///   - `BGFX_VIEW_NONE` - View will be rendered only once if stereo mode is enabled.
-		///   - `BGFX_VIEW_STEREO` - View will be rendered for both eyes if stereo mode is enabled. When
-		///     stereo mode is disabled this flag doesn't have effect.
 		///
 		/// @attention C99 equivalent is `bgfx_encoder_dispatch`.
 		///
@@ -1556,10 +1566,6 @@ namespace bgfx
 		/// @param[in] _indirectHandle Indirect buffer.
 		/// @param[in] _start First element in indirect buffer.
 		/// @param[in] _num Number of dispatches.
-		/// @param[in] _flags View flags. Use
-		///   - `BGFX_VIEW_NONE` - View will be rendered only once if stereo mode is enabled.
-		///   - `BGFX_VIEW_STEREO` - View will be rendered for both eyes if stereo mode is enabled. When
-		///     stereo mode is disabled this flag doesn't have effect.
 		///
 		/// @attention C99 equivalent is `bgfx_encoder_dispatch_indirect`.
 		///
@@ -2130,6 +2136,21 @@ namespace bgfx
 		, uint16_t _flags = BGFX_BUFFER_NONE
 		);
 
+	/// Set static index buffer debug name.
+	///
+	/// @param[in] _handle Static index buffer handle.
+	/// @param[in] _name Static index buffer name.
+	/// @param[in] _len Static index buffer name length (if length is INT32_MAX, it's expected
+	///   that _name is zero terminated string.
+	///
+	/// @attention C99 equivalent is `bgfx_set_index_buffer_name`.
+	///
+	void setName(
+		  IndexBufferHandle _handle
+		, const char* _name
+		, int32_t _len = INT32_MAX
+		);
+
 	/// Destroy static index buffer.
 	///
 	/// @param[in] _handle Static index buffer handle.
@@ -2162,6 +2183,21 @@ namespace bgfx
 		  const Memory* _mem
 		, const VertexDecl& _decl
 		, uint16_t _flags = BGFX_BUFFER_NONE
+		);
+
+	/// Set static vertex buffer debug name.
+	///
+	/// @param[in] _handle Static vertex buffer handle.
+	/// @param[in] _name Static vertex buffer name.
+	/// @param[in] _len Static vertex buffer name length (if length is INT32_MAX, it's expected
+	///   that _name is zero terminated string.
+	///
+	/// @attention C99 equivalent is `bgfx_set_vertex_buffer_name`.
+	///
+	void setName(
+		  VertexBufferHandle _handle
+		, const char* _name
+		, int32_t _len = INT32_MAX
 		);
 
 	/// Destroy static vertex buffer.
@@ -2961,6 +2997,21 @@ namespace bgfx
 		, TextureFormat::Enum _depthFormat = TextureFormat::Count
 		);
 
+	/// Set frame buffer debug name.
+	///
+	/// @param[in] _handle frame buffer handle.
+	/// @param[in] _name frame buffer name.
+	/// @param[in] _len frame buffer name length (if length is INT32_MAX, it's expected
+	///   that _name is zero terminated string.
+	///
+	/// @attention C99 equivalent is `bgfx_set_frame_buffer_name`.
+	///
+	void setName(
+		  FrameBufferHandle _handle
+		, const char* _name
+		, int32_t _len = INT32_MAX
+		);
+
 	/// Obtain texture handle of frame buffer attachment.
 	///
 	/// @param[in] _handle Frame buffer handle.
@@ -3281,7 +3332,7 @@ namespace bgfx
 	///
 	/// @param[in] _id View id.
 	/// @param[in] _view View matrix.
-	/// @param[in] _projProjection matrix.
+	/// @param[in] _proj Projection matrix.
 	///
 	/// @attention C99 equivalent is `bgfx_set_view_transform`.
 	///
@@ -3868,10 +3919,6 @@ namespace bgfx
 	/// @param[in] _numX Number of groups X.
 	/// @param[in] _numY Number of groups Y.
 	/// @param[in] _numZ Number of groups Z.
-	/// @param[in] _flags View flags. Use
-	///   - `BGFX_VIEW_NONE` - View will be rendered only once if stereo mode is enabled.
-	///   - `BGFX_VIEW_STEREO` - View will be rendered for both eyes if stereo mode is enabled. When
-	///     stereo mode is disabled this flag doesn't have effect.
 	///
 	/// @attention C99 equivalent is `bgfx_dispatch`.
 	///
@@ -3890,10 +3937,6 @@ namespace bgfx
 	/// @param[in] _indirectHandle Indirect buffer.
 	/// @param[in] _start First element in indirect buffer.
 	/// @param[in] _num Number of dispatches.
-	/// @param[in] _flags View flags. Use
-	///   - `BGFX_VIEW_NONE` - View will be rendered only once if stereo mode is enabled.
-	///   - `BGFX_VIEW_STEREO` - View will be rendered for both eyes if stereo mode is enabled. When
-	///     stereo mode is disabled this flag doesn't have effect.
 	///
 	/// @attention C99 equivalent is `bgfx_dispatch_indirect`.
 	///

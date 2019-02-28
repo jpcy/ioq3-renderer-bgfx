@@ -1,14 +1,14 @@
 /*
- * Copyright 2011-2018 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2019 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bimg#license-bsd-2-clause
  */
 
 #include "bimg_p.h"
 #include <bx/hash.h>
 
-#if BIMG_CONFIG_ASTC_DECODE
-#	include "../3rdparty/astc/astc_lib.h"
-#endif // BIMG_CONFIG_ASTC_DECODE
+//#include <astc-codec/astc-codec.h>
+
+#include <bx/debug.h>
 
 namespace bimg
 {
@@ -4524,24 +4524,8 @@ namespace bimg
 		case TextureFormat::ASTC8x5:
 		case TextureFormat::ASTC8x6:
 		case TextureFormat::ASTC10x5:
-#if BIMG_CONFIG_ASTC_DECODE
-			astc_decompress
-				(
-				 (const uint8_t*) _src,
-				 s_imageBlockInfo[_srcFormat].blockWidth,
-				 s_imageBlockInfo[_srcFormat].blockHeight,
-				 ASTC_DECODE_LDR_LINEAR,
-
-				 _width,
-				 _height,
-				 (uint8_t*) _dst,
-				 ASTC_BGRA,
-				 _dstPitch
-				);
-#else
-			BX_WARN(false, "ASTC decoder is not implemented.");
-			imageCheckerboard(_dst, _width, _height, 16, UINT32_C(0xff000000), UINT32_C(0xffffff00) );
-#endif
+			imageDecodeToRgba8(_allocator, _dst, _src, _width, _height, _dstPitch, _srcFormat);
+			imageSwizzleBgra8(_dst, _dstPitch, _width, _height, _dst, _dstPitch);
 			break;
 
 		case TextureFormat::RGBA8:
@@ -4589,6 +4573,32 @@ namespace bimg
 			{
 				const uint32_t srcPitch = _width * 4;
 				imageSwizzleBgra8(_dst, _dstPitch, _width, _height, _src, srcPitch);
+			}
+			break;
+
+		case TextureFormat::ASTC4x4:
+		case TextureFormat::ASTC5x5:
+		case TextureFormat::ASTC6x6:
+		case TextureFormat::ASTC8x5:
+		case TextureFormat::ASTC8x6:
+		case TextureFormat::ASTC10x5:
+			/*if (!astc_codec::ASTCDecompressToRGBA(
+				  (const uint8_t*)_src
+				, imageGetSize(NULL, uint16_t(_width), uint16_t(_height), 0, false, false, 1, _srcFormat)
+				, _width
+				, _height
+				, TextureFormat::ASTC4x4  == _srcFormat ? astc_codec::FootprintType::k4x4
+				: TextureFormat::ASTC5x5  == _srcFormat ? astc_codec::FootprintType::k5x5
+				: TextureFormat::ASTC6x6  == _srcFormat ? astc_codec::FootprintType::k6x6
+				: TextureFormat::ASTC8x5  == _srcFormat ? astc_codec::FootprintType::k8x5
+				: TextureFormat::ASTC8x6  == _srcFormat ? astc_codec::FootprintType::k8x6
+				:                                         astc_codec::FootprintType::k10x5
+				, (uint8_t*)_dst
+				, _width*_height*4
+				, _dstPitch
+				) )*/
+			{
+				imageCheckerboard(_dst, _width, _height, 16, UINT32_C(0xff000000), UINT32_C(0xffffff00) );
 			}
 			break;
 
@@ -4803,12 +4813,7 @@ namespace bimg
 				depth  = bx::max<uint32_t>(1, depth);
 
 				const uint32_t mipSize = width/blockWidth * height/blockHeight * depth * blockSize;
-				if (mipSize != width*height*depth*bpp/8)
-				{
-					BX_TRACE("x");
-				}
-
-				const uint32_t size = mipSize*numSides;
+				const uint32_t size    = mipSize*numSides;
 				uint32_t imageSize = bx::toHostEndian(*(const uint32_t*)&data[offset], _imageContainer.m_ktxLE);
 				BX_CHECK(size == imageSize, "KTX: Image size mismatch %d (expected %d).", size, imageSize);
 				BX_UNUSED(size, imageSize);
@@ -5268,23 +5273,25 @@ namespace bimg
 			}
 		}
 
-        if (UINT32_MAX == ddspf && UINT32_MAX == dxgiFormat)
-        {
-            for (uint32_t ii = 0; ii < BX_COUNTOF(s_translateDdsFourccFormat); ++ii)
-            {
-                if (s_translateDdsFourccFormat[ii].m_textureFormat == _format)
-                {
-                    fourccFormat = s_translateDdsFourccFormat[ii].m_format;
-                    break;
-                }
-            }
-        }
+		if (UINT32_MAX == ddspf && UINT32_MAX == dxgiFormat)
+		{
+			for (uint32_t ii = 0; ii < BX_COUNTOF(s_translateDdsFourccFormat); ++ii)
+			{
+				if (s_translateDdsFourccFormat[ii].m_textureFormat == _format)
+				{
+					fourccFormat = s_translateDdsFourccFormat[ii].m_format;
+					break;
+				}
+			}
+		}
 
-        if (UINT32_MAX == ddspf && UINT32_MAX == dxgiFormat && UINT32_MAX == fourccFormat)
-        {
-            BX_ERROR_SET(_err, BIMG_ERROR, "DDS: output format not supported.");
-            return 0;
-        }
+		if (UINT32_MAX == ddspf
+		&&  UINT32_MAX == dxgiFormat
+		&&  UINT32_MAX == fourccFormat)
+		{
+			BX_ERROR_SET(_err, BIMG_ERROR, "DDS: output format not supported.");
+			return 0;
+		}
 
 		const uint32_t bpp = getBitsPerPixel(_format);
 

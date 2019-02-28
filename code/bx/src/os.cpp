@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2018 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2019 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx#license-bsd-2-clause
  */
 
@@ -174,7 +174,7 @@ namespace bx
 	void* dlopen(const FilePath& _filePath)
 	{
 #if BX_PLATFORM_WINDOWS
-		return (void*)::LoadLibraryA(_filePath.get() );
+		return (void*)::LoadLibraryA(_filePath.getCPtr() );
 #elif  BX_PLATFORM_EMSCRIPTEN \
 	|| BX_PLATFORM_PS4        \
 	|| BX_PLATFORM_XBOXONE    \
@@ -183,7 +183,7 @@ namespace bx
 		BX_UNUSED(_filePath);
 		return NULL;
 #else
-		return ::dlopen(_filePath.get(), RTLD_LOCAL|RTLD_LAZY);
+		return ::dlopen(_filePath.getCPtr(), RTLD_LOCAL|RTLD_LAZY);
 #endif // BX_PLATFORM_
 	}
 

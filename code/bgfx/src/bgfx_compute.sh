@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2018 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2019 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause
  */
 
@@ -9,6 +9,20 @@
 #include "bgfx_shader.sh"
 
 #ifndef __cplusplus
+
+#if BGFX_SHADER_LANGUAGE_GLSL
+#	define __UAV_REG_0 4
+#	define __UAV_REG_1 5
+#	define __UAV_REG_2 6
+#	define __UAV_REG_3 7
+#else
+#	define __UAV_REG_0 16
+#	define __UAV_REG_1 17
+#	define __UAV_REG_2 18
+#	define __UAV_REG_3 19
+#endif // BGFX_SHADER_LANGUAGE_GLSL
+
+#define FRAMEBUFFER_IMAGE2D_RW(_name, _format, _reg) IMAGE2D_RW(_name, _format, __UAV_REG_ ## _reg)
 
 #if BGFX_SHADER_LANGUAGE_GLSL
 
@@ -124,9 +138,15 @@
 #define IMAGE3D_WR( _name, _format, _reg) IMAGE3D_RW(_name, _format, _reg)
 #define UIMAGE3D_WR(_name, _format, _reg) IMAGE3D_RW(_name, _format, _reg)
 
+#if BGFX_SHADER_LANGUAGE_METAL
+#define BUFFER_RO(_name, _struct, _reg) StructuredBuffer<_struct>   _name : REGISTER(t, _reg)
+#define BUFFER_RW(_name, _struct, _reg) RWStructuredBuffer <_struct> _name : REGISTER(u, _reg)
+#define BUFFER_WR(_name, _struct, _reg) BUFFER_RW(_name, _struct, _reg)
+#else
 #define BUFFER_RO(_name, _struct, _reg) Buffer<_struct>   _name : REGISTER(t, _reg)
 #define BUFFER_RW(_name, _struct, _reg) RWBuffer<_struct> _name : REGISTER(u, _reg)
 #define BUFFER_WR(_name, _struct, _reg) BUFFER_RW(_name, _struct, _reg)
+#endif
 
 #define NUM_THREADS(_x, _y, _z) [numthreads(_x, _y, _z)]
 

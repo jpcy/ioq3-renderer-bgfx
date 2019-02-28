@@ -1396,21 +1396,21 @@ struct TextureUnit
 	};
 };
 
-struct Uniform_int
-{
-	Uniform_int(const char *name, uint16_t num = 1) { handle = bgfx::createUniform(name, bgfx::UniformType::Int1, num); }
-	~Uniform_int() { bgfx::destroy(handle); }
-	void set(int value) { bgfx::setUniform(handle, &value, 1); }
-	void set(const int *values, uint16_t num) { bgfx::setUniform(handle, values, num); }
-	bgfx::UniformHandle handle;
-};
-
 struct Uniform_mat4
 {
 	Uniform_mat4(const char *name, uint16_t num = 1) { handle = bgfx::createUniform(name, bgfx::UniformType::Mat4, num); }
 	~Uniform_mat4() { bgfx::destroy(handle); }
 	void set(const mat4 &value) { bgfx::setUniform(handle, &value, 1); }
 	void set(const mat4 *values, uint16_t num) { bgfx::setUniform(handle, values, num); }
+	bgfx::UniformHandle handle;
+};
+
+struct Uniform_sampler
+{
+	Uniform_sampler(const char *name, uint16_t num = 1) { handle = bgfx::createUniform(name, bgfx::UniformType::Sampler, num); }
+	~Uniform_sampler() { bgfx::destroy(handle); }
+	void set(int value) { bgfx::setUniform(handle, &value, 1); }
+	void set(const int *values, uint16_t num) { bgfx::setUniform(handle, values, num); }
 	bgfx::UniformHandle handle;
 };
 
@@ -1513,16 +1513,16 @@ struct Uniforms
 	/// @{
 
 	/// General purpose sampler.
-	Uniform_int textureSampler = "u_TextureSampler";
+	Uniform_sampler textureSampler = "u_TextureSampler";
 
-	Uniform_int bloomSampler = "u_BloomSampler";
-	Uniform_int shadowMapSampler = "u_ShadowMapSampler";
-	Uniform_int noiseSampler = "u_NoiseSampler";
-	Uniform_int smaaColorSampler = "u_SmaaColorSampler";
-	Uniform_int smaaEdgesSampler = "u_SmaaEdgesSampler";
-	Uniform_int smaaAreaSampler = "u_SmaaAreaSampler";
-	Uniform_int smaaSearchSampler = "u_SmaaSearchSampler";
-	Uniform_int smaaBlendSampler = "u_SmaaBlendSampler";
+	Uniform_sampler bloomSampler = "u_BloomSampler";
+	Uniform_sampler shadowMapSampler = "u_ShadowMapSampler";
+	Uniform_sampler noiseSampler = "u_NoiseSampler";
+	Uniform_sampler smaaColorSampler = "u_SmaaColorSampler";
+	Uniform_sampler smaaEdgesSampler = "u_SmaaEdgesSampler";
+	Uniform_sampler smaaAreaSampler = "u_SmaaAreaSampler";
+	Uniform_sampler smaaSearchSampler = "u_SmaaSearchSampler";
+	Uniform_sampler smaaBlendSampler = "u_SmaaBlendSampler";
 	/// @}
 };
 
@@ -1567,13 +1567,13 @@ struct Uniforms_MaterialStage
 
 	/// @name Texture samplers
 	/// @{
-	Uniform_int depthSampler = "u_DepthSampler";
-	Uniform_int diffuseSampler = "u_DiffuseSampler";
-	Uniform_int diffuseSampler2 = "u_DiffuseSampler2";
-	Uniform_int dynamicLightCellsSampler = "u_DynamicLightCellsSampler";
-	Uniform_int dynamicLightIndicesSampler = "u_DynamicLightIndicesSampler";
-	Uniform_int dynamicLightsSampler = "u_DynamicLightsSampler";
-	Uniform_int lightSampler = "u_LightSampler";
+	Uniform_sampler depthSampler = "u_DepthSampler";
+	Uniform_sampler diffuseSampler = "u_DiffuseSampler";
+	Uniform_sampler diffuseSampler2 = "u_DiffuseSampler2";
+	Uniform_sampler dynamicLightCellsSampler = "u_DynamicLightCellsSampler";
+	Uniform_sampler dynamicLightIndicesSampler = "u_DynamicLightIndicesSampler";
+	Uniform_sampler dynamicLightsSampler = "u_DynamicLightsSampler";
+	Uniform_sampler lightSampler = "u_LightSampler";
 	/// @}
 
 	Uniform_vec4 color = "u_Color";

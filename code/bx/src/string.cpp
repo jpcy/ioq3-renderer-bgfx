@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2018 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2019 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx#license-bsd-2-clause
  */
 
@@ -188,7 +188,12 @@ namespace bx
 			}
 		}
 
-		return 0 == max && _lhsMax == _rhsMax ? 0 : fn(*_lhs) - fn(*_rhs);
+		if (0 == max)
+		{
+			return _lhsMax == _rhsMax ? 0 : _lhsMax > _rhsMax ? 1 : -1;
+		}
+
+		return fn(*_lhs) - fn(*_rhs);
 	}
 
 	int32_t strCmp(const StringView& _lhs, const StringView& _rhs, int32_t _max)
@@ -687,9 +692,10 @@ namespace bx
 		return StringView(_str.getTerm(), _str.getTerm() );
 	}
 
-	StringView findIdentifierMatch(const StringView& _str, const char** _words)
+	StringView findIdentifierMatch(const StringView& _str, const char** _words, int32_t _num)
 	{
-		for (StringView word = *_words; !word.isEmpty(); ++_words, word = *_words)
+		int32_t ii = 0;
+		for (StringView word = *_words; ii < _num && !word.isEmpty(); ++ii, ++_words, word = *_words)
 		{
 			StringView match = findIdentifierMatch(_str, word);
 			if (!match.isEmpty() )
