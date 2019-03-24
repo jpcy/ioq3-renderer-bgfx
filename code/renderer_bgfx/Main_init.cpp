@@ -370,6 +370,8 @@ void Initialize()
 			}
 		}
 		
+		bgfx::renderFrame(); // Don't create render thread.
+
 		bgfx::Init init = {};
 		init.callback = &bgfxCallback;
 		init.type = selectedBackend;
