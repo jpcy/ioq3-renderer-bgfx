@@ -141,6 +141,8 @@ struct ConsoleVariables
 	/// @{
 	ConsoleVariable gamma;
 	ConsoleVariable ignoreHardwareGamma;
+	ConsoleVariable overBrightBits;
+	ConsoleVariable mapOverBrightBits;
 	/// @}
 
 	/// @name Window
@@ -1798,10 +1800,11 @@ namespace world
 static const size_t g_funcTableSize = 1024;
 static const size_t g_funcTableSize2 = 10;
 static const size_t g_funcTableMask = g_funcTableSize - 1;
-static const float g_overbrightFactor = 2.0f;
-static const float g_identityLight = 1.0f / g_overbrightFactor;
 static const size_t g_gammaTableSize = 256;
 
+extern int g_overBrightBits;
+extern float g_overbrightFactor;
+extern float g_identityLight;
 extern uint8_t g_gammaTable[g_gammaTableSize];
 extern bool g_hardwareGammaEnabled;
 extern ConsoleVariables g_cvars;

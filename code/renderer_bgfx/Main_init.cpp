@@ -109,6 +109,8 @@ void ConsoleVariables::initialize()
 	// Gamma
 	gamma = interface::Cvar_Get("r_gamma", "1", ConsoleVariableFlags::Archive);
 	ignoreHardwareGamma = interface::Cvar_Get("r_ignorehwgamma", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	overBrightBits = interface::Cvar_Get("r_overBrightBits", "1", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
+	mapOverBrightBits = interface::Cvar_Get("r_mapOverBrightBits", "2", ConsoleVariableFlags::Latch);
 
 	// Window
 	allowResize = interface::Cvar_Get("r_allowResize", "0", ConsoleVariableFlags::Archive | ConsoleVariableFlags::Latch);
@@ -335,6 +337,10 @@ void Initialize()
 		s_main->noiseTable[i] = (float)(((rand() / (float)RAND_MAX) * 2.0 - 1.0));
 		s_main->noisePerm[i] = (unsigned char)(rand() / (float)RAND_MAX * 255);
 	}
+
+	g_overBrightBits = bx::clamp(g_cvars.overBrightBits.getInt(), 0, 2);
+	g_overbrightFactor = float(1 << g_overBrightBits);
+	g_identityLight = 1.0f / (1 << g_overBrightBits);
 
 	meta::Initialize();
 

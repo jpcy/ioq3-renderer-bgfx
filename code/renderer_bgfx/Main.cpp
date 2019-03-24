@@ -31,6 +31,9 @@ namespace renderer {
 
 bgfx::VertexDecl Vertex::decl;
 
+int g_overBrightBits;
+float g_overbrightFactor;
+float g_identityLight;
 uint8_t g_gammaTable[g_gammaTableSize];
 bool g_hardwareGammaEnabled;
 ConsoleVariables g_cvars;

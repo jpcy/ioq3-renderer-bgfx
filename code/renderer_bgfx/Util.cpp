@@ -396,7 +396,8 @@ vec3 MirroredVector(const vec3 in, const Transform &surface, const Transform &ca
 
 vec3 OverbrightenColor(vec3 color)
 {
-	color *= g_overbrightFactor;
+	const float overbrightFactor = float(1 << (g_cvars.mapOverBrightBits.getInt() - g_overBrightBits));
+	color *= overbrightFactor;
 
 	// Normalize by color instead of saturating to white.
 	if (color.r > 1 || color.g > 1 || color.b > 1)
@@ -409,9 +410,10 @@ vec3 OverbrightenColor(vec3 color)
 
 void OverbrightenColor(const uint8_t *src, uint8_t *dest)
 {
-	int r = int(src[0] * g_overbrightFactor);
-	int g = int(src[1] * g_overbrightFactor);
-	int b = int(src[2] * g_overbrightFactor);
+	const float overbrightFactor = float(1 << (g_cvars.mapOverBrightBits.getInt() - g_overBrightBits));
+	int r = int(src[0] * overbrightFactor);
+	int g = int(src[1] * overbrightFactor);
+	int b = int(src[2] * overbrightFactor);
 	
 	// Normalize by color instead of saturating to white.
 	if ((r | g | b) > 255)
