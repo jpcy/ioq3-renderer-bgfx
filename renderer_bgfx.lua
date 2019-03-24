@@ -43,7 +43,9 @@ function rendererProject(engine, lightBakerEnabled, rendererPath)
 			path.join(bgfxPath, "include/bgfx/*.h"),
 			path.join(bgfxPath, "src/*.h"),
 			path.join(rendererPath, "code/math/*.h"),
-			path.join(rendererPath, "code/renderer_bgfx/*.h")
+			path.join(rendererPath, "code/renderer_bgfx/*.h"),
+			path.join(rendererPath, "shaders/*.sc"),
+			path.join(rendererPath, "shaders/*.sh")
 		}
 	configuration {}
 	
