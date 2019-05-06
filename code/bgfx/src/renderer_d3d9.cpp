@@ -3125,7 +3125,7 @@ namespace bgfx { namespace d3d9
 	void TextureD3D9::commit(uint8_t _stage, uint32_t _flags, const float _palette[][4])
 	{
 		const uint64_t flags = (m_flags & BGFX_TEXTURE_SRGB)
-			| (0 == (BGFX_SAMPLER_INTERNAL_DEFAULT & _flags) ? _flags : uint32_t(m_flags) ) 
+			| (0 == (BGFX_SAMPLER_INTERNAL_DEFAULT & _flags) ? _flags : uint32_t(m_flags) )
 			;
 		uint32_t index = (flags & BGFX_SAMPLER_BORDER_COLOR_MASK) >> BGFX_SAMPLER_BORDER_COLOR_SHIFT;
 		s_renderD3D9->setSamplerState(_stage, flags, _palette[index]);
@@ -4228,11 +4228,12 @@ namespace bgfx { namespace d3d9
 
 					uint32_t numVertices = draw.m_numVertices;
 					uint8_t  numStreams  = 0;
-					for (uint32_t idx = 0, streamMask = draw.m_streamMask, ntz = bx::uint32_cnttz(streamMask)
+					for (uint32_t idx = 0, streamMask = draw.m_streamMask
 						; 0 != streamMask
-						; streamMask >>= 1, idx += 1, ntz = bx::uint32_cnttz(streamMask), ++numStreams
+						; streamMask >>= 1, idx += 1, ++numStreams
 						)
 					{
+						const uint32_t ntz = bx::uint32_cnttz(streamMask);
 						streamMask >>= ntz;
 						idx         += ntz;
 
@@ -4242,7 +4243,9 @@ namespace bgfx { namespace d3d9
 
 						const uint16_t handle = draw.m_stream[idx].m_handle.idx;
 						const VertexBufferD3D9& vb = m_vertexBuffers[handle];
-						const uint16_t decl = !isValid(vb.m_decl) ? draw.m_stream[idx].m_decl.idx : vb.m_decl.idx;
+						const uint16_t decl = isValid(draw.m_stream[idx].m_decl)
+							? draw.m_stream[idx].m_decl.idx
+							: vb.m_decl.idx;
 						const VertexDecl& vertexDecl = m_vertexDecls[decl];
 						const uint32_t stride = vertexDecl.m_stride;
 
