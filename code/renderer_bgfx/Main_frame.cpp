@@ -423,7 +423,7 @@ static void RenderLightningEntity(vec3 viewPosition, mat3 viewRotation, Entity *
 
 	for (int i = 0; i < 4; i++)
 	{
-		RenderRailCore(start, end, right, length, g_cvars.railCoreWidth.getFloat(), s_main->materialCache->getMaterial(entity->customMaterial), entity->materialColor, entity);
+		RenderRailCore(start, end, right, length, 8.0f, s_main->materialCache->getMaterial(entity->customMaterial), entity->materialColor, entity);
 		right = right.rotatedAroundDirection(dir, 45);
 	}
 }
