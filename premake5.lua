@@ -117,6 +117,8 @@ newaction
 					end
 					
 					command = command .. " -O 3"
+				elseif renderer == "vk" then
+					command = command .. " --platform linux -p spirv"
 				end
 				
 				if os.ishost("linux") then
@@ -148,9 +150,9 @@ newaction
 		local renderers = nil
 		
 		if os.ishost("windows") then
-			renderers = { "gl", "d3d11" }
+			renderers = { "gl", "d3d11", "vk" }
 		else
-			renderers = { "gl" }
+			renderers = { "gl", "vk" }
 		end
 		
 		local depthFragmentVariants =

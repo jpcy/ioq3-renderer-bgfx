@@ -33,11 +33,11 @@ vec3 CalculateSunLight(vec3 position, vec3 normal, vec4 shadowPosition)
 		for (int y = -2; y <= 2; y++)
 		{
 			vec2 offset = vec2(float(x) * u_ShadowMapTexelSize, float(y) * u_ShadowMapTexelSize);
-#if BGFX_SHADER_LANGUAGE_HLSL
-			visibility += shadow2D(u_ShadowMapSampler, vec3(lsPosition.xy + offset, lsPosition.z - bias));
-#else
+#if BGFX_SHADER_LANGUAGE_GLSL
 			// FIXME: glsl optimizer bug, correctly converts shadow2D to texture but tries to swizzle float
 			visibility += texture(u_ShadowMapSampler, vec3(lsPosition.xy + offset, lsPosition.z - bias));
+#else
+			visibility += shadow2D(u_ShadowMapSampler, vec3(lsPosition.xy + offset, lsPosition.z - bias));
 #endif
 		}
 	}

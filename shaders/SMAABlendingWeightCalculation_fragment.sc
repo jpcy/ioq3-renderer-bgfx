@@ -17,9 +17,9 @@ void main()
 	offset[1] = v_texcoord3;
 	offset[2] = v_texcoord4;
 	vec4 subsampleIndices = vec4_splat(0.0);
-#if BGFX_SHADER_LANGUAGE_HLSL
-	gl_FragColor = SMAABlendingWeightCalculationPS(v_texcoord0, v_texcoord1, offset, u_SmaaEdgesSampler.m_texture, u_SmaaAreaSampler.m_texture, u_SmaaSearchSampler.m_texture, subsampleIndices);
-#else
+#if BGFX_SHADER_LANGUAGE_GLSL
 	gl_FragColor = SMAABlendingWeightCalculationPS(v_texcoord0, v_texcoord1, offset, u_SmaaEdgesSampler, u_SmaaAreaSampler, u_SmaaSearchSampler, subsampleIndices);
+#else
+	gl_FragColor = SMAABlendingWeightCalculationPS(v_texcoord0, v_texcoord1, offset, u_SmaaEdgesSampler.m_texture, u_SmaaAreaSampler.m_texture, u_SmaaSearchSampler.m_texture, subsampleIndices);
 #endif
 }

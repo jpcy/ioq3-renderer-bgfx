@@ -11,9 +11,9 @@ SAMPLER2D(u_SmaaBlendSampler, 1);
 
 void main()
 {
-#if BGFX_SHADER_LANGUAGE_HLSL
-	gl_FragColor = SMAANeighborhoodBlendingPS(v_texcoord0, v_texcoord2, u_SmaaColorSampler.m_texture, u_SmaaBlendSampler.m_texture);
-#else
+#if BGFX_SHADER_LANGUAGE_GLSL
 	gl_FragColor = SMAANeighborhoodBlendingPS(v_texcoord0, v_texcoord2, u_SmaaColorSampler, u_SmaaBlendSampler);
+#else
+	gl_FragColor = SMAANeighborhoodBlendingPS(v_texcoord0, v_texcoord2, u_SmaaColorSampler.m_texture, u_SmaaBlendSampler.m_texture);
 #endif
 }
