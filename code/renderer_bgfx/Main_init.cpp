@@ -448,6 +448,11 @@ void Initialize()
 		fragMem = GetFragmentShaderSourceMap_gl();
 		vertMem = GetVertexShaderSourceMap_gl();
 	}
+	else if (caps->rendererType == bgfx::RendererType::Vulkan)
+	{
+		fragMem = GetFragmentShaderSourceMap_vk();
+		vertMem = GetVertexShaderSourceMap_vk();
+	}
 #ifdef WIN32
 	else if (caps->rendererType == bgfx::RendererType::Direct3D11)
 	{
