@@ -1762,7 +1762,7 @@ namespace window
 	int GetWidth();
 	int GetHeight();
 	int IsFullscreen();
-	void Initialize();
+	void Initialize(bgfx::PlatformData *platformData);
 	void SetGamma(const uint8_t *red, const uint8_t *green, const uint8_t *blue);
 	void Shutdown();
 }

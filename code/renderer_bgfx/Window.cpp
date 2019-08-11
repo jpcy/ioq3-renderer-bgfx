@@ -299,7 +299,7 @@ int IsFullscreen()
 	return s_window.isFullscreen;
 }
 
-void Initialize()
+void Initialize(bgfx::PlatformData *platformData)
 {
 	if (interface::Cvar_GetInteger("com_abnormalExit"))
 	{
@@ -330,7 +330,7 @@ void Initialize()
 	}
 
 	// Nothing worked, give up
-	interface::FatalError("Could not load OpenGL subsystem");
+	interface::FatalError("Could not initialize window");
 
 success:
 	// This depends on SDL_INIT_VIDEO, hence having it here
@@ -344,14 +344,12 @@ success:
 		interface::FatalError("SDL_GetWindowWMInfo: %s", SDL_GetError());
 	}
 
-	bgfx::PlatformData pd = {};
 #ifdef WIN32
-	pd.nwh = wmi.info.win.window;
+	platformData->nwh = wmi.info.win.window;
 #else
-	pd.ndt = wmi.info.x11.display;
-	pd.nwh = (void*)(uintptr_t)wmi.info.x11.window;
+	platformData->ndt = wmi.info.x11.display;
+	platformData->nwh = (void*)(uintptr_t)wmi.info.x11.window;
 #endif
-	bgfx::setPlatformData(pd);
 }
 
 void SetGamma(const uint8_t *red, const uint8_t *green, const uint8_t *blue)

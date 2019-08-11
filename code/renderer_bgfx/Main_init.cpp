@@ -344,10 +344,23 @@ void Initialize()
 
 	meta::Initialize();
 
+	uint32_t resetFlags = 0;
+
+	if (IsMsaa(s_main->aa))
+	{
+		resetFlags |= (1 + (int)s_main->aa - (int)AntiAliasing::MSAA2x) << BGFX_RESET_MSAA_SHIFT;
+	}
+
+	if (s_main->maxAnisotropyEnabled)
+	{
+		resetFlags |= BGFX_RESET_MAXANISOTROPY;
+	}
+
 	// Create a window if we don't have one.
 	if (window::GetWidth() == 0)
 	{
-		window::Initialize();
+		bgfx::Init init = {};
+		window::Initialize(&init.platformData);
 		g_hardwareGammaEnabled = window::IsFullscreen() && !g_cvars.ignoreHardwareGamma.getBool();
 		SetWindowGamma();
 
@@ -378,9 +391,12 @@ void Initialize()
 		
 		bgfx::renderFrame(); // Don't create render thread.
 
-		bgfx::Init init = {};
 		init.callback = &bgfxCallback;
 		init.type = selectedBackend;
+		init.resolution.width = (uint32_t)window::GetWidth();
+		init.resolution.height = (uint32_t)window::GetHeight();
+		init.resolution.reset = resetFlags;
+
 		if (!bgfx::init(init))
 		{
 			interface::Error("bgfx init failed");
@@ -392,20 +408,11 @@ void Initialize()
 		interface::Printf("   texture blit %ssupported\n", (bgfx::getCaps()->supported & BGFX_CAPS_TEXTURE_BLIT) == 0 ? "NOT " : "");
 		interface::Printf("   texture read back %ssupported\n", (bgfx::getCaps()->supported & BGFX_CAPS_TEXTURE_READ_BACK) == 0 ? "NOT " : "");
 	}
-
-	uint32_t resetFlags = 0;
-
-	if (IsMsaa(s_main->aa))
+	else
 	{
-		resetFlags |= (1 + (int)s_main->aa - (int)AntiAliasing::MSAA2x) << BGFX_RESET_MSAA_SHIFT;
+		bgfx::reset(window::GetWidth(), window::GetHeight(), resetFlags);
 	}
 
-	if (s_main->maxAnisotropyEnabled)
-	{
-		resetFlags |= BGFX_RESET_MAXANISOTROPY;
-	}
-
-	bgfx::reset(window::GetWidth(), window::GetHeight(), resetFlags);
 	const bgfx::Caps *caps = bgfx::getCaps();
 
 	if (caps->limits.maxFBAttachments < 2)
