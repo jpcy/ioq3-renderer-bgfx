@@ -53,7 +53,7 @@ If you have questions concerning this license or the applicable additional terms
 #include <map>
 #include <memory>
 #include <vector>
-#include "float.h"
+#include <float.h>
 
 #if !defined(_MSC_VER) && __cplusplus < 201402L
 namespace std {
@@ -65,8 +65,12 @@ std::unique_ptr<T> make_unique(Args&&... args)
 }
 #endif
 
-extern "C"
-{
+// Windows 10 / vs2019: SDL_syswm.h triggers LARGE_INTEGER alignment static assert "Windows headers require the default packing option." in winnt.h unless windows.h is included first.
+#ifdef _MSC_VER
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 #ifdef USE_LOCAL_HEADERS
 #include "SDL.h"
 #include "SDL_syswm.h"
@@ -75,7 +79,6 @@ extern "C"
 #include <SDL_syswm.h>
 #endif
 #undef main
-}
 
 #undef min
 #undef max
