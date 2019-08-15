@@ -101,6 +101,10 @@ using namespace math;
 #undef minor
 #undef None
 
+#ifndef USE_PROFILER
+#define USE_PROFILER 0
+#endif
+
 namespace renderer {
 
 struct Entity;
@@ -1130,7 +1134,7 @@ struct Patch
 Patch *Patch_Subdivide(int width, int height, const Vertex *points);
 void Patch_Free(Patch *grid);
 
-#ifdef USE_PROFILER
+#if USE_PROFILER
 namespace profiler
 {
 	void BeginFrame(uint32_t frameNo);

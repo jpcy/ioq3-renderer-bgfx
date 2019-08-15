@@ -237,12 +237,15 @@ VK_IMPORT_DEVICE
 		{
 			EXT_debug_utils,
 			EXT_debug_report,
+			EXT_memory_budget,
+			KHR_get_physical_device_properties2,
 
 			Count
 		};
 
 		const char* m_name;
 		uint32_t m_minVersion;
+		bool m_instanceExt;
 		bool m_supported;
 		bool m_initialize;
 	};
@@ -251,12 +254,14 @@ VK_IMPORT_DEVICE
 	//
 	static Extension s_extension[] =
 	{
-		{ "VK_EXT_debug_utils",  1, false, BGFX_CONFIG_DEBUG_OBJECT_NAME },
-		{ "VK_EXT_debug_report", 1, false, BGFX_CONFIG_DEBUG             },
+		{ "VK_EXT_debug_utils",                     1, false, false, BGFX_CONFIG_DEBUG_OBJECT_NAME },
+		{ "VK_EXT_debug_report",                    1, false, false, BGFX_CONFIG_DEBUG             },
+		{ "VK_EXT_memory_budget",                   1, false, false, true                          },
+		{ "VK_KHR_get_physical_device_properties2", 1, false, false, true                          },
 	};
 	BX_STATIC_ASSERT(Extension::Count == BX_COUNTOF(s_extension) );
 
-	void updateExtension(const char* _name, uint32_t _version)
+	void updateExtension(const char* _name, uint32_t _version, bool _instanceExt)
 	{
 		bx::StringView ext(_name);
 
@@ -270,7 +275,8 @@ VK_IMPORT_DEVICE
 				if (       0 == bx::strCmp(ext, extension.m_name)
 				&&  _version >= extension.m_minVersion)
 				{
-					extension.m_supported = true;
+					extension.m_supported   = true;
+					extension.m_instanceExt = _instanceExt;
 					supported = true;
 					break;
 				}
@@ -328,7 +334,7 @@ VK_IMPORT_DEVICE
 		VkVertexInputBindingDescription*   inputBinding = const_cast<VkVertexInputBindingDescription*>(_vertexInputState.pVertexBindingDescriptions + numBindings);
 		VkVertexInputAttributeDescription* inputAttrib  = const_cast<VkVertexInputAttributeDescription*>(_vertexInputState.pVertexAttributeDescriptions + numAttribs);
 
-		inputBinding->binding   = 0;
+		inputBinding->binding   = numBindings;
 		inputBinding->stride    = _decl.m_stride;
 		inputBinding->inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
@@ -337,23 +343,15 @@ VK_IMPORT_DEVICE
 			if (UINT16_MAX != _decl.m_attributes[attr])
 			{
 				inputAttrib->location = _vsh->m_attrRemap[attr];
-				inputAttrib->binding  = 0;
+				inputAttrib->binding  = numBindings;
 
-				if (0 == _decl.m_attributes[attr])
-				{
-					inputAttrib->format = VK_FORMAT_R32G32B32_SFLOAT;
-					inputAttrib->offset = 0;
-				}
-				else
-				{
-					uint8_t num;
-					AttribType::Enum type;
-					bool normalized;
-					bool asInt;
-					_decl.decode(Attrib::Enum(attr), num, type, normalized, asInt);
-					inputAttrib->format = s_attribType[type][num-1][normalized];
-					inputAttrib->offset = _decl.m_offset[attr];
-				}
+				uint8_t num;
+				AttribType::Enum type;
+				bool normalized;
+				bool asInt;
+				_decl.decode(Attrib::Enum(attr), num, type, normalized, asInt);
+				inputAttrib->format = s_attribType[type][num-1][normalized];
+				inputAttrib->offset = _decl.m_offset[attr];
 
 				++inputAttrib;
 				++numAttribs;
@@ -599,6 +597,7 @@ VK_IMPORT_DEVICE
 					updateExtension(
 						  extensionProperties[extension].extensionName
 						, extensionProperties[extension].specVersion
+						, VK_NULL_HANDLE == _physicalDevice
 						);
 				}
 			}
@@ -707,7 +706,7 @@ VK_IMPORT_DEVICE
 	template<typename Ty>
 	static BX_NO_INLINE void setDebugObjectName(VkDevice _device, Ty _object, const char* _format, ...)
 	{
-		if (BX_ENABLED(BGFX_CONFIG_DEBUG_OBJECT_NAME) )
+		if (BX_ENABLED(BGFX_CONFIG_DEBUG_OBJECT_NAME) && s_extension[Extension::EXT_debug_utils].m_supported)
 		{
 			char temp[2048];
 			va_list argList;
@@ -984,7 +983,8 @@ VK_IMPORT
 					const Extension& extension = s_extension[ii];
 
 					if (extension.m_supported
-					&&  extension.m_initialize)
+					&&  extension.m_initialize
+					&&  extension.m_instanceExt)
 					{
 						enabledExtension[numEnabledExtensions++] = extension.m_name;
 						BX_TRACE("%d: %s", numEnabledExtensions, extension.m_name);
@@ -1147,9 +1147,14 @@ VK_IMPORT_INSTANCE
 				g_caps.vendorId = uint16_t(m_deviceProperties.vendorID);
 				g_caps.deviceId = uint16_t(m_deviceProperties.deviceID);
 
+				g_caps.supported |= ( 0
+					| BGFX_CAPS_TEXTURE_BLIT
+					| BGFX_CAPS_INSTANCING
+					);
 				g_caps.limits.maxTextureSize     = m_deviceProperties.limits.maxImageDimension2D;
 				g_caps.limits.maxFBAttachments   = bx::min(uint8_t(m_deviceProperties.limits.maxFragmentOutputAttachments), uint8_t(BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS) );
 				g_caps.limits.maxComputeBindings = BGFX_MAX_COMPUTE_BINDINGS;
+				g_caps.limits.maxVertexStreams   = BGFX_CONFIG_MAX_VERTEX_STREAMS;
 
 				{
 //					VkFormatProperties fp;
@@ -1279,11 +1284,6 @@ VK_IMPORT_INSTANCE
 					BX_TRACE("Init error: Unable to find graphics queue.");
 					goto error;
 				}
-
-				g_caps.supported |= ( 0
-					| BGFX_CAPS_TEXTURE_BLIT
-					| BGFX_CAPS_INSTANCING
-					);
 			}
 
 			{
@@ -1304,12 +1304,25 @@ VK_IMPORT_INSTANCE
 					/*not used*/ ""
 				};
 
-				const char* enabledExtension[] =
+				uint32_t numEnabledExtensions = 1;
+
+				const char* enabledExtension[Extension::Count + 1] =
 				{
 					VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-//					"VK_LUNARG_DEBUG_MARKER",
-					/*not used*/ ""
 				};
+
+				for (uint32_t ii = 0; ii < Extension::Count; ++ii)
+				{
+					const Extension& extension = s_extension[ii];
+
+					if (extension.m_supported
+					&&  extension.m_initialize
+					&& !extension.m_instanceExt)
+					{
+						enabledExtension[numEnabledExtensions++] = extension.m_name;
+						BX_TRACE("%d: %s", numEnabledExtensions, extension.m_name);
+					}
+				}
 
 				float queuePriorities[1] = { 0.0f };
 				VkDeviceQueueCreateInfo dcqi;
@@ -1328,15 +1341,16 @@ VK_IMPORT_INSTANCE
 				dci.pQueueCreateInfos    = &dcqi;
 				dci.enabledLayerCount    = BX_COUNTOF(enabledLayerNames) - 1;
 				dci.ppEnabledLayerNames  = enabledLayerNames;
-				dci.enabledExtensionCount   = BX_COUNTOF(enabledExtension) - 1;
+				dci.enabledExtensionCount   = numEnabledExtensions;
 				dci.ppEnabledExtensionNames = enabledExtension;
 				dci.pEnabledFeatures = NULL;
 
-				result = vkCreateDevice(m_physicalDevice
-							, &dci
-							, m_allocatorCb
-							, &m_device
-							);
+				result = vkCreateDevice(
+					  m_physicalDevice
+					, &dci
+					, m_allocatorCb
+					, &m_device
+					);
 
 				if (VK_SUCCESS != result)
 				{
@@ -1540,8 +1554,35 @@ VK_IMPORT_DEVICE
 				numPresentModes = bx::min<uint32_t>(numPresentModes, BX_COUNTOF(presentModes) );
 				vkGetPhysicalDeviceSurfacePresentModesKHR(m_physicalDevice, m_surface, &numPresentModes, presentModes);
 
+
 				// find the best match...
-				uint32_t presentModeIdx = 0;
+				uint32_t presentModeIdx = numPresentModes;
+				VkPresentModeKHR preferredPresentMode[] = {
+					VK_PRESENT_MODE_FIFO_KHR,
+					VK_PRESENT_MODE_FIFO_RELAXED_KHR,
+					VK_PRESENT_MODE_MAILBOX_KHR,
+					VK_PRESENT_MODE_IMMEDIATE_KHR,
+				};
+				for (uint32_t ii = 0; ii < BX_COUNTOF(preferredPresentMode); ++ii)
+				{
+					for (uint32_t jj = 0; jj < numPresentModes; ++jj)
+					{
+						if (presentModes[jj] == preferredPresentMode[ii])
+						{
+							presentModeIdx = jj;
+							BX_TRACE("present mode: %d", (int)preferredPresentMode[ii]);
+							break;
+						}
+					}
+					if (presentModeIdx < numPresentModes)
+					{
+						break;
+					}
+				}
+				if (presentModeIdx == numPresentModes)
+				{
+					presentModeIdx = 0;
+				}
 
 				m_backBufferDepthStencilFormat =
 //					VK_FORMAT_D32_SFLOAT_S8_UINT
@@ -1763,20 +1804,20 @@ VK_IMPORT_DEVICE
 				ad[0].flags          = 0;
 				ad[0].format         = m_sci.imageFormat;
 				ad[0].samples        = VK_SAMPLE_COUNT_1_BIT;
-				ad[0].loadOp         = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+				ad[0].loadOp         = VK_ATTACHMENT_LOAD_OP_LOAD;
 				ad[0].storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
 				ad[0].stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 				ad[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-				ad[0].initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+				ad[0].initialLayout  = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				ad[0].finalLayout    = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				ad[1].flags          = 0;
 				ad[1].format         = m_backBufferDepthStencilFormat;
 				ad[1].samples        = VK_SAMPLE_COUNT_1_BIT;
-				ad[1].loadOp         = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+				ad[1].loadOp         = VK_ATTACHMENT_LOAD_OP_LOAD;
 				ad[1].storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
-				ad[1].stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-				ad[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-				ad[1].initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+				ad[1].stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_LOAD;
+				ad[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+				ad[1].initialLayout  = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 				ad[1].finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 				VkAttachmentReference colorAr[1];
@@ -2530,9 +2571,11 @@ VK_IMPORT_DEVICE
 				| BGFX_STATE_DEPTH_TEST_ALWAYS
 				;
 
+			const VertexDecl* vertexDecl = &m_vertexDecls[_blitter.m_vb->decl.idx];
 			VkPipeline pso = getPipeline(state
 				, packStencil(BGFX_STENCIL_DEFAULT, BGFX_STENCIL_DEFAULT)
-				, _blitter.m_vb->decl.idx
+				, 1
+				, &vertexDecl
 				, _blitter.m_program
 				, 0
 				);
@@ -3041,27 +3084,51 @@ VK_IMPORT_DEVICE
 			_desc.maxDepthBounds = 1.0f;
 		}
 
-		void setInputLayout(VkPipelineVertexInputStateCreateInfo& _vertexInputState, const VertexDecl& _vertexDecl, const ProgramVK& _program, uint8_t _numInstanceData)
+		void setInputLayout(VkPipelineVertexInputStateCreateInfo& _vertexInputState, uint8_t _numStream, const VertexDecl** _vertexDecl, const ProgramVK& _program, uint8_t _numInstanceData)
 		{
 			_vertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 			_vertexInputState.pNext = NULL;
 			_vertexInputState.flags = 0;
 
-			VertexDecl decl;
-			bx::memCopy(&decl, &_vertexDecl, sizeof(VertexDecl) );
-			const uint16_t* attrMask = _program.m_vsh->m_attrMask;
-
-			for (uint32_t ii = 0; ii < Attrib::Count; ++ii)
-			{
-				uint16_t mask = attrMask[ii];
-				uint16_t attr = (decl.m_attributes[ii] & mask);
-				decl.m_attributes[ii] = attr == 0 ? UINT16_MAX : attr == UINT16_MAX ? 0 : attr;
-			}
-
 			_vertexInputState.vertexBindingDescriptionCount   = 0;
 			_vertexInputState.vertexAttributeDescriptionCount = 0;
 
-			fillVertexDecl(_program.m_vsh, _vertexInputState, decl);
+			uint16_t unsettedAttr[Attrib::Count];
+			bx::memCopy(unsettedAttr, _program.m_vsh->m_attrMask, sizeof(uint16_t) * Attrib::Count);
+			for (uint8_t stream = 0; stream < _numStream; ++stream)
+			{
+				VertexDecl decl;
+				bx::memCopy(&decl, _vertexDecl[stream], sizeof(VertexDecl) );
+				const uint16_t* attrMask = _program.m_vsh->m_attrMask;
+
+				for (uint32_t ii = 0; ii < Attrib::Count; ++ii)
+				{
+					uint16_t mask = attrMask[ii];
+					uint16_t attr = (decl.m_attributes[ii] & mask);
+					decl.m_attributes[ii] = attr == 0 || attr == UINT16_MAX ? UINT16_MAX : attr;
+					if (unsettedAttr[ii] && attr != UINT16_MAX)
+					{
+						unsettedAttr[ii] = 0;
+					}
+				}
+
+				fillVertexDecl(_program.m_vsh, _vertexInputState, decl);
+			}
+
+			for (uint32_t ii = 0; ii < Attrib::Count; ++ii)
+			{
+				if (0 < unsettedAttr[ii])
+				{
+					uint32_t numAttribs  = _vertexInputState.vertexAttributeDescriptionCount;
+					VkVertexInputAttributeDescription* inputAttrib = const_cast<VkVertexInputAttributeDescription*>(_vertexInputState.pVertexAttributeDescriptions + numAttribs);
+					inputAttrib->location = _program.m_vsh->m_attrRemap[ii];
+					inputAttrib->binding  = 0;
+					inputAttrib->format = VK_FORMAT_R32G32B32_SFLOAT;
+					inputAttrib->offset = 0;
+					_vertexInputState.vertexAttributeDescriptionCount++;
+				}
+			}
+
 			if (0 < _numInstanceData)
 			{
 				fillInstanceBinding(_program.m_vsh, _vertexInputState, _numInstanceData);
@@ -3098,12 +3165,10 @@ VK_IMPORT_DEVICE
 			// cache missed
 			VkAttachmentDescription ad[BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS];
 			VkAttachmentReference colorAr[BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS];
-			VkAttachmentReference resolveAr;
+			VkAttachmentReference resolveAr[BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS];
 			VkAttachmentReference depthAr;
 			uint32_t numColorAr = 0;
 
-			resolveAr.attachment = VK_ATTACHMENT_UNUSED;
-			resolveAr.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 			depthAr.attachment   = VK_ATTACHMENT_UNUSED;
 			depthAr.layout		 = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
@@ -3113,25 +3178,33 @@ VK_IMPORT_DEVICE
 				ad[ii].flags          = 0;
 				ad[ii].format         = texture.m_vkTextureFormat;
 				ad[ii].samples        = VK_SAMPLE_COUNT_1_BIT;
-				ad[ii].loadOp         = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-				ad[ii].storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
-				ad[ii].stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-				ad[ii].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-				ad[ii].initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
 
 				if (texture.m_vkTextureAspect & VK_IMAGE_ASPECT_COLOR_BIT)
 				{
-					ad[ii].finalLayout               = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-					colorAr[numColorAr].layout       = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-					colorAr[numColorAr].attachment   = ii;
+					ad[ii].loadOp                  = VK_ATTACHMENT_LOAD_OP_LOAD;
+					ad[ii].storeOp                 = VK_ATTACHMENT_STORE_OP_STORE;
+					ad[ii].stencilLoadOp           = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+					ad[ii].stencilStoreOp          = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+					ad[ii].initialLayout           = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+					ad[ii].finalLayout             = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+					colorAr[numColorAr].layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+					colorAr[numColorAr].attachment = ii;
 					numColorAr++;
 				}
 				else if (texture.m_vkTextureAspect & VK_IMAGE_ASPECT_DEPTH_BIT)
 				{
-					ad[ii].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-					depthAr.layout     = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-					depthAr.attachment = ii;
+					ad[ii].loadOp         = VK_ATTACHMENT_LOAD_OP_LOAD;
+					ad[ii].storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+					ad[ii].stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_LOAD;
+					ad[ii].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
+					ad[ii].initialLayout  = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+					ad[ii].finalLayout    = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+					depthAr.layout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+					depthAr.attachment    = ii;
 				}
+
+				resolveAr[ii].attachment = VK_ATTACHMENT_UNUSED;
+				resolveAr[ii].layout     = ad[ii].initialLayout;	// TODO: should know hot to set it appropriately
 			}
 
 			VkSubpassDescription sd[1];
@@ -3141,7 +3214,7 @@ VK_IMPORT_DEVICE
 			sd[0].pInputAttachments       = NULL;
 			sd[0].colorAttachmentCount    = numColorAr;
 			sd[0].pColorAttachments       = colorAr;
-			sd[0].pResolveAttachments     = &resolveAr;
+			sd[0].pResolveAttachments     = resolveAr;
 			sd[0].pDepthStencilAttachment = &depthAr;
 			sd[0].preserveAttachmentCount = 0;
 			sd[0].pPreserveAttachments    = NULL;
@@ -3229,7 +3302,7 @@ VK_IMPORT_DEVICE
 			return VK_NULL_HANDLE;
 		}
 
-		VkPipeline getPipeline(uint64_t _state, uint64_t _stencil, uint16_t _declIdx, ProgramHandle _program, uint8_t _numInstanceData)
+		VkPipeline getPipeline(uint64_t _state, uint64_t _stencil, uint8_t _numStreams, const VertexDecl** _vertexDecls, ProgramHandle _program, uint8_t _numInstanceData)
 		{
 			ProgramVK& program = m_program[_program.idx];
 
@@ -3252,14 +3325,17 @@ VK_IMPORT_DEVICE
 			_stencil &= packStencil(~BGFX_STENCIL_FUNC_REF_MASK, ~BGFX_STENCIL_FUNC_REF_MASK);
 
 			VertexDecl decl;
-			bx::memCopy(&decl, &m_vertexDecls[_declIdx], sizeof(VertexDecl) );
-			const uint16_t* attrMask = program.m_vsh->m_attrMask;
-
-			for (uint32_t ii = 0; ii < Attrib::Count; ++ii)
+			if (0 < _numStreams)
 			{
-				uint16_t mask = attrMask[ii];
-				uint16_t attr = (decl.m_attributes[ii] & mask);
-				decl.m_attributes[ii] = attr == 0 ? UINT16_MAX : attr == UINT16_MAX ? 0 : attr;
+				bx::memCopy(&decl, _vertexDecls[0], sizeof(VertexDecl) );
+				const uint16_t* attrMask = program.m_vsh->m_attrMask;
+
+				for (uint32_t ii = 0; ii < Attrib::Count; ++ii)
+				{
+					uint16_t mask = attrMask[ii];
+					uint16_t attr = (decl.m_attributes[ii] & mask);
+					decl.m_attributes[ii] = attr == 0 ? UINT16_MAX : attr == UINT16_MAX ? 0 : attr;
+				}
 			}
 
 			bx::HashMurmur2A murmur;
@@ -3269,7 +3345,10 @@ VK_IMPORT_DEVICE
 			murmur.add(program.m_vsh->m_hash);
 			murmur.add(program.m_vsh->m_attrMask, sizeof(program.m_vsh->m_attrMask) );
 			murmur.add(program.m_fsh->m_hash);
-			murmur.add(m_vertexDecls[_declIdx].m_hash);
+			for (uint8_t ii = 0; ii < _numStreams; ++ii)
+			{
+				murmur.add(_vertexDecls[ii]->m_hash);
+			}
 			murmur.add(decl.m_attributes, sizeof(decl.m_attributes) );
 			murmur.add(m_fbh.idx);
 			murmur.add(_numInstanceData);
@@ -3306,7 +3385,7 @@ VK_IMPORT_DEVICE
 			VkPipelineVertexInputStateCreateInfo vertexInputState;
 			vertexInputState.pVertexBindingDescriptions   = inputBinding;
 			vertexInputState.pVertexAttributeDescriptions = inputAttrib;
-			setInputLayout(vertexInputState, m_vertexDecls[_declIdx], program, _numInstanceData);
+			setInputLayout(vertexInputState, _numStreams, _vertexDecls, program, _numInstanceData);
 
 			const VkDynamicState dynamicStates[] =
 			{
@@ -4583,6 +4662,11 @@ VK_DESTROY
 			m_numLayers = ti.numLayers;
 			m_requestedFormat = uint8_t(imageContainer.m_format);
 			m_textureFormat = uint8_t(getViableTextureFormat(imageContainer));
+			m_vkTextureFormat = bimg::isDepth(bimg::TextureFormat::Enum(m_textureFormat) )
+				? s_textureFormat[m_textureFormat].m_fmtDsv
+				: s_textureFormat[m_textureFormat].m_fmt
+				;
+
 			const bool convert = m_textureFormat != m_requestedFormat;
 			const uint8_t bpp = bimg::getBitsPerPixel(bimg::TextureFormat::Enum(m_textureFormat));
 			m_vkTextureAspect = bimg::isDepth((bimg::TextureFormat::Enum)m_textureFormat)
@@ -4590,15 +4674,13 @@ VK_DESTROY
 				: VK_IMAGE_ASPECT_COLOR_BIT
 				;
 
-			if (m_textureFormat == TextureFormat::D0S8 || m_textureFormat == TextureFormat::D24S8)
+			if (m_vkTextureFormat == VK_FORMAT_S8_UINT
+			||  m_vkTextureFormat == VK_FORMAT_D16_UNORM_S8_UINT
+			||  m_vkTextureFormat == VK_FORMAT_D24_UNORM_S8_UINT
+			||  m_vkTextureFormat == VK_FORMAT_D32_SFLOAT_S8_UINT)
 			{
 				m_vkTextureAspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
 			}
-
-			m_vkTextureFormat = bimg::isDepth(bimg::TextureFormat::Enum(m_textureFormat) )
-				? s_textureFormat[m_textureFormat].m_fmtDsv
-				: s_textureFormat[m_textureFormat].m_fmt
-				;
 
 			if (imageContainer.m_cubeMap)
 			{
@@ -5247,8 +5329,12 @@ VK_DESTROY
 				, &m_backBufferColorIdx
 				) );
 
-		const uint64_t f0 = BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_FACTOR, BGFX_STATE_BLEND_FACTOR);
-		const uint64_t f1 = BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_INV_FACTOR, BGFX_STATE_BLEND_INV_FACTOR);
+//		const uint64_t f0 = BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_FACTOR, BGFX_STATE_BLEND_FACTOR);
+//		const uint64_t f1 = BGFX_STATE_BLEND_FUNC(BGFX_STATE_BLEND_INV_FACTOR, BGFX_STATE_BLEND_INV_FACTOR);
+		const uint64_t f0 = BGFX_STATE_BLEND_FACTOR;
+		const uint64_t f1 = BGFX_STATE_BLEND_INV_FACTOR;
+		const uint64_t f2 = BGFX_STATE_BLEND_FACTOR<<4;
+		const uint64_t f3 = BGFX_STATE_BLEND_INV_FACTOR<<4;
 
 		ScratchBufferVK& scratchBuffer = m_scratchBuffer[m_backBufferColorIdx];
 		scratchBuffer.reset();
@@ -5315,7 +5401,7 @@ VK_DESTROY
 						vkCmdEndRenderPass(m_commandBuffer);
 						beginRenderPass = false;
 
-						if (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION) )
+						if (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION) && s_extension[Extension::EXT_debug_utils].m_supported )
 						{
 							vkCmdEndDebugUtilsLabelEXT(m_commandBuffer);
 						}
@@ -5352,7 +5438,7 @@ BX_UNUSED(currentSamplerStateIdx);
 					rpbi.renderArea.extent.width  = rect.m_width;
 					rpbi.renderArea.extent.height = rect.m_height;
 
-					if (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION) )
+					if (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION) && s_extension[Extension::EXT_debug_utils].m_supported )
 					{
 						VkDebugUtilsLabelEXT dul;
 						dul.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -5380,8 +5466,8 @@ BX_UNUSED(currentSamplerStateIdx);
 					VkRect2D rc;
 					rc.offset.x      = viewScissorRect.m_x;
 					rc.offset.y      = viewScissorRect.m_y;
-					rc.extent.width  = viewScissorRect.m_x + viewScissorRect.m_width;
-					rc.extent.height = viewScissorRect.m_y + viewScissorRect.m_height;
+					rc.extent.width  = viewScissorRect.m_width;
+					rc.extent.height = viewScissorRect.m_height;
 					vkCmdSetScissor(m_commandBuffer, 0, 1, &rc);
 
 					restoreScissor = false;
@@ -5643,21 +5729,51 @@ BX_UNUSED(currentSamplerStateIdx);
 
 				rendererUpdateUniforms(this, _render->m_uniformBuffer[draw.m_uniformIdx], draw.m_uniformBegin, draw.m_uniformEnd);
 
-				if (isValid(draw.m_stream[0].m_handle) )
+				if (0 != draw.m_streamMask)
 				{
+					currentState.m_streamMask			= draw.m_streamMask;
+
 					const uint64_t state = draw.m_stateFlags;
 					bool hasFactor = 0
 						|| f0 == (state & f0)
 						|| f1 == (state & f1)
+						|| f2 == (state & f2)
+						|| f3 == (state & f3)
 						;
 
-					const VertexBufferVK& vb = m_vertexBuffers[draw.m_stream[0].m_handle.idx];
-					uint16_t declIdx = !isValid(vb.m_decl) ? draw.m_stream[0].m_decl.idx : vb.m_decl.idx;
+					const VertexDecl* decls[BGFX_CONFIG_MAX_VERTEX_STREAMS];
+					uint8_t numStreams = 0;
+					if (UINT8_MAX != draw.m_streamMask)
+					{
+						for (uint32_t idx = 0, streamMask = draw.m_streamMask
+							; 0 != streamMask
+							; streamMask >>= 1, idx += 1, ++numStreams
+							)
+						{
+							const uint32_t ntz = bx::uint32_cnttz(streamMask);
+							streamMask >>= ntz;
+							idx         += ntz;
+
+							currentState.m_stream[idx].m_decl        = draw.m_stream[idx].m_decl;
+							currentState.m_stream[idx].m_handle      = draw.m_stream[idx].m_handle;
+							currentState.m_stream[idx].m_startVertex = draw.m_stream[idx].m_startVertex;
+
+							uint16_t handle = draw.m_stream[idx].m_handle.idx;
+							const VertexBufferVK& vb = m_vertexBuffers[handle];
+							const uint16_t decl = isValid(draw.m_stream[idx].m_decl)
+												  ? draw.m_stream[idx].m_decl.idx
+												  : vb.m_decl.idx;
+							const VertexDecl& vertexDecl = m_vertexDecls[decl];
+
+							decls[numStreams] = &vertexDecl;
+						}
+					}
 
 					VkPipeline pipeline =
 						getPipeline(state
 							, draw.m_stencil
-							, declIdx
+							, numStreams
+							, decls
 							, key.m_program
 							, uint8_t(draw.m_instanceDataStride/16)
 							);
@@ -5781,8 +5897,8 @@ BX_UNUSED(currentSamplerStateIdx);
 								VkRect2D rc;
 								rc.offset.x      = viewScissorRect.m_x;
 								rc.offset.y      = viewScissorRect.m_y;
-								rc.extent.width  = viewScissorRect.m_x + viewScissorRect.m_width;
-								rc.extent.height = viewScissorRect.m_y + viewScissorRect.m_height;
+								rc.extent.width  = viewScissorRect.m_width;
+								rc.extent.height = viewScissorRect.m_height;
 								vkCmdSetScissor(m_commandBuffer, 0, 1, &rc);
 							}
 						}
@@ -5795,8 +5911,8 @@ BX_UNUSED(currentSamplerStateIdx);
 							VkRect2D rc;
 							rc.offset.x      = scissorRect.m_x;
 							rc.offset.y      = scissorRect.m_y;
-							rc.extent.width  = scissorRect.m_x + scissorRect.m_width;
-							rc.extent.height = scissorRect.m_y + scissorRect.m_height;
+							rc.extent.width  = scissorRect.m_width;
+							rc.extent.height = scissorRect.m_height;
 							vkCmdSetScissor(m_commandBuffer, 0, 1, &rc);
 						}
 					}
@@ -5996,23 +6112,24 @@ BX_UNUSED(currentSamplerStateIdx);
 
 //					vb.setState(_commandList, D3D12_RESOURCE_STATE_GENERIC_READ);
 
-					const VertexDecl& vertexDecl = m_vertexDecls[declIdx];
 					uint32_t numIndices = 0;
-
-					VkDeviceSize offset = 0;
-					vkCmdBindVertexBuffers(m_commandBuffer
-						, 0
-						, 1
-						, &vb.m_buffer
-						, &offset
-						);
+					for (uint32_t ii = 0; ii < numStreams; ++ii)
+					{
+						VkDeviceSize offset = 0;
+						vkCmdBindVertexBuffers(m_commandBuffer
+							, ii
+							, 1
+							, &m_vertexBuffers[draw.m_stream[ii].m_handle.idx].m_buffer
+							, &offset
+							);
+					}
 
 					if (isValid(draw.m_instanceDataBuffer))
 					{
 						VkDeviceSize instanceOffset = draw.m_instanceDataOffset;
 						VertexBufferVK& instanceBuffer = m_vertexBuffers[draw.m_instanceDataBuffer.idx];
 						vkCmdBindVertexBuffers(m_commandBuffer
-							, 1
+							, numStreams
 							, 1
 							, &instanceBuffer.m_buffer
 							, &instanceOffset
@@ -6021,8 +6138,11 @@ BX_UNUSED(currentSamplerStateIdx);
 
 					if (!isValid(draw.m_indexBuffer) )
 					{
+						const VertexBufferVK& vertexBuffer = m_vertexBuffers[draw.m_stream[0].m_handle.idx];
+						const VertexDecl& vertexDecl = m_vertexDecls[draw.m_stream[0].m_decl.idx];
+
 						const uint32_t numVertices = UINT32_MAX == draw.m_numVertices
-							? vb.m_size / vertexDecl.m_stride
+							? vertexBuffer.m_size / vertexDecl.m_stride
 							: draw.m_numVertices
 							;
 						vkCmdDraw(m_commandBuffer
@@ -6156,47 +6276,39 @@ BX_UNUSED(presentMin, presentMax);
 					, pdp.deviceName
 					, getName(pdp.deviceType)
 					);
-//
-//				char dedicatedVideo[16];
-//				bx::prettify(dedicatedVideo, BX_COUNTOF(dedicatedVideo), desc.DedicatedVideoMemory);
-//
-//				char dedicatedSystem[16];
-//				bx::prettify(dedicatedSystem, BX_COUNTOF(dedicatedSystem), desc.DedicatedSystemMemory);
-//
-//				char sharedSystem[16];
-//				bx::prettify(sharedSystem, BX_COUNTOF(sharedSystem), desc.SharedSystemMemory);
-//
-//				char processMemoryUsed[16];
-//				bx::prettify(processMemoryUsed, BX_COUNTOF(processMemoryUsed), bx::getProcessMemoryUsed() );
-//
-//				tvm.printf(0, pos++, 0x8f, " Memory: %s (video), %s (system), %s (shared), %s (process) "
-//					, dedicatedVideo
-//					, dedicatedSystem
-//					, sharedSystem
-//					, processMemoryUsed
-//					);
 
-//				DXGI_QUERY_VIDEO_MEMORY_INFO memInfo;
-//				DX_CHECK(m_adapter->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &memInfo) );
-//
-//				char budget[16];
-//				bx::prettify(budget, BX_COUNTOF(budget), memInfo.Budget);
-//
-//				char currentUsage[16];
-//				bx::prettify(currentUsage, BX_COUNTOF(currentUsage), memInfo.CurrentUsage);
-//
-//				char availableForReservation[16];
-//				bx::prettify(availableForReservation, BX_COUNTOF(currentUsage), memInfo.AvailableForReservation);
-//
-//				char currentReservation[16];
-//				bx::prettify(currentReservation, BX_COUNTOF(currentReservation), memInfo.CurrentReservation);
-//
-//				tvm.printf(0, pos++, 0x8f, " Budget: %s, Usage: %s, AvailRes: %s, CurrRes: %s "
-//					, budget
-//					, currentUsage
-//					, availableForReservation
-//					, currentReservation
-//					);
+				if (s_extension[Extension::EXT_memory_budget].m_supported)
+				{
+					VkPhysicalDeviceMemoryBudgetPropertiesEXT dmbp;
+					dmbp.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT;
+					dmbp.pNext = NULL;
+
+					VkPhysicalDeviceMemoryProperties2 pdmp2;
+					pdmp2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+					pdmp2.pNext = &dmbp;
+
+					vkGetPhysicalDeviceMemoryProperties2KHR(m_physicalDevice, &pdmp2);
+
+					for (uint32_t ii = 0; ii < VK_MAX_MEMORY_HEAPS; ++ii)
+					{
+						if (dmbp.heapBudget[ii] == 0)
+						{
+							continue;
+						}
+
+						char budget[16];
+						bx::prettify(budget, BX_COUNTOF(budget), dmbp.heapBudget[ii]);
+
+						char usage[16];
+						bx::prettify(usage, BX_COUNTOF(usage), dmbp.heapUsage[ii]);
+
+						tvm.printf(0, pos++, 0x8f, " Memory %d - Budget: %12s, Usage: %12s"
+							, ii
+							, budget
+							, usage
+							);
+					}
+				}
 
 				pos = 10;
 				tvm.printf(10, pos++, 0x8b, "       Frame: % 7.3f, % 7.3f \x1f, % 7.3f \x1e [ms] / % 6.2f FPS "
@@ -6303,7 +6415,7 @@ BX_UNUSED(presentMin, presentMax);
 			vkCmdEndRenderPass(m_commandBuffer);
 			beginRenderPass = false;
 
-			if (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION) )
+			if (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION) && s_extension[Extension::EXT_debug_utils].m_supported )
 			{
 				vkCmdEndDebugUtilsLabelEXT(m_commandBuffer);
 			}

@@ -22,7 +22,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "Precompiled.h"
 #pragma hdrstop
 
-#ifdef USE_PROFILER
+#if USE_PROFILER
 
 namespace renderer {
 namespace profiler {

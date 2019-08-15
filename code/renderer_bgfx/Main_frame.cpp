@@ -1810,7 +1810,7 @@ void EndFrame()
 		RenderDebugDraw(bgfx::getTexture(s_main->shadowMapFb.handle), 0, 0, ShaderProgramId::TextureDebug);
 	}
 
-#ifdef USE_PROFILER
+#if USE_PROFILER
 	PROFILE_END // Frame
 	profiler::Print();
 	profiler::BeginFrame(s_main->frameNo + 1);
