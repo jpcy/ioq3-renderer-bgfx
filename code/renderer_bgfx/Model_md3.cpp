@@ -691,7 +691,7 @@ bool Model_md3::load(const ReadOnlyFile &file)
 			startVertex += fs.nVertices;
 		}
 
-		vertexBuffer_.handle = bgfx::createVertexBuffer(verticesMem, Vertex::decl);
+		vertexBuffer_.handle = bgfx::createVertexBuffer(verticesMem, Vertex::layout);
 	}
 	else
 	{
@@ -850,13 +850,13 @@ void Model_md3::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 	if (isAnimated)
 	{
 		// Build transient vertex buffer for animated models.
-		if (bgfx::getAvailTransientVertexBuffer(nVertices_, Vertex::decl) < nVertices_)
+		if (bgfx::getAvailTransientVertexBuffer(nVertices_, Vertex::layout) < nVertices_)
 		{
 			WarnOnce(WarnOnceId::TransientBuffer);
 			return;
 		}
 
-		bgfx::allocTransientVertexBuffer(&tvb, nVertices_, Vertex::decl);
+		bgfx::allocTransientVertexBuffer(&tvb, nVertices_, Vertex::layout);
 		vertices = (Vertex *)tvb.data;
 
 		// Lerp vertices.

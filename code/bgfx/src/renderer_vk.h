@@ -71,6 +71,7 @@
 			VK_IMPORT_INSTANCE_FUNC(false, vkEnumerateDeviceLayerProperties);          \
 			VK_IMPORT_INSTANCE_FUNC(false, vkGetPhysicalDeviceProperties);             \
 			VK_IMPORT_INSTANCE_FUNC(false, vkGetPhysicalDeviceFormatProperties);       \
+			VK_IMPORT_INSTANCE_FUNC(false, vkGetPhysicalDeviceFeatures);               \
 			VK_IMPORT_INSTANCE_FUNC(false, vkGetPhysicalDeviceImageFormatProperties);  \
 			VK_IMPORT_INSTANCE_FUNC(false, vkGetPhysicalDeviceMemoryProperties);       \
 			VK_IMPORT_INSTANCE_FUNC(true,  vkGetPhysicalDeviceMemoryProperties2KHR);   \
@@ -325,6 +326,11 @@ VK_DESTROY
 		void destroy();
 		void reset();
 
+		VkDescriptorSet& getCurrentDS()
+		{
+			return m_descriptorSet[m_currentDs - 1];
+		}
+
 		VkDescriptorSet* m_descriptorSet;
 		VkBuffer m_buffer;
 		VkDeviceMemory m_deviceMem;
@@ -378,9 +384,9 @@ VK_DESTROY
 
 	struct VertexBufferVK : public BufferVK
 	{
-		void create(uint32_t _size, void* _data, VertexDeclHandle _declHandle, uint16_t _flags);
+		void create(uint32_t _size, void* _data, VertexLayoutHandle _layoutHandle, uint16_t _flags);
 
-		VertexDeclHandle m_decl;
+		VertexLayoutHandle m_layoutHandle;
 	};
 
 	struct ShaderVK
@@ -414,13 +420,26 @@ VK_DESTROY
 		uint8_t m_numPredefined;
 		uint8_t m_numAttrs;
 
-		struct SamplerInfo
+		struct BindType
+		{
+			enum Enum
+			{
+				Storage,
+				Sampler,
+
+				Count
+			};
+		};
+
+		struct BindInfo
 		{
 			UniformHandle uniformHandle;
+			BindType::Enum type;
+			uint32_t binding;
 			uint32_t samplerBinding;
-			uint32_t imageBinding;
 		};
-		SamplerInfo m_sampler[BGFX_CONFIG_MAX_TEXTURE_SAMPLERS];
+
+		BindInfo m_bindInfo[BGFX_CONFIG_MAX_TEXTURE_SAMPLERS];
 		uint32_t m_uniformBinding;
 		uint16_t m_numBindings;
 		VkDescriptorSetLayoutBinding m_bindings[32];
@@ -456,6 +475,8 @@ VK_DESTROY
 			, m_textureImage(VK_NULL_HANDLE)
 			, m_textureDeviceMem(VK_NULL_HANDLE)
 			, m_textureImageView(VK_NULL_HANDLE)
+			, m_textureImageDepthView(VK_NULL_HANDLE)
+			, m_textureImageStorageView(VK_NULL_HANDLE)
 			, m_currentImageLayout(VK_IMAGE_LAYOUT_UNDEFINED)
 		{
 		}
@@ -484,6 +505,8 @@ VK_DESTROY
 		VkImage m_textureImage;
 		VkDeviceMemory m_textureDeviceMem;
 		VkImageView m_textureImageView;
+		VkImageView m_textureImageDepthView;
+		VkImageView m_textureImageStorageView;
 		VkImageLayout m_currentImageLayout;
 	};
 

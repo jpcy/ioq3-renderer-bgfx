@@ -1717,20 +1717,20 @@ struct Vertex
 
 	static void init()
 	{
-		decl.begin();
-		decl.add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float);
-		decl.add(bgfx::Attrib::Normal, 3, bgfx::AttribType::Float);
-		decl.add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true);
-		decl.add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float);
-		decl.m_stride = sizeof(Vertex);
-		decl.m_offset[bgfx::Attrib::Position] = offsetof(Vertex, pos);
-		decl.m_offset[bgfx::Attrib::Normal] = offsetof(Vertex, normal);
-		decl.m_offset[bgfx::Attrib::TexCoord0] = offsetof(Vertex, texCoord);
-		decl.m_offset[bgfx::Attrib::Color0] = offsetof(Vertex, color);
-		decl.end();
+		layout.begin();
+		layout.add(bgfx::Attrib::Position, 3, bgfx::AttribType::Float);
+		layout.add(bgfx::Attrib::Normal, 3, bgfx::AttribType::Float);
+		layout.add(bgfx::Attrib::Color0, 4, bgfx::AttribType::Uint8, true);
+		layout.add(bgfx::Attrib::TexCoord0, 4, bgfx::AttribType::Float);
+		layout.m_stride = sizeof(Vertex);
+		layout.m_offset[bgfx::Attrib::Position] = offsetof(Vertex, pos);
+		layout.m_offset[bgfx::Attrib::Normal] = offsetof(Vertex, normal);
+		layout.m_offset[bgfx::Attrib::TexCoord0] = offsetof(Vertex, texCoord);
+		layout.m_offset[bgfx::Attrib::Color0] = offsetof(Vertex, color);
+		layout.end();
 	}
 
-	static bgfx::VertexDecl decl;
+	static bgfx::VertexLayout layout;
 };
 
 struct VertexBuffer

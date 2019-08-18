@@ -357,7 +357,7 @@ void Model_mds::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 		assert(surface->numVerts > 0);
 		assert(surface->numTriangles > 0);
 
-		if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, surface->numVerts, &tib, surface->numTriangles * 3))
+		if (!bgfx::allocTransientBuffers(&tvb, Vertex::layout, surface->numVerts, &tib, surface->numTriangles * 3))
 		{
 			WarnOnce(WarnOnceId::TransientBuffer);
 			return;

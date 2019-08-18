@@ -994,7 +994,7 @@ void Load(const char *name)
 	// Index buffer is initialized on first use, not here.
 	for (size_t i = 0; i < s_world->currentGeometryBuffer + 1; i++)
 	{
-		s_world->vertexBuffers[i].handle = bgfx::createVertexBuffer(bgfx::makeRef(&s_world->vertices[i][0], uint32_t(s_world->vertices[i].size() * sizeof(Vertex))), Vertex::decl);
+		s_world->vertexBuffers[i].handle = bgfx::createVertexBuffer(bgfx::makeRef(&s_world->vertices[i][0], uint32_t(s_world->vertices[i].size() * sizeof(Vertex))), Vertex::layout);
 	}
 
 	// Create batched surfaces for frustum culling.
@@ -2173,7 +2173,7 @@ void Render(VisibilityId visId, DrawCallList *drawCallList, const mat3 &sceneRot
 			bgfx::TransientVertexBuffer tvb;
 			bgfx::TransientIndexBuffer tib;
 
-			if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, surface.nVertices, &tib, surface.nIndices))
+			if (!bgfx::allocTransientBuffers(&tvb, Vertex::layout, surface.nVertices, &tib, surface.nIndices))
 			{
 				WarnOnce(WarnOnceId::TransientBuffer);
 				continue;

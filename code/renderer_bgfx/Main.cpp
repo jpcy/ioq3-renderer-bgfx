@@ -29,7 +29,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 namespace renderer {
 
-bgfx::VertexDecl Vertex::decl;
+bgfx::VertexLayout Vertex::layout;
 
 int g_overBrightBits;
 float g_overbrightFactor;

@@ -632,7 +632,7 @@ void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, float zMax, con
 
 			DrawCall dc;
 
-			if (!bgfx::allocTransientBuffers(&dc.vb.transientHandle, Vertex::decl, nVertices, &dc.ib.transientHandle, nIndices)) 
+			if (!bgfx::allocTransientBuffers(&dc.vb.transientHandle, Vertex::layout, nVertices, &dc.ib.transientHandle, nIndices)) 
 			{
 				WarnOnce(WarnOnceId::TransientBuffer);
 				return;
@@ -664,7 +664,7 @@ void Sky_Render(DrawCallList *drawCallList, vec3 cameraPosition, float zMax, con
 		TessellateCloudBox(nullptr, nullptr, &nVertices, &nIndices, cameraPosition, zMax);
 		DrawCall dc;
 
-		if (!bgfx::allocTransientBuffers(&dc.vb.transientHandle, Vertex::decl, nVertices, &dc.ib.transientHandle, nIndices)) 
+		if (!bgfx::allocTransientBuffers(&dc.vb.transientHandle, Vertex::layout, nVertices, &dc.ib.transientHandle, nIndices)) 
 		{
 			WarnOnce(WarnOnceId::TransientBuffer);
 			return;

@@ -87,7 +87,7 @@ static void FlushStretchPics()
 		bgfx::TransientVertexBuffer tvb;
 		bgfx::TransientIndexBuffer tib;
 
-		if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, (uint32_t)s_main->stretchPicVertices.size(), &tib, (uint32_t)s_main->stretchPicIndices.size()))
+		if (!bgfx::allocTransientBuffers(&tvb, Vertex::layout, (uint32_t)s_main->stretchPicVertices.size(), &tib, (uint32_t)s_main->stretchPicIndices.size()))
 		{
 			WarnOnce(WarnOnceId::TransientBuffer);
 		}
@@ -190,7 +190,7 @@ void DrawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_
 	bgfx::TransientVertexBuffer tvb;
 	bgfx::TransientIndexBuffer tib;
 
-	if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, 4, &tib, 6))
+	if (!bgfx::allocTransientBuffers(&tvb, Vertex::layout, 4, &tib, 6))
 	{
 		WarnOnce(WarnOnceId::TransientBuffer);
 		return;
@@ -232,7 +232,7 @@ void DrawStretchRaw(int x, int y, int w, int h, int cols, int rows, const uint8_
 void RenderScreenSpaceQuad(const char *viewName, const FrameBuffer &frameBuffer, ShaderProgramId::Enum program, uint64_t state, uint16_t clearFlags, bool originBottomLeft, Rect rect)
 {
 	const uint32_t nVerts = 3;
-	if (bgfx::getAvailTransientVertexBuffer(nVerts, Vertex::decl) < nVerts)
+	if (bgfx::getAvailTransientVertexBuffer(nVerts, Vertex::layout) < nVerts)
 	{
 		WarnOnce(WarnOnceId::TransientBuffer);
 		return;
@@ -264,7 +264,7 @@ void RenderScreenSpaceQuad(const char *viewName, const FrameBuffer &frameBuffer,
 	}
 
 	bgfx::TransientVertexBuffer vb;
-	bgfx::allocTransientVertexBuffer(&vb, nVerts, Vertex::decl);
+	bgfx::allocTransientVertexBuffer(&vb, nVerts, Vertex::layout);
 	auto vertices = (Vertex *)vb.data;
 	vertices[0].pos = vec3(minx, miny, zz);
 	vertices[0].setColor(vec4::white);
@@ -370,7 +370,7 @@ static void RenderRailCore(vec3 start, vec3 end, vec3 up, float length, float sp
 	bgfx::TransientVertexBuffer tvb;
 	bgfx::TransientIndexBuffer tib;
 
-	if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, nVertices, &tib, nIndices)) 
+	if (!bgfx::allocTransientBuffers(&tvb, Vertex::layout, nVertices, &tib, nIndices)) 
 	{
 		WarnOnce(WarnOnceId::TransientBuffer);
 		return;
@@ -479,7 +479,7 @@ static void RenderRailRingsEntity(Entity *entity)
 	bgfx::TransientVertexBuffer tvb;
 	bgfx::TransientIndexBuffer tib;
 
-	if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, nVertices, &tib, nIndices)) 
+	if (!bgfx::allocTransientBuffers(&tvb, Vertex::layout, nVertices, &tib, nIndices)) 
 	{
 		WarnOnce(WarnOnceId::TransientBuffer);
 		return;
@@ -541,7 +541,7 @@ static void RenderSpriteEntity(mat3 viewRotation, Entity *entity)
 	bgfx::TransientVertexBuffer tvb;
 	bgfx::TransientIndexBuffer tib;
 
-	if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, nVertices, &tib, nIndices)) 
+	if (!bgfx::allocTransientBuffers(&tvb, Vertex::layout, nVertices, &tib, nIndices)) 
 	{
 		WarnOnce(WarnOnceId::TransientBuffer);
 		return;
@@ -704,7 +704,7 @@ static void RenderPolygons()
 		bgfx::TransientVertexBuffer tvb;
 		bgfx::TransientIndexBuffer tib;
 
-		if (!bgfx::allocTransientBuffers(&tvb, Vertex::decl, nVertices, &tib, nIndices))
+		if (!bgfx::allocTransientBuffers(&tvb, Vertex::layout, nVertices, &tib, nIndices))
 		{
 			WarnOnce(WarnOnceId::TransientBuffer);
 			break;
@@ -1437,7 +1437,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 	if (!s_main->sceneDebugAxis.empty())
 	{
 		bgfx::TransientVertexBuffer tvb;
-		bgfx::allocTransientVertexBuffer(&tvb, 6, Vertex::decl);
+		bgfx::allocTransientVertexBuffer(&tvb, 6, Vertex::layout);
 		auto vertices = (Vertex *)tvb.data;
 		const float l = 16;
 		vertices[0].pos = { 0, 0, 0 }; vertices[0].setColor(vec4::red);
@@ -1471,7 +1471,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 		};
 
 		bgfx::TransientVertexBuffer tvb;
-		bgfx::allocTransientVertexBuffer(&tvb, nVertices * (uint32_t)s_main->sceneDebugBounds.size(), Vertex::decl);
+		bgfx::allocTransientVertexBuffer(&tvb, nVertices * (uint32_t)s_main->sceneDebugBounds.size(), Vertex::layout);
 		auto v = (Vertex *)tvb.data;
 
 		for (size_t i = 0; i < s_main->sceneDebugBounds.size(); i++)
