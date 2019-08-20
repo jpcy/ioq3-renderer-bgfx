@@ -432,7 +432,6 @@ void Initialize()
 
 	s_main->debugDraw = DebugDrawFromString(g_cvars.debugDraw.getString());
 	s_main->halfTexelOffset = caps->rendererType == bgfx::RendererType::Direct3D9 ? 0.5f : 0;
-	s_main->isTextureOriginBottomLeft = caps->rendererType == bgfx::RendererType::OpenGL || caps->rendererType == bgfx::RendererType::OpenGLES;
 	Vertex::init();
 	s_main->uniforms = std::make_unique<Uniforms>();
 	s_main->entityUniforms = std::make_unique<Uniforms_Entity>();
