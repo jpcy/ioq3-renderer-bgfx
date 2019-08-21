@@ -26,7 +26,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 namespace renderer {
 
-#include "../../build/Shader.h" // Pull into the renderer namespace.
+#include "../../shaders_bin/Shader.h" // Pull into the renderer namespace.
 
 namespace main {
 

@@ -27,7 +27,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 namespace renderer {
 
 // Pull into the renderer namespace.
-#include "../../build/Shader.cpp"
+#include "../../shaders_bin/Shader.cpp"
 #include "../smaa/AreaTex.h"
 #include "../smaa/SearchTex.h"
 

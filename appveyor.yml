@@ -6,7 +6,6 @@ branches:
 
 install:
   - cmd: git clone https://github.com/ioquake/ioq3.git ../ioq3
-  - cmd: premake5.exe shaders
   - cmd: premake5.exe gmake
   - cmd: set PATH=C:\msys64\usr\bin;%PATH%
   - cmd: bash -lc ""

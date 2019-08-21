@@ -214,13 +214,20 @@ newaction
 			{ "Texture" }
 		}
 		
-		local outputSourceFilename = "build/Shader.cpp"
-		
 		-- Make sure the build directory exists
 		os.mkdir("build")
 		
-		-- Delete the output file so we can append to it.
+		-- Delete the output files.
+		local outputSourceFilename = "shaders_bin/Shader.cpp"
+		local outputHeaderFilename = "shaders_bin/Shader.h"
 		os.remove(outputSourceFilename)
+		os.remove(outputHeaderFilename)
+		for _,v in pairs(fragmentShaders) do
+			os.remove("shaders_bin/" .. v[1] .. "_fragment.h")
+		end
+		for _,v in pairs(vertexShaders) do
+			os.remove("shaders_bin/" .. v[1] .. "_vertex.h")
+		end
 		
 		-- Expand shader lists so each variant has a single entry.
 		local expandedFragmentShaders = expandShaderVariants(fragmentShaders)
@@ -229,11 +236,11 @@ newaction
 		-- Compile the shaders.
 		local ok, message = pcall(function()
 			for _,v in pairs(expandedFragmentShaders) do
-				compileShader(v[1], "fragment", v[2], v[3], outputSourceFilename, renderers)
+				compileShader(v[1], "fragment", v[2], v[3], "shaders_bin/" .. v[1] .. "_fragment.h", renderers)
 			end
 			
 			for _,v in pairs(expandedVertexShaders) do
-				compileShader(v[1], "vertex", v[2], v[3], outputSourceFilename, renderers)
+				compileShader(v[1], "vertex", v[2], v[3], "shaders_bin/" .. v[1] .. "_vertex.h", renderers)
 			end
 		end)
 		
@@ -298,7 +305,6 @@ newaction
 			of:write("};\n\n")
 		end
 		
-		local outputHeaderFilename = "build/Shader.h"
 		local outputHeaderFile = io.open(outputHeaderFilename, "w")
 		writeShaderIds(outputHeaderFile, expandedFragmentShaders, "FragmentShaderId", "s_fragmentShaderNames")
 		writeShaderIds(outputHeaderFile, expandedVertexShaders, "VertexShaderId", "s_vertexShaderNames")
@@ -330,7 +336,13 @@ newaction
 			of:write("}\n")
 		end
 		
-		local outputSourceFile = io.open(outputSourceFilename, "a")
+		local outputSourceFile = io.open(outputSourceFilename, "w")
+		for _,v in pairs(fragmentShaders) do
+			outputSourceFile:write("#include \"" .. v[1] .. "_fragment.h\"\n")
+		end
+		for _,v in pairs(vertexShaders) do
+			outputSourceFile:write("#include \"" .. v[1] .. "_vertex.h\"\n")
+		end
 		outputSourceFile:write("\nstruct ShaderSourceMem { const uint8_t *mem; size_t size; };\n");
 		
 		for _,renderer in pairs(renderers) do

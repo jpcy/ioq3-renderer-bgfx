@@ -37,7 +37,6 @@ These are updated after every commit.
 Required packages: libgl1-mesa-dev libsdl2-dev
 
 ```
-./premake5 shaders
 ./premake5 gmake
 cd build
 make
@@ -45,10 +44,9 @@ make
 
 ### Cygwin/MinGW-w64/MSYS2
 
-Clone [ioquake3](https://github.com/ioquake/ioq3) to the same parent directory as ioq3-renderer-bgfx.
+ioquake3 SDL2 libs and headers are required. Clone [ioquake3](https://github.com/ioquake/ioq3) to the same parent directory as ioq3-renderer-bgfx.
 
 ```
-./premake5.exe shaders
 ./premake5.exe gmake
 cd build
 make
@@ -56,8 +54,13 @@ make
 
 ### Visual Studio
 
-1. Run `CompileShaders.bat`
-2. Use [ioq3-premake-msvc](https://github.com/jpcy/ioq3-premake-msvc).
+Use [ioq3-premake-msvc](https://github.com/jpcy/ioq3-premake-msvc).
+
+## Recompiling Shaders
+
+Linux: `./premake5 shaders`
+
+Windows: `CompileShaders.bat`
 
 ## Usage
 
