@@ -6,7 +6,7 @@ branches:
 
 install:
   - cmd: git clone https://github.com/ioquake/ioq3.git ../ioq3
-  - cmd: premake5.exe gmake
+  - cmd: bin\premake5.exe gmake
   - cmd: set PATH=C:\msys64\usr\bin;%PATH%
   - cmd: bash -lc ""
   - cmd: bash -lc "pacman --noconfirm -S make"

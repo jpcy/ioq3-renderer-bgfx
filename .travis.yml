@@ -22,9 +22,7 @@ before_install:
   - sudo apt-get install libgl1-mesa-dev libsdl2-dev
   
 install:
-  - wget https://github.com/premake/premake-core/releases/download/v5.0.0-alpha13/premake-5.0.0-alpha13-linux.tar.gz -O premake.tar.gz
-  - tar -xf premake.tar.gz
-  - ./premake5 gmake
+  - ./bin/premake5 gmake
   - cd build
 
 script:

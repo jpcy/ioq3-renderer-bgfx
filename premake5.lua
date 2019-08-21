@@ -1,3 +1,5 @@
+BASE_PATH = path.getabsolute(".")
+
 newaction
 {
 	trigger = "shaders",
@@ -63,7 +65,7 @@ newaction
 	
 		-- Compile an individual shader for each renderer, appending the output to a file.
 		function compileShader(input, type, variant, defines, outputFilename, renderers)
-			local tempOutputFilename = "build/tempoutput"
+			local tempOutputFilename = path.join(BASE_PATH, "build", "tempoutput")
 			io.write("Compiling " .. input .. "_" .. type)
 			
 			if variant == nil then
@@ -73,16 +75,18 @@ newaction
 			end
 			io.flush()
 			
-			local inputFilename = string.format("shaders/%s_%s.sc", input, type)
+			local inputFilename = string.format(path.join(BASE_PATH, "shaders/%s_%s.sc"), input, type)
+			local includePaths = path.join(BASE_PATH, "shaders") .. ";" .. path.join(BASE_PATH, "code/bgfx/src")
+			local varyingPath = path.join(BASE_PATH, "shaders/varying.def.sc")
 			
 			-- Compile the shader for all renderers.
 			for _,renderer in pairs(renderers) do
 				local command = nil
 				
 				if os.ishost("windows") then
-					command = "shaderc.exe"
+					command = path.join(BASE_PATH, "bin/shaderc.exe")
 				elseif os.ishost("linux") then
-					command = "`./shaderc64"
+					command = path.join(BASE_PATH, "bin/shaderc64")
 				end
 				
 				local variableName = input .. "_"
@@ -93,7 +97,7 @@ newaction
 
 				variableName = variableName .. type .. "_" .. renderer
 				
-				command = command .. string.format(" -i \"shaders;code/bgfx/src\" -f \"%s\" -o \"%s\" --varyingdef shaders/varying.def.sc --bin2c \"%s\" --type %s", inputFilename, tempOutputFilename, variableName, type)
+				command = command .. string.format(" -i \"%s\" -f \"%s\" -o \"%s\" --varyingdef %s --bin2c \"%s\" --type %s", includePaths, inputFilename, tempOutputFilename, varyingPath, variableName, type)
 			
 				if defines ~= nil then
 					command = command .. " --define \"" .. defines .. "\""
@@ -119,10 +123,6 @@ newaction
 					command = command .. " -O 3"
 				elseif renderer == "vk" then
 					command = command .. " --platform linux -p spirv"
-				end
-				
-				if os.ishost("linux") then
-					command = command .. "`"
 				end
 				
 				if not os.execute(command) then
@@ -215,18 +215,18 @@ newaction
 		}
 		
 		-- Make sure the build directory exists
-		os.mkdir("build")
+		os.mkdir(path.join(BASE_PATH, "build"))
 		
 		-- Delete the output files.
-		local outputSourceFilename = "shaders_bin/Shader.cpp"
-		local outputHeaderFilename = "shaders_bin/Shader.h"
+		local outputSourceFilename = path.join(BASE_PATH, "shaders_bin/Shader.cpp")
+		local outputHeaderFilename = path.join(BASE_PATH, "shaders_bin/Shader.h")
 		os.remove(outputSourceFilename)
 		os.remove(outputHeaderFilename)
 		for _,v in pairs(fragmentShaders) do
-			os.remove("shaders_bin/" .. v[1] .. "_fragment.h")
+			os.remove(path.join(BASE_PATH, "shaders_bin", v[1] .. "_fragment.h"))
 		end
 		for _,v in pairs(vertexShaders) do
-			os.remove("shaders_bin/" .. v[1] .. "_vertex.h")
+			os.remove(path.join(BASE_PATH, "shaders_bin", v[1] .. "_vertex.h"))
 		end
 		
 		-- Expand shader lists so each variant has a single entry.
@@ -236,11 +236,11 @@ newaction
 		-- Compile the shaders.
 		local ok, message = pcall(function()
 			for _,v in pairs(expandedFragmentShaders) do
-				compileShader(v[1], "fragment", v[2], v[3], "shaders_bin/" .. v[1] .. "_fragment.h", renderers)
+				compileShader(v[1], "fragment", v[2], v[3], path.join(BASE_PATH, "shaders_bin", v[1] .. "_fragment.h"), renderers)
 			end
 			
 			for _,v in pairs(expandedVertexShaders) do
-				compileShader(v[1], "vertex", v[2], v[3], "shaders_bin/" .. v[1] .. "_vertex.h", renderers)
+				compileShader(v[1], "vertex", v[2], v[3], path.join(BASE_PATH, "shaders_bin", v[1] .. "_vertex.h"), renderers)
 			end
 		end)
 		
