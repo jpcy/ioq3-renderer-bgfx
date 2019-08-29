@@ -11,8 +11,7 @@ function rendererProject(engine, lightBakerEnabled, rendererPath)
 		"__STDC_CONSTANT_MACROS",
 		"__STDC_FORMAT_MACROS",
 		"__STDC_LIMIT_MACROS",
-		"BGFX_CONFIG_RENDERER_OPENGL=32",
-		"BGFX_CONFIG_RENDERER_VULKAN",
+		"BGFX_CONFIG_RENDERER_OPENGL_MIN_VERSION=32",
 		"BGFX_CONFIG_RENDERDOC_LOG_FILEPATH=\"ioq3-renderer-bgfx\"",
 		"USE_RENDERER_DLOPEN"
 	}
@@ -137,7 +136,6 @@ function rendererProject(engine, lightBakerEnabled, rendererPath)
 		pchsource(path.join(rendererPath, "code/renderer_bgfx/Precompiled.cpp"))
 		
 	configuration "windows"
-		defines { "BGFX_CONFIG_RENDERER_DIRECT3D11=1", "BGFX_CONFIG_RENDERER_DIRECT3D12=1" }
 		links { "d3dcompiler", "gdi32", "OpenGL32", "psapi" }
 		
 	configuration { "windows", "gmake" }
