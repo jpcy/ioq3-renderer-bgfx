@@ -1520,13 +1520,18 @@ void RenderScene(const SceneDefinition &scene)
 	Rect rect;
 	rect.x = std::max(0, scene.rect.x);
 	rect.y = std::max(0, scene.rect.y);
-#if 0
-	rect.w = std::min(window::GetWidth(), rect.x + scene.rect.w) - rect.x;
-	rect.h = std::min(window::GetHeight(), rect.y + scene.rect.h) - rect.y;
-#else
-	rect.w = scene.rect.w;
-	rect.h = scene.rect.h;
-#endif
+
+	if (bgfx::getRendererType() == bgfx::RendererType::Vulkan)
+	{
+		// UNASSIGNED-CoreValidation-DrawState-InvalidRenderArea
+		rect.w = std::min(window::GetWidth(), rect.x + scene.rect.w) - rect.x;
+		rect.h = std::min(window::GetHeight(), rect.y + scene.rect.h) - rect.y;
+	}
+	else
+	{
+		rect.w = scene.rect.w;
+		rect.h = scene.rect.h;
+	}
 
 	if (scene.flags & SceneDefinitionFlags::Hyperspace)
 	{
