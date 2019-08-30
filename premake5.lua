@@ -165,9 +165,15 @@ newaction
 			{ "AlphaTest", "USE_ALPHA_TEST" }
 		}
 		
+		local fogFragmentVariants =
+		{
+			{ "Bloom", "USE_BLOOM" }
+		}
+		
 		local genericFragmentVariants =
 		{
 			{ "AlphaTest", "USE_ALPHA_TEST" },
+			{ "Bloom", "USE_BLOOM" },
 			{ "DynamicLights", "USE_DYNAMIC_LIGHTS" },
 			{ "SoftSprite", "USE_SOFT_SPRITE" },
 			{ "SunLight", "USE_SUN_LIGHT" }
@@ -180,6 +186,7 @@ newaction
 		
 		local textureVariationFragmentVariants =
 		{
+			{ "Bloom", "USE_BLOOM" },
 			{ "SunLight", "USE_SUN_LIGHT" }
 		}
 		
@@ -188,7 +195,7 @@ newaction
 			{ "Bloom" },
 			{ "Color" },
 			{ "Depth", depthFragmentVariants },
-			{ "Fog" },
+			{ "Fog", fogFragmentVariants },
 			{ "GaussianBlur" },
 			{ "Generic", genericFragmentVariants },
 			{ "SMAABlendingWeightCalculation" },
@@ -309,6 +316,7 @@ newaction
 		writeShaderVariantEnum(outputHeaderFile, genericFragmentVariants, "GenericFragment")
 		writeShaderVariantEnum(outputHeaderFile, depthFragmentVariants, "DepthFragment")
 		writeShaderVariantEnum(outputHeaderFile, depthVertexVariants, "DepthVertex")
+		writeShaderVariantEnum(outputHeaderFile, fogFragmentVariants, "FogFragment")
 		writeShaderVariantEnum(outputHeaderFile, textureVariationFragmentVariants, "TextureVariationFragment")
 		outputHeaderFile:close()
 

@@ -20,5 +20,5 @@ void main()
 		discard;
 #endif
 
-	gl_FragColor = vec4_splat(0.0);
+	//gl_FragColor = vec4_splat(0.0);
 }

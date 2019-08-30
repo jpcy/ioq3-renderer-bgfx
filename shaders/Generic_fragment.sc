@@ -19,9 +19,8 @@ uniform vec4 u_DepthRange;
 uniform vec4 u_SoftSprite_Depth_UseAlpha; // only x and y used
 #endif
 
-uniform vec4 u_Bloom_Enabled_Write_Scale;
-#define u_BloomEnabled int(u_Bloom_Enabled_Write_Scale.x)
-#define u_BloomWrite int(u_Bloom_Enabled_Write_Scale.y)
+uniform vec4 u_Bloom_Write_Scale;
+#define u_BloomWrite int(u_Bloom_Write_Scale.x)
 
 uniform vec4 u_Animation_Enabled_Fraction; // only x and y used
 uniform vec4 u_RenderMode; // only x used
@@ -147,17 +146,18 @@ void main()
 		fragColor = vec4(texture2D(u_LightSampler, v_texcoord1).rgb, alpha);
 	}
 
+#if defined(USE_BLOOM)
 	gl_FragData[0] = fragColor;
 
-	if (u_BloomEnabled != 0)
+	if (u_BloomWrite != 0)
 	{
-		if (u_BloomWrite != 0)
-		{
-			gl_FragData[1] = fragColor;
-		}
-		else
-		{
-			gl_FragData[1] = vec4(0.0, 0.0, 0.0, fragColor.a);
-		}
+		gl_FragData[1] = fragColor;
 	}
+	else
+	{
+		gl_FragData[1] = vec4(0.0, 0.0, 0.0, fragColor.a);
+	}
+#else
+	gl_FragColor = fragColor;
+#endif
 }

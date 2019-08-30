@@ -1495,8 +1495,8 @@ struct Uniforms
 	/// @{
 	Uniform_vec4 guassianBlurDirection = "u_GuassianBlurDirection";
 
-	/// @remarks w not used.
-	Uniform_vec4 bloom_Enabled_Write_Scale = "u_Bloom_Enabled_Write_Scale";
+	/// @remarks z and w not used.
+	Uniform_vec4 bloom_Write_Scale = "u_Bloom_Write_Scale";
 	/// @}
 
 	/// @name Sun light

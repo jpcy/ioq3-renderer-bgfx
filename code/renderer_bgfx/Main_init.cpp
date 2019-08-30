@@ -463,6 +463,8 @@ void Initialize()
 	};
 
 	programMap[ShaderProgramId::Fog] = { FragmentShaderId::Fog, VertexShaderId::Fog };
+	programMap[ShaderProgramId::Fog + FogShaderProgramVariant::Bloom] = { FragmentShaderId::Fog_Bloom, VertexShaderId::Fog };
+
 	programMap[ShaderProgramId::GaussianBlur] = { FragmentShaderId::GaussianBlur, VertexShaderId::Texture };
 
 	// Sync with GenericShaderProgramVariant.
@@ -483,12 +485,17 @@ void Initialize()
 	programMap[ShaderProgramId::Texture] = { FragmentShaderId::Texture, VertexShaderId::Texture };
 	programMap[ShaderProgramId::TextureColor] = { FragmentShaderId::TextureColor, VertexShaderId::Texture };
 	programMap[ShaderProgramId::TextureDebug] = { FragmentShaderId::TextureDebug, VertexShaderId::Texture };
-	programMap[ShaderProgramId::TextureVariation] = { FragmentShaderId::TextureVariation, VertexShaderId::Generic };
-	programMap[ShaderProgramId::TextureVariation + TextureVariationShaderProgramVariant::SunLight] =
+
+	for (int i = 0; i < TextureVariationShaderProgramVariant::Num; i++)
 	{
-		FragmentShaderId::TextureVariation_SunLight,
-		VertexShaderId::Generic_SunLight
-	};
+		ShaderProgramIdMap &pm = programMap[ShaderProgramId::TextureVariation + i];
+		pm.frag = FragmentShaderId::Enum(FragmentShaderId::TextureVariation + i);
+
+		if (i & TextureVariationFragmentShaderVariant::SunLight)
+			pm.vert = VertexShaderId::Generic_SunLight;
+		else
+			pm.vert = VertexShaderId::Generic;
+	}
 
 	// Create shader programs.
 	for (int i = 0; i < ShaderProgramId::Num; i++)
@@ -499,12 +506,26 @@ void Initialize()
 		if (s_main->aa != AntiAliasing::SMAA && (i == ShaderProgramId::SMAABlendingWeightCalculation || i == ShaderProgramId::SMAAEdgeDetection || i == ShaderProgramId::SMAANeighborhoodBlending))
 			continue;
 
-		if (!s_main->bloomEnabled && (i == ShaderProgramId::Bloom || i == ShaderProgramId::GaussianBlur))
-			continue;
+		if (!s_main->bloomEnabled)
+		{
+			if (i == ShaderProgramId::Bloom || i == ShaderProgramId::GaussianBlur)
+				continue;
+			if (i == ShaderProgramId::Fog + FogShaderProgramVariant::Bloom)
+				continue;
+			if (i == ShaderProgramId::TextureVariation)
+			{
+				const int variant = i - (int)ShaderProgramId::TextureVariation;
+				if (variant & TextureVariationShaderProgramVariant::Bloom)
+					continue;
+			}
+		}
 
 		if (i >= (int)ShaderProgramId::Generic && i <= int(ShaderProgramId::Generic + GenericShaderProgramVariant::Num))
 		{
 			const int variant = i - (int)ShaderProgramId::Generic;
+
+			if (!s_main->bloomEnabled && (variant & GenericShaderProgramVariant::Bloom))
+				continue;
 
 			if (!s_main->sunLightEnabled && (variant & GenericShaderProgramVariant::SunLight))
 				continue;
