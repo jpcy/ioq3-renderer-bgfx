@@ -1680,84 +1680,9 @@ void RenderScene(const SceneDefinition &scene)
 	s_main->scenePolygonVertices.clear();
 }
 
-/***********************************************************
-* A single header file OpenGL lightmapping library         *
-* https://github.com/ands/lightmapper                      *
-* no warranty implied | use at your own risk               *
-* author: Andreas Mantler (ands) | last change: 23.07.2016 *
-*                                                          *
-* License:                                                 *
-* This software is in the public domain.                   *
-* Where that dedication is not recognized,                 *
-* you are granted a perpetual, irrevocable license to copy *
-* and modify this file however you want.                   *
-***********************************************************/
-void RenderHemicube(const FrameBuffer &frameBuffer, vec3 position, const vec3 forward, const vec3 up, vec2i rectOffset, int faceSize, bool skipUnlitSurfaces)
-{
-	// +-------+---+---+-------+
-	// |       |   |   |   D   |
-	// |   C   | R | L +-------+
-	// |       |   |   |   U   |
-	// +-------+---+---+-------+
-	// Order: C,R,L,D,U
-	const Rect rects[] =
-	{
-		Rect(rectOffset.x, rectOffset.y, faceSize, faceSize),
-		Rect(rectOffset.x + faceSize, rectOffset.y, faceSize / 2, faceSize),
-		Rect(rectOffset.x + faceSize + faceSize / 2, rectOffset.y, faceSize / 2, faceSize),
-		Rect(rectOffset.x + faceSize * 2, rectOffset.y, faceSize, faceSize / 2),
-		Rect(rectOffset.x + faceSize * 2, rectOffset.y + faceSize / 2, faceSize, faceSize / 2)
-	};
-
-	const vec3 right = vec3::crossProduct(forward, up);
-
-	const mat3 rotations[] =
-	{
-		mat3(forward, -right, up),
-		mat3(right, -vec3::crossProduct(right, up), up),
-		mat3(-right, -vec3::crossProduct(-right, up), up),
-		mat3(-up, -vec3::crossProduct(-up, forward), forward),
-		mat3(up, -vec3::crossProduct(up, -forward), -forward),
-	};
-
-	world::UpdateVisibility(VisibilityId::Probe, position, nullptr);
-	const vec2 depthRange = CalculateDepthRange(VisibilityId::Probe, position);
-	const float zNear = depthRange.x;
-	const float zFar = depthRange.y;
-
-	const mat4 projectionMatrices[] =
-	{
-		mat4::perspectiveProjection(-zNear, zNear, zNear, -zNear, zNear, zFar),
-		mat4::perspectiveProjection(-zNear, 0.0f, zNear, -zNear, zNear, zFar),
-		mat4::perspectiveProjection(0.0f, zNear, zNear, -zNear, zNear, zFar),
-		mat4::perspectiveProjection(-zNear, zNear, zNear, 0.0f, zNear, zFar),
-		mat4::perspectiveProjection(-zNear, zNear, 0.0f, -zNear, zNear, zFar)
-	};
-
-	for (int i = 0; i < 5; i++)
-	{
-		s_main->sceneRotation = rotations[i];
-
-		RenderCameraArgs args;
-		args.customFrameBuffer = &frameBuffer;
-		args.customProjectionMatrix = &projectionMatrices[i];
-		args.flags = skipUnlitSurfaces ? RenderCameraFlags::SkipUnlitSurfaces : 0;
-		args.position = position;
-		args.pvsPosition = position;
-		args.rect = rects[i];
-		args.rotation = rotations[i];
-		args.visId = VisibilityId::Probe;
-		RenderCamera(args);
-	}
-}
-
 void EndFrame()
 {
 	FlushStretchPics();
-
-#if defined(USE_LIGHT_BAKER)
-	light_baker::Update(s_main->frameNo);
-#endif
 
 	if (s_main->firstFreeViewId == 0)
 	{

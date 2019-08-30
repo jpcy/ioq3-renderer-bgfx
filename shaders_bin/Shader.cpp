@@ -4,8 +4,6 @@
 #include "Fog_fragment.h"
 #include "GaussianBlur_fragment.h"
 #include "Generic_fragment.h"
-#include "HemicubeDownsample_fragment.h"
-#include "HemicubeWeightedDownsample_fragment.h"
 #include "SMAABlendingWeightCalculation_fragment.h"
 #include "SMAAEdgeDetection_fragment.h"
 #include "SMAANeighborhoodBlending_fragment.h"
@@ -71,10 +69,6 @@ static std::array<ShaderSourceMem, FragmentShaderId::Num> GetFragmentShaderSourc
 	mem[FragmentShaderId::Generic_DynamicLightsSoftSpriteSunLight].size = sizeof(Generic_DynamicLightsSoftSpriteSunLight_fragment_gl);
 	mem[FragmentShaderId::Generic_AlphaTestDynamicLightsSoftSpriteSunLight].mem = Generic_AlphaTestDynamicLightsSoftSpriteSunLight_fragment_gl;
 	mem[FragmentShaderId::Generic_AlphaTestDynamicLightsSoftSpriteSunLight].size = sizeof(Generic_AlphaTestDynamicLightsSoftSpriteSunLight_fragment_gl);
-	mem[FragmentShaderId::HemicubeDownsample].mem = HemicubeDownsample_fragment_gl;
-	mem[FragmentShaderId::HemicubeDownsample].size = sizeof(HemicubeDownsample_fragment_gl);
-	mem[FragmentShaderId::HemicubeWeightedDownsample].mem = HemicubeWeightedDownsample_fragment_gl;
-	mem[FragmentShaderId::HemicubeWeightedDownsample].size = sizeof(HemicubeWeightedDownsample_fragment_gl);
 	mem[FragmentShaderId::SMAABlendingWeightCalculation].mem = SMAABlendingWeightCalculation_fragment_gl;
 	mem[FragmentShaderId::SMAABlendingWeightCalculation].size = sizeof(SMAABlendingWeightCalculation_fragment_gl);
 	mem[FragmentShaderId::SMAAEdgeDetection].mem = SMAAEdgeDetection_fragment_gl;
@@ -167,10 +161,6 @@ static std::array<ShaderSourceMem, FragmentShaderId::Num> GetFragmentShaderSourc
 	mem[FragmentShaderId::Generic_DynamicLightsSoftSpriteSunLight].size = sizeof(Generic_DynamicLightsSoftSpriteSunLight_fragment_d3d11);
 	mem[FragmentShaderId::Generic_AlphaTestDynamicLightsSoftSpriteSunLight].mem = Generic_AlphaTestDynamicLightsSoftSpriteSunLight_fragment_d3d11;
 	mem[FragmentShaderId::Generic_AlphaTestDynamicLightsSoftSpriteSunLight].size = sizeof(Generic_AlphaTestDynamicLightsSoftSpriteSunLight_fragment_d3d11);
-	mem[FragmentShaderId::HemicubeDownsample].mem = HemicubeDownsample_fragment_d3d11;
-	mem[FragmentShaderId::HemicubeDownsample].size = sizeof(HemicubeDownsample_fragment_d3d11);
-	mem[FragmentShaderId::HemicubeWeightedDownsample].mem = HemicubeWeightedDownsample_fragment_d3d11;
-	mem[FragmentShaderId::HemicubeWeightedDownsample].size = sizeof(HemicubeWeightedDownsample_fragment_d3d11);
 	mem[FragmentShaderId::SMAABlendingWeightCalculation].mem = SMAABlendingWeightCalculation_fragment_d3d11;
 	mem[FragmentShaderId::SMAABlendingWeightCalculation].size = sizeof(SMAABlendingWeightCalculation_fragment_d3d11);
 	mem[FragmentShaderId::SMAAEdgeDetection].mem = SMAAEdgeDetection_fragment_d3d11;
@@ -263,10 +253,6 @@ static std::array<ShaderSourceMem, FragmentShaderId::Num> GetFragmentShaderSourc
 	mem[FragmentShaderId::Generic_DynamicLightsSoftSpriteSunLight].size = sizeof(Generic_DynamicLightsSoftSpriteSunLight_fragment_vk);
 	mem[FragmentShaderId::Generic_AlphaTestDynamicLightsSoftSpriteSunLight].mem = Generic_AlphaTestDynamicLightsSoftSpriteSunLight_fragment_vk;
 	mem[FragmentShaderId::Generic_AlphaTestDynamicLightsSoftSpriteSunLight].size = sizeof(Generic_AlphaTestDynamicLightsSoftSpriteSunLight_fragment_vk);
-	mem[FragmentShaderId::HemicubeDownsample].mem = HemicubeDownsample_fragment_vk;
-	mem[FragmentShaderId::HemicubeDownsample].size = sizeof(HemicubeDownsample_fragment_vk);
-	mem[FragmentShaderId::HemicubeWeightedDownsample].mem = HemicubeWeightedDownsample_fragment_vk;
-	mem[FragmentShaderId::HemicubeWeightedDownsample].size = sizeof(HemicubeWeightedDownsample_fragment_vk);
 	mem[FragmentShaderId::SMAABlendingWeightCalculation].mem = SMAABlendingWeightCalculation_fragment_vk;
 	mem[FragmentShaderId::SMAABlendingWeightCalculation].size = sizeof(SMAABlendingWeightCalculation_fragment_vk);
 	mem[FragmentShaderId::SMAAEdgeDetection].mem = SMAAEdgeDetection_fragment_vk;

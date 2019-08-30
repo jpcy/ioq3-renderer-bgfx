@@ -191,8 +191,6 @@ newaction
 			{ "Fog" },
 			{ "GaussianBlur" },
 			{ "Generic", genericFragmentVariants },
-			{ "HemicubeDownsample" },
-			{ "HemicubeWeightedDownsample" },
 			{ "SMAABlendingWeightCalculation" },
 			{ "SMAAEdgeDetection" },
 			{ "SMAANeighborhoodBlending" },
@@ -381,12 +379,6 @@ newoption
 	}
 }
 
-newoption
-{
-	trigger = "enable-light-baker",
-	description = "Enable the light baker"
-}
-
 if _ACTION == nil then
 	return
 end
@@ -458,7 +450,7 @@ solution "renderer_bgfx"
 		defines { "_WIN64", "__WIN64__" }
 		
 dofile("renderer_bgfx.lua")
-rendererProject(_OPTIONS["engine"], _OPTIONS["enable-light-baker"], path.getabsolute("."))
+rendererProject(_OPTIONS["engine"], path.getabsolute("."))
 
 if os.ishost("windows") then
 	if _OPTIONS["engine"] == "ioq3" then

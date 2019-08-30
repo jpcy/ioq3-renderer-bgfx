@@ -427,16 +427,6 @@ struct IndexBuffer
 	bgfx::IndexBufferHandle handle;
 };
 
-#if defined(USE_LIGHT_BAKER)
-namespace light_baker
-{
-	void Start(int nSamples);
-	void Stop();
-	void Update(uint32_t frameNo);
-	void Shutdown();
-}
-#endif
-
 namespace main
 {
 	void AddDynamicLightToScene(const DynamicLight &light);
@@ -461,7 +451,6 @@ namespace main
 	bool IsMaxAnisotropyEnabled();
 	void LoadWorld(const char *name); 
 	void RegisterFont(const char *fontName, int pointSize, fontInfo_t *font);
-	void RenderHemicube(const FrameBuffer &frameBuffer, vec3 position, const vec3 forward, const vec3 up, vec2i rectOffset, int faceSize, bool skipUnlitSurfaces);
 	void RenderScene(const SceneDefinition &scene);
 	bool SampleLight(vec3 position, vec3 *ambientLight, vec3 *directedLight, vec3 *lightDir);
 	void SetColor(vec4 c);

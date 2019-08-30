@@ -1,4 +1,4 @@
-function rendererProject(engine, lightBakerEnabled, rendererPath)
+function rendererProject(engine, rendererPath)
 	project "renderer_bgfx"
 	kind "SharedLib"
 	language "C++"
@@ -15,10 +15,6 @@ function rendererProject(engine, lightBakerEnabled, rendererPath)
 		"BGFX_CONFIG_RENDERDOC_LOG_FILEPATH=\"ioq3-renderer-bgfx\"",
 		"USE_RENDERER_DLOPEN"
 	}
-	
-	if lightBakerEnabled then
-		defines { "USE_LIGHT_BAKER" }
-	end
 	
 	local bxPath = path.join(rendererPath, "code/bx")
 	local bimgPath = path.join(rendererPath, "code/bimg")
@@ -55,10 +51,6 @@ function rendererProject(engine, lightBakerEnabled, rendererPath)
 		path.join(bxPath, "src/crtnone.cpp"),
 		path.join(bgfxPath, "src/amalgamated.cpp")
 	}
-	
-	if not lightBakerEnabled then
-		excludes { path.join(rendererPath, "code/renderer_bgfx/LightBaker*") }
-	end
 	
 	includedirs
 	{
