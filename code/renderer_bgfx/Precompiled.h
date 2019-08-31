@@ -1511,16 +1511,16 @@ struct Uniforms
 	/// @{
 
 	/// General purpose sampler.
-	Uniform_sampler textureSampler = "u_TextureSampler";
+	Uniform_sampler textureSampler = "s_Texture";
 
-	Uniform_sampler bloomSampler = "u_BloomSampler";
-	Uniform_sampler shadowMapSampler = "u_ShadowMapSampler";
-	Uniform_sampler noiseSampler = "u_NoiseSampler";
-	Uniform_sampler smaaColorSampler = "u_SmaaColorSampler";
-	Uniform_sampler smaaEdgesSampler = "u_SmaaEdgesSampler";
-	Uniform_sampler smaaAreaSampler = "u_SmaaAreaSampler";
-	Uniform_sampler smaaSearchSampler = "u_SmaaSearchSampler";
-	Uniform_sampler smaaBlendSampler = "u_SmaaBlendSampler";
+	Uniform_sampler bloomSampler = "s_Bloom";
+	Uniform_sampler shadowMapSampler = "s_Shadow";
+	Uniform_sampler noiseSampler = "s_Noise";
+	Uniform_sampler smaaColorSampler = "s_SmaaColor";
+	Uniform_sampler smaaEdgesSampler = "s_SmaaEdges";
+	Uniform_sampler smaaAreaSampler = "s_SmaaArea";
+	Uniform_sampler smaaSearchSampler = "s_SmaaSearch";
+	Uniform_sampler smaaBlendSampler = "s_SmaaBlend";
 	/// @}
 };
 
@@ -1565,13 +1565,13 @@ struct Uniforms_MaterialStage
 
 	/// @name Texture samplers
 	/// @{
-	Uniform_sampler depthSampler = "u_DepthSampler";
-	Uniform_sampler diffuseSampler = "u_DiffuseSampler";
-	Uniform_sampler diffuseSampler2 = "u_DiffuseSampler2";
-	Uniform_sampler dynamicLightCellsSampler = "u_DynamicLightCellsSampler";
-	Uniform_sampler dynamicLightIndicesSampler = "u_DynamicLightIndicesSampler";
-	Uniform_sampler dynamicLightsSampler = "u_DynamicLightsSampler";
-	Uniform_sampler lightSampler = "u_LightSampler";
+	Uniform_sampler depthSampler = "s_Depth";
+	Uniform_sampler diffuseSampler = "s_Diffuse";
+	Uniform_sampler diffuseSampler2 = "s_Diffuse2";
+	Uniform_sampler dynamicLightCellsSampler = "s_DynamicLightCells";
+	Uniform_sampler dynamicLightIndicesSampler = "s_DynamicLightIndices";
+	Uniform_sampler dynamicLightsSampler = "s_DynamicLights";
+	Uniform_sampler lightSampler = "s_Light";
 	/// @}
 
 	Uniform_vec4 color = "u_Color";

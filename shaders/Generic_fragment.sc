@@ -8,12 +8,12 @@ $input v_position, v_projPosition, v_shadowPosition, v_texcoord0, v_texcoord1, v
 #include "PortalClip.sh"
 #include "SunLight.sh"
 
-SAMPLER2D(u_DiffuseSampler, 0); // TU_DIFFUSE
-SAMPLER2D(u_DiffuseSampler2, 1); // TU_DIFFUSE2
-SAMPLER2D(u_LightSampler, 2); // TU_LIGHT
+SAMPLER2D(s_Diffuse, 0); // TU_DIFFUSE
+SAMPLER2D(s_Diffuse2, 1); // TU_DIFFUSE2
+SAMPLER2D(s_Light, 2); // TU_LIGHT
 
 #if defined(USE_SOFT_SPRITE)
-SAMPLER2D(u_DepthSampler, 3); // TU_DEPTH
+SAMPLER2D(s_Depth, 3); // TU_DEPTH
 
 uniform vec4 u_DepthRange;
 uniform vec4 u_SoftSprite_Depth_UseAlpha; // only x and y used
@@ -50,11 +50,11 @@ void main()
 		texCoord0 = gl_FragCoord.xy * u_viewTexel.xy;
 	}
 
-	vec4 diffuse = texture2D(u_DiffuseSampler, texCoord0);
+	vec4 diffuse = texture2D(s_Diffuse, texCoord0);
 
 	if (int(u_Animation_Enabled_Fraction.x) != 0)
 	{
-		vec4 diffuse2 = texture2D(u_DiffuseSampler2, texCoord0);
+		vec4 diffuse2 = texture2D(s_Diffuse2, texCoord0);
 		diffuse = mix(diffuse, diffuse2, u_Animation_Enabled_Fraction.y);
 	}
 
@@ -74,7 +74,7 @@ void main()
 
 #if defined(USE_SOFT_SPRITE)
 	// Normalized linear depths.
-	float sceneDepth = ToLinearDepth(texture2D(u_DepthSampler, gl_FragCoord.xy * u_viewTexel.xy).r, u_DepthRange.z, u_DepthRange.w);
+	float sceneDepth = ToLinearDepth(texture2D(s_Depth, gl_FragCoord.xy * u_viewTexel.xy).r, u_DepthRange.z, u_DepthRange.w);
 
 	// GL uses -1 to 1 NDC. D3D uses 0 to 1.
 #if BGFX_SHADER_LANGUAGE_HLSL
@@ -111,7 +111,7 @@ void main()
 
 	if (lightType == LIGHT_MAP)
 	{
-		diffuseLight = ToLinear(texture2D(u_LightSampler, v_texcoord1).rgb);
+		diffuseLight = ToLinear(texture2D(s_Light, v_texcoord1).rgb);
 	}
 	else if (lightType == LIGHT_VECTOR)
 	{
@@ -143,7 +143,7 @@ void main()
 	}
 	else if (renderMode == RENDER_MODE_LIGHTMAP && lightType == LIGHT_MAP)
 	{
-		fragColor = vec4(texture2D(u_LightSampler, v_texcoord1).rgb, alpha);
+		fragColor = vec4(texture2D(s_Light, v_texcoord1).rgb, alpha);
 	}
 
 #if defined(USE_BLOOM)

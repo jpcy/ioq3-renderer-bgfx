@@ -1,7 +1,7 @@
 #if defined(USE_DYNAMIC_LIGHTS)
-USAMPLER2D(u_DynamicLightCellsSampler, 4); // TU_DYNAMIC_LIGHT_CELLS
-USAMPLER2D(u_DynamicLightIndicesSampler, 5); // TU_DYNAMIC_LIGHT_INDICES
-SAMPLER2D(u_DynamicLightsSampler, 6); // TU_DYNAMIC_LIGHTS
+USAMPLER2D(s_DynamicLightCells, 4); // TU_DYNAMIC_LIGHT_CELLS
+USAMPLER2D(s_DynamicLightIndices, 5); // TU_DYNAMIC_LIGHT_INDICES
+SAMPLER2D(s_DynamicLights, 6); // TU_DYNAMIC_LIGHTS
 
 uniform vec4 u_DynamicLightCellSize; // xyz is size
 uniform vec4 u_DynamicLightGridOffset; // w not used
@@ -20,7 +20,7 @@ vec4 FetchDynamicLightData(uint offset)
 {
 	int u = int(offset) % int(u_DynamicLightTextureSizes_Cells_Indices_Lights.z);
 	int v = int(offset) / int(u_DynamicLightTextureSizes_Cells_Indices_Lights.z);
-	return texelFetch(u_DynamicLightsSampler, ivec2(u, v), 0);
+	return texelFetch(s_DynamicLights, ivec2(u, v), 0);
 }
 
 DynamicLight GetDynamicLight(uint index)
@@ -41,14 +41,14 @@ uint GetDynamicLightIndicesOffset(vec3 position)
 	uint cellOffset = cellX + (cellY * uint(u_DynamicLightGridSize.x)) + (cellZ * uint(u_DynamicLightGridSize.x) * uint(u_DynamicLightGridSize.y));
 	int u = int(cellOffset) % int(u_DynamicLightTextureSizes_Cells_Indices_Lights.x);
 	int v = int(cellOffset) / int(u_DynamicLightTextureSizes_Cells_Indices_Lights.x);
-	return texelFetch(u_DynamicLightCellsSampler, ivec2(u, v), 0).r;
+	return texelFetch(s_DynamicLightCells, ivec2(u, v), 0).r;
 }
 
 uint GetDynamicLightIndicesData(uint offset)
 {
 	int u = int(offset) % int(u_DynamicLightTextureSizes_Cells_Indices_Lights.y);
 	int v = int(offset) / int(u_DynamicLightTextureSizes_Cells_Indices_Lights.y);
-	return texelFetch(u_DynamicLightIndicesSampler, ivec2(u, v), 0).r;
+	return texelFetch(s_DynamicLightIndices, ivec2(u, v), 0).r;
 }
 
 // From http://stackoverflow.com/a/9557244

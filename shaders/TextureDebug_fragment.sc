@@ -3,14 +3,14 @@ $input v_texcoord0
 #include <bgfx_shader.sh>
 #include "Common.sh"
 
-SAMPLER2D(u_TextureSampler, 0);
+SAMPLER2D(s_Texture, 0);
 
 uniform vec4 u_DepthRange;
 uniform vec4 u_TextureDebug; // only x used.
 
 void main()
 {
-	vec4 tex = texture2D(u_TextureSampler, v_texcoord0);
+	vec4 tex = texture2D(s_Texture, v_texcoord0);
 	int debug = int(u_TextureDebug.x);
 
 	if (debug == TEXTURE_DEBUG_R)

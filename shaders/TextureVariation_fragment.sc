@@ -8,8 +8,8 @@ $input v_position, v_projPosition, v_shadowPosition, v_texcoord0, v_texcoord1, v
 #include "PortalClip.sh"
 #include "SunLight.sh"
 
-SAMPLER2D(u_DiffuseSampler, 0); // TU_DIFFUSE
-SAMPLER2D(u_LightSampler, 2); // TU_LIGHT
+SAMPLER2D(s_Diffuse, 0); // TU_DIFFUSE
+SAMPLER2D(s_Light, 2); // TU_LIGHT
 
 uniform vec4 u_Bloom_Write_Scale;
 #define u_BloomWrite int(u_Bloom_Write_Scale.x)
@@ -53,10 +53,10 @@ vec4 textureNoTile_4weights(vec2 uv)
     
     // fetch and blend
     vec4 res = mix(
-        		mix( texture2D( u_DiffuseSampler, transformUVs( iuv + BL_one.xy, uv ) ), 
-                     texture2D( u_DiffuseSampler, transformUVs( iuv + BL_one.zy, uv ) ), b.x ), 
-                mix( texture2D( u_DiffuseSampler, transformUVs( iuv + BL_one.xz, uv ) ),
-                     texture2D( u_DiffuseSampler, transformUVs( iuv + BL_one.zz, uv ) ), b.x),
+        		mix( texture2D( s_Diffuse, transformUVs( iuv + BL_one.xy, uv ) ), 
+                     texture2D( s_Diffuse, transformUVs( iuv + BL_one.zy, uv ) ), b.x ), 
+                mix( texture2D( s_Diffuse, transformUVs( iuv + BL_one.xz, uv ) ),
+                     texture2D( s_Diffuse, transformUVs( iuv + BL_one.zz, uv ) ), b.x),
         		b.y );
   
     return res;
@@ -78,7 +78,7 @@ void main()
 	diffuse.rgb = ToLinear(diffuse.rgb);
 	float alpha = diffuse.a * v_color0.a;;
 	vec3 vertexColor = v_color0.rgb;
-	vec3 diffuseLight = ToLinear(texture2D(u_LightSampler, v_texcoord1).rgb);
+	vec3 diffuseLight = ToLinear(texture2D(s_Light, v_texcoord1).rgb);
 	diffuseLight += CalculateDynamicLight(v_position, v_normal.xyz);
 #if defined(USE_SUN_LIGHT)
 	diffuseLight += CalculateSunLight(v_position, v_normal.xyz, v_shadowPosition);
@@ -86,7 +86,7 @@ void main()
 	vec4 fragColor = vec4(ToGamma(diffuse.rgb * vertexColor * diffuseLight), alpha);
 	if (int(u_RenderMode.x) == RENDER_MODE_LIGHTMAP)
 	{
-		fragColor = vec4(texture2D(u_LightSampler, v_texcoord1).rgb, alpha);
+		fragColor = vec4(texture2D(s_Light, v_texcoord1).rgb, alpha);
 	}
 
 #if defined(USE_BLOOM)

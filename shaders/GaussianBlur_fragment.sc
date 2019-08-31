@@ -26,7 +26,7 @@ OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <bgfx_shader.sh>
 
-SAMPLER2D(u_TextureSampler, 0);
+SAMPLER2D(s_Texture, 0);
 
 uniform vec4 u_GuassianBlurDirection; // only xy used
 
@@ -36,17 +36,17 @@ void main()
 
 #if 0
 	vec2 off1 = vec2_splat(1.3333333333333333) * u_GuassianBlurDirection.xy;
-	color += texture2D(u_TextureSampler, v_texcoord0) * 0.29411764705882354;
-	color += texture2D(u_TextureSampler, v_texcoord0 + (off1 / u_viewRect.zw)) * 0.35294117647058826;
-	color += texture2D(u_TextureSampler, v_texcoord0 - (off1 / u_viewRect.zw)) * 0.35294117647058826;
+	color += texture2D(s_Texture, v_texcoord0) * 0.29411764705882354;
+	color += texture2D(s_Texture, v_texcoord0 + (off1 / u_viewRect.zw)) * 0.35294117647058826;
+	color += texture2D(s_Texture, v_texcoord0 - (off1 / u_viewRect.zw)) * 0.35294117647058826;
 #else
 	vec2 off1 = vec2_splat(1.3846153846) * u_GuassianBlurDirection.xy;
 	vec2 off2 = vec2_splat(3.2307692308) * u_GuassianBlurDirection.xy;
-	color += texture2D(u_TextureSampler, v_texcoord0) * 0.2270270270;
-	color += texture2D(u_TextureSampler, v_texcoord0 + (off1 / u_viewRect.zw)) * 0.3162162162;
-	color += texture2D(u_TextureSampler, v_texcoord0 - (off1 / u_viewRect.zw)) * 0.3162162162;
-	color += texture2D(u_TextureSampler, v_texcoord0 + (off2 / u_viewRect.zw)) * 0.0702702703;
-	color += texture2D(u_TextureSampler, v_texcoord0 - (off2 / u_viewRect.zw)) * 0.0702702703;
+	color += texture2D(s_Texture, v_texcoord0) * 0.2270270270;
+	color += texture2D(s_Texture, v_texcoord0 + (off1 / u_viewRect.zw)) * 0.3162162162;
+	color += texture2D(s_Texture, v_texcoord0 - (off1 / u_viewRect.zw)) * 0.3162162162;
+	color += texture2D(s_Texture, v_texcoord0 + (off2 / u_viewRect.zw)) * 0.0702702703;
+	color += texture2D(s_Texture, v_texcoord0 - (off2 / u_viewRect.zw)) * 0.0702702703;
 #endif
 
 	gl_FragColor = color;
