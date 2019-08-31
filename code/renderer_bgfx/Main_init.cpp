@@ -443,7 +443,7 @@ void Initialize()
 		vertMem = GetVertexShaderSourceMap_vk();
 	}
 #ifdef WIN32
-	else if (caps->rendererType == bgfx::RendererType::Direct3D11)
+	else if (caps->rendererType == bgfx::RendererType::Direct3D11 || caps->rendererType == bgfx::RendererType::Direct3D12)
 	{
 		fragMem = GetFragmentShaderSourceMap_d3d11();
 		vertMem = GetVertexShaderSourceMap_d3d11();
