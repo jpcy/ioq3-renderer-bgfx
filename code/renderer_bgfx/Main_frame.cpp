@@ -802,7 +802,7 @@ static void RenderToStencil(const bgfx::ViewId viewId)
 		s_main->matStageUniforms->alphaTest.set(vec4::empty);
 		SetDrawCallGeometry(dc);
 		bgfx::setTransform(dc.modelMatrix.get());
-		uint64_t state = BGFX_STATE_WRITE_RGB | BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_WRITE_Z;
+		uint64_t state = BGFX_STATE_DEPTH_TEST_LESS | BGFX_STATE_WRITE_Z;
 
 		if (IsMsaa(s_main->aa))
 			state |= BGFX_STATE_MSAA;
