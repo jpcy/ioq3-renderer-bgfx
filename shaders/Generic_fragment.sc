@@ -77,10 +77,10 @@ void main()
 	float sceneDepth = ToLinearDepth(texture2D(s_Depth, gl_FragCoord.xy * u_viewTexel.xy).r, u_DepthRange.z, u_DepthRange.w);
 
 	// GL uses -1 to 1 NDC. D3D uses 0 to 1.
-#if BGFX_SHADER_LANGUAGE_HLSL
-	float fragmentDepth = ToLinearDepth(v_projPosition.z / v_projPosition.w, u_DepthRange.z, u_DepthRange.w);
-#else
+#if BGFX_SHADER_LANGUAGE_GLSL
 	float fragmentDepth = ToLinearDepth(v_projPosition.z / v_projPosition.w * 0.5 + 0.5, u_DepthRange.z, u_DepthRange.w);
+#else
+	float fragmentDepth = ToLinearDepth(v_projPosition.z / v_projPosition.w, u_DepthRange.z, u_DepthRange.w);
 #endif
 
 	float spriteDepth = u_SoftSprite_Depth_UseAlpha.x;
