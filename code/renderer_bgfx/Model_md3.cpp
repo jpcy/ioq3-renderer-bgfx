@@ -912,14 +912,13 @@ void Model_md3::render(const mat3 &sceneRotation, DrawCallList *drawCallList, En
 
 		if ((entity->flags & EntityFlags::DepthHack) != 0)
 		{
-			const bgfx::RendererType::Enum renderer = bgfx::getRendererType();
-
-			if (renderer == bgfx::RendererType::Direct3D11 || renderer == bgfx::RendererType::Direct3D12)
-			{
-				dc.zOffset = 0.2f;
-			}
-
+			dc.zOffset = 0.2f;
 			dc.zScale = 0.3f;
+
+			if (bgfx::getRendererType() == bgfx::RendererType::OpenGL)
+			{
+				dc.zOffset = 0.0f;
+			}
 		}
 
 		if (isAnimated)
