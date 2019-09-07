@@ -2098,7 +2098,7 @@ static void UpdatePvsVisibility(VisibilityId visId, vec3 cameraPosition, const u
 	memcpy(vis.lastAreaMask, areaMask, sizeof(vis.lastAreaMask));
 }
 
-static void UpdateCameraFrustumVisibility(VisibilityId visId, vec3 cameraPosition, const uint8_t *areaMask)
+/*static void UpdateCameraFrustumVisibility(VisibilityId visId, vec3 cameraPosition, const uint8_t *areaMask)
 {
 	Visibility &vis = s_world->visibility[(int)visId];
 	vis.method = VisibilityMethod::CameraFrustum;
@@ -2108,18 +2108,11 @@ static void UpdateCameraFrustumVisibility(VisibilityId visId, vec3 cameraPositio
 	{
 		vis.bounds.addPoints(bs.bounds);
 	}
-}
+}*/
 
 void UpdateVisibility(VisibilityId visId, vec3 cameraPosition, const uint8_t *areaMask)
 {
-	if (visId == VisibilityId::Probe)
-	{
-		UpdateCameraFrustumVisibility(visId, cameraPosition, areaMask);
-	}
-	else
-	{
-		UpdatePvsVisibility(visId, cameraPosition, areaMask);
-	}
+	UpdatePvsVisibility(visId, cameraPosition, areaMask);
 }
 
 void Render(VisibilityId visId, DrawCallList *drawCallList, const mat3 &sceneRotation)

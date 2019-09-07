@@ -62,8 +62,6 @@ struct RenderCameraArgs
 	const uint8_t *areaMask = nullptr;
 	Plane clippingPlane;
 	int flags = 0;
-	const mat4 *customProjectionMatrix = nullptr;
-	const FrameBuffer *customFrameBuffer = nullptr;
 };
 
 bgfx::ViewId PushView(const FrameBuffer &frameBuffer, uint16_t clearFlags, const mat4 &viewMatrix, const mat4 &projectionMatrix, Rect rect, int flags)
@@ -836,11 +834,9 @@ static void RenderCamera(const RenderCameraArgs &args)
 	const uint32_t stencilTest = BGFX_STENCIL_TEST_EQUAL | BGFX_STENCIL_FUNC_REF(1) | BGFX_STENCIL_FUNC_RMASK(1) | BGFX_STENCIL_OP_FAIL_S_KEEP | BGFX_STENCIL_OP_FAIL_Z_KEEP | BGFX_STENCIL_OP_PASS_Z_KEEP;
 
 	s_main->isWorldCamera = args.visId != VisibilityId::None;
-	const bool isProbe = args.visId == VisibilityId::Probe;
 
 	// Update visibility for this PVS position.
-	// Probes do this externally.
-	if (s_main->isWorldCamera && !isProbe)
+	if (s_main->isWorldCamera)
 	{
 		world::UpdateVisibility(args.visId, args.pvsPosition, args.areaMask);
 	}
@@ -850,7 +846,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 
 	// Setup camera transform.
 	const mat4 viewMatrix = s_main->toOpenGlMatrix * mat4::view(args.position, args.rotation);
-	const mat4 projectionMatrix = args.customProjectionMatrix ? *args.customProjectionMatrix : mat4::perspectiveProjection(args.fov.x, args.fov.y, depthRange.x, depthRange.y);
+	const mat4 projectionMatrix = mat4::perspectiveProjection(args.fov.x, args.fov.y, depthRange.x, depthRange.y);
 	const mat4 vpMatrix(projectionMatrix * viewMatrix);
 	const Frustum cameraFrustum(vpMatrix);
 
@@ -983,8 +979,8 @@ static void RenderCamera(const RenderCameraArgs &args)
 		s_main->uniforms->portalClipEnabled.set(vec4::empty);
 	}
 
-	// Render to shadow map. Probes skip this.
-	if (s_main->sunLightEnabled && s_main->isWorldCamera && !isProbe)
+	// Render to shadow map.
+	if (s_main->sunLightEnabled && s_main->isWorldCamera)
 	{
 		Bounds bounds(world::GetBounds());
 		vec3 eye;
@@ -1037,7 +1033,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 	}
 
 	// Render depth for soft sprites. MSAA is always off.
-	if (s_main->softSpritesEnabled && s_main->isWorldCamera && !isProbe)
+	if (s_main->softSpritesEnabled && s_main->isWorldCamera)
 	{
 		const bgfx::ViewId viewId = PushView(s_main->depthFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect);
 #ifdef _DEBUG
@@ -1117,15 +1113,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 
 	bgfx::ViewId mainViewId;
 	
-	if (isProbe)
-	{
-		assert(bgfx::isValid(args.customFrameBuffer->handle));
-		mainViewId = PushView(*args.customFrameBuffer, BGFX_CLEAR_COLOR | BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
-#ifdef _DEBUG
-		bgfx::setViewName(mainViewId, "Probe");
-#endif
-	}
-	else if (s_main->isWorldCamera)
+	if (s_main->isWorldCamera)
 	{
 		mainViewId = PushView(s_main->fastPathEnabled ? s_main->defaultFb : s_main->sceneFb, BGFX_CLEAR_DEPTH, viewMatrix, projectionMatrix, args.rect, PushViewFlags::Sequential);
 #ifdef _DEBUG
@@ -1146,7 +1134,7 @@ static void RenderCamera(const RenderCameraArgs &args)
 
 		if (args.flags & RenderCameraFlags::SkipUnlitSurfaces)
 			renderMode = RENDER_MODE_LIT;
-		else if (!isProbe && g_cvars.debug.getInt() == 1)
+		else if (g_cvars.debug.getInt() == 1)
 			renderMode = RENDER_MODE_LIGHTMAP;
 
 		s_main->uniforms->renderMode.set(vec4((float)renderMode, 0, 0, 0));

@@ -1734,7 +1734,6 @@ enum class VisibilityId
 	None, // non-world scenes
 	Main,
 	Portal,
-	Probe,
 	Reflection,
 	SkyboxPortal,
 	Num
