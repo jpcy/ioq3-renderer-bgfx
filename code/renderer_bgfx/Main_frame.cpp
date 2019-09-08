@@ -1349,7 +1349,6 @@ static void RenderCamera(const RenderCameraArgs &args)
 					shaderVariant |= TextureVariationShaderProgramVariant::SunLight;
 				}
 
-				//bgfx::setTexture(TextureUnit::Noise, s_main->uniforms->noiseSampler.handle, g_textureCache->getNoise()->getHandle());
 				bgfx::submit(mainViewId, s_main->shaderPrograms[ShaderProgramId::TextureVariation + shaderVariant].handle);
 			}
 			else

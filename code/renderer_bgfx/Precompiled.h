@@ -1515,7 +1515,6 @@ struct Uniforms
 
 	Uniform_sampler bloomSampler = "s_Bloom";
 	Uniform_sampler shadowMapSampler = "s_Shadow";
-	Uniform_sampler noiseSampler = "s_Noise";
 	Uniform_sampler smaaColorSampler = "s_SmaaColor";
 	Uniform_sampler smaaEdgesSampler = "s_SmaaEdges";
 	Uniform_sampler smaaAreaSampler = "s_SmaaArea";
