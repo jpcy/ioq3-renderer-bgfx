@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2019 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2020 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause
  */
 
@@ -311,9 +311,9 @@ BX_STATIC_ASSERT(bx::isPowerOf2(BGFX_CONFIG_MAX_VIEWS), "BGFX_CONFIG_MAX_VIEWS m
 #	define BGFX_CONFIG_MAX_INSTANCE_DATA_COUNT 5
 #endif // BGFX_CONFIG_MAX_INSTANCE_DATA_COUNT
 
-#ifndef BGFX_CONFIG_MAX_CLEAR_COLOR_PALETTE
+#ifndef BGFX_CONFIG_MAX_COLOR_PALETTE
 #	define BGFX_CONFIG_MAX_COLOR_PALETTE 16
-#endif // BGFX_CONFIG_MAX_CLEAR_COLOR_PALETTE
+#endif // BGFX_CONFIG_MAX_COLOR_PALETTE
 
 #define BGFX_CONFIG_DRAW_INDIRECT_STRIDE 32
 
