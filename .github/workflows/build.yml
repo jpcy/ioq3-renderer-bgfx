@@ -31,6 +31,7 @@ jobs:
       with: 
         msystem: MINGW32
         update: true
+        install: base-devel
     - name: Clone ioquake3
       shell: cmd
       run: |
