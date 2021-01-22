@@ -30,7 +30,7 @@ jobs:
     - name: Run premake
       shell: powershell
       run: |
-        .\premake5.exe gmake
+        .\bin\premake5.exe gmake
     - name: Build
       shell: cmd
       run: |
