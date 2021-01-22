@@ -27,6 +27,10 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v2
+    - name: Clone ioquake3
+      shell: cmd
+      run: |
+        git clone https://github.com/ioquake/ioq3.git ../ioq3
     - name: Run premake
       shell: powershell
       run: |
