@@ -52,6 +52,7 @@ If you have questions concerning this license or the applicable additional terms
 #include <cmath>
 #include <map>
 #include <memory>
+#include <string>
 #include <vector>
 #include <float.h>
 
