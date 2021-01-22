@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2020 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2021 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause
  */
 
@@ -64,7 +64,7 @@ namespace bgfx { namespace gl
 		BX_UNUSED(_width, _height);
 
 		s_opengl = bx::dlopen("/System/Library/Frameworks/OpenGL.framework/Versions/Current/OpenGL");
-		BX_CHECK(NULL != s_opengl, "OpenGL dynamic library is not found!");
+		BX_ASSERT(NULL != s_opengl, "OpenGL dynamic library is not found!");
 
 		const AutoreleasePoolHolder pool;
 		NSObject* nwh = (NSObject*)g_platformData.nwh;
@@ -150,6 +150,10 @@ namespace bgfx { namespace gl
 			m_view    = glView;
 			m_context = glContext;
 		}
+		else
+		{
+			[(NSOpenGLContext*)g_platformData.context makeCurrentContext];
+		}
 
 		import();
 
@@ -175,9 +179,12 @@ namespace bgfx { namespace gl
 
 #if defined(MAC_OS_X_VERSION_MAX_ALLOWED) && (MAC_OS_X_VERSION_MAX_ALLOWED >= 1070)
 		bool hidpi = !!(_flags&BGFX_RESET_HIDPI);
-		NSOpenGLView* glView = (NSOpenGLView*)m_view;
-		if ([glView respondsToSelector:@selector(setWantsBestResolutionOpenGLSurface:)])
-			[glView setWantsBestResolutionOpenGLSurface:hidpi];
+        if (m_view)
+        {
+            NSOpenGLView* glView = (NSOpenGLView*)m_view;
+            if ([glView respondsToSelector:@selector(setWantsBestResolutionOpenGLSurface:)])
+                [glView setWantsBestResolutionOpenGLSurface:hidpi];
+        }
 #endif // defined(MAC_OS_X_VERSION_MAX_ALLOWED) && (MAC_OS_X_VERSION_MAX_ALLOWED >= 1070)
 
 		bool vsync = !!(_flags&BGFX_RESET_VSYNC);

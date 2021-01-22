@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2020 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2021 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bimg#license-bsd-2-clause
  */
 
@@ -573,8 +573,8 @@ namespace bimg
 
 		for (uint16_t side = 0; side < numSides; ++side)
 		{
-			bimg::ImageMip mip;
-			bimg::imageGetRawData(*_imageContainer, side, 0, _imageContainer->m_data, _imageContainer->m_size, mip);
+			ImageMip mip;
+			imageGetRawData(*_imageContainer, side, 0, _imageContainer->m_data, _imageContainer->m_size, mip);
 
 			const uint32_t pitch = _imageContainer->m_width*16;
 			const uint32_t slice = _imageContainer->m_height*pitch;
@@ -619,8 +619,8 @@ namespace bimg
 
 		for (uint16_t side = 0; side < numSides; ++side)
 		{
-			bimg::ImageMip mip;
-			bimg::imageGetRawData(*_imageContainer, side, 0, _imageContainer->m_data, _imageContainer->m_size, mip);
+			ImageMip mip;
+			imageGetRawData(*_imageContainer, side, 0, _imageContainer->m_data, _imageContainer->m_size, mip);
 
 			const uint32_t pitch = _imageContainer->m_width*16;
 			const uint32_t slice = _imageContainer->m_height*pitch;
@@ -1266,7 +1266,7 @@ namespace bimg
 						, mip.m_height
 						, mip.m_depth
 						);
-					BX_CHECK(ok, "Conversion from %s to %s failed!"
+					BX_ASSERT(ok, "Conversion from %s to %s failed!"
 							, getName(_input.m_format)
 							, getName(output->m_format)
 							);
@@ -3222,7 +3222,7 @@ namespace bimg
 		const uint8_t numMips = _hasMips ? imageGetNumMips(_format, _width, _height, _depth) : 1;
 		uint32_t size = imageGetSize(NULL, _width, _height, _depth, _cubeMap, _hasMips, _numLayers, _format);
 
-		ImageContainer* imageContainer = (ImageContainer*)BX_ALIGNED_ALLOC(_allocator, size + BX_ALIGN_16(sizeof(ImageContainer) ), 16);
+		ImageContainer* imageContainer = (ImageContainer*)BX_ALIGNED_ALLOC(_allocator, size + bx::alignUp(sizeof(ImageContainer), 16), 16);
 
 		imageContainer->m_allocator   = _allocator;
 		imageContainer->m_data        = bx::alignPtr(imageContainer + 1, 0, 16);
@@ -4969,14 +4969,14 @@ namespace bimg
 				const uint32_t mipSize = width/blockWidth * height/blockHeight * depth * blockSize;
 				const uint32_t size    = mipSize*numSides;
 				uint32_t imageSize = bx::toHostEndian(*(const uint32_t*)&data[offset], _imageContainer.m_ktxLE);
-				BX_CHECK(size == imageSize, "KTX: Image size mismatch %d (expected %d).", size, imageSize);
+				BX_ASSERT(size == imageSize, "KTX: Image size mismatch %d (expected %d).", size, imageSize);
 				BX_UNUSED(size, imageSize);
 
 				offset += sizeof(uint32_t);
 
 				for (uint16_t side = 0; side < numSides; ++side)
 				{
-					BX_CHECK(offset <= _size, "Reading past size of data buffer! (offset %d, size %d)", offset, _size);
+					BX_ASSERT(offset <= _size, "Reading past size of data buffer! (offset %d, size %d)", offset, _size);
 
 					if (side == _side
 					&&  lod  == _lod)
@@ -5013,7 +5013,7 @@ namespace bimg
 
 				for (uint8_t lod = 0, num = _imageContainer.m_numMips; lod < num; ++lod)
 				{
-					BX_CHECK(offset <= _size, "Reading past size of data buffer! (offset %d, size %d)", offset, _size);
+					BX_ASSERT(offset <= _size, "Reading past size of data buffer! (offset %d, size %d)", offset, _size);
 
 					width  = bx::max<uint32_t>(blockWidth  * minBlockX, ( (width  + blockWidth  - 1) / blockWidth )*blockWidth);
 					height = bx::max<uint32_t>(blockHeight * minBlockY, ( (height + blockHeight - 1) / blockHeight)*blockHeight);
