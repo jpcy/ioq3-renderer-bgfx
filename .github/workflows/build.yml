@@ -36,7 +36,6 @@ jobs:
       run: |
         .\bin\premake5.exe gmake
     - name: Build
-      shell: cmd
       run: |
         cd build
         make
