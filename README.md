@@ -1,6 +1,6 @@
 ## ioq3-renderer-bgfx
 
-[![Appveyor CI Build Status](https://ci.appveyor.com/api/projects/status/github/jpcy/ioq3-renderer-bgfx?branch=master&svg=true)](https://ci.appveyor.com/project/jpcy/ioq3-renderer-bgfx)
+[![Actions Status](https://github.com/jpcy/ioq3-renderer-bgfx/workflows/build/badge.svg)](https://github.com/jpcy/ioq3-renderer-bgfx/actions) [![Appveyor CI Build Status](https://ci.appveyor.com/api/projects/status/github/jpcy/ioq3-renderer-bgfx?branch=master&svg=true)](https://ci.appveyor.com/project/jpcy/ioq3-renderer-bgfx)
 [![Travis CI Build Status](https://travis-ci.org/jpcy/ioq3-renderer-bgfx.svg?branch=master)](https://travis-ci.org/jpcy/ioq3-renderer-bgfx) [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
 
 This is a renderer for [ioquake3](https://github.com/ioquake/ioq3) that uses [bgfx](https://github.com/bkaradzic/bgfx) to support multiple graphics APIs.

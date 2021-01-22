@@ -1,0 +1,38 @@
+name: build
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  Linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install packages
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install libgl1-mesa-dev libsdl2-dev
+    - name: Install premake
+      run: |
+         wget https://github.com/premake/premake-core/releases/download/v5.0.0-alpha13/premake-5.0.0-alpha13-linux.tar.gz -O premake.tar.gz
+         tar -xf premake.tar.gz
+    - name: Run premake
+      run: |
+        ./premake5 gmake
+    - name: Build
+      run: |
+        cd build
+        make config=release_x86_64
+
+  Windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Run premake
+      shell: powershell
+      run: |
+        .\premake5.exe gmake
+    - name: Build
+      shell: cmd
+      run: |
+        cd build
+        make
