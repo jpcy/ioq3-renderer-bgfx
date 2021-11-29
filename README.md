@@ -22,13 +22,6 @@ Minimum requirements: OpenGL 3.2 or Direct3D 11.
 |---|---|
 | [![](http://i.imgur.com/KkGO5Hc.png)](http://i.imgur.com/ShxFR3o.jpg) | [![](http://i.imgur.com/1QPNbzr.png)](http://i.imgur.com/LvMyLgB.jpg) |
 
-## Binaries
-
-| [Windows (x86)](https://bintray.com/jpcy/ioq3-renderer-bgfx/windows/test#files) | [Linux (x86_64)](https://bintray.com/jpcy/ioq3-renderer-bgfx/linux/test#files) |
-|---------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
-
-These are updated after every commit.
-
 ## Compiling
 
 `premake5 gmake` if premake5 is in your PATH. Otherwise, `./bin/premake5 gmake` to use the local copy of premake.
