@@ -22,6 +22,11 @@ jobs:
       run: |
         cd build
         make config=release_x86_64
+    - name: Archive artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: renderer_bgfx_x86_64
+        path: build/bin_x64/renderer_bgfx_x86_64.so
 
   Windows:
     runs-on: windows-latest
@@ -45,3 +50,8 @@ jobs:
       run: |
         cd build
         make
+    - name: Archive artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: renderer_bgfx_x86
+        path: build\bin_x86\renderer_bgfx_x86.dll
